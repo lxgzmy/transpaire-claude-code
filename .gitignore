@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Transpire Contract-Admin runtime data — NEVER commit client data.
+# On Windows Server 2022 all runtime output must live under Z:\CLAUDE CODE\...,
+# not in this repo. These entries are a backstop in case anything is produced
+# inside a working copy (e.g. a Dropbox-synced clone).
+# ---------------------------------------------------------------------------
+state/
+evidence/
+*.log
+*.job.json
+*.variation.json
