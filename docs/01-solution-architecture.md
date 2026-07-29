@@ -9,7 +9,7 @@ Automate two contract-admin workflows for the builder client, executed today as 
 
 ## Key Research Finding
 
-**DataBuild has no public API.** It is a legacy 32-bit VB Windows app backed by MS Access (small installs) or SQL Server 2012–2022 (larger installs). All known third-party integrations work at the database level (PlanSwift DBxConnector reads the live SQL DB), via built-in XML/CSV import-export routines, or through the native OSC↔DataBuild partner bridge (Companion Systems, since 2012). The discovery-session claim "DataBuild has an API" almost certainly refers to DB-level or file-based integration. OSC's own integration surface also remains unconfirmed (open risk — confirm with IT specialist Adam).
+**DataBuild has no public API.** It is a legacy 32-bit VB Windows app backed by MS Access (small installs) or SQL Server 2012–2022 (larger installs). All known third-party integrations work at the database level (PlanSwift DBxConnector reads the live SQL DB), via built-in XML/CSV import-export routines, or through the native OSC↔DataBuild partner bridge (Companion Systems, since 2012). The discovery-session claim "DataBuild has an API" almost certainly refers to DB-level or file-based integration. OSC's own integration surface also remains unconfirmed (open risk — confirm with IT specialist Adam Wordrop).
 
 ## Architecture
 
