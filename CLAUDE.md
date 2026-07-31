@@ -1,74 +1,93 @@
-# CLAUDE.md — Transpire Contract-Admin Automation
+# CLAUDE.md — Transpire Claude Code (org-wide guardrails)
 
-Guardrails for Claude Code working on this project. This file is auto-loaded as
-project memory. Read it before creating files, running scripts, or generating
-any client-facing artifact.
+Auto-loaded project memory. These rules apply to **every job-role** in this repo.
+Read before creating files, running scripts, or generating any client-facing artefact.
 
-## What this project is
+## What this repo is
 
-Proof-of-concept automation of the builder-side **Contract Administration** role
-for Transpire Constructions (Australian residential home builder). Two workflows:
-**New Job Creation** and **Variation Stage 1**. Full design lives in `docs/`.
+Transpire's Claude Code project, organised by **job-role** so that each role (and
+later, teams) gets its own instructions, context, skills, and runtime workspace
+**without mixing**. The first job-role in scope is **Contract Administration**
+(`job-roles/contract-admin/`).
 
-Claude Code is the **orchestrator and judgment layer** — it reads emails, applies
-rules, and calls deterministic step-scripts. It does **not** move the mouse
-itself; OnSite Companion (OSC) UI work is done by Python `pywinauto` step-scripts
-with per-step screenshot evidence. Every externally visible artifact is a **draft
-for human review** before anything is sent.
+Claude Code is the **orchestrator and judgment layer**: it reads inputs, applies
+rules, and produces **drafts for human review**. It does not send, sign, move
+business files, or write to any system of record without explicit human approval.
+
+## Repository shape
+
+```
+CLAUDE.md                 # this file — org-wide guardrails (no client data, ever)
+README.md                 # index of job-roles + how the repo is organised
+ONBOARDING.md             # start here if you are new to the repo
+docs/                     # org-wide architecture & decisions
+shared/                   # cross-role assets: skills/, schemas/, conventions/
+job-roles/<role>/         # one isolated folder per job-role (each has its own CLAUDE.md)
+```
+
+Each `job-roles/<role>/` is self-contained. A role's instructions, rules, and
+skills are scoped to that folder and must not leak into another role.
+
+## Information architecture (important)
+
+- The **repo** is organised by **job-role → workflow**.
+- **Business records on `Z:`** are organised by **job/project → document-type →
+  workflow-stage**, grouped by **region**, with **lifecycle** as state.
+- **Roles are a permission overlay** (NTFS / AD groups), never a folder axis. A
+  person's role decides what they may see/do, not where a file lives.
 
 ## Environment & path rules (MANDATORY on Windows Server 2022)
 
+- The server scripting engine is **PowerShell 7 (`pwsh`)** — target it, not
+  Windows PowerShell 5.1.
 - **Never** write project data, generated files, caches, temp files, logs, or
-  working files to the `C:` drive.
-- All runtime output goes under **`Z:\CLAUDE CODE`**.
-- Contract Administration team workspace: **`Z:\CLAUDE CODE\CONTRACT ADMN`**.
-- This applies to state, evidence/screenshots, logs, extracted job/variation
-  JSON, populated Excel/Word/PDF — everything.
-- **Do not** write runtime/client data into this repository or any Dropbox-synced
-  folder. The repo holds code, skills, rules, and docs only. `.gitignore` blocks
-  `state/`, `evidence/`, `*.log`, `*.job.json`, `*.variation.json` as a backstop.
-- The Z: drive is mapped per RDP session; confirm it is mapped before writing.
+  working files to the **`C:`** drive.
+- On the server this repo is checked out at **`Z:\CLAUDE CODE\transpaire-claude-code`**
+  — the same name as the git repo, so the server workspace mirrors the repo 1:1.
+- **All runtime / client data** lives only in that checkout's **git-ignored**
+  working folders: `runtime\<job-role>\{state,evidence,outputs,logs,reports}\`.
+  It stays on `Z:`, and is never committed, never pushed, never on `C:`, never in
+  Dropbox.
+- The **dev clone** (e.g. this macOS Dropbox copy) holds **code, skills, rules,
+  and docs only** — never client data. `.gitignore` blocks `runtime/`, `state/`,
+  `evidence/`, `outputs/`, `reports/`, `*.log`, `*.job.json`, `*.variation.json`
+  as a backstop.
+- **Never** place credentials, connection strings, PII, client data, or **server
+  names/addresses** in prompts, code, logs, or git. Source manuals contain these —
+  reference them, do not copy them in (see each role's `reference/`).
+- The `Z:` drive is mapped per RDP session; confirm it is mapped before writing.
 
 ## Human-in-the-loop (HITL)
 
-- The review gate sits **between extraction and data entry**.
-- Claude drafts what it intends to enter/generate (with an evidence bundle:
-  screenshots + diffs), a person approves during morning review, then step-scripts
-  run. Nothing is sent to a client/owner without explicit approval.
-- Flag low-confidence extractions for human confirmation rather than guessing.
+- The review gate sits **between analysis and any change or external action**.
+- Claude drafts what it intends to do (with an evidence bundle: sources,
+  screenshots, diffs); a human approves; then the action runs.
+- Start **read-only and draft-only**. Prefer read-only connectors before any write
+  access. Flag low-confidence extractions for human confirmation rather than guessing.
 
-## Naming & data conventions (from the source manuals — see `rules/`)
+## Security posture
 
-- Enforce **UPPERCASE** where the manuals require it (e.g. new-job request subject
-  `NEW JOB`; suburb in CAPS).
-- **QLD** jobs: certifier = **Buildable**.
-- Verify suburb/postcode and council via lookup before entry.
-- **Variation numbering:** Post-Contract / Building variations `VAR-001+`; Internal
-  variations `VAR-021+`. Pick the next number from OSC. File naming `VAR-#####001`.
-- **Workflow template selection:** 9.1 or 9.4 depending on variation type; append
-  9.2 when prompted.
-- These are summarised from the source manuals; the authoritative detail lives in
-  `rules/job-details.md` and `rules/variation-rules.md` (pending the manuals).
-
-## System access order (per docs/03)
-
-1. **DataBuild reads** → read-only SQL (no UI).
-2. **DataBuild writes** → native XML/CSV import, or the existing OSC→DataBuild
-   vendor bridge. UI automation only as a last resort.
-3. Validate any DataBuild access against a **test/backup copy** first — never write
-   to the live DB until the schema is understood.
+- Sanitised / synthetic samples first; no real client data in prototypes or fixtures.
+- Read-only before write; preserve NTFS / share permissions; never bypass access controls.
+- Human approval before external email, signature, or legal / financial change.
+- Log sources, model output, reviewer decisions, and approved actions.
+- Keep the canonical job record independent of any single system (e.g. DataBuild).
 
 ## Skills
 
-- `.claude/skills/humanizer/` — de-AI-ify / naturalise prose before it goes to a
-  human or client. Also installed globally.
-- Contract-Admin skills (`ca-email-intake`, `ca-zdrive`, and later
-  `ca-onsite-companion`, `ca-databuild`) are **not built yet** — they are blocked
-  on the source manuals and OSC/DataBuild validation. See the plan and `rules/`.
+- **Cross-role skills** are registered in `.claude/skills/`. `humanizer`
+  (naturalise prose before it goes to a human/client) is installed **globally**
+  in `~/.claude/skills/` — see `shared/skills/README.md` for the keep-vs-reference policy.
+- **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
+  there. **Propose any new skill before creating it.** No Contract-Admin skills are
+  built yet — they are blocked on transcribed rules and the technical session with Adam.
 
 ## Do not
 
-- Do not install or reference the OpenAI Codex `ecc-*` / `au-family-*` skills under
+- Do not write runtime / client data into the repo or any Dropbox-synced folder.
+- Do not copy source manuals (they contain PII + server names) into the repo.
+- Do not install skills, MCP servers, plugins, or software without approval.
+- Do not commit secrets, connection strings, server names, or client PII.
+- Do not reference the OpenAI Codex `ecc-*` / `au-family-*` skills under
   `~/Documents/nl-codex` — different platform, and the family skills contain
   unrelated personal PII.
-- Do not commit secrets, connection strings, or client PII.

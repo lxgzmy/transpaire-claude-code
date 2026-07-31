@@ -218,13 +218,17 @@ __marimo__/
 .streamlit/secrets.toml
 
 # ---------------------------------------------------------------------------
-# Transpire Contract-Admin runtime data — NEVER commit client data.
-# On Windows Server 2022 all runtime output must live under Z:\CLAUDE CODE\...,
-# not in this repo. These entries are a backstop in case anything is produced
-# inside a working copy (e.g. a Dropbox-synced clone).
+# Transpire runtime / client data — NEVER commit client data.
+# On Windows Server 2022 the repo is checked out at
+# Z:\CLAUDE CODE\transpaire-claude-code, and all runtime output lives in that
+# checkout's git-ignored runtime\<job-role>\... folders — never on C:, never in
+# Dropbox, never pushed. These entries are the backstop.
 # ---------------------------------------------------------------------------
+runtime/
 state/
 evidence/
+outputs/
+reports/
 *.log
 *.job.json
 *.variation.json
