@@ -13,5 +13,9 @@ Skills usable across job-roles.
 
 ## Current
 
-- **humanizer** — naturalise prose before it goes to a human/client. Installed
-  **globally** in `~/.claude/skills/humanizer/`. It does not need to be vendored here.
+- **transpaire-writing** (project, in `.claude/skills/`) — the sanctioned entry point
+  for all Transpire writing. Layers the Transpire house voice
+  (`shared/conventions/writing-style.md`) + job-role/audience matching on top of the
+  de-AI patterns. This is the customisation, so it lives in the repo.
+- **humanizer** (global) — the generic de-AI engine, installed in
+  `~/.claude/skills/humanizer/`. Referenced by `transpaire-writing`, not vendored here.

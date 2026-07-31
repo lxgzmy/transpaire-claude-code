@@ -2,6 +2,11 @@
 
 Org-wide conventions that individual roles reference rather than redefine.
 
+Present:
+
+- `writing-style.md` — the **house voice** used by the `transpaire-writing` skill
+  (Australian English, register by audience, CAPS/naming). A tunable v1.
+
 Planned:
 
 - `naming.md` — file/folder naming and CAPS rules (e.g. UPPERCASE subjects/suburbs).
@@ -10,4 +15,5 @@ Planned:
   variation/milestone field, which system is authoritative (the discovery record
   flagged "no confirmed cross-system source of truth" as a P0 to resolve).
 
-These are stubs until confirmed with the business and the technical session with Adam.
+The planned files are stubs until confirmed with the business and the technical
+session with Adam.

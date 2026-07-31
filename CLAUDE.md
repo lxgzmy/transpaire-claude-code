@@ -75,9 +75,13 @@ skills are scoped to that folder and must not leak into another role.
 
 ## Skills
 
-- **Cross-role skills** are registered in `.claude/skills/`. `humanizer`
-  (naturalise prose before it goes to a human/client) is installed **globally**
-  in `~/.claude/skills/` — see `shared/skills/README.md` for the keep-vs-reference policy.
+- **All human- or client-facing writing** must go through the project
+  **`transpaire-writing`** skill: house voice (Australian English, register by
+  audience, CAPS/naming) + de-AI, matched to the active job-role. It layers on the
+  global `humanizer` and `shared/conventions/writing-style.md`.
+- **Cross-role skills** are registered in `.claude/skills/`. `humanizer` (the generic
+  de-AI engine) is installed **globally** in `~/.claude/skills/` — see
+  `shared/skills/README.md` for the keep-vs-reference policy.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
   there. **Propose any new skill before creating it.** No Contract-Admin skills are
   built yet — they are blocked on transcribed rules and the technical session with Adam.
