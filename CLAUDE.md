@@ -80,8 +80,8 @@ skills are scoped to that folder and must not leak into another role.
   audience, CAPS/naming) + de-AI, matched to the active job-role. It layers on the
   global `humanizer` and `shared/conventions/writing-style.md`.
 - **Cross-role skills** are registered in `.claude/skills/`. `humanizer` (the generic
-  de-AI engine) is installed **globally** in `~/.claude/skills/` — see
-  `shared/skills/README.md` for the keep-vs-reference policy.
+  de-AI engine) is vendored there too (`.claude/skills/humanizer/`) so every checkout
+  gets it — see `shared/skills/README.md` for the keep-vs-reference policy.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
   there. **Propose any new skill before creating it.** No Contract-Admin skills are
   built yet — they are blocked on transcribed rules and the technical session with Adam.

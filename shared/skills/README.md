@@ -17,10 +17,11 @@ Skills usable across job-roles.
   for all Transpire writing. Layers the Transpire house voice
   (`shared/conventions/writing-style.md`) + job-role/audience matching on top of the
   de-AI patterns. This is the customisation, so it lives in the repo.
-- **humanizer** (global) — the generic de-AI engine, installed in
-  `~/.claude/skills/humanizer/`. Referenced by `transpaire-writing`, not vendored here.
-  **Not yet installed on the Windows server** — add it from the dev clone (vendor or
-  global install) before relying on it there.
+- **humanizer** (project, in `.claude/skills/`) — the generic de-AI engine, vendored
+  into the repo so every checkout (server and dev clones) has it without a per-machine
+  global install. Referenced by `transpaire-writing` for step 1 (de-AI). If a global
+  copy also exists on a dev machine, the project copy in this repo is the canonical
+  one for Transpire work.
 - **windows-fileops** (project, in `.claude/skills/`) — PowerShell 7 + Windows/Z:
   share folder management: per-session drive-mapping checks, safe path handling
   (spaces, brackets, long paths), read-only inventory/duplicate/latest-version

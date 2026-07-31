@@ -22,7 +22,7 @@ handover notes, and reports. Skip code, data, and file/link targets.
 
 ## Method
 
-1. **De-AI first.** Apply the AI-writing-pattern fixes from the global `humanizer`
+1. **De-AI first.** Apply the AI-writing-pattern fixes from the project `humanizer`
    skill (em/en dashes, rule-of-three, "delve/vibrant/tapestry", sycophancy, filler,
    signposting, and the rest). If a real Transpire writing sample is provided,
    calibrate to it — the sample outranks the default style rules (Voice Calibration).
@@ -44,6 +44,6 @@ handover notes, and reports. Skip code, data, and file/link targets.
 
 ## Reference
 
-- De-AI patterns: the global `humanizer` skill (`~/.claude/skills/humanizer`).
+- De-AI patterns: the project `humanizer` skill (`.claude/skills/humanizer/`).
 - House voice: `shared/conventions/writing-style.md`.
 - Role voice and rules: `job-roles/<role>/`.

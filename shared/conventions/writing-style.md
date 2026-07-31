@@ -2,7 +2,7 @@
 
 House rules for all writing Claude produces for Transpire — emails, job and
 variation summaries, client variation documents, staff alerts, reports. Applied
-**on top of** the de-AI patterns in the global `humanizer` skill (which removes AI
+**on top of** the de-AI patterns in the project `humanizer` skill (which removes AI
 tells such as em dashes, rule-of-three padding, and "delve/vibrant/tapestry").
 
 > This is a **v1 default**, grounded in Australian English and the contract-admin
@@ -39,7 +39,7 @@ tells such as em dashes, rule-of-three padding, and "delve/vibrant/tapestry").
 
 ## Always
 
-- No em dashes or en dashes (humanizer §14).
+- No em dashes or en dashes (humanizer §1).
 - No AI tells: no "delve/vibrant/tapestry", no rule-of-three padding, no
   "I hope this helps", no sycophancy, no signposting.
 - Every externally visible piece is a **draft for human review** (HITL).
