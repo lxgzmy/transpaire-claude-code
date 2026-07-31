@@ -19,3 +19,10 @@ Skills usable across job-roles.
   de-AI patterns. This is the customisation, so it lives in the repo.
 - **humanizer** (global) — the generic de-AI engine, installed in
   `~/.claude/skills/humanizer/`. Referenced by `transpaire-writing`, not vendored here.
+  **Not yet installed on the Windows server** — add it from the dev clone (vendor or
+  global install) before relying on it there.
+- **windows-fileops** (project, in `.claude/skills/`) — PowerShell 7 + Windows/Z:
+  share folder management: per-session drive-mapping checks, safe path handling
+  (spaces, brackets, long paths), read-only inventory/duplicate/latest-version
+  recipes, and output routing to `runtime\<role>\`. Read-only by default; HITL for
+  any move/rename/delete.

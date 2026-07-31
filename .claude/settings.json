@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Write(C:/**)",
+      "Write(C:\\**)",
+      "Edit(C:/**)",
+      "Edit(C:\\**)",
+      "NotebookEdit(C:/**)",
+      "NotebookEdit(C:\\**)"
+    ]
+  }
+}
