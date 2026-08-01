@@ -83,8 +83,9 @@ skills are scoped to that folder and must not leak into another role.
   de-AI engine) is vendored there too (`.claude/skills/humanizer/`) so every checkout
   gets it — see `shared/skills/README.md` for the keep-vs-reference policy.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
-  there. **Propose any new skill before creating it.** No Contract-Admin skills are
-  built yet — they are blocked on transcribed rules and the technical session with Adam.
+  there. **Propose any new skill before creating it.** First Contract-Admin skill:
+  `ca-new-job` (EOI intake, draft-only). Deeper OSC/DataBuild write-automation
+  remains blocked on the technical session with Adam.
 
 ## Do not
 

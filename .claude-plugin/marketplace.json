@@ -1,0 +1,14 @@
+{
+  "name": "transpaire-claude-code",
+  "owner": {
+    "name": "Transpire"
+  },
+  "description": "Transpire's internal Claude Code plugin marketplace.",
+  "plugins": [
+    {
+      "name": "transpaire-claude-code",
+      "source": "./",
+      "description": "Transpire's Claude Code skills and org guardrails, organised by job-role."
+    }
+  ]
+}

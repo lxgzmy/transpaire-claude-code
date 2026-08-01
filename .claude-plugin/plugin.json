@@ -1,0 +1,9 @@
+{
+  "name": "transpaire-claude-code",
+  "displayName": "Transpire Claude Code",
+  "description": "Transpire's Claude Code skills and org guardrails, organised by job-role.",
+  "author": {
+    "name": "Transpire"
+  },
+  "skills": "./.claude/skills/"
+}

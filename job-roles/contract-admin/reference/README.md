@@ -12,4 +12,4 @@ Then transcribe de-identified, testable rules into `../rules/`.
 |---|---|---|---|
 | Creating a Variation — Stage 1 | _record Z: path_ | _date_ | Contract Admin |
 | Contract Administration Discovery record | _record Z: path_ | 23 Jul 2026 | AI consulting team |
-| OSC new-job manual | _pending_ | _pending_ | Contract Admin |
+| OSC new-job manual (`OSC new job manual.docx`) | _record Z: path_ (transcribed 1 Aug 2026 into `../rules/job-details.md`) | _record version/date_ | Contract Admin |

@@ -16,7 +16,8 @@ builder). Claude assists by reading requests, applying rules, and producing
    duplicate / stale / misfiled files. No business file is moved or written.
 2. **Variation Stage 1.** Assist the variation workflow (see `docs/` +
    `rules/variation-rules.md`).
-3. **New Job Creation.** EOI intake → job setup (blocked on the OSC new-job manual).
+3. **New Job Creation.** EOI intake → job setup. Rules transcribed from the OSC
+   new-job manual (`rules/job-details.md`); intake skill `/ca-new-job` built.
 
 Deeper OSC / DataBuild write-automation is deferred until a technical session with
 the IT specialist (Adam) confirms the integration surfaces, per the discovery record.
@@ -34,8 +35,9 @@ must be confirmed — the canonical job record is not tied to any single system.
 - `rules/job-details.md` — new-job address / CAPS / certifier / council / marketer rules.
 - `reference/` — pointers to the source manuals (kept on `Z:`, never in the repo).
 
-> The `rules/` files are **stubs pending transcription from the manuals.** Do not
-> author skills against guessed rules.
+> `rules/job-details.md` is **transcribed** (pending business review);
+> `rules/variation-rules.md` is still a **stub**. Do not author skills against
+> guessed rules.
 
 ## Runtime workspace (server)
 
