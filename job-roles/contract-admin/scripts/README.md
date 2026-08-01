@@ -4,10 +4,11 @@ Python scripts for the new-job workflow (`../workflows/new-job.md`).
 
 | Script | Status | Does |
 |---|---|---|
-| `msg_to_text.py` | **Working** | Outlook `.msg` → plain text (headers + body + attachment names). Needs `pip install extract-msg`. |
+| `msg_to_text.py` | **Working** | Outlook `.msg` → plain text (headers + body + attachment names); `-a <dir>` also saves the attachments (EOI PDF, inclusions doc) so Claude can read them. Needs `pip install extract-msg`. |
 | `extract_eoi.py` | **Working, tested** | Request-email text → job-data JSON draft sheet per the `JD-*` rules, plus human-attention flags. Handles labelled emails and free-form forwarded chains (subject-line lot/suburb, e-sign client, `$` price, "site a X with a Y façade"). Read-only; touches nothing. |
 | `test_extract_eoi.py` | **Passing** | Regression test against `../fixtures/eoi-sample-01.md` / `-expected.md`. Run `python test_extract_eoi.py` after any rule change. |
 | `osc_entry.py` | **Skeleton — not runnable live** | pywinauto entry script mirroring manual steps 4–10. Dry-run by default; live mode is blocked until control IDs are captured. |
+| `new_job_folders.ps1` | **Working, dry-run tested on Z:** | Copies the region's `00000 - LOT MASTER FOLDER` to `<jobno> - <title>` under `Z:\PROJECTS\<region>\` (JD-10). Dry-run by default; `-Commit` asks the operator to re-type the job number; refuses duplicates; never overwrites. PowerShell 7. |
 
 ## Pipeline
 

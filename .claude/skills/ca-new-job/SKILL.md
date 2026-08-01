@@ -24,13 +24,21 @@ and sends every email.**
    convert it first (needs `pip install extract-msg` once per machine):
 
    ```
-   python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt
+   python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt -a <workdir>/attachments
    ```
 
    Real request emails are **forwarded chains** (sales manager → contract
    admin, forwarded marketer email, e-sign notifications) — read the whole
    chain, not just the top message. Confirm it is a new-job request; if the
-   client ID is not mentioned as attached, note it (JD-0.1).
+   client ID is not among the attachments, note it (JD-0.1).
+
+   **Read the attachments too** — most fields the email body lacks live in
+   them. Read the EOI PDF directly (site address + spelling, land/building/
+   package prices, both clients' names/mobiles/emails/residential address,
+   deposit, solicitor); note the inclusions document. Skip signature images
+   (`image*.jpg`, `Outlook-*.png`). The EOI is authoritative over the email
+   body when they disagree — cite the page. **Never record bank/deposit
+   account details in any output.**
 
 2. **Duplicate-check reminder (JD-0.2).** Tell the user the lot number and
    estate, and that OSC must be searched for an existing job before creation.
@@ -71,11 +79,21 @@ and sends every email.**
    (live pywinauto entry stays blocked until control IDs are mapped; see
    `scripts/README.md`).
 
-8. **Draft the DataBuild email** (JD-6.1) through the `transpaire-writing`
+8. **Z: job folders (JD-10).** Dry-run the folder creation and show the
+   result; the human runs `-Commit` themselves:
+
+   ```
+   pwsh job-roles/contract-admin/scripts/new_job_folders.ps1 -Region <REGION> -JobNumber <NNNNN> -JobTitle "LOT <lot> <STREET>, <SUBURB> <STATE>"
+   ```
+
+   The job-number source is unconfirmed (JD-10.2) — ask the human for it.
+   Never run `-Commit` yourself.
+
+9. **Draft the DataBuild email** (JD-6.1) through the `transpaire-writing`
    skill: full project name + contract price, addressed to the DataBuild
    administrator. Present as a draft — the human sends it.
 
-9. **Write the evidence bundle** to `<workdir>`: the final `job.json`, the
+10. **Write the evidence bundle** to `<workdir>`: the final `job.json`, the
    lookup sources, the dry-run narration, and the email draft. Summarise
    what the human still has to do: OSC search + entry, send DataBuild email,
    price check on confirmation (JD-6.2), then wait for the PLAN (JD-8).

@@ -8,12 +8,41 @@ matter because the workflow checks the client ID and plans are attached
 Requires: pip install extract-msg
 
 Usage:
-    python msg_to_text.py "email.msg" [-o out.txt]
+    python msg_to_text.py "email.msg" [-o out.txt] [-a attachments_dir]
+
+With -a, every attachment is saved into that directory (inline signature
+images included - filter by extension downstream). The EOI PDF and the
+inclusions document are attachments, and the workflow needs them (JD-0.1).
 """
 
 import argparse
+import os
 import re
 import sys
+
+
+def save_attachments(path, outdir):
+    import extract_msg
+    msg = extract_msg.openMsg(path)
+    os.makedirs(outdir, exist_ok=True)
+    saved = []
+    for att in msg.attachments:
+        name = att.longFilename or att.shortFilename or f"unnamed-{len(saved)}"
+        name = re.sub(r'[\\/:*?"<>|]', "_", name)
+        target = os.path.join(outdir, name)
+        data = att.data
+        if isinstance(data, bytes):
+            with open(target, "wb") as f:
+                f.write(data)
+            saved.append(target)
+        else:  # nested .msg attachment
+            try:
+                data.export(target if target.endswith(".msg") else target + ".msg")
+                saved.append(target)
+            except Exception as e:  # keep going; report what failed
+                print(f"skipped {name}: {e}", file=sys.stderr)
+    msg.close()
+    return saved
 
 
 def msg_to_text(path):
@@ -51,7 +80,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("msg", help="path to the .msg file")
     ap.add_argument("-o", "--out", help="write text here instead of stdout")
+    ap.add_argument("-a", "--attachments",
+                    help="also save all attachments into this directory")
     args = ap.parse_args()
+    if args.attachments:
+        for p in save_attachments(args.msg, args.attachments):
+            print(f"attachment: {p}")
     text = msg_to_text(args.msg)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:

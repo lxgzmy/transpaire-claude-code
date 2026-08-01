@@ -110,6 +110,21 @@ rules live here. Each rule is written to be testable.
 - **JD-9.6** Update the street address in **Inclusions**, **Build Contract**
   (also update the SITE) and **Preliminary Contract**.
 
+## JD-10 Z: job folders (observed on the share, not from the manual)
+
+- **JD-10.1** Every region folder under `Z:\PROJECTS\` contains
+  `00000 - LOT MASTER FOLDER` — the template tree (~24 folders + seeded
+  template documents). A new job = that tree copied within the same region.
+- **JD-10.2** Job folder naming (observed): `<job-number> - LOT <lot>
+  <STREET>, <SUBURB> <STATE>` with a 5-digit job number (YY0NN style).
+  **Job-number source (OSC contract no vs DataBuild) — confirm with the
+  business.**
+- **JD-10.3** Never overwrite: if any folder for the job number or the same
+  lot already exists, stop and flag a duplicate.
+- **JD-10.4** Region folder ≠ OSC Region code: `Z:\PROJECTS\` uses
+  GUNNEDAH / SEQ / SYDNEY / TAMWORTH / CUDGEN; OSC uses SEQ1 / SYDNEY01.
+  Map per job.
+
 ## Escalations
 
 | Situation | Action |

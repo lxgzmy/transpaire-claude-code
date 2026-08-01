@@ -33,6 +33,7 @@ A new EOI / contract request email arrives in the Contract-Admin mailbox.
 | 8 | **Draft the DataBuild email** (full project name + contract price) | Claude drafts → **HITL GATE** → human sends | JD-6.1 |
 | 9 | Enter contact details (client, sales, marketer) from Claude's pre-filled sheet | Human | JD-7 |
 | 10 | On DataBuild confirmation: **compare price vs request email**; mismatch = stop and flag | Claude compares, human resolves | JD-6.2 |
+| 11 | Create the Z: job folder tree from the region's LOT MASTER FOLDER (`../scripts/new_job_folders.ps1`, dry-run first) | Claude dry-runs → **HITL GATE** → human runs `-Commit` | JD-10 |
 
 Then the job **waits for the PLAN** (JD-8).
 
@@ -68,6 +69,19 @@ email excerpts, lookup screenshots/results, diffs), saved to
 - Contact-details pre-fill sheet (step 9)
 - Price-check report (step 10)
 - Plan-diff sheet (Phase 2 step 2)
+
+## Where this sits in the full chain
+
+```
+EOI email ─> draft sheet ─> OSC entry ─> DataBuild ─> Z: job folders ─> [wait: PLAN] ─> plan updates ─> contract docs ─> DocuSign issue
+             [built]        [skeleton:    [email       [built: dry-run   [JD-8]         [Phase 2,       [NOT in this      [NOT in this
+                            control IDs   drafted;      + HITL commit]                  sheets only]    manual]           manual; human
+                            pending]      entry=Lisa]                                                                     sends, always]
+```
+
+The two right-hand stages need their own source procedure transcribed (like
+this one was from the OSC new-job manual) before anything is built for them.
+DocuSign issuance to a client is a permanent HITL gate regardless.
 
 ## Relies on
 
