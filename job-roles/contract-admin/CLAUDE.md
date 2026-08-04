@@ -11,13 +11,16 @@ builder). Claude assists by reading requests, applying rules, and producing
 
 ## Scope (sequenced)
 
-1. **Z-drive adviser — first, read-only.** Find files, identify the latest /
-   authoritative version, advise the correct save folder + filename, and report
-   duplicate / stale / misfiled files. No business file is moved or written.
-2. **Variation Stage 1.** Assist the variation workflow (see `docs/` +
+1. **Variation Stage 1.** Assist the variation workflow (see `docs/` +
    `rules/variation-rules.md`).
-3. **New Job Creation.** EOI intake → job setup. Rules transcribed from the OSC
+2. **New Job Creation.** EOI intake → job setup. Rules transcribed from the OSC
    new-job manual (`rules/job-details.md`); intake skill `/ca-new-job` built.
+
+General `Z:` drive help (finding files, save-location advice, duplicate reports)
+is **not** a Contract-Admin deliverable — it is the org-level
+[`z-drive-ops`](../../.claude/skills/z-drive-ops/SKILL.md) skill, shared with
+every other role. This role keeps only the job-specific `Z:` rules: `JD-10` in
+`rules/job-details.md` and `scripts/new_job_folders.ps1`.
 
 Deeper OSC / DataBuild write-automation is deferred until a technical session with
 the IT specialist (Adam) confirms the integration surfaces, per the discovery record.

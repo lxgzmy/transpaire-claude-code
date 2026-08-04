@@ -12,16 +12,17 @@ Proof-of-concept, read-only / draft-only first. Two target workflows:
    templates → Z-Drive Excel variation → OSC document generation → PDF filing →
    staff alert.
 
-Ahead of both, the first deliverable is the **Z-drive adviser** (read-only search +
-save-location advice + duplicate/stale reporting) — see
-[`workflows/z-drive-adviser.md`](workflows/z-drive-adviser.md).
+General `Z:` drive help (search, save-location advice, duplicate/clutter
+reporting) is **company-wide, not role-specific** — it lives in the org-level
+[`z-drive-ops`](../../.claude/skills/z-drive-ops/SKILL.md) skill. This role keeps
+only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 
 ## Folder map
 
 | Folder | Purpose |
 |---|---|
 | `CLAUDE.md` | Role context, scope, systems, rules pointers, HITL. |
-| `workflows/` | One spec per workflow (Z-drive adviser → variation stage 1 → new job). |
+| `workflows/` | One spec per workflow (new job → variation stage 1). |
 | `rules/` | Transcribed, testable business rules (currently stubs). |
 | `skills/` | Role-only skills, authored here (none built yet). |
 | `reference/` | Pointers to source manuals (never the manuals themselves). |
@@ -39,7 +40,7 @@ save-location advice + duplicate/stale reporting) — see
 
 > Note: `docs/01–03` predate the read-only-first direction and describe the fuller
 > OSC/DataBuild automation. Treat them as forward design; the current scope is the
-> read-only Z-drive adviser. They will be refreshed as the workflows are built.
+> read-only, draft-only scope. They will be refreshed as the workflows are built.
 
 ## Source manuals
 

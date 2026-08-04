@@ -4,7 +4,7 @@ Contract-Admin job-role skills are authored here (skill definition + any
 PowerShell 7 / Python scripts). **Propose before creating.**
 
 To be loadable by Claude Code, an activated skill is registered under
-`.claude/skills/` (prefix the name with the role, e.g. `ca-zdrive`).
+`.claude/skills/` (prefix the name with the role, e.g. `ca-new-job`).
 
 Built:
 
@@ -20,30 +20,27 @@ Built:
 
 Planned:
 
-- **`ca-zdrive`** — proposed, not yet built (propose-before-create, per the
-  [org ONBOARDING.md](../../../ONBOARDING.md) working rules). Invokes
-  [`../workflows/z-drive-adviser.md`](../workflows/z-drive-adviser.md).
-
-  | | |
-  |---|---|
-  | Purpose | Read-only `Z:` search, save-location advice, duplicate/stale/misfiled reporting |
-  | Users | Contract-Admin staff, in chat; other workflows (e.g. `new-job.md`'s duplicate check) |
-  | Inputs | A job number, address/lot, region, or document description |
-  | Outputs | Chat answers; optional Markdown/CSV report |
-  | Systems/folders | `Z:\PROJECTS` only (not the wider `Z:` share) |
-  | Permissions | Runs as the requesting user — sees only what they can already see in Explorer |
-  | Read/write | Read-only, always. Writes reports only to `runtime\contract-admin\reports\`, never a business file |
-  | Evidence/audit | Report includes the search performed and the folders/files inspected |
-  | Failure handling | No confident match → say so; do not guess a save location or an "authoritative" version |
-  | Security boundary | Never moves, renames, or deletes; never bypasses NTFS/share permissions |
-  | Maintenance burden | Tracks the master-folder taxonomy in `z-drive-adviser.md` — needs a review if that template changes |
-
-  Open before building: the staleness threshold and authority tie-breaks noted
-  in `z-drive-adviser.md`'s Open questions — business input, not something to
-  guess into the skill.
-
 - **`ca-email-intake`** — variation-request flavour of intake (EOI/new-job is
   covered by `ca-new-job`). Blocked on the variation manual transcription.
+
+## Not a Contract-Admin skill: `Z:` drive work
+
+`ca-zdrive` was **retired before being built** (4 Aug 2026). `Z:` help — finding
+files, advising where to save something, duplicate/clutter reports — is needed by
+every department, not just Contract Admin, and the share is department-shaped
+above `PROJECTS`. Scoping it to one role would have meant either a role-shaped
+view of company-wide records (which the
+[architecture](../../../docs/architecture-overview.md) rules out — roles are a
+permission overlay, not a folder axis) or a near-duplicate skill per role.
+
+It is now the **org-level [`z-drive-ops`](../../../.claude/skills/z-drive-ops/SKILL.md)**
+skill, covering the whole share and usable from Claude Code *and* Claude Desktop.
+See [docs/z_drive_claude_guide.md](../../../docs/z_drive_claude_guide.md).
+
+Contract-Admin-specific `Z:` rules stay here: `JD-10` in
+[`../rules/job-details.md`](../rules/job-details.md) (job folder naming, the
+`LOT MASTER FOLDER` copy, duplicate protection) and
+[`../scripts/new_job_folders.ps1`](../scripts/new_job_folders.ps1).
 
 Each skill, when proposed, is documented with: purpose, users, inputs, outputs,
 systems/folders accessed, permissions, read/write behaviour, evidence/audit,

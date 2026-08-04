@@ -82,6 +82,14 @@ skills are scoped to that folder and must not leak into another role.
 - **Cross-role skills** are registered in `.claude/skills/`. `humanizer` (the generic
   de-AI engine) is vendored there too (`.claude/skills/humanizer/`) so every checkout
   gets it — see `shared/skills/README.md` for the keep-vs-reference policy.
+- **All `Z:` drive work** (finding files, save-location advice, duplicate/clutter
+  reports, creating folders) goes through the org-level **`z-drive-ops`** skill —
+  it is company-wide, not per-role, and is the one place the drive map and the
+  sensitive-folder blocklist are maintained. `windows-fileops` remains the
+  PowerShell technique layer underneath it. `z-drive-ops` also runs in **Claude
+  Desktop** for non-technical staff: see `docs/z_drive_claude_guide.md`. Keep that
+  skill folder self-contained (no `../` references out of it) so it stays
+  zip-portable.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
   there. **Propose any new skill before creating it.** First Contract-Admin skill:
   `ca-new-job` (EOI intake, draft-only). Deeper OSC/DataBuild write-automation

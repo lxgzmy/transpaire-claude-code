@@ -26,4 +26,21 @@ Skills usable across job-roles.
   share folder management: per-session drive-mapping checks, safe path handling
   (spaces, brackets, long paths), read-only inventory/duplicate/latest-version
   recipes, and output routing to `runtime\<role>\`. Read-only by default; HITL for
-  any move/rename/delete.
+  any move/rename/delete. **The technique layer** — how to do Windows file work.
+- **z-drive-ops** (project, in `.claude/skills/`) — the **whole-`Z:` adviser for
+  every role and every department**: find files, advise where to save something
+  new, search any folder, report duplicates and clutter. Written for
+  **non-technical staff** (plain English, no commands shown) and runs on **two
+  surfaces** — Claude Code on the server *and* Claude Desktop on a staff PC.
+  Read-only by default; every create/move/rename/delete needs a named,
+  per-batch approval. Carries its own drive map in
+  `references/z-drive-map.md`, kept inside the skill folder so the folder zips
+  up self-contained for Desktop. **The knowledge + judgement layer** — what
+  lives where, what's safe to touch, how to answer a person.
+  Guide: [docs/z_drive_claude_guide.md](../../docs/z_drive_claude_guide.md).
+
+  Not role-scoped, on purpose: the share is department-shaped above `PROJECTS`,
+  and roles are a permission overlay rather than a folder axis (see
+  [architecture-overview](../../docs/architecture-overview.md)). The
+  Contract-Admin-only `ca-zdrive` was retired in favour of this before it was
+  built.

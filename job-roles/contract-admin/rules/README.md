@@ -8,8 +8,8 @@ and commands read these so business logic lives in one reviewable place.
 > `CREATING A VARIATION - STAGE 1.pdf`. The discovery analysis
 > (`Contract_Admin_Automation_Analysis.md`) also remains outside the repo.
 >
-> Do not author the `ca-email-intake` / `ca-zdrive` skills against guessed rules —
-> transcribe them from the manuals first.
+> Do not author the `ca-email-intake` skill against guessed rules — transcribe it
+> from the manuals first.
 
 | File | Covers |
 |---|---|
