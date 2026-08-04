@@ -51,7 +51,7 @@ Item 11, Subject `NEW JOB` (JD-5).
 
 To the DataBuild administrator; states full project name
 `LOT 42.(New Road).KARANA DOWNS 4306` and contract price `$438,750 incl GST`
-(JD-6.1). Drafted through `transpaire-writing`.
+(JD-6.1). Drafted through `transpire-writing`.
 
 ## Step 9 — contact-details sheet
 

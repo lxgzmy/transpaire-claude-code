@@ -42,7 +42,7 @@ skills are scoped to that folder and must not leak into another role.
   Windows PowerShell 5.1.
 - **Never** write project data, generated files, caches, temp files, logs, or
   working files to the **`C:`** drive.
-- On the server this repo is checked out at **`Z:\CLAUDE CODE\transpaire-claude-code`**
+- On the server this repo is checked out at **`Z:\CLAUDE CODE\transpire-claude-code`**
   — the same name as the git repo, so the server workspace mirrors the repo 1:1.
 - **All runtime / client data** lives only in that checkout's **git-ignored**
   working folders: `runtime\<job-role>\{state,evidence,outputs,logs,reports}\`.
@@ -76,7 +76,7 @@ skills are scoped to that folder and must not leak into another role.
 ## Skills
 
 - **All human- or client-facing writing** must go through the project
-  **`transpaire-writing`** skill: house voice (Australian English, register by
+  **`transpire-writing`** skill: house voice (Australian English, register by
   audience, CAPS/naming) + de-AI, matched to the active job-role. It layers on the
   global `humanizer` and `shared/conventions/writing-style.md`.
 - **Cross-role skills** are registered in `.claude/skills/`. `humanizer` (the generic

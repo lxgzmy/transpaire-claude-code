@@ -1,5 +1,5 @@
 ---
-name: transpaire-writing
+name: transpire-writing
 description: >
   Put any Transpire writing into the company's house voice AND strip AI tells before
   it goes to a person or client. Use when drafting or editing emails, job or variation

@@ -59,13 +59,13 @@ Then the job **waits for the PLAN** (JD-8).
 Every OSC/DataBuild write and every outbound email sits behind a human
 approval. Claude's outputs are **draft sheets + evidence bundles** (source
 email excerpts, lookup screenshots/results, diffs), saved to
-`Z:\CLAUDE CODE\transpaire-claude-code\runtime\contract-admin\outputs\`.
+`Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\outputs\`.
 
 ## Outputs
 
 - Job-creation draft sheet (Phase 1 step 3)
 - Job-details draft sheet with lookup evidence (step 5)
-- DataBuild email draft (step 8) — through the `transpaire-writing` skill
+- DataBuild email draft (step 8) — through the `transpire-writing` skill
 - Contact-details pre-fill sheet (step 9)
 - Price-check report (step 10)
 - Plan-diff sheet (Phase 2 step 2)
@@ -90,5 +90,5 @@ DocuSign issuance to a client is a permanent HITL gate regardless.
   JSON (tested by `../scripts/test_extract_eoi.py` against the fixtures)
 - [`../scripts/osc_entry.py`](../scripts/osc_entry.py) — OSC entry **skeleton**;
   dry-run only until the technical session maps the control IDs
-- `transpaire-writing` skill — any drafted email
+- `transpire-writing` skill — any drafted email
 - `windows-fileops` skill — `Z:` lookups (estates info, Estimate folder)

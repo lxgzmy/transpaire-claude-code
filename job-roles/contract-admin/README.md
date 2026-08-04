@@ -52,5 +52,5 @@ record, the OSC new-job manual) contain client PII and server names, so they are
 
 ## Runtime workspace (server)
 
-`Z:\CLAUDE CODE\transpaire-claude-code\runtime\contract-admin\` (git-ignored) — see
+`Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\` (git-ignored) — see
 the org [CLAUDE.md](../../CLAUDE.md).

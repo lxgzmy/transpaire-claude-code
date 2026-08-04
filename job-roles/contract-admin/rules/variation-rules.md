@@ -10,7 +10,7 @@ Distil here, each as an explicit, testable rule:
 - Workflow template selection: 9.1 or 9.4; append 9.2 when prompted.
 - Z-Drive folder: `.../ESTIMATING/1. SALES/2. VARIATIONS/VAR-00X/` (this is the
   business `PROJECTS` location on `Z:`; generated runtime output goes under the
-  server workspace `Z:\CLAUDE CODE\transpaire-claude-code\runtime\contract-admin\`).
+  server workspace `Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\`).
 - Excel template copy + rename `VAR-#####001`; item spacing rules; GST totals.
 - OSC Detailed Description paste + Generate Document (matching template).
 - PDF save `VAR-#####001`; attach into OSC Variation Documents (Sales Docs, Move),

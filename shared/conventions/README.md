@@ -4,7 +4,7 @@ Org-wide conventions that individual roles reference rather than redefine.
 
 Present:
 
-- `writing-style.md` — the **house voice** used by the `transpaire-writing` skill
+- `writing-style.md` — the **house voice** used by the `transpire-writing` skill
   (Australian English, register by audience, CAPS/naming). A tunable v1.
 
 Planned:

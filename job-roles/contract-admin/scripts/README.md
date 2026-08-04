@@ -36,7 +36,7 @@ email.txt ──> extract_eoi.py ──> job.json + flags
 ## Deliberately not automated
 
 - Lot-number duplicate **judgment** (JD-0.2) — script only reminds.
-- Sending the DataBuild email (JD-6.1) — drafted via `transpaire-writing`,
+- Sending the DataBuild email (JD-6.1) — drafted via `transpire-writing`,
   human sends.
 - Price comparison resolution (JD-6.2) — hard stop for a human.
 - Phase 2 plan updates — pending the same control-mapping session.

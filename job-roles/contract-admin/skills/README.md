@@ -14,7 +14,7 @@ Built:
   `../scripts/extract_eoi.py`, resolves postcode/council flags with web-lookup
   evidence, presents draft sheets for approval, dry-runs
   `../scripts/osc_entry.py`, drafts the DataBuild email via
-  `transpaire-writing`, writes the evidence bundle. Draft-only: never writes
+  `transpire-writing`, writes the evidence bundle. Draft-only: never writes
   to OSC, never sends email. Supersedes the planned `ca-email-intake` for the
   new-job case (variation-request intake still to come).
 

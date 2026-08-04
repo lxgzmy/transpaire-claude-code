@@ -46,7 +46,7 @@ job-roles/
 ## Server runtime
 
 On Windows Server 2022 the repo is checked out at
-`Z:\CLAUDE CODE\transpaire-claude-code`. All client/runtime data lives only in that
+`Z:\CLAUDE CODE\transpire-claude-code`. All client/runtime data lives only in that
 checkout's **git-ignored** working folders:
 
 ```

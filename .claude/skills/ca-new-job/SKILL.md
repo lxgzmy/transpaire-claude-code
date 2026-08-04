@@ -51,7 +51,7 @@ and sends every email.**
    ```
 
    `<workdir>`: on the server use
-   `Z:\CLAUDE CODE\transpaire-claude-code\runtime\contract-admin\outputs\<job>\`;
+   `Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\outputs\<job>\`;
    on a dev machine use the session scratchpad. Never commit `job.json`.
 
 4. **Read `job.json`.** If any field the email clearly contains came out
@@ -89,7 +89,7 @@ and sends every email.**
    The job-number source is unconfirmed (JD-10.2) — ask the human for it.
    Never run `-Commit` yourself.
 
-9. **Draft the DataBuild email** (JD-6.1) through the `transpaire-writing`
+9. **Draft the DataBuild email** (JD-6.1) through the `transpire-writing`
    skill: full project name + contract price, addressed to the DataBuild
    administrator. Present as a draft — the human sends it.
 

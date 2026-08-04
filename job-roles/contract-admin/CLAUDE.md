@@ -44,7 +44,7 @@ must be confirmed — the canonical job record is not tied to any single system.
 
 ## Runtime workspace (server)
 
-`Z:\CLAUDE CODE\transpaire-claude-code\runtime\contract-admin\{state,evidence,outputs,logs,reports}\`
+`Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\{state,evidence,outputs,logs,reports}\`
 — git-ignored. Naming / CAPS conventions from the manuals are enforced in outputs.
 
 ## Human-in-the-loop

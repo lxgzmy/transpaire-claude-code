@@ -220,7 +220,7 @@ __marimo__/
 # ---------------------------------------------------------------------------
 # Transpire runtime / client data — NEVER commit client data.
 # On Windows Server 2022 the repo is checked out at
-# Z:\CLAUDE CODE\transpaire-claude-code, and all runtime output lives in that
+# Z:\CLAUDE CODE\transpire-claude-code, and all runtime output lives in that
 # checkout's git-ignored runtime\<job-role>\... folders — never on C:, never in
 # Dropbox, never pushed. These entries are the backstop.
 # ---------------------------------------------------------------------------

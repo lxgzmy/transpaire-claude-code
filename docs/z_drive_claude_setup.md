@@ -55,7 +55,7 @@ session couldn't reach the share as a drive letter or as `\\server\share`.)
 In PowerShell on the server:
 
 ```powershell
-Compress-Archive -Path 'Z:\CLAUDE CODE\transpaire-claude-code\.claude\skills\z-drive-ops' -DestinationPath "$env:USERPROFILE\Desktop\z-drive-ops.zip" -Force
+Compress-Archive -Path 'Z:\CLAUDE CODE\transpire-claude-code\.claude\skills\z-drive-ops' -DestinationPath "$env:USERPROFILE\Desktop\z-drive-ops.zip" -Force
 ```
 
 That writes `z-drive-ops.zip` to the Desktop with the `z-drive-ops` folder inside
@@ -165,7 +165,7 @@ plus a formatted PDF. The PDF renders from
 then re-render with headless Chrome:
 
 ```powershell
-& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="Z:\CLAUDE CODE\cowork-projects\2.z_drive\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpaire-claude-code/docs/z_drive_claude_guide.html"
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="Z:\CLAUDE CODE\cowork-projects\2.z_drive\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpire-claude-code/docs/z_drive_claude_guide.html"
 ```
 
 Keep the Markdown copy in `2.z_drive` in step with the HTML — the Markdown is the

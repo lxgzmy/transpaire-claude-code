@@ -5,7 +5,7 @@ description: >
   human- or client-facing text: emails, summaries, documents, alerts, reports.
   Removes em/en dashes, rule-of-three padding, AI buzzwords, sycophancy, filler,
   signposting, and formulaic structures, then calibrates to a real writing
-  sample when one is provided. Generic de-AI engine; the transpaire-writing
+  sample when one is provided. Generic de-AI engine; the transpire-writing
   skill layers the Transpire house voice on top of this.
 ---
 

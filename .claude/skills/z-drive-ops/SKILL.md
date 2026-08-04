@@ -220,7 +220,7 @@ Assume no technical background unless they show otherwise.
 Only when a sweep is too big for a chat answer.
 
 - Claude Code: write to
-  `Z:\CLAUDE CODE\transpaire-claude-code\runtime\shared\reports\`. That folder
+  `Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\reports\`. That folder
   is git-ignored. Never write into the repo's tracked files, and never to `C:`.
 - Desktop/Cowork: save alongside the work or wherever the user asks, and tell
   them the path.

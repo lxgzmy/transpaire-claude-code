@@ -28,6 +28,6 @@ are organised by job / document-type / stage (not by role); roles are a
 ## Runtime (server only)
 
 On Windows Server 2022 the repo is checked out at
-`Z:\CLAUDE CODE\transpaire-claude-code`. Client / runtime data lives only in that
+`Z:\CLAUDE CODE\transpire-claude-code`. Client / runtime data lives only in that
 checkout's git-ignored `runtime\<role>\…` folders. **PowerShell 7 (`pwsh`)** is the
 server scripting engine. Never on `C:`, never in Dropbox, never committed.

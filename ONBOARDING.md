@@ -12,7 +12,7 @@ A short orientation for anyone working in this repo (human or Claude).
 
 | | Repo (this folder) | Server runtime |
 |---|---|---|
-| Location | Dev clone (macOS/Dropbox) + server checkout | `Z:\CLAUDE CODE\transpaire-claude-code\runtime\<role>\` |
+| Location | Dev clone (macOS/Dropbox) + server checkout | `Z:\CLAUDE CODE\transpire-claude-code\runtime\<role>\` |
 | Contains | code, skills, rules, docs — **no client data** | state, evidence, outputs, logs, reports — **client data lives here only** |
 | Git | tracked & pushed | git-ignored, never pushed |
 
