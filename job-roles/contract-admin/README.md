@@ -13,7 +13,8 @@ Proof-of-concept, read-only / draft-only first. Two target workflows:
    staff alert.
 
 Ahead of both, the first deliverable is the **Z-drive adviser** (read-only search +
-save-location advice + duplicate/stale reporting) — see `workflows/`.
+save-location advice + duplicate/stale reporting) — see
+[`workflows/z-drive-adviser.md`](workflows/z-drive-adviser.md).
 
 ## Folder map
 
