@@ -35,7 +35,7 @@ permission overlay, not a folder axis) or a near-duplicate skill per role.
 
 It is now the **org-level [`z-drive-ops`](../../../.claude/skills/z-drive-ops/SKILL.md)**
 skill, covering the whole share and usable from Claude Code *and* Claude Desktop.
-See [docs/z_drive_claude_guide.md](../../../docs/z_drive_claude_guide.md).
+See [docs/z_drive_claude_setup.md](../../../docs/z_drive_claude_setup.md).
 
 Contract-Admin-specific `Z:` rules stay here: `JD-10` in
 [`../rules/job-details.md`](../rules/job-details.md) (job folder naming, the

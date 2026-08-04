@@ -37,7 +37,8 @@ Skills usable across job-roles.
   `references/z-drive-map.md`, kept inside the skill folder so the folder zips
   up self-contained for Desktop. **The knowledge + judgement layer** — what
   lives where, what's safe to touch, how to answer a person.
-  Guide: [docs/z_drive_claude_guide.md](../../docs/z_drive_claude_guide.md).
+  Setup: [docs/z_drive_claude_setup.md](../../docs/z_drive_claude_setup.md). Staff
+  guide (Markdown + formatted PDF): `Z:\CLAUDE CODE\cowork-projects\2.z_drive\`.
 
   Not role-scoped, on purpose: the share is department-shaped above `PROJECTS`,
   and roles are a permission overlay rather than a folder axis (see

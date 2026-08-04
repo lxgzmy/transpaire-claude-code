@@ -1,9 +1,13 @@
-# Z: drive help with Claude — user guide
+# Z: drive help with Claude — setup & reference
 
-Using Claude to find, file and tidy things on the `Z:` shared drive. Written for
-everyday use by anyone in the company, technical or not.
+Setting up and maintaining `Z:` drive help on both surfaces. **For IT / whoever
+rolls this out.**
 
 The skill behind it: [`.claude/skills/z-drive-ops/`](../.claude/skills/z-drive-ops/SKILL.md).
+
+> **Looking for the staff-facing guide?** That's a separate, shorter document at
+> `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` — `Transpire_z_drive_claude_guide.md`
+> plus a formatted PDF. Hand that to end users, not this file.
 
 **What it does, in one line:** you ask "where's the latest variation for 26049?"
 or "where should this colour selection go?" and it answers with a path you can
@@ -150,3 +154,27 @@ actually has files in it.
 > It will never move, rename or delete anything without showing you exactly what
 > it plans to do and waiting for you to say yes. If it can't find something, give
 > it the job number — that works better than the address.
+
+## Maintenance
+
+### Regenerating the staff PDF
+
+The staff guide lives at `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` as Markdown
+plus a formatted PDF. The PDF renders from
+[`z_drive_claude_guide.html`](z_drive_claude_guide.html) in this folder — edit that,
+then re-render with headless Chrome:
+
+```powershell
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="Z:\CLAUDE CODE\cowork-projects\2.z_drive\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpaire-claude-code/docs/z_drive_claude_guide.html"
+```
+
+Keep the Markdown copy in `2.z_drive` in step with the HTML — the Markdown is the
+readable/editable version, the HTML exists only to produce the PDF.
+
+### When the drive changes
+
+If folders are added, renamed, or reorganised, update
+[`references/z-drive-map.md`](../.claude/skills/z-drive-ops/references/z-drive-map.md)
+inside the skill, then re-zip and re-upload for Desktop users. The map is what
+stops Claude guessing at save locations, so a stale map produces confidently wrong
+advice.

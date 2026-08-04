@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Transpire &mdash; How to use Claude with the Z: drive</title>
+<style>
+  @page { size: A4; margin: 14mm 15mm 16mm 15mm; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Calibri", system-ui, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.5;
+    color: #1f2933;
+  }
+
+  /* ---------- palette ---------- */
+  :root {
+    --navy:   #1b3a5c;
+    --blue:   #2563a8;
+    --green:  #1c7a4f;
+    --amber:  #b06f10;
+    --purple: #6b3fa0;
+    --red:    #a32b2b;
+    --ink:    #1f2933;
+    --muted:  #5c6b7a;
+    --rule:   #dde3ea;
+  }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    background: linear-gradient(100deg, #1b3a5c 0%, #2563a8 62%, #2f7fbf 100%);
+    color: #fff;
+    padding: 13px 16px 14px;
+    border-radius: 7px;
+  }
+  .mast h1 { margin: 0; font-size: 20pt; font-weight: 650; letter-spacing: -0.2px; }
+  .mast p  { margin: 5px 0 0; font-size: 10pt; color: #dce9f6; max-width: 155mm; }
+  .mast .who {
+    display: inline-block; margin-top: 9px; padding: 2.5px 9px;
+    background: rgba(255,255,255,.17); border: 1px solid rgba(255,255,255,.32);
+    border-radius: 11px; font-size: 8.2pt; letter-spacing: .4px; text-transform: uppercase;
+  }
+  .mast .eyebrow {
+    margin: 0 0 3px; font-size: 8.6pt; font-weight: 700; letter-spacing: 2.4px;
+    text-transform: uppercase; color: #a8cdec;
+  }
+
+  .custom {
+    margin: 11px 0 0; padding: 9px 12px; font-size: 9.4pt;
+    background: #f3f0fa; border: 1px solid #d8cfee;
+    border-left: 4px solid var(--purple); border-radius: 5px; color: #3c2f52;
+  }
+  .custom b { color: var(--purple); }
+
+  /* ---------- start-here strip ---------- */
+  .start {
+    margin-top: 12px; padding: 11px 14px 12px;
+    background: #eef5fc; border: 1px solid #c9dcf0;
+    border-left: 4px solid var(--blue); border-radius: 5px;
+  }
+  .start h2 { margin: 0 0 7px; font-size: 11.6pt; color: var(--navy); }
+  .steps { display: flex; gap: 9px; margin: 0; padding: 0; list-style: none; }
+  .steps li {
+    flex: 1; background: #fff; border: 1px solid #d3e2f2; border-radius: 5px;
+    padding: 8px 9px 9px; font-size: 9.3pt; line-height: 1.4;
+  }
+  .steps .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 17px; height: 17px; border-radius: 50%;
+    background: var(--blue); color: #fff; font-size: 8.6pt; font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .start .note { margin: 8px 0 0; font-size: 8.8pt; color: var(--muted); }
+
+  /* ---------- task cards ---------- */
+  h2.sec { font-size: 12.2pt; color: var(--navy); margin: 16px 0 8px; }
+
+  .card {
+    border: 1px solid var(--rule); border-radius: 6px;
+    padding: 10px 12px 11px; margin-bottom: 9px;
+    border-left: 4px solid var(--c, var(--blue));
+    background: #fff;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .card .hd { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .card .num {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 19px; height: 19px; border-radius: 5px;
+    background: var(--c); color: #fff; font-weight: 700; font-size: 9.4pt;
+  }
+  .card h3 { margin: 0; font-size: 11.2pt; color: var(--c); font-weight: 640; }
+  .card .when { margin: 0 0 7px; font-size: 9.2pt; color: var(--muted); font-style: italic; }
+
+  .say {
+    background: #f7f9fb; border: 1px solid #e6ecf2; border-radius: 4px;
+    padding: 7px 10px 8px; margin: 0 0 7px;
+  }
+  .say .lbl {
+    font-size: 7.9pt; font-weight: 700; letter-spacing: .55px;
+    text-transform: uppercase; color: var(--c); display: block; margin-bottom: 4px;
+  }
+  .say ul { margin: 0; padding-left: 15px; }
+  .say li { margin: 2px 0; font-size: 9.5pt; color: #24303d; }
+  .say li::marker { color: #9fb2c4; }
+
+  .back { margin: 0; font-size: 9.5pt; }
+  .back b { color: var(--c); }
+
+  .tip {
+    margin: 7px 0 0; padding: 6px 9px; font-size: 9pt;
+    background: #fffaf0; border: 1px solid #f0e0bd; border-radius: 4px; color: #6b5220;
+  }
+  .tip b { color: var(--amber); }
+
+  /* ---------- never-do panel ---------- */
+  .never {
+    border: 1px solid #eccfcf; background: #fdf6f6;
+    border-left: 4px solid var(--red); border-radius: 6px;
+    padding: 10px 13px 11px; margin-bottom: 10px;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .never h2 { margin: 0 0 7px; font-size: 11.6pt; color: var(--red); }
+  .never ul { margin: 0; padding-left: 16px; }
+  .never li { margin: 3.5px 0; font-size: 9.6pt; }
+  .never b { color: var(--red); }
+  .never .close { margin: 8px 0 0; font-size: 9.2pt; font-weight: 600; color: #7a2020; }
+
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 0 0 4px; font-size: 9.4pt; }
+  caption {
+    caption-side: top; text-align: left; font-size: 11.2pt; font-weight: 640;
+    color: var(--navy); padding-bottom: 6px;
+  }
+  th {
+    text-align: left; background: #eef2f7; color: var(--navy);
+    font-size: 8.5pt; letter-spacing: .35px; text-transform: uppercase;
+    padding: 6px 9px; border-bottom: 1.5px solid #ccd7e4;
+  }
+  td { padding: 6px 9px; border-bottom: 1px solid #e8edf3; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  td:first-child { font-weight: 600; color: #24303d; width: 38%; }
+  .tblwrap { break-inside: avoid; page-break-inside: avoid; margin-bottom: 11px; }
+
+  .latest {
+    margin: 0 0 12px; padding: 8px 11px; font-size: 9.5pt;
+    background: #f2f7ee; border: 1px solid #cfe0c2;
+    border-left: 4px solid var(--green); border-radius: 4px;
+  }
+  .latest b { color: var(--green); }
+
+  code {
+    font-family: "Consolas", "Courier New", monospace; font-size: 9pt;
+    background: #eef2f7; padding: 1px 4px; border-radius: 3px; color: #1b3a5c;
+  }
+
+  footer {
+    margin-top: 13px; padding-top: 8px; border-top: 1px solid var(--rule);
+    font-size: 8.5pt; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="mast">
+  <p class="eyebrow">Transpire</p>
+  <h1>How to use Claude with the Transpire Z: drive</h1>
+  <p>Ask about the <code style="background:rgba(255,255,255,.18);color:#fff">Z:</code>
+     drive in normal words and Claude will find files, tell you where to save things,
+     and spot duplicates. No commands to learn.</p>
+  <span class="who">Everyday guide &middot; Transpire staff</span>
+</div>
+
+<p class="custom"><b>Built for Transpire specifically.</b> Claude has been taught
+   Transpire&rsquo;s own filing structure &mdash; the regions (Gunnedah, SEQ, Sydney,
+   Tamworth, Cudgen), how job numbers are formed, every folder in the
+   <code>LOT MASTER FOLDER</code> template, and which folders are off limits. It is not
+   guessing at where things go.</p>
+
+<div class="start">
+  <h2>Start here &mdash; three steps</h2>
+  <ul class="steps">
+    <li><span class="n">1</span><br>
+        Open <b>Claude Desktop</b> and start a task <b>On your computer</b>.</li>
+    <li><span class="n">2</span><br>
+        Attach the folder <b><code>Z:\PROJECTS</code></b> with the folder picker.</li>
+    <li><span class="n">3</span><br>
+        Type your question in normal words.</li>
+  </ul>
+  <p class="note">Steps 1 and 2 take about five seconds each time. It must be
+     <b>On your computer</b> &mdash; a cloud task cannot see <code>Z:</code>.</p>
+</div>
+
+<h2 class="sec">The four things people ask for</h2>
+
+<div class="card" style="--c:var(--blue)">
+  <div class="hd"><span class="num">1</span><h3>Find a file</h3></div>
+  <p class="when">When you know it exists but not where it is.</p>
+  <div class="say">
+    <span class="lbl">Say something like</span>
+    <ul>
+      <li>&ldquo;where&rsquo;s the latest variation for 26049?&rdquo;</li>
+      <li>&ldquo;find the contract for lot 5 pearson street&rdquo;</li>
+      <li>&ldquo;has 26049 got a BASIX report yet?&rdquo;</li>
+      <li>&ldquo;show me everything in the COUNCIL folder for 26049&rdquo;</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> the full folder path, ready to paste into the
+     address bar in File Explorer.</p>
+  <p class="tip"><b>Tip:</b> the job number works better than the address &mdash; street
+     names are spelled and punctuated differently across folders.</p>
+</div>
+
+<div class="card" style="--c:var(--green)">
+  <div class="hd"><span class="num">2</span><h3>Work out where to save something</h3></div>
+  <p class="when">When you have a file in hand and don&rsquo;t want to guess.</p>
+  <div class="say">
+    <span class="lbl">Say something like</span>
+    <ul>
+      <li>&ldquo;where should I save a signed colour selection for 26049?&rdquo;</li>
+      <li>&ldquo;I&rsquo;ve got a supplier quote for 26049 &mdash; which folder?&rdquo;</li>
+      <li>&ldquo;where do council insurance certificates go?&rdquo;</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> one recommended folder, plus how to name the file
+     so it matches the ones already in there.</p>
+  <p class="tip"><b>Tip:</b> if nothing fits properly it will say so rather than invent a
+     new folder. Treat that as a real answer worth raising with someone.</p>
+</div>
+
+<div class="card" style="--c:var(--amber)">
+  <div class="hd"><span class="num">3</span><h3>Check for duplicates and clutter</h3></div>
+  <p class="when">When a folder has got messy, or you&rsquo;re not sure which copy is real.</p>
+  <div class="say">
+    <span class="lbl">Say something like</span>
+    <ul>
+      <li>&ldquo;any duplicate files in the Gunnedah jobs?&rdquo;</li>
+      <li>&ldquo;is there more than one copy of the contract for 26049?&rdquo;</li>
+      <li>&ldquo;anything filed in the wrong place in 26049?&rdquo;</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> a short grouped list of what it found and what it
+     suggests doing. <b>Nothing is moved or deleted</b> &mdash; it only reports.</p>
+</div>
+
+<div class="card" style="--c:var(--purple)">
+  <div class="hd"><span class="num">4</span><h3>Create a new folder</h3></div>
+  <div class="say">
+    <span class="lbl">Say something like</span>
+    <ul>
+      <li>&ldquo;set up the folder tree for new job 26056 in Gunnedah&rdquo;</li>
+      <li>&ldquo;create a VAR-002 folder for 26049&rdquo;</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> the exact plan first &mdash; what it will create and
+     where &mdash; then it waits for you to say yes.</p>
+  <p class="tip">New jobs are always built by copying the region&rsquo;s
+     <code>00000 - LOT MASTER FOLDER</code> template, never assembled by hand, so every
+     job ends up the same shape.</p>
+</div>
+
+<div class="never">
+  <h2>What it will never do</h2>
+  <ul>
+    <li><b>Never</b> move, rename or delete anything without showing you the exact list
+        first and waiting for a yes.</li>
+    <li><b>Never</b> overwrite an existing file. If something is already there, it stops
+        and asks.</li>
+    <li><b>Never</b> open the company passwords folder, or any certificate or key file.</li>
+    <li><b>Never</b> get around a permission. It sees exactly what you see &mdash; if you
+        can&rsquo;t open a folder in Explorer, neither can it.</li>
+  </ul>
+  <p class="close">Saying &ldquo;yes&rdquo; to one thing does not approve the next one. It
+     asks every time.</p>
+</div>
+
+<div class="tblwrap">
+  <table>
+    <caption>Getting good answers</caption>
+    <thead><tr><th>Do this</th><th>Why it helps</th></tr></thead>
+    <tbody>
+      <tr><td>Give the job number</td><td>More reliable than an address</td></tr>
+      <tr><td>Say what kind of document it is</td><td>&ldquo;Signed variation&rdquo; beats &ldquo;this file&rdquo;</td></tr>
+      <tr><td>Ask follow-ups in the same chat</td><td>It remembers the job you&rsquo;re on</td></tr>
+      <tr><td>Read what it flags as uncertain</td><td>&ldquo;Most recent, but I can&rsquo;t tell if it&rsquo;s signed&rdquo; means go and check</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="latest"><b>&ldquo;Latest&rdquo; means most recently changed.</b> That is a good
+   clue, not proof it is the signed or approved version. For anything contractual or
+   priced, open it and confirm.</p>
+
+<div class="tblwrap">
+  <table>
+    <caption>If something goes wrong</caption>
+    <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>&ldquo;I can&rsquo;t see the Z: drive&rdquo;</td>
+          <td>The task is running in the cloud. Start it again <b>On your computer</b>.</td></tr>
+      <tr><td>&ldquo;That folder isn&rsquo;t attached&rdquo;</td>
+          <td>Attach <code>Z:\PROJECTS</code> with the folder picker.</td></tr>
+      <tr><td>Can&rsquo;t find a job you know exists</td>
+          <td>Finished jobs move to <code>COMPLETED CONTRACTS</code>, cancelled ones to
+              <code>CANCELLED CONTRACTS</code>. Ask it to check those.</td></tr>
+      <tr><td>It won&rsquo;t run a big whole-drive scan</td>
+          <td>Desktop can&rsquo;t do that. Ask IT to run it in Claude Code on the server.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  <b>Transpire &mdash; Z: drive guide.</b> Something in here wrong or missing? Tell the
+  team &mdash; this guide is maintained and gets updated as Transpire&rsquo;s filing
+  changes. Setup and installation steps live in the project repo at
+  <code>docs/z_drive_claude_setup.md</code>.
+</footer>
+
+</body>
+</html>

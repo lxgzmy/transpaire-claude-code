@@ -87,7 +87,7 @@ skills are scoped to that folder and must not leak into another role.
   it is company-wide, not per-role, and is the one place the drive map and the
   sensitive-folder blocklist are maintained. `windows-fileops` remains the
   PowerShell technique layer underneath it. `z-drive-ops` also runs in **Claude
-  Desktop** for non-technical staff: see `docs/z_drive_claude_guide.md`. Keep that
+  Desktop** for non-technical staff: see `docs/z_drive_claude_setup.md`. Keep that
   skill folder self-contained (no `../` references out of it) so it stays
   zip-portable.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
