@@ -11,7 +11,7 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** and the org guardrails in
 | Path | What it holds |
 |---|---|
 | `CLAUDE.md` | Org-wide guardrails (paths, HITL, security). Applies to every role. |
-| `docs/` | Org-wide architecture & decisions — see [architecture-overview](docs/architecture-overview.md). |
+| `docs/` | Org-wide architecture & decisions — see [architecture-overview](docs/architecture-overview.md) and [mcp-servers](docs/mcp-servers.md). |
 | `shared/` | Cross-role assets: `skills/`, `schemas/`, `conventions/`. |
 | `job-roles/` | One isolated folder per job-role, each with its own `CLAUDE.md`. |
 

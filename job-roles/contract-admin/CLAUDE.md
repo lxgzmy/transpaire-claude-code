@@ -31,6 +31,11 @@ OnSite Companion (OSC), DataBuild, the `Z:` share, Microsoft 365 / Outlook (a sh
 Contract-Admin mailbox), DocuSign. The **authoritative record varies per field** and
 must be confirmed — the canonical job record is not tied to any single system.
 
+DocuSign is reached through the org-wide `docusign-demo` MCP server (sandbox only so
+far, sign-in required, every call gated by an approval prompt). Connection details and
+the production-promotion steps live in [`docs/mcp-servers.md`](../../docs/mcp-servers.md)
+— not restated here, since the server is shared with every other role.
+
 ## Rules & knowledge
 
 - `rules/variation-rules.md` — variation type/numbering, workflow & document
