@@ -60,26 +60,12 @@ Behind a thin adapter interface (`pricing.get()`, `variation.create()`, …) so 
 
 ## Repo Layout
 
-```
-.claude/
-  CLAUDE.md                 # guardrails, HITL policy, naming conventions (CAPS rules, VAR numbering)
-  commands/
-    intake-eoi.md           # /intake-eoi — parse EOI email into structured job JSON
-    osc-new-job.md          # /osc-new-job — run new-job workflow from job JSON
-    osc-variation.md        # /osc-variation <job-no> <type> — run Variation Stage 1
-  skills/
-    onsite-companion/       # OSC UI step library (open job, add variation, complete activity, attach doc, add alert)
-    zdrive/                 # folder + Excel/Word/PDF operations
-    databuild/              # adapter: sql-read / import / ui tiers
-    outlook/                # Graph API mailbox + draft creation
-rules/
-  job-details.md            # distilled OSC manual rules: address format (New Road vs registered), suburb CAPS,
-                            #   QLD=Buildable, council lookup, design-type mapping, marketer/sales relationship strings
-  variation-rules.md        # VAR-001 vs VAR-021 numbering, summary wording, template 9.1/9.2/9.4 selection,
-                            #   file naming VAR-#####001, Sales Docs attach + Move, alert recipient rules
-state/                      # per-job state machine JSON, idempotent resumable checkpoints
-evidence/                   # per-run screenshots + action logs for review/audit
-```
+Superseded. The repo was reorganised by job-role after this document was
+written, and the layout sketched here (root `rules/`, `state/`, `evidence/`,
+one skill per system) is **not** what was built. The current layout is in
+[docs/architecture-overview.md](../../../docs/architecture-overview.md), and
+runtime state / evidence live outside git under
+`runtime\contract-admin\` (see the org [CLAUDE.md](../../../CLAUDE.md)).
 
 ## Workflow Design
 

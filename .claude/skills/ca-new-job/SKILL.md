@@ -27,18 +27,11 @@ and sends every email.**
    python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt -a <workdir>/attachments
    ```
 
-   Real request emails are **forwarded chains** (sales manager → contract
-   admin, forwarded marketer email, e-sign notifications) — read the whole
-   chain, not just the top message. Confirm it is a new-job request; if the
-   client ID is not among the attachments, note it (JD-0.1).
-
-   **Read the attachments too** — most fields the email body lacks live in
-   them. Read the EOI PDF directly (site address + spelling, land/building/
-   package prices, both clients' names/mobiles/emails/residential address,
-   deposit, solicitor); note the inclusions document. Skip signature images
-   (`image*.jpg`, `Outlook-*.png`). The EOI is authoritative over the email
-   body when they disagree — cite the page. **Never record bank/deposit
-   account details in any output.**
+   Read the whole forwarded chain **and the attachments** per `JD-0A`: the EOI
+   PDF carries most of what the body lacks and outranks it, signature images
+   are skipped, and bank/deposit details are never recorded anywhere. Confirm
+   it is a new-job request; if the client ID is not among the attachments, note
+   it (JD-0.1).
 
 2. **Duplicate-check reminder (JD-0.2).** Tell the user the lot number and
    estate, and that OSC must be searched for an existing job before creation.

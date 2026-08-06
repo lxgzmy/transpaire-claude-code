@@ -14,6 +14,12 @@ description: >
 Windows-native folder and file management for this project, on the server and
 the `Z:` share. Applies whenever a task touches Windows paths.
 
+This is the **technique layer**: how to do Windows file work safely. If the task
+is a business question about the share ("where is it?", "where should this go?",
+"is this a mess?"), use the `z-drive-ops` skill instead — it holds the drive map,
+the sensitive-folder blocklist, and the plain-English answering style, and calls
+down to these recipes.
+
 ## Ground rules
 
 - Script with **PowerShell 7 (`pwsh`)**, never Windows PowerShell 5.1 and never

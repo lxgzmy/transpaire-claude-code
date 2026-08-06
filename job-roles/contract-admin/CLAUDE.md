@@ -9,12 +9,13 @@ Builder-side contract administration for Transpire (Australian residential home
 builder). Claude assists by reading requests, applying rules, and producing
 **drafts + evidence** for human review. Read-only and draft-only first.
 
-## Scope (sequenced)
+## Scope
 
-1. **Variation Stage 1.** Assist the variation workflow (see `docs/` +
-   `rules/variation-rules.md`).
-2. **New Job Creation.** EOI intake → job setup. Rules transcribed from the OSC
-   new-job manual (`rules/job-details.md`); intake skill `/ca-new-job` built.
+1. **New Job Creation** (built, draft-only). EOI intake → job setup. Rules
+   transcribed from the OSC new-job manual (`rules/job-details.md`); workflow
+   spec `workflows/new-job.md`; intake skill `/ca-new-job`.
+2. **Variation Stage 1** (not started). Blocked on transcribing the variation
+   manual into `rules/variation-rules.md` — do not build against guessed rules.
 
 General `Z:` drive help (finding files, save-location advice, duplicate reports)
 is **not** a Contract-Admin deliverable — it is the org-level

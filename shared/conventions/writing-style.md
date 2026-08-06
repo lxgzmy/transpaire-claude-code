@@ -39,9 +39,9 @@ tells such as em dashes, rule-of-three padding, and "delve/vibrant/tapestry").
 
 ## Always
 
-- No em dashes or en dashes (humanizer §1).
-- No AI tells: no "delve/vibrant/tapestry", no rule-of-three padding, no
-  "I hope this helps", no sycophancy, no signposting.
+- The de-AI patterns are not restated here. They live in the `humanizer` skill
+  (§1–12: em/en dashes, rule-of-three padding, buzzwords, sycophancy,
+  signposting) and `transpire-writing` applies them before these house rules.
 - Every externally visible piece is a **draft for human review** (HITL).
 
 ## Job-role voice

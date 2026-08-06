@@ -11,6 +11,21 @@ rules live here. Each rule is written to be testable.
 - **JD-0.2** Before creating a job, **search OSC by lot number** to confirm no
   existing job. Only create if the search returns nothing.
 
+## JD-0A Reading the request email (observed, not from the manual)
+
+- **JD-0A.1** Request emails arrive as **forwarded chains** (sales manager to
+  contract admin, forwarded marketer email, e-sign notifications). Read the
+  whole chain, not just the top message.
+- **JD-0A.2** Read the **attachments**, not only the body. Most fields the body
+  lacks live in the EOI PDF: site address and spelling, land / building /
+  package prices, both clients' names, mobiles, emails and residential address,
+  deposit, solicitor. Note the inclusions document. Skip signature images
+  (`image*.jpg`, `Outlook-*.png`).
+- **JD-0A.3** **The EOI is authoritative over the email body** where they
+  disagree. Cite the page.
+- **JD-0A.4** **Never record bank or deposit account details** in any output,
+  draft, log, or evidence bundle, even though the EOI contains them.
+
 ## JD-1 Job creation defaults
 
 - **JD-1.1** Region: `SEQ1` or `SYDNEY01` (pencil icon; choose per the EOI).

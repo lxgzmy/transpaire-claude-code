@@ -18,9 +18,9 @@ A short orientation for anyone working in this repo (human or Claude).
 
 ## 3. How the repo is organised
 
-- `job-roles/<role>/` — one isolated role. Start with `contract-admin`.
-- `shared/` — assets used by more than one role (`skills/`, `schemas/`, `conventions/`).
-- `docs/` — org-wide architecture and decisions.
+Folder-by-folder in [README.md](README.md); the reasoning behind the shape in
+[docs/architecture-overview.md](docs/architecture-overview.md). Start with
+`job-roles/contract-admin/`.
 
 ## 4. Working rules
 
@@ -31,7 +31,5 @@ A short orientation for anyone working in this repo (human or Claude).
 
 ## 5. Add a new job-role
 
-Copy the `job-roles/contract-admin/` folder shape (its `CLAUDE.md`, `workflows/`,
-`rules/`, `skills/`, `reference/`, `templates/`, `fixtures/`, `docs/`), give it its
-own `CLAUDE.md`, and add a row to the job-roles table in [README.md](README.md).
-See [docs/architecture-overview.md](docs/architecture-overview.md).
+Four steps, kept in one place:
+[docs/architecture-overview.md → Adding a job-role](docs/architecture-overview.md#adding-a-job-role).

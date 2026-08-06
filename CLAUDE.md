@@ -45,9 +45,10 @@ skills are scoped to that folder and must not leak into another role.
 - On the server this repo is checked out at **`Z:\CLAUDE CODE\transpire-claude-code`**
   — the same name as the git repo, so the server workspace mirrors the repo 1:1.
 - **All runtime / client data** lives only in that checkout's **git-ignored**
-  working folders: `runtime\<job-role>\{state,evidence,outputs,logs,reports}\`.
-  It stays on `Z:`, and is never committed, never pushed, never on `C:`, never in
-  Dropbox.
+  working folders: `runtime\<job-role>\{state,evidence,outputs,logs,reports}\`,
+  or `runtime\shared\` for org-level skills that belong to no single role (e.g.
+  `z-drive-ops` reports). It stays on `Z:`, and is never committed, never pushed,
+  never on `C:`, never in Dropbox.
 - The **dev clone** (e.g. this macOS Dropbox copy) holds **code, skills, rules,
   and docs only** — never client data. `.gitignore` blocks `runtime/`, `state/`,
   `evidence/`, `outputs/`, `reports/`, `*.log`, `*.job.json`, `*.variation.json`
@@ -77,11 +78,14 @@ skills are scoped to that folder and must not leak into another role.
 
 - **All human- or client-facing writing** must go through the project
   **`transpire-writing`** skill: house voice (Australian English, register by
-  audience, CAPS/naming) + de-AI, matched to the active job-role. It layers on the
-  global `humanizer` and `shared/conventions/writing-style.md`.
-- **Cross-role skills** are registered in `.claude/skills/`. `humanizer` (the generic
-  de-AI engine) is vendored there too (`.claude/skills/humanizer/`) so every checkout
-  gets it — see `shared/skills/README.md` for the keep-vs-reference policy.
+  audience, CAPS/naming) + de-AI, matched to the active job-role. It is the only
+  writing skill you invoke directly. It layers on the project `humanizer` (the
+  generic de-AI engine, called as step 1) and `shared/conventions/writing-style.md`
+  (the house voice). Do not invoke `humanizer` on its own for Transpire writing.
+- **Cross-role skills** are registered in `.claude/skills/` and listed in
+  `shared/skills/README.md`, which also holds the keep-vs-reference policy.
+  `humanizer` is vendored rather than referenced so every checkout has it without
+  a per-machine global install.
 - **All `Z:` drive work** (finding files, save-location advice, duplicate/clutter
   reports, creating folders) goes through the org-level **`z-drive-ops`** skill —
   it is company-wide, not per-role, and is the one place the drive map and the

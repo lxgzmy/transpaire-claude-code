@@ -14,6 +14,10 @@ description: >
 Make text read as if a busy, competent person wrote it. Work through the
 numbered patterns, fix every hit, then do the final read-through.
 
+Organisation-neutral on purpose: it carries no Transpire voice. For anything
+written **for Transpire**, invoke `transpire-writing` instead, which runs these
+patterns as its first step and then applies the house voice.
+
 ## Patterns to remove
 
 1. **Em and en dashes.** No `—` or `–` anywhere. Rewrite with a comma, a full

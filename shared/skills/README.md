@@ -1,6 +1,12 @@
 # shared/skills/
 
-Skills usable across job-roles.
+Skills usable across job-roles. This is the register for them.
+
+Role-scoped skills are also registered in `.claude/skills/` so Claude Code can
+load them, but they are **documented under their role**, not here — e.g.
+`ca-new-job` in
+[job-roles/contract-admin/skills/README.md](../../job-roles/contract-admin/skills/README.md).
+Role prefixes (`ca-`) keep the two apart at a glance.
 
 ## Global vs vendored policy
 
@@ -40,8 +46,6 @@ Skills usable across job-roles.
   Setup: [docs/z_drive_claude_setup.md](../../docs/z_drive_claude_setup.md). Staff
   guide (Markdown + formatted PDF): `Z:\CLAUDE CODE\cowork-projects\2.z_drive\`.
 
-  Not role-scoped, on purpose: the share is department-shaped above `PROJECTS`,
-  and roles are a permission overlay rather than a folder axis (see
-  [architecture-overview](../../docs/architecture-overview.md)). The
-  Contract-Admin-only `ca-zdrive` was retired in favour of this before it was
-  built.
+  Not role-scoped, on purpose — the reasoning, and the retirement of the
+  Contract-Admin-only `ca-zdrive`, is recorded once in
+  [job-roles/contract-admin/skills/README.md](../../job-roles/contract-admin/skills/README.md).

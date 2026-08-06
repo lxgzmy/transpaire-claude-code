@@ -25,6 +25,11 @@ How the Transpire Claude Code project is structured, and why.
 CLAUDE.md            # org-wide guardrails
 README.md            # index
 ONBOARDING.md        # orientation
+.claude/
+  settings.json      # permissions (deny C:, ask on DocuSign), status line
+  skills/            # every activated skill, cross-role and role-scoped alike —
+                     #   this is the only place Claude Code loads skills from.
+                     #   Docs live with the owner: shared/skills/ or the role.
 docs/                # org-wide architecture & decisions (this file)
 shared/
   skills/            # cross-role skills (policy for global vs vendored)

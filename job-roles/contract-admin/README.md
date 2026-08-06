@@ -22,9 +22,9 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 | Folder | Purpose |
 |---|---|
 | `CLAUDE.md` | Role context, scope, systems, rules pointers, HITL. |
-| `workflows/` | One spec per workflow (new job → variation stage 1). |
-| `rules/` | Transcribed, testable business rules (currently stubs). |
-| `skills/` | Role-only skills, authored here (none built yet). |
+| `workflows/` | One spec per workflow. `new-job.md` drafted; variation stage 1 to come. |
+| `rules/` | Transcribed, testable business rules. `job-details.md` transcribed; `variation-rules.md` still a stub. |
+| `skills/` | Role-only skills, authored and documented here. `ca-new-job` built (registered in `../../.claude/skills/`). |
 | `reference/` | Pointers to source manuals (never the manuals themselves). |
 | `templates/` | Sanitised prompt / document / output templates. |
 | `fixtures/` | Synthetic test data only. |

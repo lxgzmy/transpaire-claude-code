@@ -23,7 +23,7 @@ A new EOI / contract request email arrives in the Contract-Admin mailbox.
 
 | # | Step | Actor | Rules |
 |---|---|---|---|
-| 1 | Check EOI completeness; request client ID if missing | Claude drafts the request → human sends | JD-0.1 |
+| 1 | Read the whole forwarded chain + attachments; check EOI completeness; request client ID if missing | Claude drafts the request → human sends | JD-0A, JD-0.1 |
 | 2 | Search OSC by lot number for an existing job | Human (Claude reminds; flags the duplicate risk) | JD-0.2 |
 | 3 | **Draft the job-creation sheet**: region, template, client name, site address, job name | Claude | JD-1, JD-2 |
 | 4 | **HITL GATE** — human reviews the sheet against the EOI, then creates the job in OSC | Human | — |
