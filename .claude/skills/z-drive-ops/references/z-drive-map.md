@@ -141,7 +141,7 @@ Keyed on the words staff actually use. `<job>` means the job folder under
 | Safety pack | see [Same document, different homes](#same-document-different-homes) |
 | Slab design, soil report | `PROCEDURES & FORMS\PRE-CONSTRUCTION\` + subfolder |
 | Social media post, photo | `ADMINISTRATION\SOCIALS\` |
-| Software certificate, user manual | `SOFTWARE\` *(key files blocked)* |
+| Software certificate, licence, user manual | **Out of scope** — `Z:\SOFTWARE` is not managed here. Refer to IT |
 | Staff list, photo, licence | `COMPANY GENERAL INFORMATION\` *(restricted)* |
 | Standard construction detail | `DRAFTING\Standard Details\Transpire Construction Details\` |
 | Structural steel | `DRAFTING\Structural Steel\` |
@@ -166,11 +166,19 @@ never invent a folder.
 numbers are the drive's most widespread clutter problem — see
 [Housekeeping findings](#housekeeping-findings).
 
+**These counts include hidden files** (`Thumbs.db`, `desktop.ini` and the like),
+because the survey listed with `-Force`. Re-checked 10 Aug 2026: all twelve
+counts below still match exactly on that basis. The number of files a person
+actually sees in Explorer is lower — `CONSTRUCTION MANAGER` is 80 with hidden
+files and 77 without, `ACCOUNTS` 66 and 64. Report the visible figure when
+telling someone how cluttered a folder is, since the hidden ones are junk you
+would filter out anyway.
+
 | Folder | Holds | Loose | Notes |
 |---|---|---|---|
 | `ACCOUNTS` | Finance: receivables, bank statements and reconciliations, invoicing, payments, receipts, rebates, credit applications, subcontractor pack documents | 66 | **Restricted** — see the skill's safety rules |
 | `ADMINISTRATION` | Day-to-day admin across 19 subfolders | 3 | See [ADMINISTRATION](#administration) |
-| `CLAUDE CODE` | This automation project and its Cowork projects | — | Not business records. Don't file business documents here |
+| `CLAUDE CODE` | **Out of scope — not managed by this skill.** The automation project and its Cowork projects, not business records | — | Don't search, sweep or advise on it. Writing a report into `transpire-claude-code\runtime\shared\reports\` is still fine |
 | `COMPANY GENERAL INFORMATION` | Company identity: logo, profile, brochure, licences, staff lists and photos, supervisors | 5 | Contains a **blocked** credentials folder and staff personal information |
 | `CONSTRUCTION MANAGER` | Construction management: site visits, feedback, fire ants, subcontractor EOIs, a large reference library of standards and product literature | **80** | Worst loose-file count on the drive |
 | `DRAFTING` | Archicad, standard details, structural steel, master designs, codes and products | 9 | Holds a **partial** `ESTATES INFORMATION` stub — see findings |
@@ -182,7 +190,7 @@ numbers are the drive's most widespread clutter problem — see
 | `PROCEDURES & FORMS` | The company's procedures and blank forms, mirrored by department | 4 | *Procedure and template* material — the blank form, not a completed one |
 | `PROJECTS` | **All job records.** See below | 1 | The job-shaped part of the drive |
 | `SALES` | Packages by region, marketing brochures and agreements, land contracts, finance approvals, floor plan ideas | 13 | Loosest structure on the drive |
-| `SOFTWARE` | Software certificates and user manuals | 4 | Contains a real `.pfx` key file — blocked, see safety rules |
+| `SOFTWARE` | **Out of scope — not managed by this skill.** Don't search, sweep or advise on it; refer to IT | — | Also holds certificate and key files, which the safety rules block anyway |
 | `WORKPLACE HEALTH AND SAFETY` | Audits, SWMS and certificates of currency, toolbox talks, safety packs | 26 | `INCIDENT REPORTS` holds personal/health information — handle with care |
 | `Z. SUPERSEDED` | Mixed archive: an old DA search, a council application, a region folder, stray files | 5 | General archive, **not** a per-job lifecycle stage |
 
@@ -192,8 +200,13 @@ the shortcut's filename — see the skill's rule on server names.
 
 ## Inside `Z:\PROJECTS`
 
-**Regions:** `CUDGEN` (9 jobs), `GUNNEDAH` (15), `SEQ` (185), `SYDNEY` (122),
-`TAMWORTH` (11).
+**Regions, live job folders only:** `CUDGEN` (8), `GUNNEDAH` (13), `SEQ` (181),
+`SYDNEY` (118), `TAMWORTH` (9) — **329 in total**.
+
+These counts exclude each region's `00000 - LOT MASTER FOLDER` template and its
+lifecycle subfolders, both of which sit alongside the jobs. Counting every
+directory in a region instead gives 342, which is the figure an earlier survey
+reported as "jobs"; it is not the number of jobs. Verified 10 Aug 2026.
 
 ### Lifecycle sits at TWO levels — search both
 
@@ -209,8 +222,10 @@ This is the most common cause of a "job not found" that actually exists.
    - `SEQ\CANCELLED` — 58 jobs
    - `GUNNEDAH\CANCELLED` and `TAMWORTH\CANCELLED` — 1 each
 
-That is **730 job folders that a region-level look will miss**, more than the
-342 sitting in the live region folders. Two further folders are mis-parented and
+That is **730 job folders that a region-level look will miss**, more than twice
+the 329 sitting in the live region folders. A further 431 sit in the top-level
+`COMPLETED CONTRACTS` (249) and `CANCELLED CONTRACTS` (182), so about **78% of
+all job folders are outside the live region folders**. Two folders are mis-parented and
 hold 7 job folders each: one under `SEQ` prefixed `DRAFT_`, one under `SYDNEY`
 named as a lot rather than a job.
 
@@ -452,14 +467,17 @@ controlled version.
 | Fire ant compliance material | `FIRE ANTS\` |
 | Site inspection / QA form | `CONSTRUCTION\QA Forms\` |
 
-## MAINTENANCE, SOFTWARE, Z. SUPERSEDED, ACCOUNTS
+## MAINTENANCE, Z. SUPERSEDED, ACCOUNTS
+
+`Z:\SOFTWARE` used to be described here. It is now **out of scope** — Transpire
+does not manage it through this skill, so it is not searched, swept, or advised
+on. Its contents are deliberately not recorded; one of its subfolder names also
+embeds a server name, which the skill's rules say to filter out. Send software
+certificate, licence and user-manual questions to IT.
 
 - **`MAINTENANCE`** — `FORMS` (`BOOKING SHEETS`, `DILAPIDATION REPORTS`) and
   `SS`, an archive holding one folder per completed address. Blank defect forms
   and the defect register sit at the root.
-- **`SOFTWARE`** — `Cert 11072025`, `TS02 Cert`, `THEREFORE - USER MANUALS`,
-  `Temp`. Contains a real `.pfx` private key at the root plus two executables.
-  **Certificate and key material here is blocked** by the skill's safety rules.
 - **`Z. SUPERSEDED`** — `DA search`, `Imported` (empty),
   a council application folder, and `SYDNEY` holding two old job folders. Also
   two extensionless files and a `.reg` file. Archive; never a save destination.
@@ -536,14 +554,16 @@ every one is a change requiring approval.
   (`desktop.ini` is present) and Windows ignores that attribute on directories;
   its permissions match `SALES`. Earlier guidance to avoid saving there was
   wrong — treat it as writable, subject to the usual approval for any change.
-- **Passwords written into filenames.** One template in the job template's
-  `ESTIMATING\1. SALES\4. CUSTOMER SELECTIONS` folder carries its opening
-  password in the filename, in brackets. Because it sits in
-  `00000 - LOT MASTER FOLDER`, it has been copied into **every job folder**
-  created from it. Anyone with drive access can read it, and it travels with
-  every copy. Worth remediating (protect the file properly, or drop the password
-  from the name). Handle per the skill's safety rules: give the folder path,
-  never repeat the filename in full, never copy the password anywhere.
+- **Passwords written into filenames.** A Request for Variation master template
+  sitting in the job template's `ESTIMATING\1. SALES\4. CUSTOMER SELECTIONS`
+  folder — itself apparently misfiled, since it's not a customer-selection
+  document — carries its opening password in the filename, in brackets. Because
+  it sits in `00000 - LOT MASTER FOLDER`, it has been copied into **every job
+  folder** created from it. Anyone with drive access can read it, and it travels
+  with every copy. Worth remediating (protect the file properly, drop the
+  password from the name, and move it to the right folder). Handle per the
+  skill's safety rules: give the folder path, never repeat the filename in full,
+  never copy the password anywhere.
 
 ## Open questions
 

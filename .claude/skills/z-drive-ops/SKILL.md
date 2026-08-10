@@ -15,13 +15,66 @@ company — no technical knowledge needed and no commands to memorise. Covers th
 The person asking may be non-technical. Behave accordingly: see
 [Talking to the user](#talking-to-the-user) before replying.
 
+## The top-level folders
+
+17 on the drive, **15 in scope** — `SOFTWARE` and `CLAUDE CODE` are not managed
+here. Use this table to pick the top-level folder, then open the map for the
+exact subfolder. It saves loading the full map for simple routing, and it is the
+one place the out-of-scope, restricted and unreadable folders are listed
+together. Verified against the live drive 10 Aug 2026.
+
+| Folder | What's in it, and how to treat it |
+|---|---|
+| `ACCOUNTS` | Finance: invoicing, payments, receipts, rebates, bank statements, credit applications. **Restricted** — folder names and counts only; never read into the files in a sweep, never quote financial detail. 17 subfolders |
+| `ADMINISTRATION` | Day-to-day admin: council forms and fees, insurance, handover, key register, utilities, email templates, socials. 19 subfolders |
+| `CLAUDE CODE` | **Out of scope — not managed by this skill.** The automation project, not business records. Don't search, sweep, or advise on it. (Writing a report into its `runtime\shared\reports\` folder is still fine — that's output, not filing advice) |
+| `COMPANY GENERAL INFORMATION` | Logo, profile, brochure, licences, staff lists and photos. **Restricted** (staff personal information), and contains the **blocked** passwords folder. 11 subfolders |
+| `CONSTRUCTION MANAGER` | Site visits, feedback, fire ants, subcontractor EOIs, and a large uncurated reference library. Treat a hit as someone's reference copy and check `PROCEDURES & FORMS` for the controlled version |
+| `DRAFTING` | Archicad, standard details, structural steel, master designs, codes and products. Mostly CAD — see the file-type limits below. Holds an abandoned `ESTATES INFORMATION` stub; ignore it |
+| `ESTATES INFORMATION` | **Authoritative** for estates and stages by region, plus driveway regulations by council. NSW 11 estates, SEQ 385, driveway regs for 30 councils |
+| `ESTIMATING` | Supplier agreements, subcontractor rates, DataBuild price file, OnSite Companion database, sales and production estimating. **Writable** — earlier "read-only" guidance was wrong. 13 numbered subfolders |
+| `IMPORTED` | **Genuinely empty** — 0 files, 0 subfolders, verified rather than inferred from an error |
+| `MAINTENANCE` | Defect forms, booking sheets, dilapidation reports, plus a per-address archive |
+| `OPERATIONS` | **Access denied.** Not empty — unknown. Never describe its contents, never infer them, never propose removing it |
+| `PROCEDURES & FORMS` | The controlled home for **blank** forms and procedures, mirrored by department. Never a completed document. 18 subfolders |
+| `PROJECTS` | **All job records**, by region. The only job-shaped folder on the drive. Lifecycle sits at two levels — see FIND |
+| `SALES` | Packages by region, marketing agreements, land contracts, finance approvals, floor plan ideas. Loosest structure on the drive; expect more than one search attempt. 31 subfolders |
+| `SOFTWARE` | **Out of scope — not managed by this skill.** Don't search, sweep, or advise on it. Send software certificate, licence and manual questions to IT |
+| `WORKPLACE HEALTH AND SAFETY` | Audits, SWMS and certificates of currency (49 subcontractor folders), toolbox talks, safety packs. `INCIDENT REPORTS` is **restricted** — personal and health information. 9 subfolders |
+| `Z. SUPERSEDED` | Mixed archive. **Never a save destination**; treat a hit as probably superseded |
+
+The split that decides most questions: `PROJECTS` is **job-shaped** (region → job
+→ document type); everything else is **department-shaped** (organised by
+function). Job number or specific address attached → `PROJECTS`. Otherwise → the
+department folder.
+
 Folder-by-folder map of the drive: [`references/z-drive-map.md`](references/z-drive-map.md).
-**Read it before answering any "where is it" or "where does this go" question.**
-It opens with a router — an A–Z index of what people ask for, three questions
-that pick the top-level folder, and a table of the documents that legitimately
-live in more than one place. Use that router rather than reasoning from folder
-names; the folder names alone will not tell you whether something belongs with a
-job, with a department, or with the blank forms.
+**Read it before answering any "where is it" or "where does this go" question**
+that the table above doesn't settle outright. It opens with a router — an A–Z
+index of about seventy things people ask for, three questions that pick the
+top-level folder, and a table of the documents that legitimately live in more
+than one place. Use that router rather than reasoning from folder names; the
+folder names alone will not tell you whether something belongs with a job, with
+a department, or with the blank forms.
+
+## What this skill can and cannot see
+
+Be straight about this rather than implying a search was exhaustive.
+
+- **It searches names and locations, not the inside of documents.** Filenames,
+  folder paths and modification dates — not the text within a contract or
+  spreadsheet. "Find the variation that mentions the retaining wall" is not a
+  question it can answer by searching; "find the variations for job 24025" is.
+  It can open a specific file it has found, if asked and if the format allows.
+- **Many files can't be opened at all.** Job folders and safety folders are
+  mostly PDFs and Office documents and read fine. `DRAFTING` is mostly Archicad
+  and CAD (`.pln`, `.gsm`, `.dwg` and similar) — about 46% of files there cannot
+  be opened, only located by name. Outlook `.msg` files and legacy `.doc` are
+  also name-only.
+- **A scan is always scoped to one branch, and slow.** Listing a single region
+  recursively takes seconds to minutes; drive-wide enumeration extrapolates to
+  the better part of ten minutes before anything is read. Say which branch you
+  checked and offer the next one.
 
 ## First: which surface am I on?
 
@@ -88,8 +141,9 @@ or supplier name, document type, or rough date.
      `ARCHIVE-HANDED OVER`, `CANCELLED`
   3. the top-level `Z:\PROJECTS\COMPLETED CONTRACTS\` and `CANCELLED CONTRACTS\`
 
-  About 730 job folders sit at step 2 and 430 at step 3, against 342 in the live
-  region folders. Only after all three may you say a job doesn't exist.
+  730 job folders sit at step 2 and 431 at step 3, against 329 in the live
+  region folders — so **about 78% of jobs are not where a region-level look
+  would find them**. Only after all three may you say a job doesn't exist.
 - **Match a job number on its first five digits, not on `"26049 - "`.** Real
   folder names vary around the dash (`26003- LOT`, `16001 -LOT`, double spaces),
   so an exact-prefix match misses genuine jobs.
@@ -190,26 +244,44 @@ passing.
 **Read-only by default.** Looking, searching, comparing, and reporting are
 always fine. Creating, moving, renaming, or deleting is not, until approved.
 
+**Out of scope — `Z:\SOFTWARE` and `Z:\CLAUDE CODE`.** Transpire does not manage
+these through this skill. Don't search them, don't include them in sweeps,
+counts or clutter reports, and don't give save advice for them. Treat them as if
+they weren't on the drive; if a request lands on one, say it's outside what this
+skill covers — software certificates, licences and manuals go to IT, and
+`CLAUDE CODE` is the automation project rather than business records.
+
+Two carve-outs, both about output rather than filing advice: writing a report
+into `Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\reports\` is still
+correct (see [Writing reports](#writing-reports)), and this is a **scope**
+decision, not a permission one — the credential rules below still apply
+everywhere on the drive, these two folders included.
+
 **Never touch these** — read nothing, list nothing, report nothing from inside
 them, even if asked as part of a broader sweep. Say you've skipped them and
 why:
 
 - `Z:\COMPANY GENERAL INFORMATION\TRANSPIRE PASSWORDS & SET UP WORKFLOW` —
   credentials.
-- Any file that looks like a credential, certificate, or key store:
-  `*.pfx`, `*.p12`, `*.kdbx`, `*.cer`, `*.crt`, `*.pem`, `*.key`, `*.jks`,
-  `*.ppk`, `*.asc`, `*.env`, `*.rdp`, `*password*`, `*credential*`, `*secret*`.
-  There is a real private key sitting in `Z:\SOFTWARE`, so this is not
-  hypothetical.
+- Any file that looks like a credential, certificate, or key store, **anywhere
+  on the drive**: `*.pfx`, `*.p12`, `*.kdbx`, `*.cer`, `*.crt`, `*.pem`,
+  `*.key`, `*.jks`, `*.ppk`, `*.asc`, `*.env`, `*.rdp`, `*password*`,
+  `*credential*`, `*secret*`. Real key and certificate files exist on this
+  drive, so this is not hypothetical. The extension-based ones are additionally
+  blocked in `.claude/settings.json`, so a read is refused by the tool layer
+  rather than relying on you to remember; the `*password*` / `*credential*` /
+  `*secret*` **name** patterns are not enforceable that way and rely on you.
 
 **Filenames themselves sometimes contain passwords** on this drive — a template
 has the opening password written into the filename in brackets. If you hit one:
 
 - **Don't repeat the filename in full** in chat, a report, or a commit. Refer to
-  it as "the customer selections template (filename contains a password)" and
-  give the folder path only — in the job template it sits under
-  `ESTIMATING\1. SALES\4. CUSTOMER SELECTIONS`, and a copy is in every job
-  folder built from the template.
+  it as "the variation-request template sitting in the CUSTOMER SELECTIONS
+  folder (filename contains a password)" and give the folder path only — it's a
+  Request for Variation master template, not a colour or customer-selection
+  form, apparently misfiled — it sits under
+  `ESTIMATING\1. SALES\4. CUSTOMER SELECTIONS` in the job template, and a copy is
+  in every job folder built from the template.
 - **Never copy the password anywhere**, and never put it in the Claude Code repo.
 - **Flag it** as something worth fixing: a password in a filename is visible to
   everyone with drive access and travels with every copy of the file.
@@ -293,17 +365,19 @@ Assume no technical background unless they show otherwise.
 
 ## Worked examples
 
-**"where's the latest variation for 26049"**
+**"where's the latest variation for 24025"**
 > The most recently changed one is:
-> `Z:\PROJECTS\GUNNEDAH\26049 - …\ESTIMATING\1. SALES\2. VARIATIONS\VAR-001\…`
-> (changed 14 July). There are two others in the same folder from June — I can
-> list them if you want to compare. Worth opening it to confirm it's the signed
-> copy; I can only go by the date.
+> `Z:\PROJECTS\GUNNEDAH\24025 - …\ESTIMATING\1. SALES\2. VARIATIONS\VAR-026\…`
+> (changed 2 March, alongside a matching confirmation email from the same day).
+> There are 25 earlier variations in the same folder going back to June 2025 — I
+> can list them if you want to compare. Worth opening it to confirm it's the
+> signed copy; I can only go by the date.
 
-**"got a new colour selection form for 26049, where does it go?"**
-> `Z:\PROJECTS\GUNNEDAH\26049 - …\COLOUR SCHEMES\`
-> The other files there are named like `26049 - COLOUR SELECTION - <date>`, so
-> I'd match that.
+**"got a new colour selection form for 24025, where does it go?"**
+> `Z:\PROJECTS\GUNNEDAH\24025 - …\COLOUR SCHEMES\`
+> The other files there are named like `EXTERNAL COLOURS - <scheme name>` or
+> `INTERNAL COLOUR - <scheme name>` — no job number or date in the filename — so
+> I'd match that style rather than assume.
 
 **"where do I put a new subbie's SWMS?"**
 > `Z:\WORKPLACE HEALTH AND SAFETY\SWMS and Certs of Currency\`
@@ -311,7 +385,7 @@ Assume no technical background unless they show otherwise.
 > name if they're new. Their certificate of currency goes in the same folder.
 
 **"can you tidy up gunnedah"**
-> Before I change anything — here's what I found across the 15 job folders in
+> Before I change anything — here's what I found across the 13 job folders in
 > GUNNEDAH (I haven't looked at the other regions):
 > 3 files that appear twice, 1 folder that looks misfiled, and some leftover
 > temporary files. [grouped list]

@@ -1,122 +1,66 @@
 # Z: drive help with Claude — setup & reference
 
-Setting up and maintaining `Z:` drive help on both surfaces. **For IT / whoever
-rolls this out.**
+Setting up and maintaining `Z:` drive help. **For IT / whoever rolls this out.**
 
 The skill behind it: [`.claude/skills/z-drive-ops/`](../.claude/skills/z-drive-ops/SKILL.md).
 
-> **Looking for the staff-facing guide?** That's a separate, shorter document at
-> `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` — `Transpire_z_drive_claude_guide.md`
-> plus a formatted PDF. Hand that to end users, not this file.
+> **Looking for the staff-facing guide?** That's the shorter, formatted version:
+> [`Transpire_z_drive_claude_guide.pdf`](Transpire_z_drive_claude_guide.pdf) in
+> this folder (source: [`z_drive_claude_guide.html`](z_drive_claude_guide.html)).
+> A copy is also kept at `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` for handing
+> to end users. Hand out the PDF, not this file.
 
-**What it does, in one line:** you ask "where's the latest variation for 26049?"
-or "where should this colour selection go?" and it answers with a path you can
-paste into Explorer.
+**What it does, in one line:** you ask "where's the latest variation for
+24025?" or "where should this colour selection go?" and it answers with a path
+you can paste into Explorer.
 
-## Two ways to use it
+## How staff use it: Claude Desktop, Code mode
 
-| | Claude Code (server) | Claude Desktop (your own PC) |
-|---|---|---|
-| Who it suits | Technical / power users | **Everyone else** |
-| How to start | `/z-drive-ops <what you want>` | Just ask in plain English |
-| Sees `Z:` via | The mapped drive in that login session | A folder you attach |
-| Big scans, duplicate hunts by content | Yes | No — targeted searches only |
-| Best for | Big scoped sweeps and new job folder trees | Everyday "where is / where do I put this" |
+There is one supported way to reach it, and it needs no per-user setup:
 
-Both use the same skill, so the advice is consistent either way.
+1. Open the **Claude Desktop** app.
+2. Switch to **Code** mode.
+3. Confirm the selected project folder is **`transpire-claude-code`** — the
+   checkout at `Z:\CLAUDE CODE\transpire-claude-code`. If Code mode is pointed at
+   a different folder, switch it: skills only load from this repo's
+   `.claude/skills/`.
+4. Run:
+   ```
+   /z-drive-ops where should a signed variation for 24025 go?
+   ```
+   or just describe what you want in plain English — the skill also activates on
+   its own when a request is clearly about the drive.
 
-## Claude Code (already set up)
+Code mode **is** Claude Code — full shell access, the mapped `Z:` drive, every
+skill in the repo — just reached through the desktop app instead of a terminal.
+There's nothing to package, upload, or enable per person, and no folder to
+attach: the repo (and the `Z:` drive it can see) is the same for whoever opens
+it, so the advice is consistent for everyone. Power users who prefer a terminal
+can run the `claude` CLI from the same checkout instead — same skill, same drive,
+same slash command, just a different way in.
 
-The skill lives in this repo at `.claude/skills/z-drive-ops/`. Nothing to
-install. From a session started at the repo root:
-
-```
-/z-drive-ops where should a signed variation for 26049 go?
-```
-
-It also activates on its own when a request is clearly about the drive.
-
-## Claude Desktop, step by step
-
-### The one thing that must be right: on your computer, not the cloud
-
-Claude Desktop can run a task **on your computer** or **in the cloud**. `Z:` is a
-network share inside the office, so:
-
-- **On your computer** → can see `Z:`. ✅
-- **In the cloud** → cannot see `Z:`, and never will. ❌
-
-Always choose **"On your computer"**. If a session says it can't find `Z:` or the
-folder isn't there, this is nearly always why. (Confirmed the hard way: a cloud
-session couldn't reach the share as a drive letter or as `\\server\share`.)
-
-### Step 1 — package the skill (IT, once)
-
-In PowerShell on the server:
-
-```powershell
-Compress-Archive -Path 'Z:\CLAUDE CODE\transpire-claude-code\.claude\skills\z-drive-ops' -DestinationPath "$env:USERPROFILE\Desktop\z-drive-ops.zip" -Force
-```
-
-That writes `z-drive-ops.zip` to the Desktop with the `z-drive-ops` folder inside
-it — the structure Claude requires. A ready-made copy is also kept at
-`Z:\CLAUDE CODE\cowork-projects\2.z_drive\`.
-
-Re-run the command and re-upload after any change to the skill.
-
-### Step 2 — add it to Claude Desktop (each user, once)
-
-1. Open **Claude Desktop**.
-2. Go to **Settings → Capabilities** (also reachable via **Customize** in the
-   sidebar).
-3. **Upload** `z-drive-ops.zip`.
-4. Check it's **enabled**.
-
-Skills belong to your Claude account rather than the machine, so it follows you
-to another PC — but `Z:` still has to be reachable from wherever you are.
-
-### Step 3 — attach the drive (each session, about five seconds)
-
-Start a task **on your computer**, then attach a folder with the folder picker:
-
-- **`Z:\PROJECTS`** for job work — the recommended default.
-- **`Z:\`** if you need the department folders: accounts, admin, procedures and
-  forms, safety, sales, drafting, estimating, estates.
-
-Attaching `Z:\PROJECTS` limits Claude to job records. It cannot see the department
-folders at all, and it will say so rather than guess. If your question is "where
-does this blank form go?" rather than "where's job 26049?", attach `Z:\` from the
-start.
-
-Worth knowing:
-- Only **you** can attach a folder. Claude can't reach outside what you attach
-  and can't attach anything itself. That's the security boundary.
-- Use the mapped letter (`Z:\`). `\\server\share` paths aren't supported, so map
-  the drive first — which is how staff already use it.
-- Attach the narrowest folder that covers the job. The `Z:\` root also holds
-  accounts, staff and password folders that don't need to be in scope. The skill
-  refuses to read the credentials folder either way, but not attaching it is
-  better.
-
-### Step 4 — just ask
-
-No commands to learn:
-
-> where's the latest variation for 26049?
-> I've got a signed colour selection for 26049 — where does it go?
-> is there more than one copy of the contract for 26049?
-> find anything for lot 5 pearson street
+**The one thing that must be right:** `Z:` is a network share mapped per login
+session, so the machine running the Code-mode session needs `Z:` mapped and
+connected. If a session says it can't see `Z:` or a folder inside it "doesn't
+exist" when you know it does, check that first — it is nearly always a mapping
+problem, not a Claude problem.
 
 ## First-time walkthrough
 
-Five things to try, in order, and what to notice about each.
+Five things to try, in order, and what to notice about each. Tested 10 Aug 2026
+against job **24025** in GUNNEDAH (`LOT 12 YARRAANDOO CLOSE`), which — unlike
+some newer jobs — actually has variation and colour-scheme files in it, so the
+walkthrough shows real behaviour rather than an empty folder.
 
-1. **Find something** — *"where's the latest variation for job 26049?"*
-   It gives a full path, says which date it went by, and points out that the date
-   doesn't prove it's the signed copy.
+1. **Find something** — *"where's the latest variation for job 24025?"*
+   It gives a full path (`…\ESTIMATING\1. SALES\2. VARIATIONS\VAR-026\…`), says
+   which date it went by, and points out that the date doesn't prove it's the
+   signed copy.
 2. **Ask where something goes** — *"I've got a new colour selection form for
-   26049, where should I save it?"* It recommends a folder **and** matches the
-   naming style of the files already in there.
+   24025, where should I save it?"* It recommends `…\COLOUR SCHEMES\` **and**
+   matches the naming style already used there (e.g. `EXTERNAL COLOURS -
+   <scheme name>`, no job number or date in the filename — check what's actually
+   in the folder rather than assuming).
 3. **Ask for a tidy check** — *"any duplicates in the GUNNEDAH jobs?"*
    It reports what it found and changes nothing.
 4. **Ask it to act** — *"just delete the duplicates for me"*
@@ -124,21 +68,40 @@ Five things to try, in order, and what to notice about each.
    quietly moves or deletes anyone's files.
 5. **Try a blocked folder** — ask for something in
    `Z:\COMPANY GENERAL INFORMATION\TRANSPIRE PASSWORDS & SET UP WORKFLOW`.
-   It refuses and explains why.
+   It refuses and explains why. (Verified: the permission rules in
+   `.claude/settings.json` block this at the tool level, not just by the skill
+   choosing to refuse — trying it directly returns a permission error.)
 
-If you're walking someone else through this, pick a job number you've checked
-actually has files in it.
+If you're walking someone else through this with a different job number, check
+it first — plenty of newer jobs genuinely have nothing in `VARIATIONS` or
+`COLOUR SCHEMES` yet, which is a fine but less illustrative answer.
 
 ## Limits, stated plainly
 
-- **Cloud sessions can't see `Z:`.** On your computer only.
-- **No scripts against `Z:` from Desktop.** Claude's code sandbox has no
-  network-drive access, so comparing thousands of files by content belongs in
-  Claude Code on the server. Everyday searching is unaffected.
-- **There are no whole-drive sweeps, on either surface.** The share is about
-  1,700 GB. Scans are scoped to one branch: a job, a region, or a department
-  folder. Claude will say which branch it checked. Comparing across the whole drive
-  is a scheduled job for IT, not a chat answer.
+- **`Z:` has to be mapped and connected on the machine running the session.**
+  Code mode reaches `Z:` the same way any other program on that machine does — if
+  the drive isn't mapped there, Claude can't see it either, and will say so
+  rather than guess.
+- **Two folders are deliberately out of scope:** `Z:\SOFTWARE` (software
+  certificates, licences, manuals — send these to IT) and `Z:\CLAUDE CODE` (the
+  automation project, not business records). The skill doesn't search, sweep or
+  advise on either. Writing a report into
+  `Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\reports\` is still its
+  normal output path — that's a carve-out, not a contradiction.
+- **It searches names and locations, not the contents of documents.** Filenames,
+  folder paths and dates. "Find the variations for job 24025" works; "find the
+  variation that mentions the retaining wall" does not. It can open a specific
+  file it has already found, if asked and if the format allows.
+- **A large share of files cannot be opened at all, only located by name.**
+  Measured across a 31,320-file sample: job folders are 56% readable formats
+  (PDF/Office) and safety 86%, but `DRAFTING` is 46% Archicad and CAD
+  (`.pln`, `.gsm`, `.dwg`) and only 17% readable. Outlook `.msg` and legacy
+  `.doc` are name-only too. This is a property of the file formats, not a
+  configuration problem.
+- **There are no whole-drive sweeps.** The share is about 1,700 GB. Scans are
+  scoped to one branch: a job, a region, or a department folder. Claude will say
+  which branch it checked. Comparing across the whole drive is a scheduled job
+  for IT, not a chat answer.
 - **It sees exactly what you see.** Permissions are unchanged. If you can't open
   a folder in Explorer, neither can Claude — and it won't try to work around it.
   `Z:\OPERATIONS` is one of these: nobody running this can read it.
@@ -155,10 +118,11 @@ actually has files in it.
 
 > **Getting `Z:` help from Claude**
 >
-> 1. Open Claude Desktop, start a task **On your computer**.
-> 2. Attach `Z:\` (or `Z:\PROJECTS` if it's only job work).
-> 3. Ask in normal words. For example:
->    - "where's the latest contract for job 26049?"
+> 1. Open Claude Desktop and switch to **Code** mode.
+> 2. Confirm the project folder is **`transpire-claude-code`**.
+> 3. Run `/z-drive-ops` followed by your question, or just ask in normal words.
+>    For example:
+>    - "where's the latest contract for job 24025?"
 >    - "where should I save this signed variation?"
 >    - "where does a new subbie's certificate of currency go?"
 >    - "any duplicate files in the Gunnedah jobs?"
@@ -175,28 +139,24 @@ actually has files in it.
 
 ### Regenerating the staff PDF
 
-The staff guide lives at `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` as Markdown
-plus a formatted PDF. The PDF renders from
-[`z_drive_claude_guide.html`](z_drive_claude_guide.html) in this folder — edit that,
-then re-render with headless Chrome:
+The PDF renders from [`z_drive_claude_guide.html`](z_drive_claude_guide.html) in
+this folder — edit that, then re-render with headless Chrome:
 
 ```powershell
-& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="Z:\CLAUDE CODE\cowork-projects\2.z_drive\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpire-claude-code/docs/z_drive_claude_guide.html"
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="Z:\CLAUDE CODE\transpire-claude-code\docs\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpire-claude-code/docs/z_drive_claude_guide.html"
 ```
 
-Keep the Markdown copy in `2.z_drive` in step with the HTML — the Markdown is the
-readable/editable version, the HTML exists only to produce the PDF.
-
-A **second copy** of the rendered PDF is committed at
-[`Transpire_z_drive_claude_guide.pdf`](Transpire_z_drive_claude_guide.pdf) in this
-folder, so the repo carries the staff guide as shipped. Re-render that one too
-whenever the HTML changes: point `--print-to-pdf` at its path as well. Otherwise
-the repo copy drifts from what staff are reading.
+A courtesy copy is also kept at `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` for
+handing to end users outside the repo — re-render to that path too whenever the
+HTML changes (point `--print-to-pdf` at it as well), otherwise it drifts from
+what staff are reading. The zip file and Markdown copy that used to live
+alongside it there were for the old Desktop-attach-a-folder workflow and are no
+longer needed — Code mode reads the skill straight from the repo, with nothing
+to install per user.
 
 ### When the drive changes
 
 If folders are added, renamed, or reorganised, update
 [`references/z-drive-map.md`](../.claude/skills/z-drive-ops/references/z-drive-map.md)
-inside the skill, then re-zip and re-upload for Desktop users. The map is what
-stops Claude guessing at save locations, so a stale map produces confidently wrong
-advice.
+inside the skill. The map is what stops Claude guessing at save locations, so a
+stale map produces confidently wrong advice.

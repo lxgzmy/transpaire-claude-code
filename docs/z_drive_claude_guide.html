@@ -186,20 +186,22 @@
    guessing at where things go.</p>
 
 <div class="start">
-  <h2>Start here &mdash; three steps</h2>
+  <h2>Start here &mdash; four steps</h2>
   <ul class="steps">
     <li><span class="n">1</span><br>
-        Open <b>Claude Desktop</b> and start a task <b>On your computer</b>.</li>
+        Open the <b>Claude Desktop</b> app.</li>
     <li><span class="n">2</span><br>
-        Attach a folder with the picker: <b><code>Z:\</code></b> for anything,
-        or <b><code>Z:\PROJECTS</code></b> if it is only job work.</li>
+        Switch to <b>Code</b> mode.</li>
     <li><span class="n">3</span><br>
-        Type your question in normal words.</li>
+        Check the project folder is <b><code>transpire-claude-code</code></b>.</li>
+    <li><span class="n">4</span><br>
+        Type <code>/z-drive-ops</code> and your question &mdash; or just ask in
+        normal words.</li>
   </ul>
-  <p class="note">Steps 1 and 2 take about five seconds each time. It must be
-     <b>On your computer</b> &mdash; a cloud task cannot see <code>Z:</code>.
-     Claude can only see the folder you attach, so attach <code>Z:\</code> if your
-     question might touch admin, accounts, safety, sales or the blank forms.</p>
+  <p class="note">Nothing to attach and nothing to install. Code mode already
+     sees the whole <code>Z:</code> drive &mdash; job folders and department
+     folders alike &mdash; the moment the project folder is right, so there is no
+     separate step for admin, accounts, safety or sales.</p>
 </div>
 
 <h2 class="sec">The four things people ask for</h2>
@@ -210,9 +212,9 @@
   <div class="say">
     <span class="lbl">Say something like</span>
     <ul>
-      <li>&ldquo;where&rsquo;s the latest variation for 26049?&rdquo;</li>
+      <li>&ldquo;where&rsquo;s the latest variation for 24025?&rdquo;</li>
       <li>&ldquo;find the contract for lot 5 pearson street&rdquo;</li>
-      <li>&ldquo;has 26049 got a BASIX report yet?&rdquo;</li>
+      <li>&ldquo;has 24025 got a BASIX report yet?&rdquo;</li>
       <li>&ldquo;find the blank Form 2 for fencing&rdquo;</li>
       <li>&ldquo;where&rsquo;s the current SWMS for our plumber?&rdquo;</li>
       <li>&ldquo;which estate folder has the stage numbers for Monterea?&rdquo;</li>
@@ -232,8 +234,8 @@
   <div class="say">
     <span class="lbl">Say something like</span>
     <ul>
-      <li>&ldquo;where should I save a signed colour selection for 26049?&rdquo;</li>
-      <li>&ldquo;I&rsquo;ve got a supplier quote for 26049 &mdash; which folder?&rdquo;</li>
+      <li>&ldquo;where should I save a signed colour selection for 24025?&rdquo;</li>
+      <li>&ldquo;I&rsquo;ve got a supplier quote for 24025 &mdash; which folder?&rdquo;</li>
       <li>&ldquo;where does a new subbie&rsquo;s certificate of currency go?&rdquo;</li>
       <li>&ldquo;where do I file a signed marketing agreement?&rdquo;</li>
       <li>&ldquo;where does a blank handover form live?&rdquo;</li>
@@ -258,8 +260,8 @@
     <span class="lbl">Say something like</span>
     <ul>
       <li>&ldquo;any duplicate files in the Gunnedah jobs?&rdquo;</li>
-      <li>&ldquo;is there more than one copy of the contract for 26049?&rdquo;</li>
-      <li>&ldquo;anything filed in the wrong place in 26049?&rdquo;</li>
+      <li>&ldquo;is there more than one copy of the contract for 24025?&rdquo;</li>
+      <li>&ldquo;anything filed in the wrong place in 24025?&rdquo;</li>
       <li>&ldquo;how messy is the top of the SALES folder?&rdquo;</li>
     </ul>
   </div>
@@ -277,7 +279,7 @@
     <span class="lbl">Say something like</span>
     <ul>
       <li>&ldquo;set up the folder tree for new job 26056 in Gunnedah&rdquo;</li>
-      <li>&ldquo;create a VAR-002 folder for 26049&rdquo;</li>
+      <li>&ldquo;create a VAR-027 folder for 24025&rdquo;</li>
     </ul>
   </div>
   <p class="back"><b>You get back:</b> the exact plan first &mdash; what it will create and
@@ -326,17 +328,42 @@
 
 <div class="tblwrap">
   <table>
+    <caption>What it can and can&rsquo;t do</caption>
+    <thead><tr><th>Ask it this</th><th>Not this</th></tr></thead>
+    <tbody>
+      <tr><td>&ldquo;Find the variations for job 24025&rdquo;</td>
+          <td>&ldquo;Find the variation that mentions the retaining wall&rdquo; &mdash; it searches
+              file <b>names and folders</b>, not the words inside documents. It can open a
+              particular file once it has found it, if you ask.</td></tr>
+      <tr><td>&ldquo;Where are the plans for this job?&rdquo;</td>
+          <td>&ldquo;What&rsquo;s in this Archicad drawing?&rdquo; &mdash; CAD files
+              (<code>.pln</code>, <code>.dwg</code> and similar), Outlook <code>.msg</code>
+              files and older <code>.doc</code> files can be located by name but not opened.
+              Most of <code>DRAFTING</code> is this kind of file.</td></tr>
+      <tr><td>&ldquo;Check job 24025 for duplicates&rdquo;</td>
+          <td>&ldquo;Check the whole drive&rdquo; &mdash; it works through one job, region or
+              department folder at a time and tells you which one it did.</td></tr>
+      <tr><td>Anything in the folders on this page</td>
+          <td><code>Z:\SOFTWARE</code> and <code>Z:\CLAUDE CODE</code> &mdash; software
+              certificates, licences and manuals, and the automation project itself, are not
+              handled here. Ask IT.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="tblwrap">
+  <table>
     <caption>If something goes wrong</caption>
     <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
     <tbody>
       <tr><td>&ldquo;I can&rsquo;t see the Z: drive&rdquo;</td>
-          <td>The task is running in the cloud. Start it again <b>On your computer</b>.</td></tr>
-      <tr><td>&ldquo;That folder isn&rsquo;t attached&rdquo;</td>
-          <td>Attach the folder with the picker. Use <code>Z:\</code> unless you are certain
-              the question is only about job records.</td></tr>
+          <td>Check the project folder is <b><code>transpire-claude-code</code></b> and that
+              <code>Z:</code> is actually mapped and connected on that computer &mdash; it is
+              almost always one of those two.</td></tr>
       <tr><td>It says it cannot see a department folder</td>
-          <td>You attached <code>Z:\PROJECTS</code>, which is job records only. Start again
-              and attach <code>Z:\</code>.</td></tr>
+          <td>That shouldn&rsquo;t happen in Code mode &mdash; it sees the whole drive, not just
+              job folders. If it does, say so and treat it as a fault to report, not something
+              to work around.</td></tr>
       <tr><td>It says you don&rsquo;t have access to a folder</td>
           <td>That is the real answer, not a fault. <code>Z:\OPERATIONS</code> is one nobody
               can currently open. Ask IT if you need it.</td></tr>
