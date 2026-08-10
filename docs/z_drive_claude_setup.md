@@ -16,20 +16,23 @@ you can paste into Explorer.
 
 ## How staff use it: Claude Desktop, Code mode
 
-There is one supported way to reach it, and it needs no per-user setup:
+There is one supported way to reach it, and there is nothing to package or
+distribute:
 
-1. Open the **Claude Desktop** app.
+1. Open **Claude Desktop** and sign in with your own account.
 2. Switch to **Code** mode.
-3. Confirm the selected project folder is **`transpire-claude-code`** — the
-   checkout at `Z:\CLAUDE CODE\transpire-claude-code`. If Code mode is pointed at
-   a different folder, switch it: skills only load from this repo's
-   `.claude/skills/`.
-4. Run:
+3. Pick the project folder **`transpire-claude-code`** — the checkout at
+   `Z:\CLAUDE CODE\transpire-claude-code`. If Code mode is pointed at a different
+   folder, switch it: skills only load from this repo's `.claude/skills/`.
+4. Accept the folder-trust prompt. Once only, per user.
+5. Run:
    ```
    /z-drive-ops where should a signed variation for 24025 go?
    ```
    or just describe what you want in plain English — the skill also activates on
    its own when a request is clearly about the drive.
+
+Steps 1–4 are a one-off; day to day it's just step 5.
 
 Code mode **is** Claude Code — full shell access, the mapped `Z:` drive, every
 skill in the repo — just reached through the desktop app instead of a terminal.
@@ -118,9 +121,12 @@ it first — plenty of newer jobs genuinely have nothing in `VARIATIONS` or
 
 > **Getting `Z:` help from Claude**
 >
-> 1. Open Claude Desktop and switch to **Code** mode.
-> 2. Confirm the project folder is **`transpire-claude-code`**.
-> 3. Run `/z-drive-ops` followed by your question, or just ask in normal words.
+> 1. Open Claude Desktop and sign in with your own account.
+> 2. Switch to **Code** mode.
+> 3. Pick the project folder **`transpire-claude-code`**
+>    (`Z:\CLAUDE CODE\transpire-claude-code`).
+> 4. Accept the folder-trust prompt — once only.
+> 5. Run `/z-drive-ops` followed by your question, or just ask in normal words.
 >    For example:
 >    - "where's the latest contract for job 24025?"
 >    - "where should I save this signed variation?"

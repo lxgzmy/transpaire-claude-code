@@ -62,11 +62,13 @@
     border-left: 4px solid var(--blue); border-radius: 5px;
   }
   .start h2 { margin: 0 0 7px; font-size: 11.6pt; color: var(--navy); }
-  .steps { display: flex; gap: 9px; margin: 0; padding: 0; list-style: none; }
+  .steps { display: flex; gap: 7px; margin: 0; padding: 0; list-style: none; }
   .steps li {
-    flex: 1; background: #fff; border: 1px solid #d3e2f2; border-radius: 5px;
-    padding: 8px 9px 9px; font-size: 9.3pt; line-height: 1.4;
+    flex: 1 1 0; min-width: 0; background: #fff; border: 1px solid #d3e2f2;
+    border-radius: 5px; padding: 8px 8px 9px; font-size: 8.9pt; line-height: 1.38;
   }
+  .steps code { font-size: 8.2pt; padding: 1px 3px; }
+  .start .note code { font-size: 8.8pt; }
   .steps .n {
     display: inline-flex; align-items: center; justify-content: center;
     width: 17px; height: 17px; border-radius: 50%;
@@ -186,22 +188,30 @@
    guessing at where things go.</p>
 
 <div class="start">
-  <h2>Start here &mdash; four steps</h2>
+  <h2>Start here &mdash; five steps</h2>
   <ul class="steps">
     <li><span class="n">1</span><br>
-        Open the <b>Claude Desktop</b> app.</li>
+        Open <b>Claude Desktop</b> and sign in with your own account.</li>
     <li><span class="n">2</span><br>
         Switch to <b>Code</b> mode.</li>
     <li><span class="n">3</span><br>
-        Check the project folder is <b><code>transpire-claude-code</code></b>.</li>
+        Pick the project folder
+        <b><code>transpire-claude-code</code></b>.</li>
     <li><span class="n">4</span><br>
+        Accept the folder&#8209;trust prompt. <b>Once only.</b></li>
+    <li><span class="n">5</span><br>
         Type <code>/z-drive-ops</code> and your question &mdash; or just ask in
         normal words.</li>
   </ul>
-  <p class="note">Nothing to attach and nothing to install. Code mode already
-     sees the whole <code>Z:</code> drive &mdash; job folders and department
-     folders alike &mdash; the moment the project folder is right, so there is no
-     separate step for admin, accounts, safety or sales.</p>
+  <p class="note"><b>The folder to pick in step 3 is</b>
+     <code>Z:\CLAUDE CODE\transpire-claude-code</code> &mdash; browse to it once
+     and Claude remembers it.<br>
+     Steps 1&ndash;4 are a one-off; after that you land straight on step 5 each
+     time. There is no skill to install and no folder to attach. Code mode
+     already sees the whole <code>Z:</code> drive &mdash; job folders and
+     department folders alike &mdash; so there is no separate step for admin,
+     accounts, safety or sales. Your own Claude account is fine; everyone shares
+     the same project folder.</p>
 </div>
 
 <h2 class="sec">The four things people ask for</h2>
