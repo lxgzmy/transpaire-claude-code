@@ -1,13 +1,11 @@
 {
   "permissions": {
     "ask": [
-      "mcp__docusign-demo"
+      "mcp__docusign-demo",
+      "Edit(C:/**)",
+      "Edit(C:\\**)"
     ],
     "deny": [
-      "Edit(C:/**)",
-      "Edit(C:\\**)",
-      "Write(C:/**)",
-      "Write(C:\\**)",
       "Read(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",
       "Read(Z:\\COMPANY GENERAL INFORMATION\\TRANSPIRE PASSWORDS & SET UP WORKFLOW\\**)",
       "Edit(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",

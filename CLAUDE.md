@@ -41,7 +41,12 @@ skills are scoped to that folder and must not leak into another role.
 - The server scripting engine is **PowerShell 7 (`pwsh`)** — target it, not
   Windows PowerShell 5.1.
 - **Never** write project data, generated files, caches, temp files, logs, or
-  working files to the **`C:`** drive.
+  working files to the **`C:`** drive. Enforced in `.claude/settings.json` as
+  `ask` on `Edit(C:/**)`, not `deny`: Claude Code itself is installed on `C:`, so
+  its own config (`C:\Users\<user>\.claude\`) has to stay editable. A deny rule
+  cannot be narrowed by an allow rule — deny always wins — so `ask` is what leaves
+  room for the exception. Every `C:` write therefore needs a human yes. Approve
+  Claude's own configuration; refuse project or client data.
 - On the server this repo is checked out at **`Z:\CLAUDE CODE\transpire-claude-code`**
   — the same name as the git repo, so the server workspace mirrors the repo 1:1.
 - **All runtime / client data** lives only in that checkout's **git-ignored**
