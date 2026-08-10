@@ -170,14 +170,19 @@
   <h1>How to use Claude with the Transpire Z: drive</h1>
   <p>Ask about the <code style="background:rgba(255,255,255,.18);color:#fff">Z:</code>
      drive in normal words and Claude will find files, tell you where to save things,
-     and spot duplicates. No commands to learn.</p>
+     and spot duplicates. Job folders and department folders alike. No commands to
+     learn.</p>
   <span class="who">Everyday guide &middot; Transpire staff</span>
 </div>
 
 <p class="custom"><b>Built for Transpire specifically.</b> Claude has been taught
-   Transpire&rsquo;s own filing structure &mdash; the regions (Gunnedah, SEQ, Sydney,
-   Tamworth, Cudgen), how job numbers are formed, every folder in the
-   <code>LOT MASTER FOLDER</code> template, and which folders are off limits. It is not
+   Transpire&rsquo;s own filing, not filing in general: the regions (Gunnedah, SEQ,
+   Sydney, Tamworth, Cudgen), how job numbers are formed, every folder in the
+   <code>LOT MASTER FOLDER</code> template, and every department folder from
+   <code>ACCOUNTS</code> through to <code>WORKPLACE HEALTH AND SAFETY</code>. It carries an
+   index of about seventy document types &mdash; variations, SWMS, Form 2s, credit
+   applications, toolbox talks, put and call contracts &mdash; each mapped to the folder
+   Transpire actually keeps it in. It also knows which folders are off limits. It is not
    guessing at where things go.</p>
 
 <div class="start">
@@ -186,12 +191,15 @@
     <li><span class="n">1</span><br>
         Open <b>Claude Desktop</b> and start a task <b>On your computer</b>.</li>
     <li><span class="n">2</span><br>
-        Attach the folder <b><code>Z:\PROJECTS</code></b> with the folder picker.</li>
+        Attach a folder with the picker: <b><code>Z:\</code></b> for anything,
+        or <b><code>Z:\PROJECTS</code></b> if it is only job work.</li>
     <li><span class="n">3</span><br>
         Type your question in normal words.</li>
   </ul>
   <p class="note">Steps 1 and 2 take about five seconds each time. It must be
-     <b>On your computer</b> &mdash; a cloud task cannot see <code>Z:</code>.</p>
+     <b>On your computer</b> &mdash; a cloud task cannot see <code>Z:</code>.
+     Claude can only see the folder you attach, so attach <code>Z:\</code> if your
+     question might touch admin, accounts, safety, sales or the blank forms.</p>
 </div>
 
 <h2 class="sec">The four things people ask for</h2>
@@ -205,13 +213,17 @@
       <li>&ldquo;where&rsquo;s the latest variation for 26049?&rdquo;</li>
       <li>&ldquo;find the contract for lot 5 pearson street&rdquo;</li>
       <li>&ldquo;has 26049 got a BASIX report yet?&rdquo;</li>
-      <li>&ldquo;show me everything in the COUNCIL folder for 26049&rdquo;</li>
+      <li>&ldquo;find the blank Form 2 for fencing&rdquo;</li>
+      <li>&ldquo;where&rsquo;s the current SWMS for our plumber?&rdquo;</li>
+      <li>&ldquo;which estate folder has the stage numbers for Monterea?&rdquo;</li>
     </ul>
   </div>
   <p class="back"><b>You get back:</b> the full folder path, ready to paste into the
      address bar in File Explorer.</p>
   <p class="tip"><b>Tip:</b> the job number works better than the address &mdash; street
-     names are spelled and punctuated differently across folders.</p>
+     names are spelled and punctuated differently across folders. If a job seems to be
+     missing, it has probably been handed over or cancelled and moved out of the live
+     region folder. Claude checks those folders too.</p>
 </div>
 
 <div class="card" style="--c:var(--green)">
@@ -222,11 +234,19 @@
     <ul>
       <li>&ldquo;where should I save a signed colour selection for 26049?&rdquo;</li>
       <li>&ldquo;I&rsquo;ve got a supplier quote for 26049 &mdash; which folder?&rdquo;</li>
-      <li>&ldquo;where do council insurance certificates go?&rdquo;</li>
+      <li>&ldquo;where does a new subbie&rsquo;s certificate of currency go?&rdquo;</li>
+      <li>&ldquo;where do I file a signed marketing agreement?&rdquo;</li>
+      <li>&ldquo;where does a blank handover form live?&rdquo;</li>
     </ul>
   </div>
   <p class="back"><b>You get back:</b> one recommended folder, plus how to name the file
      so it matches the ones already in there.</p>
+  <p class="tip"><b>Say whether it is blank or filled in.</b> This is the single best
+     thing you can do for a right answer. Blank templates live in
+     <code>PROCEDURES &amp; FORMS</code>; the completed version lives with its job or its
+     department. A variation, a contract, a colour scheme, a SWMS, a safety pack and a
+     QA form each have more than one correct home, so Claude will ask if your wording
+     does not make clear which one you have.</p>
   <p class="tip"><b>Tip:</b> if nothing fits properly it will say so rather than invent a
      new folder. Treat that as a real answer worth raising with someone.</p>
 </div>
@@ -240,10 +260,15 @@
       <li>&ldquo;any duplicate files in the Gunnedah jobs?&rdquo;</li>
       <li>&ldquo;is there more than one copy of the contract for 26049?&rdquo;</li>
       <li>&ldquo;anything filed in the wrong place in 26049?&rdquo;</li>
+      <li>&ldquo;how messy is the top of the SALES folder?&rdquo;</li>
     </ul>
   </div>
   <p class="back"><b>You get back:</b> a short grouped list of what it found and what it
      suggests doing. <b>Nothing is moved or deleted</b> &mdash; it only reports.</p>
+  <p class="tip"><b>It works one folder at a time</b> and tells you which one it checked,
+     then offers to do the next. Ask for a job, a region or a department folder rather
+     than the whole drive. A common thing it finds is files dumped at the top of a
+     folder instead of inside a subfolder, which is why nobody else can find them.</p>
 </div>
 
 <div class="card" style="--c:var(--purple)">
@@ -259,7 +284,10 @@
      where &mdash; then it waits for you to say yes.</p>
   <p class="tip">New jobs are always built by copying the region&rsquo;s
      <code>00000 - LOT MASTER FOLDER</code> template, never assembled by hand, so every
-     job ends up the same shape.</p>
+     job ends up the same shape. There are templates for a new sales package and a new
+     estate too, and Claude will point you at the right one to copy. It also checks the
+     job number is not already in use, including in the handed over and cancelled
+     folders.</p>
 </div>
 
 <div class="never">
@@ -283,7 +311,9 @@
     <thead><tr><th>Do this</th><th>Why it helps</th></tr></thead>
     <tbody>
       <tr><td>Give the job number</td><td>More reliable than an address</td></tr>
+      <tr><td>Say whether it is blank or filled in</td><td>The same document has different homes. This is the biggest one</td></tr>
       <tr><td>Say what kind of document it is</td><td>&ldquo;Signed variation&rdquo; beats &ldquo;this file&rdquo;</td></tr>
+      <tr><td>Name the department if it is not job work</td><td>&ldquo;A safety thing&rdquo; could be four folders</td></tr>
       <tr><td>Ask follow-ups in the same chat</td><td>It remembers the job you&rsquo;re on</td></tr>
       <tr><td>Read what it flags as uncertain</td><td>&ldquo;Most recent, but I can&rsquo;t tell if it&rsquo;s signed&rdquo; means go and check</td></tr>
     </tbody>
@@ -302,12 +332,25 @@
       <tr><td>&ldquo;I can&rsquo;t see the Z: drive&rdquo;</td>
           <td>The task is running in the cloud. Start it again <b>On your computer</b>.</td></tr>
       <tr><td>&ldquo;That folder isn&rsquo;t attached&rdquo;</td>
-          <td>Attach <code>Z:\PROJECTS</code> with the folder picker.</td></tr>
+          <td>Attach the folder with the picker. Use <code>Z:\</code> unless you are certain
+              the question is only about job records.</td></tr>
+      <tr><td>It says it cannot see a department folder</td>
+          <td>You attached <code>Z:\PROJECTS</code>, which is job records only. Start again
+              and attach <code>Z:\</code>.</td></tr>
+      <tr><td>It says you don&rsquo;t have access to a folder</td>
+          <td>That is the real answer, not a fault. <code>Z:\OPERATIONS</code> is one nobody
+              can currently open. Ask IT if you need it.</td></tr>
       <tr><td>Can&rsquo;t find a job you know exists</td>
-          <td>Finished jobs move to <code>COMPLETED CONTRACTS</code>, cancelled ones to
-              <code>CANCELLED CONTRACTS</code>. Ask it to check those.</td></tr>
-      <tr><td>It won&rsquo;t run a big whole-drive scan</td>
-          <td>Desktop can&rsquo;t do that. Ask IT to run it in Claude Code on the server.</td></tr>
+          <td>Finished and cancelled jobs move out of the live region folder. Sydney uses
+              <code>HANDED OVER</code>, SEQ uses <code>ARCHIVE-HANDED OVER</code>, and every
+              region has a <code>CANCELLED</code>. Older jobs sit in
+              <code>COMPLETED CONTRACTS</code> or <code>CANCELLED CONTRACTS</code>. Most job
+              folders are in one of these and Claude checks them all, so give it the job
+              number.</td></tr>
+      <tr><td>It won&rsquo;t scan the whole drive</td>
+          <td>Nothing can: the drive is about 1,700&nbsp;GB. Claude checks one job, region or
+              department folder at a time and tells you which one. To compare across the whole
+              drive, ask IT to schedule it in Claude Code on the server.</td></tr>
     </tbody>
   </table>
 </div>

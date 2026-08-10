@@ -91,4 +91,5 @@ DocuSign issuance to a client is a permanent HITL gate regardless.
 - [`../scripts/osc_entry.py`](../scripts/osc_entry.py) — OSC entry **skeleton**;
   dry-run only until the technical session maps the control IDs
 - `transpire-writing` skill — any drafted email
-- `windows-fileops` skill — `Z:` lookups (estates info, Estimate folder)
+- `z-drive-ops` skill — `Z:` lookups (estates info, Estimate folder); it carries
+  the drive map and calls down to `windows-fileops` for the PowerShell technique

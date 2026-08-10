@@ -21,7 +21,7 @@ paste into Explorer.
 | How to start | `/z-drive-ops <what you want>` | Just ask in plain English |
 | Sees `Z:` via | The mapped drive in that login session | A folder you attach |
 | Big scans, duplicate hunts by content | Yes | No — targeted searches only |
-| Best for | Whole-drive sweeps, new job folder trees | Everyday "where is / where do I put this" |
+| Best for | Big scoped sweeps and new job folder trees | Everyday "where is / where do I put this" |
 
 Both use the same skill, so the advice is consistent either way.
 
@@ -80,7 +80,13 @@ to another PC — but `Z:` still has to be reachable from wherever you are.
 Start a task **on your computer**, then attach a folder with the folder picker:
 
 - **`Z:\PROJECTS`** for job work — the recommended default.
-- **`Z:\`** only if you also need the department folders.
+- **`Z:\`** if you need the department folders: accounts, admin, procedures and
+  forms, safety, sales, drafting, estimating, estates.
+
+Attaching `Z:\PROJECTS` limits Claude to job records. It cannot see the department
+folders at all, and it will say so rather than guess. If your question is "where
+does this blank form go?" rather than "where's job 26049?", attach `Z:\` from the
+start.
 
 Worth knowing:
 - Only **you** can attach a folder. Claude can't reach outside what you attach
@@ -127,15 +133,20 @@ actually has files in it.
 
 - **Cloud sessions can't see `Z:`.** On your computer only.
 - **No scripts against `Z:` from Desktop.** Claude's code sandbox has no
-  network-drive access, so comparing thousands of files by content, or sweeping
-  the whole drive, belongs in Claude Code on the server. Everyday searching is
-  unaffected.
+  network-drive access, so comparing thousands of files by content belongs in
+  Claude Code on the server. Everyday searching is unaffected.
+- **There are no whole-drive sweeps, on either surface.** The share is about
+  1,700 GB. Scans are scoped to one branch: a job, a region, or a department
+  folder. Claude will say which branch it checked. Comparing across the whole drive
+  is a scheduled job for IT, not a chat answer.
 - **It sees exactly what you see.** Permissions are unchanged. If you can't open
   a folder in Explorer, neither can Claude — and it won't try to work around it.
-- **The drive map is a snapshot** (4 Aug 2026, folder names only) with
+  `Z:\OPERATIONS` is one of these: nobody running this can read it.
+- **The drive map is a snapshot** (10 Aug 2026, folder names to depth 3) with
   [open questions](../.claude/skills/z-drive-ops/references/z-drive-map.md#open-questions)
-  still to settle: how stale is stale, which of the two `ESTATES INFORMATION`
-  folders is current, and what to do about four different archive conventions.
+  still to settle: how stale is stale, what's in `OPERATIONS`, whether the
+  in-region `HANDED OVER` folders should merge into `COMPLETED CONTRACTS`, and
+  what to do about ten different archive conventions.
 - **"Latest" means most recently changed** — a good clue, not proof of which
   version is authoritative. For anything contractual or priced, a person still
   confirms.
@@ -145,11 +156,16 @@ actually has files in it.
 > **Getting `Z:` help from Claude**
 >
 > 1. Open Claude Desktop, start a task **On your computer**.
-> 2. Attach the folder `Z:\PROJECTS`.
+> 2. Attach `Z:\` (or `Z:\PROJECTS` if it's only job work).
 > 3. Ask in normal words. For example:
 >    - "where's the latest contract for job 26049?"
->    - "where should I save this variation?"
+>    - "where should I save this signed variation?"
+>    - "where does a new subbie's certificate of currency go?"
 >    - "any duplicate files in the Gunnedah jobs?"
+>
+> Say whether a document is **blank or filled in** — blank templates and completed
+> ones live in different folders, and that's the most common way to get a wrong
+> answer.
 >
 > It will never move, rename or delete anything without showing you exactly what
 > it plans to do and waiting for you to say yes. If it can't find something, give
@@ -170,6 +186,12 @@ then re-render with headless Chrome:
 
 Keep the Markdown copy in `2.z_drive` in step with the HTML — the Markdown is the
 readable/editable version, the HTML exists only to produce the PDF.
+
+A **second copy** of the rendered PDF is committed at
+[`Transpire_z_drive_claude_guide.pdf`](Transpire_z_drive_claude_guide.pdf) in this
+folder, so the repo carries the staff guide as shipped. Re-render that one too
+whenever the HTML changes: point `--print-to-pdf` at its path as well. Otherwise
+the repo copy drifts from what staff are reading.
 
 ### When the drive changes
 

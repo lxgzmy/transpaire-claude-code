@@ -9,7 +9,12 @@ copied to "<JobNumber> - <JobTitle>" in the same region folder.
 
 DRY-RUN BY DEFAULT: without -Commit it only reports what it would create.
 HITL: -Commit additionally requires interactive confirmation. Refuses to run
-if the target already exists, and never overwrites anything.
+if the job number is already in use, and never overwrites anything.
+
+The duplicate check covers the live region folder, that region's lifecycle
+subfolders (HANDED OVER / ARCHIVE-HANDED OVER / CANCELLED) and the top-level
+COMPLETED / CANCELLED CONTRACTS, and matches on the leading 5 digits because
+real folder names vary around the separator ("26003- LOT", "16001 -LOT").
 
 Naming observed on Z: (confirm against the region's existing jobs):
   <JobNumber> - LOT <lot> <STREET>, <SUBURB> <STATE>
@@ -32,18 +37,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Z: is mapped per RDP session - verify before anything else (org guardrail)
-if (-not (Test-Path $ProjectsRoot)) {
+if (-not (Test-Path -LiteralPath $ProjectsRoot)) {
     throw "Projects root '$ProjectsRoot' not reachable - is Z: mapped in this session?"
 }
 
 $regionPath = Join-Path $ProjectsRoot $Region
-if (-not (Test-Path $regionPath)) {
-    $known = (Get-ChildItem $ProjectsRoot -Directory).Name -join ', '
+if (-not (Test-Path -LiteralPath $regionPath)) {
+    $known = (Get-ChildItem -LiteralPath $ProjectsRoot -Directory).Name -join ', '
     throw "Region '$Region' not found under $ProjectsRoot. Known: $known"
 }
 
 $master = Join-Path $regionPath $MasterName
-if (-not (Test-Path $master)) {
+if (-not (Test-Path -LiteralPath $master)) {
     throw "Master template '$MasterName' not found in $regionPath"
 }
 
@@ -54,15 +59,37 @@ if ($JobNumber -notmatch '^\d{5}$') {
 $targetName = "$JobNumber - $JobTitle"
 $target = Join-Path $regionPath $targetName
 
-# Duplicate protection: same number OR same lot+suburb-ish title
-$clash = Get-ChildItem $regionPath -Directory | Where-Object {
-    $_.Name -like "$JobNumber -*" -or $_.Name -eq $targetName
-}
-if ($clash) {
-    throw "Refusing: existing folder(s) clash -> $($clash.Name -join '; ')"
+# Duplicate protection. The job number must not already be in use anywhere the
+# job could have moved to: the live region folder, that region's own lifecycle
+# subfolders (HANDED OVER / ARCHIVE-HANDED OVER / CANCELLED - about 730 job
+# folders sit in these), or the top-level COMPLETED / CANCELLED CONTRACTS.
+#
+# Folder names vary around the separator on this drive - "26003- LOT",
+# "16001 -LOT", "26049 - LOT" all exist - so match on the leading 5 digits and
+# never on "<number> - ", which silently misses the variants.
+$searchRoots = [System.Collections.Generic.List[string]]::new()
+$searchRoots.Add($regionPath)
+
+# The region's non-job subfolders are its lifecycle/archive folders.
+Get-ChildItem -LiteralPath $regionPath -Directory -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notmatch '^\d{5}' } |
+    ForEach-Object { $searchRoots.Add($_.FullName) }
+
+foreach ($lifecycle in 'COMPLETED CONTRACTS', 'CANCELLED CONTRACTS') {
+    $lifecyclePath = Join-Path $ProjectsRoot $lifecycle
+    if (Test-Path -LiteralPath $lifecyclePath) { $searchRoots.Add($lifecyclePath) }
 }
 
-$items = Get-ChildItem $master -Recurse
+$clash = foreach ($root in $searchRoots) {
+    Get-ChildItem -LiteralPath $root -Directory -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match "^$JobNumber(?!\d)" }
+}
+if ($clash) {
+    $where = ($clash | ForEach-Object { $_.FullName }) -join "`n  "
+    throw "Refusing: job number $JobNumber already exists ->`n  $where"
+}
+
+$items = Get-ChildItem -LiteralPath $master -Recurse
 $dirs  = ($items | Where-Object PSIsContainer).Count
 $files = ($items | Where-Object { -not $_.PSIsContainer }).Count
 Write-Host "Template : $master"
@@ -84,7 +111,7 @@ if ($answer -ne $JobNumber) {
     exit 1
 }
 
-Copy-Item -Path $master -Destination $target -Recurse
-$made = (Get-ChildItem $target -Recurse | Measure-Object).Count
+Copy-Item -LiteralPath $master -Destination $target -Recurse
+$made = (Get-ChildItem -LiteralPath $target -Recurse | Measure-Object).Count
 Write-Host "Created $target ($made items copied)." -ForegroundColor Green
 Write-Host 'Verify in Explorer, then record the folder in the job record.'

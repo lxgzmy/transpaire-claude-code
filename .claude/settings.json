@@ -5,7 +5,25 @@
     ],
     "deny": [
       "Edit(C:/**)",
-      "Edit(C:\\**)"
+      "Edit(C:\\**)",
+      "Write(C:/**)",
+      "Write(C:\\**)",
+      "Read(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",
+      "Read(Z:\\COMPANY GENERAL INFORMATION\\TRANSPIRE PASSWORDS & SET UP WORKFLOW\\**)",
+      "Edit(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",
+      "Edit(Z:\\COMPANY GENERAL INFORMATION\\TRANSPIRE PASSWORDS & SET UP WORKFLOW\\**)",
+      "Read(Z:/**/*.pfx)",
+      "Read(Z:\\**\\*.pfx)",
+      "Read(Z:/**/*.p12)",
+      "Read(Z:\\**\\*.p12)",
+      "Read(Z:/**/*.kdbx)",
+      "Read(Z:\\**\\*.kdbx)",
+      "Edit(Z:/**/*.pfx)",
+      "Edit(Z:\\**\\*.pfx)",
+      "Edit(Z:/**/*.p12)",
+      "Edit(Z:\\**\\*.p12)",
+      "Edit(Z:/**/*.kdbx)",
+      "Edit(Z:\\**\\*.kdbx)"
     ]
   },
   "statusLine": {

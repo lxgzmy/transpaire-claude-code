@@ -8,7 +8,7 @@ Python scripts for the new-job workflow (`../workflows/new-job.md`).
 | `extract_eoi.py` | **Working, tested** | Request-email text → job-data JSON draft sheet per the `JD-*` rules, plus human-attention flags. Handles labelled emails and free-form forwarded chains (subject-line lot/suburb, e-sign client, `$` price, "site a X with a Y façade"). Read-only; touches nothing. |
 | `test_extract_eoi.py` | **Passing** | Regression test against `../fixtures/eoi-sample-01.md` / `-expected.md`. Run `python test_extract_eoi.py` after any rule change. |
 | `osc_entry.py` | **Skeleton — not runnable live** | pywinauto entry script mirroring manual steps 4–10. Dry-run by default; live mode is blocked until control IDs are captured. |
-| `new_job_folders.ps1` | **Working, dry-run tested on Z:** | Copies the region's `00000 - LOT MASTER FOLDER` to `<jobno> - <title>` under `Z:\PROJECTS\<region>\` (JD-10). Dry-run by default; `-Commit` asks the operator to re-type the job number; refuses duplicates; never overwrites. PowerShell 7. |
+| `new_job_folders.ps1` | **Working, dry-run tested on Z:** | Copies the region's `00000 - LOT MASTER FOLDER` to `<jobno> - <title>` under `Z:\PROJECTS\<region>\` (JD-10). Dry-run by default; `-Commit` asks the operator to re-type the job number; never overwrites. PowerShell 7. Duplicate check matches on the leading 5 digits (real folder names vary around the dash: `26003- LOT`, `16001 -LOT`) and covers the live region, that region's `HANDED OVER` / `ARCHIVE-HANDED OVER` / `CANCELLED` subfolders, and the top-level `COMPLETED` / `CANCELLED CONTRACTS`. |
 
 ## Pipeline
 
