@@ -14,7 +14,13 @@ builder). Claude assists by reading requests, applying rules, and producing
 1. **New Job Creation** (built, draft-only). EOI intake → job setup. Rules
    transcribed from the OSC new-job manual (`rules/job-details.md`); workflow
    spec `workflows/new-job.md`; intake skill `/ca-new-job`.
-2. **Variation Stage 1** (not started). Blocked on transcribing the variation
+2. **Contract documents** (built, draft-only). Build contract request → filled
+   templates. Rules from the manual's "RAISING CONTRACTS" section plus the blank
+   templates diffed against completed jobs (`rules/contract-docs.md`); workflow
+   spec `workflows/new-contract.md`; skill `/new-contract-template`. Produces the
+   inclusions and preliminary agreement; the build contract PDF is not fillable,
+   so that stays a human keying job (CD-5.1).
+3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 
 General `Z:` drive help (finding files, save-location advice, duplicate reports)
@@ -42,11 +48,15 @@ the production-promotion steps live in [`docs/mcp-servers.md`](../../docs/mcp-se
 - `rules/variation-rules.md` — variation type/numbering, workflow & document
   templates, file naming, activities, alert recipients.
 - `rules/job-details.md` — new-job address / CAPS / certifier / council / marketer rules.
+- `rules/contract-docs.md` — contract template selection, inclusions and
+  preliminary agreement fields, build contract data, aux/dual-key handling,
+  output naming (`CD-*`).
 - `reference/` — pointers to the source manuals (kept on `Z:`, never in the repo).
 
-> `rules/job-details.md` is **transcribed** (pending business review);
-> `rules/variation-rules.md` is still a **stub**. Do not author skills against
-> guessed rules.
+> `rules/job-details.md` and `rules/contract-docs.md` are **transcribed**
+> (pending business review); `rules/variation-rules.md` is still a **stub**. Do
+> not author skills against guessed rules. `contract-docs.md` carries an open-
+> questions list where the manual and the live drive disagree — worth settling.
 
 ## Runtime workspace (server)
 

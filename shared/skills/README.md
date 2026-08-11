@@ -49,3 +49,13 @@ Role prefixes (`ca-`) keep the two apart at a glance.
   Not role-scoped, on purpose — the reasoning, and the retirement of the
   Contract-Admin-only `ca-zdrive`, is recorded once in
   [job-roles/contract-admin/skills/README.md](../../job-roles/contract-admin/skills/README.md).
+
+## Role-scoped, listed here only because the name has no role prefix
+
+- **new-contract-template** (Contract Admin, in `.claude/skills/`) — build contract
+  request → filled contract templates. Despite the unprefixed name this is **not**
+  a cross-role skill: it is Contract Admin's, and it is documented in
+  [job-roles/contract-admin/skills/README.md](../../job-roles/contract-admin/skills/README.md)
+  with the rest of the role. Noted here so nobody reads the missing `ca-` prefix as
+  meaning org-level. Carries its own template map in
+  `references/contract-template-map.md`.

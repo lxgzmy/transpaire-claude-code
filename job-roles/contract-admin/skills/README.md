@@ -18,6 +18,23 @@ Built:
   to OSC, never sends email. Supersedes the planned `ca-email-intake` for the
   new-job case (variation-request intake still to come).
 
+- **`new-contract-template`** (registered in
+  `.claude/skills/new-contract-template/`) — invoke as
+  `/new-contract-template <email-file-or-subject>`. Orchestrates
+  [`../workflows/new-contract.md`](../workflows/new-contract.md): reads the build
+  contract request chain and its attachments, picks the correct **existing** blank
+  template off `Z:\PROCEDURES & FORMS\CONTRACTS\`, fills it via
+  `../scripts/fill_inclusions.py`, diffs filled against blank, and presents a
+  field table for approval before anything reaches a job folder. Produces the
+  inclusions and preliminary agreement as completed `.docx`; the build contract is
+  a **data sheet only**, because the current NSW/SEQ contracts are flat PDFs with
+  no form fields (CD-5.1). Never invents contract wording, never signs, never
+  sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
+
+  **Not role-prefixed**, unlike `ca-new-job`: the name was requested as
+  `/new-contract-template`. Renaming it `ca-new-contract-template` would match the
+  convention below — worth settling before anyone learns the current name.
+
 Planned:
 
 - **`ca-email-intake`** — variation-request flavour of intake (EOI/new-job is

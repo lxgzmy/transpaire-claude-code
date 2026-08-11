@@ -100,9 +100,11 @@ skills are scoped to that folder and must not leak into another role.
   skill folder self-contained (no `../` references out of it) so it stays
   zip-portable.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
-  there. **Propose any new skill before creating it.** First Contract-Admin skill:
-  `ca-new-job` (EOI intake, draft-only). Deeper OSC/DataBuild write-automation
-  remains blocked on the technical session with Adam.
+  there. **Propose any new skill before creating it.** Contract-Admin skills:
+  `ca-new-job` (EOI intake, draft-only) and `new-contract-template` (contract
+  request → filled contract templates, draft-only — unprefixed because that name
+  was requested; see the role's `skills/README.md`). Deeper OSC/DataBuild
+  write-automation remains blocked on the technical session with Adam.
 
 ## Do not
 
