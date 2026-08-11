@@ -31,6 +31,16 @@ Built:
   no form fields (CD-5.1). Never invents contract wording, never signs, never
   sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
 
+  Staff guide (HTML source + formatted PDF):
+  [`docs/new_contract_claude_guide.html`](../../../docs/new_contract_claude_guide.html)
+  → `docs/Transpire_new_contract_claude_guide.pdf`. Markdown source and a PDF copy
+  also sit in `Z:\CLAUDE CODE\cowork-projects\3.new_contract\`, mirroring the
+  `z-drive-ops` guide. Rebuild the PDF from the HTML with headless Chrome:
+
+  ```
+  chrome --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="<out.pdf>" "<file:///...html>"
+  ```
+
   **Not role-prefixed**, unlike `ca-new-job`: the name was requested as
   `/new-contract-template`. Renaming it `ca-new-contract-template` would match the
   convention below — worth settling before anyone learns the current name.

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<title>Transpire &mdash; How to raise a build contract with Claude</title>
+<style>
+  @page { size: A4; margin: 14mm 15mm 16mm 15mm; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Calibri", system-ui, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.5;
+    color: #1f2933;
+  }
+
+  /* ---------- palette ---------- */
+  :root {
+    --navy:   #1b3a5c;
+    --blue:   #2563a8;
+    --green:  #1c7a4f;
+    --amber:  #b06f10;
+    --purple: #6b3fa0;
+    --red:    #a32b2b;
+    --ink:    #1f2933;
+    --muted:  #5c6b7a;
+    --rule:   #dde3ea;
+  }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    background: linear-gradient(100deg, #1b3a5c 0%, #2563a8 62%, #2f7fbf 100%);
+    color: #fff;
+    padding: 13px 16px 14px;
+    border-radius: 7px;
+  }
+  .mast h1 { margin: 0; font-size: 20pt; font-weight: 650; letter-spacing: -0.2px; }
+  .mast p  { margin: 5px 0 0; font-size: 10pt; color: #dce9f6; max-width: 155mm; }
+  .mast .who {
+    display: inline-block; margin-top: 9px; padding: 2.5px 9px;
+    background: rgba(255,255,255,.17); border: 1px solid rgba(255,255,255,.32);
+    border-radius: 11px; font-size: 8.2pt; letter-spacing: .4px; text-transform: uppercase;
+  }
+  .mast .eyebrow {
+    margin: 0 0 3px; font-size: 8.6pt; font-weight: 700; letter-spacing: 2.4px;
+    text-transform: uppercase; color: #a8cdec;
+  }
+
+  .custom {
+    margin: 11px 0 0; padding: 9px 12px; font-size: 9.4pt;
+    background: #f3f0fa; border: 1px solid #d8cfee;
+    border-left: 4px solid var(--purple); border-radius: 5px; color: #3c2f52;
+  }
+  .custom b { color: var(--purple); }
+
+  /* ---------- start-here strip ---------- */
+  .start {
+    margin-top: 12px; padding: 11px 14px 12px;
+    background: #eef5fc; border: 1px solid #c9dcf0;
+    border-left: 4px solid var(--blue); border-radius: 5px;
+  }
+  .start h2 { margin: 0 0 7px; font-size: 11.6pt; color: var(--navy); }
+  .steps { display: flex; gap: 7px; margin: 0; padding: 0; list-style: none; }
+  .steps li {
+    flex: 1 1 0; min-width: 0; background: #fff; border: 1px solid #d3e2f2;
+    border-radius: 5px; padding: 8px 8px 9px; font-size: 8.9pt; line-height: 1.38;
+  }
+  .steps code { font-size: 8.2pt; padding: 1px 3px; }
+  .start .note code { font-size: 8.8pt; }
+  .steps .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 17px; height: 17px; border-radius: 50%;
+    background: var(--blue); color: #fff; font-size: 8.6pt; font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .start .note { margin: 8px 0 0; font-size: 8.8pt; color: var(--muted); }
+
+  /* ---------- task cards ---------- */
+  h2.sec { font-size: 12.2pt; color: var(--navy); margin: 16px 0 8px; }
+
+  .card {
+    border: 1px solid var(--rule); border-radius: 6px;
+    padding: 10px 12px 11px; margin-bottom: 9px;
+    border-left: 4px solid var(--c, var(--blue));
+    background: #fff;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .card .hd { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .card .num {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 19px; height: 19px; border-radius: 5px;
+    background: var(--c); color: #fff; font-weight: 700; font-size: 9.4pt;
+  }
+  .card h3 { margin: 0; font-size: 11.2pt; color: var(--c); font-weight: 640; }
+  .card .when { margin: 0 0 7px; font-size: 9.2pt; color: var(--muted); font-style: italic; }
+
+  .say {
+    background: #f7f9fb; border: 1px solid #e6ecf2; border-radius: 4px;
+    padding: 7px 10px 8px; margin: 0 0 7px;
+  }
+  .say .lbl {
+    font-size: 7.9pt; font-weight: 700; letter-spacing: .55px;
+    text-transform: uppercase; color: var(--c); display: block; margin-bottom: 4px;
+  }
+  .say ul { margin: 0; padding-left: 15px; }
+  .say li { margin: 2px 0; font-size: 9.5pt; color: #24303d; }
+  .say li::marker { color: #9fb2c4; }
+
+  .back { margin: 0; font-size: 9.5pt; }
+  .back b { color: var(--c); }
+
+  .tip {
+    margin: 7px 0 0; padding: 6px 9px; font-size: 9pt;
+    background: #fffaf0; border: 1px solid #f0e0bd; border-radius: 4px; color: #6b5220;
+  }
+  .tip b { color: var(--amber); }
+
+  /* ---------- never-do panel ---------- */
+  .never {
+    border: 1px solid #eccfcf; background: #fdf6f6;
+    border-left: 4px solid var(--red); border-radius: 6px;
+    padding: 10px 13px 11px; margin-bottom: 10px;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .never h2 { margin: 0 0 7px; font-size: 11.6pt; color: var(--red); }
+  .never ul { margin: 0; padding-left: 16px; }
+  .never li { margin: 3.5px 0; font-size: 9.6pt; }
+  .never b { color: var(--red); }
+  .never .close { margin: 8px 0 0; font-size: 9.2pt; font-weight: 600; color: #7a2020; }
+
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 0 0 4px; font-size: 9.4pt; }
+  caption {
+    caption-side: top; text-align: left; font-size: 11.2pt; font-weight: 640;
+    color: var(--navy); padding-bottom: 6px;
+  }
+  th {
+    text-align: left; background: #eef2f7; color: var(--navy);
+    font-size: 8.5pt; letter-spacing: .35px; text-transform: uppercase;
+    padding: 6px 9px; border-bottom: 1.5px solid #ccd7e4;
+  }
+  td { padding: 6px 9px; border-bottom: 1px solid #e8edf3; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  td:first-child { font-weight: 600; color: #24303d; width: 38%; }
+  .tblwrap { break-inside: avoid; page-break-inside: avoid; margin-bottom: 11px; }
+
+  .latest {
+    margin: 0 0 12px; padding: 8px 11px; font-size: 9.5pt;
+    background: #f2f7ee; border: 1px solid #cfe0c2;
+    border-left: 4px solid var(--green); border-radius: 4px;
+  }
+  .latest b { color: var(--green); }
+
+  code {
+    font-family: "Consolas", "Courier New", monospace; font-size: 9pt;
+    background: #eef2f7; padding: 1px 4px; border-radius: 3px; color: #1b3a5c;
+  }
+
+  footer {
+    margin-top: 13px; padding-top: 8px; border-top: 1px solid var(--rule);
+    font-size: 8.5pt; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="mast">
+  <p class="eyebrow">Transpire</p>
+  <h1>How to raise a build contract with Claude</h1>
+  <p>Give Claude the build contract request email and it fills in the contract
+     documents for you &mdash; using Transpire&rsquo;s own templates off the
+     <code style="background:rgba(255,255,255,.18);color:#fff">Z:</code> drive, not
+     something it made up. You check it before anything is saved or sent.</p>
+  <span class="who">Everyday guide &middot; Contract Administration</span>
+</div>
+
+<p class="custom"><b>It uses the real template, every time.</b> Claude opens the same
+   blank document you would open from
+   <code>Z:\PROCEDURES &amp; FORMS\CONTRACTS</code> and types into it. The wording,
+   the styles, the inclusions list and the page numbering are left exactly as they
+   are &mdash; only the fields change. It has been taught which template belongs to
+   which region (Tamworth and Gunnedah jobs share one; Sydney and SEQ have their
+   own), which folders are superseded, and the nine fields on page 1 plus the client
+   name and address blocks on pages 10&ndash;13, from the
+   <b>Raising Contracts</b> section of the System and Procedures Manual.
+   <b>It will never invent a contract format.</b> If it can&rsquo;t find the right
+   template it stops and tells you.</p>
+
+<div class="start">
+  <h2>Start here &mdash; five steps</h2>
+  <ul class="steps">
+    <li><span class="n">1</span><br>
+        Open <b>Claude Desktop</b> and sign in with your own account.</li>
+    <li><span class="n">2</span><br>
+        Switch to <b>Code</b> mode.</li>
+    <li><span class="n">3</span><br>
+        Pick the project folder
+        <b><code>transpire-claude-code</code></b>.</li>
+    <li><span class="n">4</span><br>
+        Accept the folder&#8209;trust prompt. <b>Once only.</b></li>
+    <li><span class="n">5</span><br>
+        Type <code>/new-contract-template</code> and point it at the request
+        email.</li>
+  </ul>
+  <p class="note"><b>The folder to pick in step 3 is</b>
+     <code>Z:\CLAUDE CODE\transpire-claude-code</code> &mdash; browse to it once and
+     Claude remembers it.<br>
+     Steps 1&ndash;4 are a one-off; after that you land straight on step 5 each
+     time. For the email, either save it out of Outlook as a <code>.msg</code> file
+     and give Claude the path, or just paste the subject line &mdash; it can find
+     the message itself.</p>
+</div>
+
+<h2 class="sec">What happens when you run it</h2>
+
+<div class="card" style="--c:var(--blue)">
+  <div class="hd"><span class="num">1</span><h3>It reads the whole email chain, and the attachments</h3></div>
+  <p class="when">Including the EOI, even when it is a photo of a signed form.</p>
+  <div class="say">
+    <span class="lbl">What it pulls out</span>
+    <ul>
+      <li>The buyer&rsquo;s name, from the EOI &mdash; not from an email signature</li>
+      <li>Design, fa&ccedil;ade and contract price</li>
+      <li>Whether the EOI is marked dual key</li>
+      <li>Anything the sales manager asked for &mdash; a review first, no prelim
+          agreement, a changed price</li>
+    </ul>
+  </div>
+  <p class="back"><b>Why this matters:</b> these emails get forwarded two or three
+     times. The instruction to you is in the newest part, the job facts are in the
+     oldest part from the marketer. It reads all of it.</p>
+  <p class="tip"><b>Requests to you are repeated back, not acted on.</b> If the email
+     says something should be reviewed or sent, Claude tells you it says that and
+     leaves the decision with you.</p>
+</div>
+
+<div class="card" style="--c:var(--green)">
+  <div class="hd"><span class="num">2</span><h3>It picks the template and tells you which one</h3></div>
+  <p class="when">And why it chose that one, before it fills anything in.</p>
+  <p class="back"><b>You get back:</b> the full path of the blank template it is
+     about to use. Check it &mdash; this is the most useful thing on the screen.</p>
+  <p class="tip"><b>It knows what is out of date.</b> Anything in an
+     <code>SS</code> folder is superseded, and there are a lot of them &mdash; a
+     dozen old NSW contract files that look perfectly current. It also skips files
+     marked &ldquo;don&rsquo;t use&rdquo; and any template named for a different
+     marketer or estate. If two templates could both be right, it asks rather than
+     guessing.</p>
+</div>
+
+<div class="card" style="--c:var(--purple)">
+  <div class="hd"><span class="num">3</span><h3>It fills in the inclusions</h3></div>
+  <p class="when">Page 1, and the client name and address blocks on pages 10 to 13.</p>
+  <div class="say">
+    <span class="lbl">The fields it completes</span>
+    <ul>
+      <li>Lot number, street, suburb, estate and price</li>
+      <li>House type, house size, fa&ccedil;ade and garage side</li>
+      <li>Client name in every place it appears, and the full site address</li>
+      <li>Builders Representative</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> a finished <code>.docx</code>, plus a list of
+     exactly what changed against the blank template &mdash; so you can see it
+     touched the fields and nothing else. A preliminary agreement too, if the job
+     needs one.</p>
+  <p class="tip"><b>Signatures, dates and initials are left empty.</b> Always. Those
+     are yours and Michael&rsquo;s to sign.</p>
+</div>
+
+<div class="card" style="--c:var(--amber)">
+  <div class="hd"><span class="num">4</span><h3>It tells you what it could not fill</h3></div>
+  <p class="when">This is the part worth reading properly.</p>
+  <div class="say">
+    <span class="lbl">Typical flags</span>
+    <ul>
+      <li>&ldquo;Garage side isn&rsquo;t in the email or the plans &mdash; it needs
+          confirming&rdquo;</li>
+      <li>&ldquo;The plans haven&rsquo;t arrived, so house size is blank&rdquo;</li>
+      <li>&ldquo;This job already has a contract from June &mdash; is this an
+          amendment?&rdquo;</li>
+      <li>&ldquo;The ID attachments don&rsquo;t match the name on the EOI&rdquo;</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> a short review sheet listing every field, where
+     each value came from, and every flag. Nothing is saved into the job folder until
+     you say yes.</p>
+</div>
+
+<div class="never">
+  <h2>What it will never do</h2>
+  <ul>
+    <li><b>Never</b> invent contract wording, or a contract format. It fills the
+        company&rsquo;s template or it stops.</li>
+    <li><b>Never</b> guess a number that goes in a contract. Price, house size,
+        garage side and the prelim fee are either sourced or flagged for you.</li>
+    <li><b>Never</b> sign, initial or date anything, and never send an email or
+        issue anything to DocuSign.</li>
+    <li><b>Never</b> save into a job folder without showing you first, and
+        <b>never</b> overwrite a file that is already there.</li>
+  </ul>
+  <p class="close">Saying &ldquo;yes&rdquo; to one thing does not approve the next
+     one. It asks every time.</p>
+</div>
+
+<div class="tblwrap">
+  <table>
+    <caption>What it produces, and what it doesn&rsquo;t</caption>
+    <thead><tr><th>Document</th><th>What you get</th></tr></thead>
+    <tbody>
+      <tr><td>Inclusions</td>
+          <td><b>Filled in, ready to check.</b> The real Word template with all the
+              fields completed.</td></tr>
+      <tr><td>Preliminary agreement</td>
+          <td><b>Filled in</b>, when the job needs one. The fee is never carried over
+              from the template &mdash; it asks, because the template figure has been
+              wrong in practice.</td></tr>
+      <tr><td>Build contract</td>
+          <td><b>A list of values, not the document.</b> The NSW and QLD contracts are
+              locked PDFs with no fillable boxes, so nothing can type into them. Claude
+              gives you every value you need &mdash; cover page, price, building period,
+              progress payments &mdash; and you key it in.</td></tr>
+      <tr><td>Plans, general conditions, colour options</td>
+          <td>Not produced. Listed as a checklist so nothing is forgotten from the
+              pack.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="latest"><b>Everything it hands you is a draft.</b> Read it against the
+   email and the plans before it goes anywhere. It is quick and it is careful, but it
+   has not seen the site, spoken to the client, or opened DataBuild.</p>
+
+<div class="tblwrap">
+  <table>
+    <caption>Getting a good draft</caption>
+    <thead><tr><th>Do this</th><th>Why it helps</th></tr></thead>
+    <tbody>
+      <tr><td>Include the EOI and the ID</td><td>The buyer&rsquo;s name comes off the EOI. Without it, the name is a guess and it will say so</td></tr>
+      <tr><td>Wait for the plans if you can</td><td>House size and garage side come off the plans and nowhere else</td></tr>
+      <tr><td>Say if it is a dual key or auxiliary dwelling</td><td>The standard inclusions do not cover the second dwelling. It flags this, but confirming saves a round trip</td></tr>
+      <tr><td>Say if this is an amendment</td><td>It checks the job folder, but if you already know, say so up front</td></tr>
+      <tr><td>Give the job number if you have it</td><td>Lot numbers repeat across estates; job numbers do not</td></tr>
+      <tr><td>Read the flags before the document</td><td>The flags tell you whether the document is usable yet</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="tblwrap">
+  <table>
+    <caption>If something goes wrong</caption>
+    <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>&ldquo;I can&rsquo;t see the Z: drive&rdquo;</td>
+          <td>The task is running in the cloud. Start again in <b>Code</b> mode on your
+              computer.</td></tr>
+      <tr><td>It says the template has changed</td>
+          <td>Take this seriously. Somebody has revised the blank template, so Claude
+              stopped rather than produce a half-filled contract. Tell the team &mdash;
+              it needs a small update before it will run again.</td></tr>
+      <tr><td>It left garage side blank</td>
+          <td>Working as intended. It is read off the site plan drawing and Claude will
+              not guess it. Fill it in yourself, or ask Michael.</td></tr>
+      <tr><td>It won&rsquo;t produce the build contract</td>
+          <td>It can&rsquo;t &mdash; the contract is a locked PDF. Use the list of values
+              it gives you.</td></tr>
+      <tr><td>It says the price on the email and the EOI disagree</td>
+          <td>It stops on purpose. Don&rsquo;t pick one &mdash; get it confirmed.</td></tr>
+      <tr><td>It won&rsquo;t change the inclusions for an auxiliary dwelling</td>
+          <td>Also on purpose. Which inclusions apply to a second dwelling is a pricing
+              decision, so it goes to Michael rather than being written by Claude.</td></tr>
+      <tr><td>The job isn&rsquo;t where you expected</td>
+          <td>Finished and cancelled jobs move out of the live region folder. Claude
+              checks those too &mdash; give it the job number.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  <b><i>Transpire &mdash; build contract guide.</i></b>
+  <i>Questions, or something in here is wrong? Tell the team &mdash; this guide is
+  maintained and gets updated as the templates and the procedure change. The field
+  rules behind it are in the project repo under
+  <code>job-roles/contract-admin/rules/contract-docs.md</code>, and the template map
+  under <code>.claude/skills/new-contract-template/references/</code>.</i>
+</footer>
+
+</body>
+</html>
