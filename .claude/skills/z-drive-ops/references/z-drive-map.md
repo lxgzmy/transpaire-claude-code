@@ -108,9 +108,11 @@ Keyed on the words staff actually use. `<job>` means the job folder under
 | Defect register, blank defects form | `MAINTENANCE\` and `MAINTENANCE\FORMS\` |
 | Design guideline register | `ESTATES INFORMATION\` |
 | Dilapidation report, booking sheet | `MAINTENANCE\FORMS\` |
+| Director report, EOFY active jobs, no-site-start workflow | `OPERATIONS\Director Reports\` *(restricted — named accounts)* |
 | Driveway application | `ADMINISTRATION\COUNCIL\DRIVEWAY APPLICATION FORMS\` |
 | Driveway gradients / regulations | `ESTATES INFORMATION\<NSW\|SEQ> - Driveway Regs\<council>\` |
 | Email template, standard wording | `ADMINISTRATION\EMAIL TEMPLATES\` |
+| Employee details, new user setup | `OPERATIONS\Employee Information\` *(restricted — named accounts)* |
 | EOI (subcontractor) | `CONSTRUCTION MANAGER\Subcontractor Expression of Interest\<trade>\` |
 | EOI (sales / house & land) | `SALES\` |
 | Estate, stage number | `ESTATES INFORMATION\<NSW\|SEQ>\<estate>\` |
@@ -130,8 +132,10 @@ Keyed on the words staff actually use. `<job>` means the job folder under
 | Marketing / agency agreement | `SALES\4. MARKETING AGREEMENTS\<agency>\` |
 | Marketer report, stage chart | `ADMINISTRATION\MARKETERS REPORTS\` |
 | OnSite Companion, OSC | `ESTIMATING\10. OnSite Companion Database\` |
+| Photocopier / equipment / software licence agreement | `OPERATIONS\Agreements\` *(restricted — named accounts)* |
 | Plans, working drawings | `<job>\DRAFTING\WORKING DRAWINGS\` |
 | Prelim plans | `<job>\DRAFTING\CONTRACT-PRELIM PLANS\` |
+| Privacy policy | `OPERATIONS\` *(restricted — named accounts)* |
 | Procedure, blank form (any kind) | `PROCEDURES & FORMS\<department>\` |
 | Promotional offer | `ESTIMATING\6. Sales Estimating\8. Current Promotional Offers\` |
 | Purchase order, production quote | `<job>\ESTIMATING\2. PRODUCTION\ORDERS\` or `\QUOTES\` |
@@ -148,6 +152,7 @@ Keyed on the words staff actually use. `<job>` means the job folder under
 | Subcontractor rates | `ESTIMATING\3. Subcontractor Rates\<region>\` |
 | Subcontractor org details form | `WORKPLACE HEALTH AND SAFETY\Organisational Details Forms\<subbie>\` |
 | Subcontractor pack (accounts) | `ACCOUNTS\SUBCONTRACTOR PACK DOCUMENTS\` *(restricted)* |
+| Supervisor setup guide, DataBuild claim schedule setup | `OPERATIONS\Guides & Information\` *(restricted — named accounts)*. Check `PROCEDURES & FORMS` too: that is the controlled home for procedures |
 | Supplier agreement, price list | `ESTIMATING\2. Supplier Agreements & Information\<supplier>\` |
 | Supplier statement | `ACCOUNTS\SUPPLIER STATEMENTS\` *(restricted)* |
 | SWMS | see [Same document, different homes](#same-document-different-homes) |
@@ -186,11 +191,12 @@ would filter out anyway.
 | `ESTIMATING` | Contracts and inclusions, supplier agreements, subcontractor rates, DataBuild price file, OnSite Companion database, production and sales estimating | 4 | Numbered `1.`–`13.` prefixes. Writable — see findings |
 | `IMPORTED` | Genuinely empty — 0 files, 0 subfolders | 0 | See findings |
 | `MAINTENANCE` | Maintenance forms, booking sheets, dilapidation reports, plus a per-address archive | 5 | |
-| `OPERATIONS` | **Unknown — access denied** | ? | Cannot be assessed. Do **not** describe as empty, and never propose removing it |
+| `OPERATIONS` | Director and workflow reporting, operational guides, supplier agreements, employee records | 4 | **Restricted to named accounts** — most staff cannot open it. See [OPERATIONS](#operations) |
 | `PROCEDURES & FORMS` | The company's procedures and blank forms, mirrored by department | 4 | *Procedure and template* material — the blank form, not a completed one |
 | `PROJECTS` | **All job records.** See below | 1 | The job-shaped part of the drive |
 | `SALES` | Packages by region, marketing brochures and agreements, land contracts, finance approvals, floor plan ideas | 13 | Loosest structure on the drive |
 | `SOFTWARE` | **Out of scope — not managed by this skill.** Don't search, sweep or advise on it; refer to IT | — | Also holds certificate and key files, which the safety rules block anyway |
+| `tony feng test` | Someone's scratch folder at the drive root, created 11 Aug 2026, holding one document | 0 | **Never a save destination.** Not a business folder; flag as clutter rather than filing anything into it |
 | `WORKPLACE HEALTH AND SAFETY` | Audits, SWMS and certificates of currency, toolbox talks, safety packs | 26 | `INCIDENT REPORTS` holds personal/health information — handle with care |
 | `Z. SUPERSEDED` | Mixed archive: an old DA search, a council application, a region folder, stray files | 5 | General archive, **not** a per-job lifecycle stage |
 
@@ -488,6 +494,51 @@ certificate, licence and user-manual questions to IT.
   when that is the explicit request; never in a bulk scan, and never quote
   personal or financial detail out of it.
 
+## OPERATIONS
+
+**Restricted to named accounts.** Mapped 11 Aug 2026, once access became
+available; it was recorded as "access denied, contents unknown" before that.
+
+This is the only top-level folder on the drive with **inherited permissions
+switched off**. The company-wide `Z:` drive-mapping group — which grants every
+other top-level folder to all staff — is deliberately absent from its access
+list. Seven named accounts hold it instead, mostly directors and administrators.
+
+The practical effect: whether you can read this folder depends on who is running
+you, and for most people the answer is no. **Attempt the listing and report the
+real result** rather than predicting it. If it fails, say the folder is
+restricted to specific people and point at a director or IT — do not recite the
+structure below to someone the permissions were built to exclude.
+
+Small by drive standards: 6 subfolders, 22 files, about 9 MB, nothing deeper
+than three levels. Contents span **2024 to July 2026**.
+
+- **`Director Reports`** — EOFY active jobs, and "job with no site start"
+  workflow spreadsheets split NSW / QLD. A `Matts Manual Reports` subfolder holds
+  an NSW workflow sheet and an OSC whiteboard weekly report. Personal-name
+  subfolder — the usual caution applies about treating it as authoritative.
+- **`Employee Information`** — per-person user-detail PDFs. **Personal
+  information**; folder name and count only, never filenames or contents.
+- **`Guides & Information`** — operational how-to material: DataBuild claim
+  schedule setup, a supervisor setup guide, job tracking and production
+  estimating. Note this overlaps `PROCEDURES & FORMS`, which is the *controlled*
+  home for procedures; treat a hit here as an operational working copy.
+- **`Agreements`** — supplier and equipment agreements (photocopier, software
+  licence). Distinct from the subcontractor and supplier agreements in
+  `ESTIMATING` — these are head-office operational contracts.
+- **`Iphone - Supervisor Contacts Backup`** — `.vcf` phone exports. **Blocked**
+  at the tool layer: bulk personal contact data with no reason to be opened.
+- **`Superseded`** — one spreadsheet. Never a save destination.
+
+Four loose files sit at the root, and two of them matter:
+
+- A **plain-text DataBuild credentials file**. Blocked at the tool layer by the
+  `*credential*` rule. Do not read it, do not name it in a report beyond what is
+  needed to flag it, and treat it as a security issue to raise with IT rather
+  than something to work with. See findings.
+- An `~$` Office lock file, meaning the operations workbook is open somewhere.
+  Filter it out; it is not a document.
+
 ## Naming conventions observed
 
 - **UPPERCASE** dominates for folders and most documents, but `DRAFTING`,
@@ -514,13 +565,31 @@ every one is a change requiring approval.
 
 - **Loose files dumped at folder roots — the drive's biggest structural problem.**
   `CONSTRUCTION MANAGER` 80, `ACCOUNTS` 66, `WORKPLACE HEALTH AND SAFETY` 26,
-  `SALES` 13, `DRAFTING` 9, and 2 at the `Z:\` root itself. These are the files
+  `SALES` 13, `DRAFTING` 9, `OPERATIONS` 4, and 2 at the `Z:\` root itself. These are the files
   least likely to be findable by anyone but the person who saved them.
-- **`OPERATIONS` cannot be read** — access denied to the account running this
-  survey. It is *not* known to be empty, and must not be proposed for removal.
-  Someone with access needs to say what's in it.
+- **Credentials stored in plain text.** `Z:\OPERATIONS` holds a DataBuild
+  credentials file as readable text at its top level. Everyone on that folder's
+  access list — seven accounts — can read the password, and nothing records who
+  has. It is blocked at the tool layer here, but that only stops Claude; it does
+  nothing about Explorer. **Raise with IT**: it belongs in the password manager,
+  not on a file share. Same class of problem as the password-in-a-filename
+  template below, and more directly exploitable.
+- **Bulk personal data on the share.** `Z:\OPERATIONS` also holds per-employee
+  detail PDFs and `.vcf` phone-contact exports. Legitimate to store, but worth
+  confirming they are covered by the privacy policy sitting beside them.
+- **`OPERATIONS` is walled off from the company group.** It is the only top-level
+  folder with permission inheritance broken, and the company-wide `Z:` group is
+  not on its list — seven named accounts are. That looks deliberate rather than
+  accidental, given the contents, so this is recorded as **a fact to preserve,
+  not a problem to fix**. Worth confirming the list is still current.
+  (It was previously recorded here as "cannot be read, contents unknown"; access
+  became available 11 Aug 2026 and it is now mapped.)
 - **`IMPORTED` is genuinely empty** (0 files, 0 subfolders) — verified, not
   inferred from an error. A removal candidate, subject to approval.
+- **A personal scratch folder sits at the drive root.** `tony feng test`, created
+  11 Aug 2026, one document in it. Harmless in itself, but the root is the most
+  visible place on the share and this is how root clutter starts. Worth moving or
+  removing once it has served its purpose.
 - **`ESTATES INFORMATION` appears twice, and the top-level copy is clearly the
   live one**: it holds 11 NSW estates, 385 SEQ estates and driveway regulations
   for 30 councils, while `DRAFTING\ESTATES INFORMATION` holds a single `NSW`
@@ -569,7 +638,10 @@ every one is a change requiring approval.
 
 Needs a person to decide. Don't guess these into an answer.
 
-- **`OPERATIONS`** — what is in it, and who has access?
+- **`OPERATIONS` access list** — now mapped, and restricted to seven named
+  accounts by design. Still open: is that list current, and should the operational
+  guides in it move to `PROCEDURES & FORMS` where the rest of the company can
+  find them?
 - **Staleness** — how long untouched, for which document types, before something
   is worth flagging in an active job?
 - **Authority** — when two versions genuinely disagree (not just one being

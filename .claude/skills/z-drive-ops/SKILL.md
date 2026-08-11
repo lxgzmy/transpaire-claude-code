@@ -17,11 +17,11 @@ The person asking may be non-technical. Behave accordingly: see
 
 ## The top-level folders
 
-17 on the drive, **15 in scope** — `SOFTWARE` and `CLAUDE CODE` are not managed
+18 on the drive, **16 in scope** — `SOFTWARE` and `CLAUDE CODE` are not managed
 here. Use this table to pick the top-level folder, then open the map for the
 exact subfolder. It saves loading the full map for simple routing, and it is the
 one place the out-of-scope, restricted and unreadable folders are listed
-together. Verified against the live drive 10 Aug 2026.
+together. Verified against the live drive 11 Aug 2026.
 
 | Folder | What's in it, and how to treat it |
 |---|---|
@@ -35,11 +35,12 @@ together. Verified against the live drive 10 Aug 2026.
 | `ESTIMATING` | Supplier agreements, subcontractor rates, DataBuild price file, OnSite Companion database, sales and production estimating. **Writable** — earlier "read-only" guidance was wrong. 13 numbered subfolders |
 | `IMPORTED` | **Genuinely empty** — 0 files, 0 subfolders, verified rather than inferred from an error |
 | `MAINTENANCE` | Defect forms, booking sheets, dilapidation reports, plus a per-address archive |
-| `OPERATIONS` | **Access denied.** Not empty — unknown. Never describe its contents, never infer them, never propose removing it |
+| `OPERATIONS` | Director and workflow reports, operational guides, supplier agreements, employee records. **Restricted by named account, not by group** — check before answering, because most staff cannot open it at all (see below). Small: 6 subfolders, 22 files |
 | `PROCEDURES & FORMS` | The controlled home for **blank** forms and procedures, mirrored by department. Never a completed document. 18 subfolders |
 | `PROJECTS` | **All job records**, by region. The only job-shaped folder on the drive. Lifecycle sits at two levels — see FIND |
 | `SALES` | Packages by region, marketing agreements, land contracts, finance approvals, floor plan ideas. Loosest structure on the drive; expect more than one search attempt. 31 subfolders |
 | `SOFTWARE` | **Out of scope — not managed by this skill.** Don't search, sweep, or advise on it. Send software certificate, licence and manual questions to IT |
+| `tony feng test` | Someone's scratch folder at the drive root (11 Aug 2026, one document). **Never a save destination** — flag it as clutter, don't file into it |
 | `WORKPLACE HEALTH AND SAFETY` | Audits, SWMS and certificates of currency (49 subcontractor folders), toolbox talks, safety packs. `INCIDENT REPORTS` is **restricted** — personal and health information. 9 subfolders |
 | `Z. SUPERSEDED` | Mixed archive. **Never a save destination**; treat a hit as probably superseded |
 
@@ -267,10 +268,16 @@ why:
   on the drive**: `*.pfx`, `*.p12`, `*.kdbx`, `*.cer`, `*.crt`, `*.pem`,
   `*.key`, `*.jks`, `*.ppk`, `*.asc`, `*.env`, `*.rdp`, `*password*`,
   `*credential*`, `*secret*`. Real key and certificate files exist on this
-  drive, so this is not hypothetical. The extension-based ones are additionally
-  blocked in `.claude/settings.json`, so a read is refused by the tool layer
-  rather than relying on you to remember; the `*password*` / `*credential*` /
-  `*secret*` **name** patterns are not enforceable that way and rely on you.
+  drive, so this is not hypothetical — `Z:\OPERATIONS` holds a plain-text
+  DataBuild credentials file at its top level. **All** of these patterns, the
+  name-based ones included, are blocked in `.claude/settings.json`, so a read is
+  refused by the tool layer rather than relying on you to remember. Matching is
+  case-insensitive and covers the whole path, and the `Edit(...)` variants also
+  stop a shell command from moving or deleting one. Verified by probe file
+  10 Aug 2026; an earlier note here claimed name patterns could not be enforced
+  this way, and that was wrong.
+- Contacts exports: `*.vcf`. `Z:\OPERATIONS` holds phone-contact backups —
+  bulk personal data with no reason to be opened. Blocked at the tool layer too.
 
 **Filenames themselves sometimes contain passwords** on this drive — a template
 has the opening password written into the filename in brackets. If you hit one:
@@ -296,6 +303,8 @@ of them:
   information.
 - `Z:\COMPANY GENERAL INFORMATION\` staff lists, photos, and licences — staff
   personal information.
+- `Z:\OPERATIONS` — director-level reporting and employee records. Also the one
+  folder deliberately walled off from general staff (see below).
 
 The line: folder names and counts, yes — that's how the drive gets mapped.
 Filenames, contents, or anything identifying a person, no.
@@ -303,6 +312,19 @@ Filenames, contents, or anything identifying a person, no.
 **Respect the permissions already in place.** You see the drive as the person
 running you. If something is inaccessible, that's the answer — report it and
 move on. Never work around a permission, and never suggest changing one.
+
+**`Z:\OPERATIONS` is restricted to named accounts.** It is the only top-level
+folder with inherited permissions switched off, and the company-wide `Z:` drive
+group is deliberately not on its access list — seven named accounts are, mostly
+directors and administrators. So whether you can read it depends entirely on who
+is running you, and for most staff the answer is no.
+
+Two consequences. First, **try it, don't predict it**: attempt the listing and
+report what actually came back, rather than assuming access either way. Second,
+if the read fails, say the folder is restricted to specific people and suggest
+asking a director or IT — do **not** describe what is in it. The structure
+recorded in the map exists so the skill can route a question, not so it can be
+recited to someone the permissions were designed to exclude.
 
 **Never report "empty" when you mean "couldn't read".** If a folder errors, say
 you don't have access to it. `Z:\OPERATIONS` was mistakenly recorded as empty for

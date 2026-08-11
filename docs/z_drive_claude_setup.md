@@ -107,12 +107,16 @@ it first — plenty of newer jobs genuinely have nothing in `VARIATIONS` or
   for IT, not a chat answer.
 - **It sees exactly what you see.** Permissions are unchanged. If you can't open
   a folder in Explorer, neither can Claude — and it won't try to work around it.
-  `Z:\OPERATIONS` is one of these: nobody running this can read it.
-- **The drive map is a snapshot** (10 Aug 2026, folder names to depth 3) with
+  `Z:\OPERATIONS` is the one that catches people out: it is the only top-level
+  folder with permission inheritance broken, restricted to seven named accounts
+  rather than the company-wide `Z:` group. Whether a session can read it depends
+  on who is signed in, so two people can ask the same question and get different
+  answers. That is the permissions working, not a fault.
+- **The drive map is a snapshot** (10 Aug 2026, `OPERATIONS` added 11 Aug) with
   [open questions](../.claude/skills/z-drive-ops/references/z-drive-map.md#open-questions)
-  still to settle: how stale is stale, what's in `OPERATIONS`, whether the
-  in-region `HANDED OVER` folders should merge into `COMPLETED CONTRACTS`, and
-  what to do about ten different archive conventions.
+  still to settle: how stale is stale, whether the in-region `HANDED OVER`
+  folders should merge into `COMPLETED CONTRACTS`, and what to do about ten
+  different archive conventions.
 - **"Latest" means most recently changed** — a good clue, not proof of which
   version is authoritative. For anything contractual or priced, a person still
   confirms.
