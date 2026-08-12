@@ -11,15 +11,15 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** and the org guardrails in
 | Path | What it holds |
 |---|---|
 | `CLAUDE.md` | Org-wide guardrails (paths, HITL, security). Applies to every role. |
-| `docs/` | Org-wide architecture & decisions — see [architecture-overview](docs/architecture-overview.md) and [mcp-servers](docs/mcp-servers.md). |
-| `shared/` | Cross-role assets: `skills/`, `schemas/`, `conventions/`. |
+| `docs/` | Org-wide architecture & decisions — see [architecture-overview](docs/architecture-overview.md) and [mcp-servers](docs/mcp-servers.md) — plus the staff-facing guides (HTML source + PDF) for `z-drive-ops` and `/new-contract-template`, and [z_drive_claude_setup](docs/z_drive_claude_setup.md) for rolling the drive help out to staff. |
+| `shared/` | Cross-role assets: `skills/`, `schemas/`, `conventions/`. Cross-role skills are registered in `.claude/skills/` and listed in [shared/skills/README.md](shared/skills/README.md). |
 | `job-roles/` | One isolated folder per job-role, each with its own `CLAUDE.md`. |
 
 ## Job-roles
 
 | Job-role | Status | Entry point |
 |---|---|---|
-| Contract Administration | POC — read-only / draft-only first | [job-roles/contract-admin/](job-roles/contract-admin/README.md) |
+| Contract Administration | Two workflows built (draft-only), verified against real jobs; variations not started | [job-roles/contract-admin/](job-roles/contract-admin/README.md) |
 
 More roles are added as new `job-roles/<role>/` folders. Business records on `Z:`
 are organised by job / document-type / stage (not by role); roles are a

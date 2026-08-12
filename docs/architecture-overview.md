@@ -30,7 +30,8 @@ ONBOARDING.md        # orientation
   skills/            # every activated skill, cross-role and role-scoped alike —
                      #   this is the only place Claude Code loads skills from.
                      #   Docs live with the owner: shared/skills/ or the role.
-docs/                # org-wide architecture & decisions (this file)
+docs/                # org-wide architecture & decisions (this file), plus the
+                     #   staff-facing guides (HTML source + rendered PDF)
 shared/
   skills/            # cross-role skills (policy for global vs vendored)
   schemas/           # shared JSON schemas (canonical job record, evidence bundle)
@@ -40,6 +41,7 @@ job-roles/
     CLAUDE.md        # role context (imports org rules, does not restate them)
     workflows/       # one spec per workflow
     rules/           # transcribed, testable business rules
+    scripts/         # the workflow pipeline + test suites (stdlib Python, pwsh)
     skills/          # role-only skills (authored here)
     reference/       # pointers to source manuals (never the manuals themselves)
     templates/       # sanitised prompt/document/output templates
@@ -47,6 +49,16 @@ job-roles/
     docs/            # role operational docs & solution design
   <next-role>/       # same shape, fully isolated
 ```
+
+## The knowledge-base layer
+
+Org-level skills are the foundation the role skills build on. `z-drive-ops`
+owns the drive knowledge — the folder map, the lifecycle model of where a job
+folder can live, the sensitive-folder blocklist, and the canonical job-location
+search (`scripts/find_job.ps1`). Role workflows consume that knowledge rather
+than restating it; where a role script mirrors a piece of it for speed
+(contract-admin's `probe_job.py`), a test (`test_job_search.py`) fails the
+build if the copy drifts from the owner or from the live drive.
 
 ## Server runtime
 
@@ -62,6 +74,9 @@ runtime/
     outputs/    # generated drafts (Excel/Word/PDF) pending approval
     logs/       # run logs
     reports/    # read-only reports (e.g. Z: inventory, duplicate reports)
+  shared/       # org-level skill output that belongs to no single role
+    state/      # e.g. the pinned headless-Chrome profile for PDF renders
+    reports/    # e.g. z-drive-ops sweep reports
 ```
 
 Scripting on the server uses **PowerShell 7 (`pwsh`)**. Runtime data never lands on
@@ -72,5 +87,7 @@ Scripting on the server uses **PowerShell 7 (`pwsh`)**. Runtime data never lands
 1. Copy the `job-roles/contract-admin/` folder shape.
 2. Write a role `CLAUDE.md` that imports the org guardrails and adds role scope,
    systems, rules pointers, and HITL specifics.
-3. Register any activated skill under `.claude/skills/` (prefix with the role).
+3. Register any activated skill under `.claude/skills/` (prefix with the role —
+   `new-contract-template` is the one requested exception; see the role's
+   `skills/README.md`).
 4. Add the role to the table in `README.md`.

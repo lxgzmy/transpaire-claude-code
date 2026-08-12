@@ -4,13 +4,18 @@ Builder-side contract administration for Transpire, on Windows Server 2022. Star
 with [CLAUDE.md](CLAUDE.md) for role context (the org guardrails in the repo-root
 `CLAUDE.md` also apply).
 
-Proof-of-concept, read-only / draft-only first. Two target workflows:
+Proof-of-concept, read-only / draft-only first. Three workflows:
 
-1. **New Job Creation** — EOI email intake → OnSite Companion (OSC) job creation →
-   Z-Drive folder → DataBuild handoff → contact details → plan-arrival updates.
-2. **Variation Stage 1** — variation type decision → OSC variation + workflow
-   templates → Z-Drive Excel variation → OSC document generation → PDF filing →
-   staff alert.
+1. **New Job Creation** (built, draft-only) — EOI email intake → OnSite Companion
+   (OSC) job creation → Z-Drive folder → DataBuild handoff → contact details →
+   plan-arrival updates. Skill: `/ca-new-job`.
+2. **Contract documents** (built, draft-only) — build contract request → filled
+   inclusions + preliminary agreement (`.docx` + PDF export) → build contract
+   data sheet → review gate. Verified character-for-character against completed
+   jobs in both template families. Skill: `/new-contract-template`.
+3. **Variation Stage 1** (not started) — variation type decision → OSC variation +
+   workflow templates → Z-Drive Excel variation → OSC document generation → PDF
+   filing → staff alert. Blocked on transcribing `rules/variation-rules.md`.
 
 General `Z:` drive help (search, save-location advice, duplicate/clutter
 reporting) is **company-wide, not role-specific** — it lives in the org-level
@@ -22,9 +27,10 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 | Folder | Purpose |
 |---|---|
 | `CLAUDE.md` | Role context, scope, systems, rules pointers, HITL. |
-| `workflows/` | One spec per workflow. `new-job.md` drafted; variation stage 1 to come. |
-| `rules/` | Transcribed, testable business rules. `job-details.md` transcribed; `variation-rules.md` still a stub. |
-| `skills/` | Role-only skills, authored and documented here. `ca-new-job` built (registered in `../../.claude/skills/`). |
+| `workflows/` | One spec per workflow. `new-job.md` and `new-contract.md` built; variation stage 1 to come. |
+| `rules/` | Transcribed, testable business rules. `job-details.md` (`JD-*`) and `contract-docs.md` (`CD-*`) transcribed; `variation-rules.md` still a stub. |
+| `scripts/` | The workflow pipeline: email → extraction → template fill → PDF export, plus probes, diff tools and the three test suites. See [scripts/README.md](scripts/README.md). |
+| `skills/` | Role-only skills, authored and documented here. `ca-new-job` and `new-contract-template` built (registered in `../../.claude/skills/`). |
 | `reference/` | Pointers to source manuals (never the manuals themselves). |
 | `templates/` | Sanitised prompt / document / output templates. |
 | `fixtures/` | Synthetic test data only. |
