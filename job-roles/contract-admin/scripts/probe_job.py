@@ -44,6 +44,10 @@ def find_jobs(term):
     for path in PROJECTS.glob("*/*"):
         if not path.is_dir():
             continue
+        # This lifecycle set is OWNED by the org z-drive-ops skill
+        # (.claude/skills/z-drive-ops/scripts/find_job.ps1) - mirrored here in
+        # Python to avoid a pwsh round-trip. test_job_search.py fails if the
+        # two drift, or if the drive grows a lifecycle folder neither knows.
         for sub in [path] + ([p for p in path.glob("*") if p.is_dir()]
                              if path.name in ("CANCELLED", "COMPLETED CONTRACTS",
                                               "ARCHIVE-HANDED OVER", "HANDED OVER")

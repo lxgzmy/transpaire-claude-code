@@ -12,6 +12,11 @@ Matching: every word must appear in the folder name (case-insensitive). A
 5-digit term also matches on the leading job number alone, because real names
 vary around the dash ("26003- LOT", "16001 -LOT"). Read-only; prints full
 paths for pasting into Explorer.
+
+This is the CANONICAL job-location logic for the drive. If the $lifecycle list
+below changes, anything that re-implements it must change with it - role
+scripts that do are held in step by their own tests (contract-admin:
+test_job_search.py).
 #>
 param(
     [Parameter(Mandatory)] [string]$Term,
