@@ -55,35 +55,101 @@ EMPTY_TXBX = re.compile(
 #
 # exact=True matches the whole run text, which matters because "SUBURB" is a
 # substring of page 1's "SUBURB :" and would otherwise be filled twice.
+#   after_lot   - insert "Lot <value>" twice immediately after the anchor run
 #
-# pad = extra spaces typed between the template's own gap run and the value, so
-# the value lands where it lands on the real contracts. The blank template's gap
-# is 2 spaces for every page-1 field (3 for "Lot No. :"), but the completed
-# documents indent further, and by the same amount every time: verified identical
-# across all four Pioneer Close jobs (lots 141, 142, 143, 144). Without this the
-# values sit several spaces left of every contract in the job folders (CD-2.1).
-FIELDS = [
+# Anchors shared by every template family. Region-specific ones live in FAMILIES.
+COMMON_FIELDS = [
     # --- page 1 header table (CD-2) ---
-    ("Lot No. :",           "lot_no",      "gap",    True, 0),
-    ("STREET :",            "street",      "gap",    True, 1),
-    ("SUBURB :",            "suburb",      "gap",    True, 0),
-    ("ESTATE :",            "estate",      "gap",    True, 0),
-    ("HOUSE TYPE :",        "house_type",  "gap",    True, 4),
-    ("HOUSE SIZE :",        "house_size",  "gap",    True, 5),
-    ("HOUSE FA\u00c7ADE :", "facade",      "gap",    True, 0),
-    ("GARAGE SIDE :",       "garage_side", "gap",    True, 3),
-    ("PRICE : $",           "price",       "suffix", True, 0),
+    ("Lot No. :",           "lot_no",      "gap",    True),
+    ("STREET :",            "street",      "gap",    True),
+    ("SUBURB :",            "suburb",      "gap",    True),
+    ("ESTATE :",            "estate",      "gap",    True),
+    ("HOUSE TYPE :",        "house_type",  "gap",    True),
+    ("HOUSE SIZE :",        "house_size",  "gap",    True),
+    ("HOUSE FA\u00c7ADE :", "facade",      "gap",    True),
+    ("GARAGE SIDE :",       "garage_side", "gap",    True),
     # --- pages 10-13 signature / acknowledgement blocks (CD-3) ---
-    ("Name of Owner 1:",    "owner_1",     "gap",         True, 0),
-    ("Name of Owner 2:",    "owner_2",     "dotted_next", True, 0),
-    ("LOT No:",             "lot_no",      "gap",         True, 0),
-    ("STREET:",             "street",      "gap",         True, 0),
-    ("SUBURB",              "suburb",      "gap",         True, 0),
-    ("Being the owners of the proposed new home to be located at;",
-     "site_address", "prefix", True, 0),
-    ("Builders Representative:", "builders_rep", "dotted", False, 0),
-    ("ACKNOWLEDGEMENTS & SIGNATURE", "owner_1", "textbox", True, 0),
+    ("Name of Owner 1:",    "owner_1",     "gap",         True),
+    ("Name of Owner 2:",    "owner_2",     "dotted_next", True),
+    ("LOT No:",             "lot_no",      "gap",         True),
+    ("STREET:",             "street",      "gap",         True),
+    ("SUBURB",              "suburb",      "gap",         True),
+    ("Builders Representative:", "builders_rep", "dotted", False),
+    ("ACKNOWLEDGEMENTS & SIGNATURE", "owner_1", "textbox", True),
 ]
+
+SITE_ANCHOR = "Being the owners of the proposed new home to be located at;"
+
+# The NSW and QLD inclusions are DIFFERENT DOCUMENTS, not versions of one, and
+# three things differ:
+#
+#   1. PRICE - Gunnedah's run reads "PRICE : $", SEQ's reads "PRICE : ". An exact
+#      anchor built for one silently finds nothing in the other.
+#   2. The site address - Gunnedah's template carries runs reading "Lot " to
+#      append to; SEQ has none, so the whole address is typed after the sentence,
+#      twice, for the builder's and the owner's copy.
+#   3. pad - extra spaces between the template's own gap run and the value, so
+#      the value lands where it lands on the real contracts. Both families indent
+#      further than the blank, but by different amounts.
+#
+# Every pad below was read off completed jobs, not guessed: lots 141/142/143/144
+# (Pioneer Close, Tamworth) for gunnedah, lots 13/21/58/59 (Zhang Street,
+# Holmview) for seq. regress_page1.py re-checks them against those jobs.
+FAMILIES = {
+    "gunnedah": {
+        "match": "REGION - GUNNEDAH",
+        "label": "Gunnedah / NSW INTEGRITY  (also used by Tamworth jobs)",
+        "fields": [
+            ("PRICE : $", "price", "suffix", True),
+            (SITE_ANCHOR, "site_address", "prefix", True),
+        ],
+        "pads": {
+            "Lot No. :": 0, "STREET :": 1, "SUBURB :": 0, "ESTATE :": 0,
+            "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
+            "GARAGE SIDE :": 3, "PRICE : $": 5,
+        },
+    },
+    "seq": {
+        "match": "REGION - SEQ",
+        "label": "SEQ / QLD ESSENTIALS",
+        "fields": [
+            ("PRICE :", "price", "suffix", True),
+            (SITE_ANCHOR, "site_address", "after_lot", True),
+        ],
+        "pads": {
+            "Lot No. :": 2, "STREET :": 2, "SUBURB :": 0, "ESTATE :": 2,
+            "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
+            "GARAGE SIDE :": 3, "PRICE :": 6,
+        },
+    },
+}
+
+
+# Instructions the template addresses to whoever is editing it - not contract
+# text. The SEQ template carries a conditional block that must be deleted for
+# narrow lots, and the completed jobs do delete it. Filling a template does not
+# remove these, so a draft issued unread would send them to a client.
+EDITOR_NOTES = [
+    "DELETE IF",
+    "UPDATE THE NUMBERS",
+    "DONT USE",
+    "TO BE AMENDED",
+]
+
+
+def editor_notes_left(xml):
+    """Editor instructions still present in the filled document."""
+    text = " ".join(run_text(m.group(0)) for m in RUN_RE.finditer(xml))
+    return [n for n in EDITOR_NOTES if n.lower() in text.lower()]
+
+
+def pick_family(template_path):
+    """Which family this template belongs to, from its path on Z:."""
+    p = str(Path(template_path)).lower()
+    for name, fam in FAMILIES.items():
+        if fam["match"].lower() in p:
+            return name, fam
+    return None, None
 
 
 def read_xml(path):
@@ -136,13 +202,14 @@ def dot_line(prefix, value, dots, lead=3):
     return f"{prefix}{keep}{value}{tail}"
 
 
-def fill(xml, values, report):
-    """Apply every field to every occurrence of its anchor."""
+def fill(xml, values, report, family):
+    """Apply every field to every occurrence of its anchor, for one family."""
     runs = [(m.start(), m.end(), m.group(0)) for m in RUN_RE.finditer(xml)]
     texts = [run_text(r[2]) for r in runs]
     edits = []  # (start, end, replacement)
 
-    for anchor, key, mode, exact, pad in FIELDS:
+    for anchor, key, mode, exact in COMMON_FIELDS + family["fields"]:
+        pad = family["pads"].get(anchor, 0)
         value = values.get(key)
         entry = {"key": key, "anchor": anchor, "hits": 0}
         report.append(entry)
@@ -174,9 +241,18 @@ def fill(xml, values, report):
             s, e, run = runs[i]
 
             if mode == "suffix":
-                # "PRICE : $" -> "PRICE :     $606,000.00"
+                # "PRICE : $" -> "PRICE :     $606,000.00". The $ is written by
+                # us, because SEQ's label does not carry one.
                 base = anchor.rstrip("$ ")
-                edits.append((s, e, set_run_text(run, f"{base}     ${value}")))
+                edits.append((s, e, set_run_text(run, f"{base}{' ' * pad}${value}")))
+
+            elif mode == "after_lot":
+                # SEQ has no "Lot " runs to append to, so the whole address is
+                # inserted after the sentence - twice, because the builder's and
+                # the owner's copy sit side by side (verified on lot 13).
+                one = clone_run(run, f"Lot {value}")
+                edits.append((e, e, one + one))
+                entry["hits"] += 1
 
             elif mode == "dotted":
                 edits.append((s, e, set_run_text(
@@ -225,8 +301,9 @@ def write_docx(template, out, xml):
     """Copy the template zip, swapping in the new document.xml."""
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-        tmp_path = tmp.name
+    # Stage beside the output, NOT in the system temp dir - that is on C:, and
+    # the org rules forbid writing client data there (repo CLAUDE.md).
+    tmp_path = out.with_suffix(".partial")
     with zipfile.ZipFile(template) as zin, zipfile.ZipFile(
         tmp_path, "w", zipfile.ZIP_DEFLATED
     ) as zout:
@@ -248,11 +325,23 @@ def main():
     args = ap.parse_args()
 
     values = json.loads(Path(args.job).read_text(encoding="utf-8"))
+
+    fam_name, family = pick_family(args.template)
+    if not family:
+        print(f"ERROR: no template family matches {args.template}", file=sys.stderr)
+        print(f"       known families: {', '.join(FAMILIES)}", file=sys.stderr)
+        print("       A new region needs its anchors and pads read off completed",
+              file=sys.stderr)
+        print("       jobs first - do not fill a template nobody has verified.",
+              file=sys.stderr)
+        return 2
+
     xml = read_xml(args.template)
     report = []
-    new_xml = fill(xml, values, report)
+    new_xml = fill(xml, values, report, family)
 
     print(f"template : {Path(args.template).name}")
+    print(f"family   : {fam_name} - {family['label']}")
     print(f"job      : {Path(args.job).name}")
     print()
     print(f"{'field':<13} {'hits':>4}  {'anchor':<26} value")
@@ -269,13 +358,20 @@ def main():
             problems.append(f"{key} ({info['anchor'][:24]})")
     print()
 
-    unknown = sorted(set(values) - {f[1] for f in FIELDS})
+    unknown = sorted(set(values) - {f[1] for f in COMMON_FIELDS + family["fields"]})
     if unknown:
         print(f"NOTE: job JSON has keys this template does not use: {', '.join(unknown)}")
 
     if problems:
         print(f"WARNING: no anchor found for: {', '.join(problems)}")
         print("The template may have changed. Do not issue this document - check it.")
+
+    notes = editor_notes_left(new_xml)
+    if notes:
+        print(f"WARNING: template editor instructions still in the document: "
+              f"{', '.join(repr(n) for n in notes)}")
+        print("These are notes to whoever edits the template, not contract text.")
+        print("A person must action and remove them before this is issued.")
 
     if args.check:
         print("(--check: nothing written)")
@@ -289,6 +385,12 @@ def main():
     print(f"written  : {out}")
     print("DRAFT - a person must read this against the email and plans before it goes out.")
     return 1 if problems else 0
+
+
+# This console is cp1252; document text carries m², ç and dotted leaders, and
+# printing any of them would raise UnicodeEncodeError and kill the run.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 if __name__ == "__main__":

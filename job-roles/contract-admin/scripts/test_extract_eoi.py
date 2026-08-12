@@ -84,5 +84,11 @@ def main():
     return 0
 
 
+# This console is cp1252; document text carries m², ç and dotted leaders, and
+# printing any of them would raise UnicodeEncodeError and kill the run.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
 if __name__ == "__main__":
     sys.exit(main())

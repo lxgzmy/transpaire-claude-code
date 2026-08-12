@@ -11,6 +11,7 @@ encoding maps, so an unusual font can come out as mojibake. Treat anything it
 returns as needing a human's eye before it lands in a contract - which is the
 rule for those two fields anyway.
 """
+import sys
 import argparse
 import re
 import zlib
@@ -89,6 +90,12 @@ def main():
     else:
         joined = " ".join(pieces)
         print(joined[:4000])
+
+
+# This console is cp1252; document text carries m², ç and dotted leaders, and
+# printing any of them would raise UnicodeEncodeError and kill the run.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 if __name__ == "__main__":

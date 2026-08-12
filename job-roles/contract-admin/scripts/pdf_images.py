@@ -10,6 +10,7 @@ read as images instead.
 Only handles DCTDecode (JPEG). Flate-compressed bitmaps are reported, not
 converted - there is no image library here to do it with.
 """
+import sys
 import argparse
 import re
 from pathlib import Path
@@ -48,6 +49,12 @@ def main():
     args = ap.parse_args()
     print(f"{Path(args.pdf).name}:")
     extract(args.pdf, args.out)
+
+
+# This console is cp1252; document text carries m², ç and dotted leaders, and
+# printing any of them would raise UnicodeEncodeError and kill the run.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 if __name__ == "__main__":
