@@ -15,6 +15,7 @@ new-contract workflow (`../workflows/new-contract.md`).
 | `docx_worddiff.py` | **Working** | Word-level diff of a chosen block, with context. For when a block-level diff says "changed" and you need to see exactly what. |
 | `docx_runs.py` | **Working** | Shows the runs around a text anchor. **The tool for re-deriving anchors when a template is revised** and `fill_inclusions.py --check` reports a miss. |
 | `pdf_probe.py` | **Working** | Reports whether a PDF has fillable form fields, and its producer. Establishes CD-5.1 — re-run it if a contract template is replaced, in case a fillable one appears. |
+| `export_pdf.ps1` | **Working, verified against lot 144's real PDF** | `.docx` → PDF via Word COM, the same Save-as-PDF a person does after finishing the document (CD-7.4 — every completed job keeps the pair). Defaults to the same base name beside the docx; `-From`/`-To` for page-range previews at the review gate; refuses to overwrite without `-Force`. Needs Word on the machine. |
 | `new_job_folders.ps1` | **Working, dry-run tested on Z:** | Copies the region's `00000 - LOT MASTER FOLDER` to `<jobno> - <title>` under `Z:\PROJECTS\<region>\` (JD-10). Dry-run by default; `-Commit` asks the operator to re-type the job number; never overwrites. PowerShell 7. Duplicate check matches on the leading 5 digits (real folder names vary around the dash: `26003- LOT`, `16001 -LOT`) and covers the live region, that region's `HANDED OVER` / `ARCHIVE-HANDED OVER` / `CANCELLED` subfolders, and the top-level `COMPLETED` / `CANCELLED CONTRACTS`. |
 
 ## Pipeline
@@ -33,9 +34,11 @@ new-contract workflow, once the plans are in:
 blank template ─┐
 job.json ───────┴─> fill_inclusions.py --check   (anchors present?)
                     fill_inclusions.py --out ... ──> INCLUSIONS_LOT ….docx
-                                        │  (human reviews field table + diff)
+                                        │  (human reviews field table + diff
+                                        │   + a page-1 PDF preview via export_pdf.ps1)
                                         ▼
                                   saved to the job's CONTRACT DOCUMENTATION\
+                                  as .docx + .pdf  (export_pdf.ps1, CD-7.4)
 ```
 
 ## Before `--live` can ever run (technical session)

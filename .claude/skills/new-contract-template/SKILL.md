@@ -145,8 +145,14 @@ touched something it shouldn't have.
 ### 7. HITL GATE — present for review
 
 Show, as a short table: the template path, every field with its value and source,
-and every unresolved flag. Then stop and ask for approval or correction. Do not
-continue to step 8 without it.
+and every unresolved flag. Export a PDF preview of the draft so the reviewer sees
+it as it prints (page 1 carries every filled field):
+
+```
+pwsh job-roles/contract-admin/scripts/export_pdf.ps1 -Docx "<filled.docx>" -Out "<workdir>/preview_p1.pdf" -From 1 -To 1
+```
+
+Then stop and ask for approval or correction. Do not continue to step 8 without it.
 
 ### 8. Draft the build contract data sheet
 
@@ -165,6 +171,16 @@ On a clear yes, copy to
 `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` using the naming
 convention in the map (CD-7). Never overwrite — if the name exists, stop and ask;
 existing versions move to that folder's `SS\`, they are not replaced.
+
+Every completed job keeps the `.docx` **and its PDF export** side by side
+(CD-7.4 — verified across all three regions). So the save is two files:
+
+```
+pwsh job-roles/contract-admin/scripts/export_pdf.ps1 -Docx "<saved .docx path>"
+```
+
+which writes `INCLUSIONS_LOT <lot>_<SUBURB>_<SURNAME>.pdf` beside the docx —
+the same Save-as-PDF a person does in Word minutes after finishing the document.
 
 Leave in `<workdir>`: the job JSON, the fill report, the diff, the data sheet,
 and the list of what a person still has to do.

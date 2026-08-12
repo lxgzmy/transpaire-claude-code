@@ -43,13 +43,13 @@ forwarded marketer → sales manager → contract admin.
 | 7 | Fill the preliminary agreement, if the job needs one | Claude | CD-4 |
 | 8 | **HITL GATE** — field table + flags reviewed; approve or correct | Human | — |
 | 9 | Draft the build contract **data sheet** (cover, price from DataBuild, building period, Part B) | Claude | CD-5 |
-| 10 | **HITL GATE** — save to the job folder under the naming convention; never overwrite | Human approves, Claude copies | CD-7 |
+| 10 | **HITL GATE** — save to the job folder under the naming convention; never overwrite. The save is the `.docx` **plus its PDF export** (`export_pdf.ps1`), matching every completed job | Human approves, Claude copies | CD-7 |
 | 11 | Evidence bundle to `runtime\contract-admin\outputs\<job>\` | Claude | — |
 
 ## Phase 2 — Issue and execute (human)
 
 Not automated, and not attempted. Listed so the handover is complete (CD-8):
-key in and assemble the contract pack; export PDFs; attach in OnSite Companion
+key in and assemble the contract pack; attach in OnSite Companion
 under `CONTRACT`; email the contract to the marketer, cc Tony Feng, with the
 internal colour options; check initials and signatures; Michael Cronk signs;
 scan the six executed documents separately; manila folder to the filing cabinet.
@@ -71,8 +71,8 @@ DocuSign, OSC write — stays with a person permanently.
 
 ## Outputs
 
-- Completed inclusions `.docx` (CD-2, CD-3)
-- Completed preliminary agreement `.docx`, where required (CD-4)
+- Completed inclusions `.docx` + `.pdf` export (CD-2, CD-3, CD-7.4)
+- Completed preliminary agreement `.docx` + `.pdf` export, where required (CD-4)
 - Build contract data sheet (CD-5)
 - Pack checklist: general conditions, concept plan, consumer guide, colour options
 - Fill report + blank-vs-filled diff as the evidence bundle
