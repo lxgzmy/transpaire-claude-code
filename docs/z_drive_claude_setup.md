@@ -153,8 +153,12 @@ The PDF renders from [`z_drive_claude_guide.html`](z_drive_claude_guide.html) in
 this folder — edit that, then re-render with headless Chrome:
 
 ```powershell
-& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="Z:\CLAUDE CODE\transpire-claude-code\docs\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpire-claude-code/docs/z_drive_claude_guide.html"
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --headless --disable-gpu --no-pdf-header-footer --user-data-dir="Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\state\chrome-render" --print-to-pdf="Z:\CLAUDE CODE\transpire-claude-code\docs\Transpire_z_drive_claude_guide.pdf" "file:///Z:/CLAUDE%20CODE/transpire-claude-code/docs/z_drive_claude_guide.html"
 ```
+
+`--user-data-dir` matters: without it, headless Chrome drops a Crashpad data
+folder wherever its default lands — on 11 Aug 2026 that was a junk `Z:\CLAUDE`
+folder at the drive root. Point it at the git-ignored runtime folder above.
 
 A courtesy copy is also kept at `Z:\CLAUDE CODE\cowork-projects\2.z_drive\` for
 handing to end users outside the repo — re-render to that path too whenever the

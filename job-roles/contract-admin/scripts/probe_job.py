@@ -46,7 +46,8 @@ def find_jobs(term):
             continue
         for sub in [path] + ([p for p in path.glob("*") if p.is_dir()]
                              if path.name in ("CANCELLED", "COMPLETED CONTRACTS",
-                                              "ARCHIVE-HANDED OVER") else []):
+                                              "ARCHIVE-HANDED OVER", "HANDED OVER")
+                             else []):
             name = sub.name.lower()
             if all(w in name for w in words):
                 rel = sub.relative_to(PROJECTS)

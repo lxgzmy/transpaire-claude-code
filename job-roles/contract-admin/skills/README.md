@@ -38,8 +38,11 @@ Built:
   `z-drive-ops` guide. Rebuild the PDF from the HTML with headless Chrome:
 
   ```
-  chrome --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="<out.pdf>" "<file:///...html>"
+  chrome --headless --disable-gpu --no-pdf-header-footer --user-data-dir="Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\state\chrome-render" --print-to-pdf="<out.pdf>" "<file:///...html>"
   ```
+
+  (`--user-data-dir` stops headless Chrome dumping a Crashpad folder at the
+  `Z:\` root — it did exactly that on 11 Aug 2026.)
 
   **Not role-prefixed**, unlike `ca-new-job`: the name was requested as
   `/new-contract-template`. Renaming it `ca-new-contract-template` would match the

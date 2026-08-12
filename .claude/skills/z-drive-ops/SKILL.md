@@ -148,6 +148,11 @@ or supplier name, document type, or rough date.
 - **Match a job number on its first five digits, not on `"26049 - "`.** Real
   folder names vary around the dash (`26003- LOT`, `16001 -LOT`, double spaces),
   so an exact-prefix match misses genuine jobs.
+- **On the Claude Code surface, don't hand-write this search** — run
+  [`scripts/find_job.ps1`](scripts/find_job.ps1) (`pwsh find_job.ps1 26049`, or
+  words like `"lot 13 zhang"`, optional `-Region`). It covers all three levels
+  above, applies the five-digit rule, marks cancelled hits, and answers in about
+  two seconds. Desktop/Cowork without a shell still searches with file tools.
 - "The latest version" = most recently modified. Say that's what you used.
   Modification date is a good clue, **not proof** of which version is
   authoritative. Never let it stand alone for anything contractual, priced, or

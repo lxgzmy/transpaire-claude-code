@@ -95,10 +95,12 @@ skills are scoped to that folder and must not leak into another role.
   reports, creating folders) goes through the org-level **`z-drive-ops`** skill —
   it is company-wide, not per-role, and is the one place the drive map and the
   sensitive-folder blocklist are maintained. `windows-fileops` remains the
-  PowerShell technique layer underneath it. `z-drive-ops` also runs in **Claude
-  Desktop** for non-technical staff: see `docs/z_drive_claude_setup.md`. Keep that
-  skill folder self-contained (no `../` references out of it) so it stays
-  zip-portable.
+  PowerShell technique layer underneath it. `z-drive-ops` also reaches
+  non-technical staff through **Claude Desktop's Code mode**, which reads it
+  straight from this repo — nothing is packaged or installed per user (the old
+  zip in `cowork-projects\2.z_drive\` is superseded): see
+  `docs/z_drive_claude_setup.md`. Keep that skill folder self-contained (no
+  `../` references out of it).
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
   there. **Propose any new skill before creating it.** Contract-Admin skills:
   `ca-new-job` (EOI intake, draft-only) and `new-contract-template` (contract
