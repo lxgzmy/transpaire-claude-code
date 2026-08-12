@@ -36,15 +36,18 @@ Role prefixes (`ca-`) keep the two apart at a glance.
 - **z-drive-ops** (project, in `.claude/skills/`) — the **whole-`Z:` adviser for
   every role and every department**: find files, advise where to save something
   new, search any folder, report duplicates and clutter. Written for
-  **non-technical staff** (plain English, no commands shown) and runs on **two
-  surfaces** — Claude Code on the server *and* Claude Desktop on a staff PC.
+  **non-technical staff** (plain English, no commands shown); staff reach it
+  through Claude Desktop's **Code mode**, which reads the skill straight from
+  this repo — nothing is packaged or installed per user.
   Read-only by default; every create/move/rename/delete needs a named,
   per-batch approval. Carries its own drive map in
-  `references/z-drive-map.md`, kept inside the skill folder so the folder zips
-  up self-contained for Desktop. **The knowledge + judgement layer** — what
+  `references/z-drive-map.md` and the canonical job-location search in
+  `scripts/find_job.ps1`, kept inside the skill folder so it stays
+  self-contained. **The knowledge + judgement layer** — what
   lives where, what's safe to touch, how to answer a person.
   Setup: [docs/z_drive_claude_setup.md](../../docs/z_drive_claude_setup.md). Staff
-  guide (Markdown + formatted PDF): `Z:\CLAUDE CODE\cowork-projects\2.z_drive\`.
+  guide (HTML source + rendered PDF) in `docs/`, with a courtesy PDF copy at
+  `Z:\CLAUDE CODE\cowork-projects\2.z_drive\`.
 
   Not role-scoped, on purpose — the reasoning, and the retirement of the
   Contract-Admin-only `ca-zdrive`, is recorded once in

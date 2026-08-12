@@ -25,8 +25,10 @@ Built:
   contract request chain and its attachments, picks the correct **existing** blank
   template off `Z:\PROCEDURES & FORMS\CONTRACTS\`, fills it via
   `../scripts/fill_inclusions.py`, diffs filled against blank, and presents a
-  field table for approval before anything reaches a job folder. Produces the
-  inclusions and preliminary agreement as completed `.docx`; the build contract is
+  field table plus a page-1 PDF preview for approval before anything reaches a
+  job folder. Produces the inclusions and preliminary agreement as completed
+  `.docx` **plus the PDF export** (`../scripts/export_pdf.ps1`, CD-7.4 — every
+  completed job keeps the pair); the build contract is
   a **data sheet only**, because the current NSW/SEQ contracts are flat PDFs with
   no form fields (CD-5.1). Never invents contract wording, never signs, never
   sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).

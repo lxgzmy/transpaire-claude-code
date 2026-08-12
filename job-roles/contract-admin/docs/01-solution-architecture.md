@@ -1,5 +1,13 @@
 # Contract Admin Automation with Claude Code (Windows Server 2022)
 
+> **Status (Aug 2026):** this is the discovery-phase design and it aims further
+> than what is built. What exists today is read-only / draft-only: the new-job
+> intake (`/ca-new-job`) and the contract-documents workflow
+> (`/new-contract-template`) — the latter isn't in this document at all, as it
+> was scoped after discovery. The OSC/DataBuild write-automation below is
+> deferred pending the technical session with Adam. Current state:
+> [../README.md](../README.md); layout: [architecture-overview](../../../docs/architecture-overview.md).
+
 ## Problem
 
 Automate two contract-admin workflows for the builder client, executed today as manual UI work in OnSite Companion (OSC), Z-Drive and DataBuild:
