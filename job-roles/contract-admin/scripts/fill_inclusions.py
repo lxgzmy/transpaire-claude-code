@@ -55,27 +55,34 @@ EMPTY_TXBX = re.compile(
 #
 # exact=True matches the whole run text, which matters because "SUBURB" is a
 # substring of page 1's "SUBURB :" and would otherwise be filled twice.
+#
+# pad = extra spaces typed between the template's own gap run and the value, so
+# the value lands where it lands on the real contracts. The blank template's gap
+# is 2 spaces for every page-1 field (3 for "Lot No. :"), but the completed
+# documents indent further, and by the same amount every time: verified identical
+# across all four Pioneer Close jobs (lots 141, 142, 143, 144). Without this the
+# values sit several spaces left of every contract in the job folders (CD-2.1).
 FIELDS = [
     # --- page 1 header table (CD-2) ---
-    ("Lot No. :",           "lot_no",      "gap",    True),
-    ("STREET :",            "street",      "gap",    True),
-    ("SUBURB :",            "suburb",      "gap",    True),
-    ("ESTATE :",            "estate",      "gap",    True),
-    ("HOUSE TYPE :",        "house_type",  "gap",    True),
-    ("HOUSE SIZE :",        "house_size",  "gap",    True),
-    ("HOUSE FA\u00c7ADE :", "facade",      "gap",    True),
-    ("GARAGE SIDE :",       "garage_side", "gap",    True),
-    ("PRICE : $",           "price",       "suffix", True),
+    ("Lot No. :",           "lot_no",      "gap",    True, 0),
+    ("STREET :",            "street",      "gap",    True, 1),
+    ("SUBURB :",            "suburb",      "gap",    True, 0),
+    ("ESTATE :",            "estate",      "gap",    True, 0),
+    ("HOUSE TYPE :",        "house_type",  "gap",    True, 4),
+    ("HOUSE SIZE :",        "house_size",  "gap",    True, 5),
+    ("HOUSE FA\u00c7ADE :", "facade",      "gap",    True, 0),
+    ("GARAGE SIDE :",       "garage_side", "gap",    True, 3),
+    ("PRICE : $",           "price",       "suffix", True, 0),
     # --- pages 10-13 signature / acknowledgement blocks (CD-3) ---
-    ("Name of Owner 1:",    "owner_1",     "gap",         True),
-    ("Name of Owner 2:",    "owner_2",     "dotted_next", True),
-    ("LOT No:",             "lot_no",      "gap",         True),
-    ("STREET:",             "street",      "gap",         True),
-    ("SUBURB",              "suburb",      "gap",         True),
+    ("Name of Owner 1:",    "owner_1",     "gap",         True, 0),
+    ("Name of Owner 2:",    "owner_2",     "dotted_next", True, 0),
+    ("LOT No:",             "lot_no",      "gap",         True, 0),
+    ("STREET:",             "street",      "gap",         True, 0),
+    ("SUBURB",              "suburb",      "gap",         True, 0),
     ("Being the owners of the proposed new home to be located at;",
-     "site_address", "prefix", True),
-    ("Builders Representative:", "builders_rep", "dotted", False),
-    ("ACKNOWLEDGEMENTS & SIGNATURE", "owner_1", "textbox", True),
+     "site_address", "prefix", True, 0),
+    ("Builders Representative:", "builders_rep", "dotted", False, 0),
+    ("ACKNOWLEDGEMENTS & SIGNATURE", "owner_1", "textbox", True, 0),
 ]
 
 
@@ -135,7 +142,7 @@ def fill(xml, values, report):
     texts = [run_text(r[2]) for r in runs]
     edits = []  # (start, end, replacement)
 
-    for anchor, key, mode, exact in FIELDS:
+    for anchor, key, mode, exact, pad in FIELDS:
         value = values.get(key)
         entry = {"key": key, "anchor": anchor, "hits": 0}
         report.append(entry)
@@ -202,7 +209,7 @@ def fill(xml, values, report):
                 while j < len(runs) and texts[j] != "" and GAP_ONLY.match(texts[j]):
                     j += 1
                 at = runs[j - 1] if j - 1 > i else runs[i]
-                edits.append((at[1], at[1], clone_run(at[2], value)))
+                edits.append((at[1], at[1], clone_run(at[2], " " * pad + value)))
 
             entry["hits"] += 1
 
