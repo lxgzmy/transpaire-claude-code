@@ -136,6 +136,14 @@ FAMILIES = {
             "Lot No. :": 1, "STREET :": 2, "SUBURB :": 0, "ESTATE :": 2,
             "HOUSE TYPE :": 4, "HOUSE SIZE :": 6, "HOUSE FAÇADE :": 0,
             "GARAGE SIDE :": 3, "PRICE : $": 6,
+            # Sydney only: both completed Sydney jobs (lot 113, live, and lot
+            # 109, cancelled) leave 4 spaces between the owner's name and the
+            # following "Signature of Owner 1:" label on the two signature-page
+            # occurrences. Gunnedah (lot 141) and SEQ (lots 13, 59) all glue the
+            # two directly with no gap - so this is a genuine Sydney convention,
+            # not one person's typing, and belongs on this family only.
+            # Negative = trailing (see the "gap" branch in fill()).
+            "Name of Owner 1:": -4,
         },
     },
     "seq": {
@@ -304,12 +312,18 @@ def fill(xml, values, report, family):
                     run, dot_line(anchor, value, t[len(anchor):]))))
 
             elif mode == "dotted_next":
-                # the dotted line lives in the following run
+                # the dotted line lives in the following run. lead=4 keeps the
+                # leading space plus a few dots, matching every completed job
+                # that has dots here at all: lot 113 and lot 109 (Sydney) both
+                # keep ~3 leading dots before the name, and lot 141 (Gunnedah)
+                # keeps 2. lead=1 (keeping only the space, no dots) matches
+                # none of them - SEQ has no dots in this run either way, so is
+                # unaffected by this value.
                 if i + 1 >= len(runs):
                     continue
                 sj, ej, rj = runs[i + 1]
                 edits.append((sj, ej, set_run_text(
-                    rj, dot_line("", value, texts[i + 1], lead=1))))
+                    rj, dot_line("", value, texts[i + 1], lead=4))))
 
             elif mode == "prefix":
                 # the sentence continues in following runs that already read "Lot "
@@ -330,7 +344,14 @@ def fill(xml, values, report, family):
                 while j < len(runs) and texts[j] != "" and GAP_ONLY.match(texts[j]):
                     j += 1
                 at = runs[j - 1] if j - 1 > i else runs[i]
-                edits.append((at[1], at[1], clone_run(at[2], " " * pad + value)))
+                # A negative pad is trailing space, after the value - Sydney's
+                # "Name of Owner 1:" convention leaves the gap between the name
+                # and "Signature of Owner 1:", not between the label and the
+                # name. Every other pad in FAMILIES is a leading indent (the
+                # normal case), so a plain positive/zero value keeps its
+                # existing meaning.
+                text = value + " " * -pad if pad < 0 else " " * pad + value
+                edits.append((at[1], at[1], clone_run(at[2], text)))
 
             entry["hits"] += 1
 
