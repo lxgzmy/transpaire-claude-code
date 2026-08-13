@@ -75,7 +75,12 @@ COMMON_FIELDS = [
     ("STREET:",             "street",      "gap",         True),
     ("SUBURB",              "suburb",      "gap",         True),
     ("Builders Representative:", "builders_rep", "dotted", False),
-    ("ACKNOWLEDGEMENTS & SIGNATURE", "owner_1", "textbox", True),
+    # Every completed job puts ALL the owners in this box joined by " & ", not
+    # just the first - verified on lot 113 Box Hill (two owners) and lot 141
+    # Westdale (three). Kept as its own key rather than composed from
+    # owner_1/owner_2 so a job with three owners can still say so, and so
+    # jobs that do not set it behave exactly as before (see fill()).
+    ("ACKNOWLEDGEMENTS & SIGNATURE", "owners", "textbox", True),
 ]
 
 SITE_ANCHOR = "Being the owners of the proposed new home to be located at;"
@@ -95,6 +100,15 @@ SITE_ANCHOR = "Being the owners of the proposed new home to be located at;"
 # Every pad below was read off completed jobs, not guessed: lots 141/142/143/144
 # (Pioneer Close, Tamworth) for gunnedah, lots 13/21/58/59 (Zhang Street,
 # Holmview) for seq. regress_page1.py re-checks them against those jobs.
+#
+# sydney rests on ONE job - lot 113, The Water Lane, Box Hill (26004) - and that
+# is worth knowing before trusting its pads. The only other completed Sydney
+# inclusions is lot 109 in the same estate, and it was drafted over several
+# editing passes: it disagrees with lot 113 on six of the nine fields, and its
+# job was later cancelled. Taking both would produce a tie on every one of those
+# six, which the regression harness reads as "no convention" - a check that
+# passes whatever the filler does. So lot 113 alone is the reference. Re-measure
+# when a second clean Sydney job lands.
 FAMILIES = {
     "gunnedah": {
         "match": "REGION - GUNNEDAH",
@@ -107,6 +121,21 @@ FAMILIES = {
             "Lot No. :": 0, "STREET :": 1, "SUBURB :": 0, "ESTATE :": 0,
             "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
             "GARAGE SIDE :": 3, "PRICE : $": 5,
+        },
+    },
+    "sydney": {
+        "match": "REGION - SYDNEY",
+        "label": "Sydney INTEGRITY  (Box Hill, Gables, Leppington, Menangle Park)",
+        "fields": [
+            # Same shape as gunnedah: the label run carries the $, and the
+            # template has two "Lot " runs after the site sentence to append to.
+            ("PRICE : $", "price", "suffix", True),
+            (SITE_ANCHOR, "site_address", "prefix", True),
+        ],
+        "pads": {
+            "Lot No. :": 1, "STREET :": 2, "SUBURB :": 0, "ESTATE :": 2,
+            "HOUSE TYPE :": 4, "HOUSE SIZE :": 6, "HOUSE FAÇADE :": 0,
+            "GARAGE SIDE :": 3, "PRICE : $": 6,
         },
     },
     "seq": {
@@ -129,11 +158,22 @@ FAMILIES = {
 # text. The SEQ template carries a conditional block that must be deleted for
 # narrow lots, and the completed jobs do delete it. Filling a template does not
 # remove these, so a draft issued unread would send them to a client.
+#
+# The last four are Sydney's wording, which none of the earlier patterns caught:
+# a rain-garden/water-tank pair where one must go, an air-conditioning line to
+# strike out, and two bathroom-2 notes. The completed lot 109 and lot 113 jobs
+# resolve every one of them by hand. They are deliberately narrow: "if Applicable"
+# on its own would fire on the "(if applicable)" that Gunnedah and SEQ use as
+# ordinary contract text, three times between them. These four hit Sydney only.
 EDITOR_NOTES = [
     "DELETE IF",
     "UPDATE THE NUMBERS",
     "DONT USE",
     "TO BE AMENDED",
+    "DELETE NOT APPLICABLE",
+    "remove if not included",
+    "Vanity Added",
+    "Note: Add Bathroom",
 ]
 
 
@@ -207,6 +247,11 @@ def fill(xml, values, report, family):
     runs = [(m.start(), m.end(), m.group(0)) for m in RUN_RE.finditer(xml)]
     texts = [run_text(r[2]) for r in runs]
     edits = []  # (start, end, replacement)
+
+    # A job that names no "owners" falls back to owner_1, which is what this
+    # filler did before the key existed. Single-owner jobs are unaffected either
+    # way; two-owner jobs should set it.
+    values = {**values, "owners": values.get("owners") or values.get("owner_1")}
 
     for anchor, key, mode, exact in COMMON_FIELDS + family["fields"]:
         pad = family["pads"].get(anchor, 0)

@@ -33,6 +33,12 @@ SUITES = [
     ("seq", Path(r"Z:\PROJECTS\SEQ"), "*ZHANG STREET*",
      CONTRACTS / "REGION - SEQ" / "INCLUSIONS" / "INVESTOR & FIRST HOME OWNER"
      / "1. Sth East Qld ESSENTIALS Range Turnkey Inclusions - Transpire - NCC 2022 - 01.10.23.docx"),
+    # One job, deliberately - see the sydney note in fill_inclusions.py. The
+    # glob stays inside the live SYDNEY folder, which keeps the cancelled lot
+    # 109 out; adding it would tie six of the nine fields and neuter the check.
+    ("sydney", Path(r"Z:\PROJECTS\SYDNEY"), "*THE WATER LANE*",
+     CONTRACTS / "REGION - SYDNEY" / "INCLUSIONS"
+     / "2. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - STANDARD 10 YEAR CELEBRATION PROMOTION 18.08.2025 NMA.docx"),
 ]
 
 LABELS = ["Lot No. :", "HOUSE TYPE :", "STREET :", "HOUSE SIZE :", "SUBURB :",

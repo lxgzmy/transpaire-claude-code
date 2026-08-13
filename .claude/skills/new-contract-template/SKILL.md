@@ -107,7 +107,7 @@ Build the job JSON (CD-2, CD-3). Every value needs a source:
 | House size, garage side | **PLANS only.** Not in the email. Garage side is judged facing the house; unclear → escalate, never guess (JD-9.5) |
 | Owner names | EOI + client ID. Format `Firstname SURNAME` |
 | Site address | Lot, street, suburb, state, **postcode** — verify the postcode by lookup (JD-2.6) |
-| Estate | Left blank on all recent NSW jobs — leave it blank unless told otherwise |
+| Estate | Not always blank (CD-2.4): an unregistered lot carries the parent address + estate here, e.g. `37 Mason Road, (Luxus Estate)` on Box Hill job 26004. Check a completed neighbouring lot; blank only when neighbours are blank |
 | Builders representative | Michael Cronk (from the manual) |
 
 If the plans haven't arrived, house size and garage side cannot be filled. Say

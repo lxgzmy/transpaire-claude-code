@@ -67,7 +67,7 @@ Nine fields, all on page 1. *(manual, confirmed observed)*
 | **CD-2.1** Lot No | Email subject / EOI | Number only |
 | **CD-2.2** Street | Email / job folder | Keeps the house number in brackets when the job folder does: `(3) Pioneer Close` |
 | **CD-2.3** Suburb | Email / EOI | `SUBURB STATE`, CAPS: `WESTDALE NSW` |
-| **CD-2.4** Estate | — | Left **blank** on all four observed NSW jobs. Leave blank unless instructed |
+| **CD-2.4** Estate | Job folder / neighbouring lot | Blank on the four observed Tamworth jobs — but **not retired**: Sydney job 26004 (Lot 113, Box Hill) fills it with the pre-registration parent address plus estate, `37 Mason Road, (Luxus Estate)`. When a lot is unregistered and the request email carries a parent street address that is not the lot's street, that address belongs here, not in STREET. Check a completed neighbouring lot before leaving it blank |
 | **CD-2.5** Price | Request email | `$` + thousands separators + `.00`. Disagrees with the EOI → **stop**, do not average or prefer one |
 | **CD-2.6** House Type | Email "Design:" | Design name; auxiliary dwellings read `<design> + Auxiliary Unit`, not the email's shorthand (CD-6) |
 | **CD-2.7** House Size | **PLANS** | `nnn.nn m²`. Not in the email — absent until plans arrive (JD-9.3) |
@@ -80,6 +80,10 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 
 - **CD-3.1** Owner names appear in **five** places for owner 1, plus the
   acknowledgements text box. Format `Firstname SURNAME`. *(observed)*
+- **CD-3.1a** The acknowledgements text box carries **all** owners joined by
+  ` & ` — not just owner 1. Verified on lot 113 Box Hill (two owners) and
+  lot 141 Westdale (three). `fill_inclusions.py` takes this as the `owners`
+  key, falling back to `owner_1` when unset. *(observed 13 Aug 2026)*
 - **CD-3.2** Owner 2 is left blank for a single owner — the dotted line stays.
 - **CD-3.3** The site address on the acknowledgements page is the full
   `Lot <n>, <street>, <SUBURB> <STATE> <postcode>`. The postcode is **verified by
@@ -187,6 +191,8 @@ cabinet; and any DocuSign issue to a client.
    version is superseded and the PDF cannot be filled? (CD-5.1/5.2)
 3. What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over? (CD-4.3)
-4. `ESTATE` is blank on every recent NSW job — is the field retired? (CD-2.4)
+4. ~~`ESTATE` is blank on every recent NSW job — is the field retired?~~
+   **Answered 13 Aug 2026:** not retired. Sydney job 26004 uses it for the
+   pre-registration parent address + estate name. Rule updated. (CD-2.4)
 5. Who approves aux/dual-key inclusions, and is there an approved template for
    them outside Sydney? (CD-6.3/6.4)
