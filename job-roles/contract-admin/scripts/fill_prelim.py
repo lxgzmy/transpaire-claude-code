@@ -142,7 +142,15 @@ def fill(xml, values, report):
             note("owner_1", "after And (two clients)", owner_1, 1)
             note("owner_2", "after & (two clients)", owner_2, 1)
         else:
-            edits.append((s, e, set_run_text(amp_run, f"  {owner_1}")))
+            # every completed single-client agreement also deletes the tab
+            # before the old "&" (it sits INSIDE the & run, ahead of the
+            # text), so the name flows straight after "And" - keeping it
+            # shifts the name a tab stop right
+            new_run = set_run_text(amp_run, f"  {owner_1}").replace("<w:tab/>", "")
+            edits.append((s, e, new_run))
+            for j in range(i_and + 1, i_amp):  # tab as its own run, same rule
+                if "<w:tab" in runs[j][2] and not run_text(runs[j][2]):
+                    edits.append((runs[j][0], runs[j][1], ""))
             note("owner_1", "replaces & (single client)", owner_1, 1)
             note("owner_2", "Name of Owner 2", skipped=True)
             # both completed single-client Tamworth jobs carry this layout run

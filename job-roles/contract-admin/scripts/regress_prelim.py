@@ -51,6 +51,18 @@ def text(path):
         m.group(1) for m in re.finditer(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S)))
 
 
+def structure(path):
+    """docx_text's view: blocks with tabs/breaks/cells encoded. Catches an
+    extra or missing tab that pure run-text comparison is blind to - the
+    completed single-client agreements delete the tab between "And" and the
+    old "&", and that must be reproduced, not just the characters."""
+    sys.path.insert(0, str(HERE))
+    import xml.etree.ElementTree as ET
+    from docx_text import walk
+    root = ET.fromstring(zipfile.ZipFile(path).read("word/document.xml"))
+    return walk(root)
+
+
 def values_from(real):
     """Read the fill values back out of a completed single-client agreement."""
     t = text(real)
@@ -92,16 +104,24 @@ def main():
             failures += 1
             continue
         got, want = text(out), text(real)
+        got_s, want_s = structure(out), structure(real)
         out.unlink(missing_ok=True)
-        if got == want:
-            print(f"PASS  {name} - filled blank is text-identical to the real agreement")
-        else:
+        if got == want and got_s == want_s:
+            print(f"PASS  {name} - text AND structure identical to the real agreement")
+        elif got != want:
             failures += 1
             i = next((k for k, (a, b) in enumerate(zip(got, want)) if a != b),
                      min(len(got), len(want)))
-            print(f"FAIL  {name} - first divergence at char {i}:")
+            print(f"FAIL  {name} - first text divergence at char {i}:")
             print(f"      filled: ...{got[max(0, i-40):i+40]!r}")
             print(f"      real  : ...{want[max(0, i-40):i+40]!r}")
+        else:
+            failures += 1
+            i = next((k for k, (a, b) in enumerate(zip(got_s, want_s)) if a != b),
+                     min(len(got_s), len(want_s)))
+            print(f"FAIL  {name} - text matches but structure differs at block {i + 1}:")
+            print(f"      filled: {got_s[i] if i < len(got_s) else '(missing)'}")
+            print(f"      real  : {want_s[i] if i < len(want_s) else '(missing)'}")
 
     # two-client structural smoke test
     vals = {"owner_1": "Alpha ONE", "owner_2": "Beta TWO",

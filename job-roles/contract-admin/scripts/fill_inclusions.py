@@ -302,9 +302,13 @@ def fill(xml, values, report, family):
             elif mode == "after_lot":
                 # SEQ has no "Lot " runs to append to, so the whole address is
                 # inserted after the sentence - twice, because the builder's and
-                # the owner's copy sit side by side (verified on lot 13).
-                one = clone_run(run, f"Lot {value}")
-                edits.append((e, e, one + one))
+                # the owner's copy sit side by side. All 21 completed SEQ jobs
+                # separate the sentence and the address with a space ("at; Lot")
+                # and butt the two copies together with none - so only the
+                # first copy carries the leading space (verified 16 Aug 2026).
+                first = clone_run(run, f" Lot {value}")
+                second = clone_run(run, f"Lot {value}")
+                edits.append((e, e, first + second))
                 entry["hits"] += 1
 
             elif mode == "dotted":

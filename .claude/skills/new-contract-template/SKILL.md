@@ -42,14 +42,18 @@ Be straight about that third row rather than implying a contract was generated.
 
 ### 1. Read the request — the whole chain, and the attachments
 
-The argument is an email file (`.msg`, `.txt`, `.md`) or an Outlook subject. For
-`.msg`:
+The argument names the request. Take the **first route that applies**, and
+never install software to unblock one:
 
-```
-python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt -a <workdir>/attachments
-```
+| Input | Do exactly this |
+|---|---|
+| `.msg` path | `python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt -a <workdir>/attachments`. On `No module named 'extract_msg'` (not installed; installing needs approval) fall back to the next route using the file's subject |
+| Outlook subject | Search the mailbox with the mail connector for the exact subject; read the newest matching message's full chain and every attachment |
+| `.txt` / `.md` path | Read the file directly; ask for any attachments it references |
+| Nothing readable | Stop. Report which routes were tried; ask for the email |
 
-`<workdir>` is `Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\outputs\<job>\`.
+`<workdir>` is `Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\outputs\<job>\`
+where `<job>` is the 5-digit job number (or `lot<lot>-<suburb>` until one exists).
 Never `C:`, never inside the tracked repo.
 
 These emails are forwarded two or three deep — marketer → sales manager →
@@ -69,10 +73,17 @@ Those are decisions, not details; surface them, don't quietly act on them.
 
 ### 2. Find the job on Z:, or say it isn't there
 
-The job folder usually already exists. Search by lot number and street through
-`Z:\PROJECTS\<region>\`, its lifecycle subfolders, and the top-level
+The job folder usually already exists:
+
+```
+python job-roles/contract-admin/scripts/probe_job.py "<lot> <street>"
+```
+
+It covers `Z:\PROJECTS\<region>\`, every lifecycle subfolder, and the top-level
 `COMPLETED CONTRACTS` / `CANCELLED CONTRACTS` — about 78% of jobs are not in the
-live region folder (use the `z-drive-ops` skill for this; it carries the drive map).
+live region folder (`z-drive-ops` carries the drive map). Exactly one hit →
+proceed. No hits → report it and stop (a first draft with no job folder needs a
+human to say where it lives). Several hits → list them and ask.
 
 Two things to report before going further:
 
@@ -116,105 +127,105 @@ wrong inclusions is the most expensive mistake available here.
 
 ### 4. Collect the field values, and mark what you can't source
 
-Build the job JSON (CD-2, CD-3). Every value needs a source:
+Build `<workdir>/job.json` with **exactly these keys** — the fillers read them
+by name. Formats are house conventions verified against completed jobs; an
+unsourceable value stays `""` and is flagged, never guessed:
 
-| Field | Source |
+| Key | Format — follow it exactly | Source |
+|---|---|---|
+| `lot_no` | digits only: `"143"` | Subject + EOI |
+| `street` | keeps the house number in brackets when the job folder does: `"(3) Pioneer Close"` | Job folder name (CD-2.2) |
+| `suburb` | `"SUBURB STATE"` in CAPS: `"WESTDALE NSW"` | EOI / subject (CD-2.3) |
+| `estate` | `""` when completed neighbours leave it blank; an unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"`; SEQ estates fill the name (`"Somerfield West"`) where neighbours do (CD-2.4) | Neighbouring completed lot |
+| `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2) | Email "Design:" |
+| `house_size` | `"nnn.nn m²"` — the plans' Total Areas sum, all dwellings + garages/porches/alfresco | PLANS only (CD-2.7) |
+| `facade` | `"<name> Façade"` with the cedilla — the dominant convention (3 of 4 completed Tamworth jobs); a completed doc's plain `Facade` is that job's typing, not a rule | Email "Facade:" (CD-2.8) |
+| `garage_side` | `"Left Hand Side"` / `"Right Hand Side"`, judged facing the house, ONLY when a drawing or a person confirms it. Drawing unreadable in this session → `""` + flag for the reviewer. Never guess (JD-9.5) | PLANS only (CD-2.9) |
+| `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
+| `owner_1`, `owner_2` | `"Firstname SURNAME"` from the signed EOI; single owner → `owner_2: ""`. **Three or more owners:** fill `owner_1` and `owner_2`, and FLAG the rest — the one observed job hand-repurposed the witness rows into "Name of Owner 3", a template-wording edit a person makes (CD-3.8) | EOI (CD-0.2); ID confirms spelling (CD-0.3) |
+| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a) | EOI |
+| `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6) | Job folder + lookup |
+| `builders_rep` | `"Michael CRONK"` (CD-3.5) | Manual |
+| `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
+| `prelim_fee` | prelim only: plain figure `"5,000"` — **required**; the filler refuses to run without it (CD-4.3) | Sourced/confirmed for THIS job |
+
+If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
+Say that plainly and produce the rest — do not invent them, and do not silently
+leave them blank without saying so.
+
+### 5. Fill, diff and preview — one command
+
+```
+python job-roles/contract-admin/scripts/draft_contract.py \
+  --job <workdir>/job.json --template "<blank template path>" [--prelim]
+```
+
+One timed run of the whole checked pipeline, writing only into the workdir:
+
+1. **Anchor check** — a missing anchor aborts that document: the template has
+   been revised, stop and have a person look (never issue a half-filled one).
+2. **Fill** — field positions only; wording, styles and inclusion text
+   untouched; every occurrence filled (signature pages are duplicated for the
+   builder's and owner's copies). Output names follow CD-7.2 automatically.
+3. **Blank-vs-filled diff** (`diff_*_vs_blank.txt`) — read it; the only
+   changed regions may be the fields you set.
+4. **Complete PREVIEW PDFs**, all through a single Word launch.
+5. With `--real-dir "<job's CONTRACT DOCUMENTATION>"` (testing or amendments):
+   REAL_ PDF exports of the completed documents plus a word-level diff against
+   each (`worddiff_*_vs_real.txt`) — classify **every** differing block as a
+   field, human spec content, or known variance before calling the run good.
+
+Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; that is
+the preview itself, never cut it): a typical run is 25–50 seconds. The
+underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `docx_diff.py`,
+`docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a single stage;
+regressions are `regress_inclusions.py` and `regress_prelim.py`.
+
+`--prelim` is used only after this decision (CD-4.4), never by default:
+
+| Evidence | Do |
 |---|---|
-| Lot no, street, suburb | Email subject + EOI. Street keeps its house number in brackets if the job folder does |
-| Price | Request email. If it disagrees with the EOI, **stop** (CD-2.5) |
-| House type, façade | Email ("Design:", "Facade:"). Auxiliary/dual-key changes the wording (CD-6) |
-| House size, garage side | **PLANS only.** Not in the email. Garage side is judged facing the house; unclear → escalate, never guess (JD-9.5) |
-| Owner names | EOI + client ID. Format `Firstname SURNAME` |
-| Site address | Lot, street, suburb, state, **postcode** — verify the postcode by lookup (JD-2.6) |
-| Estate | Not always blank (CD-2.4): an unregistered lot carries the parent address + estate here, e.g. `37 Mason Road, (Luxus Estate)` on Box Hill job 26004. Check a completed neighbouring lot; blank only when neighbours are blank |
-| Builders representative | Michael Cronk (from the manual) |
+| Folder already holds a preliminary agreement | It exists — regenerating is an amendment (CD-7.6); its fee is the job's fee history |
+| Email says no prelim is required | Surface the exact line and ask — the one observed job produced one anyway |
+| Email silent, none in the folder | Ask once; produce nothing until answered |
+| A person says produce it | `--prelim`, with `prelim_fee` sourced for THIS job — the template's $30,000 is refused, never defaulted (CD-4.3; observed $2,500–$32,035) |
 
-If the plans haven't arrived, house size and garage side cannot be filled. Say
-that plainly and produce the rest — do not invent them, and do not silently leave
-them blank without saying so.
-
-### 5. Fill the template
-
-```
-python job-roles/contract-admin/scripts/fill_inclusions.py \
-  --template "<blank template path>" --job <workdir>/job.json --check
-```
-
-`--check` reports which anchors were found and writes nothing. **Run it first.**
-If any anchor is missing the template has been revised — stop and have a person
-look, rather than issuing a half-filled contract.
-
-Then drop `--check` and add `--out "<workdir>/INCLUSIONS_LOT <lot>_<SUBURB>_<SURNAME>.docx"`.
-
-The script edits only the field positions; the template's wording, styles and
-inclusion text are untouched. It fills every occurrence of each field, because
-the signature pages are duplicated for the builder's and owner's copies.
-
-If the job takes a preliminary agreement (CD-4.4 — ask when unclear), fill it
-the same way:
-
-```
-python job-roles/contract-admin/scripts/fill_prelim.py \
-  --template "Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT\NSW PRELIMINARY AGREEMENT 2024.docx" \
-  --job <workdir>/job.json --check
-```
-
-then drop `--check` and add
-`--out "<workdir>/PRELIMINARY AGREEMENT_LOT <lot>_<SUBURB>_<SURNAME>.docx"`.
-The job JSON needs `residential_address` and `prelim_fee`; a missing fee is
-**refused, never defaulted** — the template's $30,000 is not the job's fee
-(CD-4.3; observed jobs range $2,500–$32,035). Fill conventions are verified
-against completed agreements by `regress_prelim.py` (CD-4.5).
-
-### 6. Read back what changed
-
-Diff the filled document against the blank and show it:
-
-```
-python job-roles/contract-admin/scripts/docx_diff.py "<blank>" "<filled>"
-```
-
-The only differences should be the fields you set. Anything else means the script
-touched something it shouldn't have.
-
-### 7. HITL GATE — preview, and only ever save what was approved
+### 6. HITL GATE — preview, and only ever save what was approved
 
 **This gate is permanent. It applies during testing and forever after it, to
 every document this skill generates.**
 
 Show, as a short table: the template path, every field with its value and source,
-and every unresolved flag. Then export a **complete** PDF of every drafted
-document and present it for review (send it for inline preview — page 1 carries
-every filled field; the rest lets the reviewer confirm nothing else moved):
-
-```
-pwsh job-roles/contract-admin/scripts/export_pdf.ps1 -Docx "<filled.docx>" -Out "<workdir>/PREVIEW_<doc>.pdf"
-```
+and every unresolved flag. Then send the driver's complete `PREVIEW_*.pdf` files
+for inline review (page 1 carries every filled field; the rest lets the reviewer
+confirm nothing else moved).
 
 Then stop. The rules of the gate:
 
 - The reviewer may **approve, or request changes**. On changes: apply them,
-  re-export, and show the complete preview again. Repeat until an explicit
-  approval — there is no change that skips the re-preview.
-- Only an explicit yes **to the preview actually shown** releases step 9.
+  re-run the driver, and show the fresh complete preview again. Repeat until an
+  explicit approval — there is no change that skips the re-preview.
+- Only an explicit yes **to the preview actually shown** releases step 8.
   No preview shown, or no approval given, means nothing is saved — there is no
   other path into a job folder.
-- Do not continue to step 8 without the same approval.
+- Do not continue to step 7 without the same approval.
 
-### 8. Draft the build contract data sheet
+### 7. Draft the build contract data sheet
 
 The values a person needs to key into the contract (CD-5): cover page (owners,
-job, lot, site), contract price excluding GST / GST / total and the fixed-price
-component — **all three from DataBuild, not calculated by you** — building period
-days by storey and duplex, the land details, and the Part B progress payment
-schedule copied from DataBuild.
+job, lot, site), the building period in contract days (single storey 180,
+single-storey duplex 210, double storey 210, double-storey duplex 240 — CD-5.5),
+and the land details. For contract price excluding GST, GST, total, the
+fixed-price component and the Part B progress payment schedule, write literally
+`— FROM DATABUILD (a person keys this in)`: those figures are **never computed
+or inferred here** (CD-5.4).
 
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
 
-### 9. Save on approval, and write the evidence bundle
+### 8. Save on approval, and write the evidence bundle
 
-On a clear yes **to the preview shown at step 7** (a document changed since its
+On a clear yes **to the preview shown at step 6** (a document changed since its
 last shown preview goes back through the gate first), copy to
 `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` using the naming
 convention in the map (CD-7). Never overwrite — if the name exists, stop and ask;
@@ -271,7 +282,7 @@ default and has been wrong for the job in practice — it is not a fallback, and
 
 **No save without an approved preview.** A generated contract document reaches
 a job folder only after its complete PDF preview was shown and explicitly
-approved in this conversation (step 7). Requested changes loop back through a
+approved in this conversation (step 6). Requested changes loop back through a
 fresh preview. Permanent — during the testing phase and after it.
 
 **No client data into the repo.** Names, addresses, prices, ID documents and

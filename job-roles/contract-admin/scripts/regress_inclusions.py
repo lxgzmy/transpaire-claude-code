@@ -116,9 +116,21 @@ def run_suite(family, root, pattern, blank):
     sample_name, sample_doc = jobs[0]
     vals = {KEY_OF[l]: v for l, (_, v) in read_fields(sample_doc).items()}
     vals["price"] = vals.get("price", "").lstrip("$")
-    for k in ("owner_1", "owner_2", "site_address"):
+    for k in ("owner_1", "owner_2"):
         vals.setdefault(k, "")
     vals.setdefault("builders_rep", "Michael CRONK")
+
+    def site_tail(docx):
+        """Tokens after 'located at;' in the acknowledgements block."""
+        for line in run(HERE / "docx_text.py", docx).stdout.splitlines():
+            if "located at;" in line:
+                return re.findall(r"\S+", line.split("located at;", 1)[1])
+        return None
+
+    # the sample job's own site address, read back out of its completed doc
+    tail = " ".join(site_tail(sample_doc) or [])
+    m = re.search(r"Lot (.+?)(?=Lot \d|$)", tail)
+    vals["site_address"] = m.group(1).strip() if m else ""
 
     # Stage on Z:, never the system temp dir - that is on C: (repo CLAUDE.md).
     tmp = HERE.parent.parent.parent / "runtime" / "contract-admin" / "reports" / "_regress"
@@ -133,6 +145,17 @@ def run_suite(family, root, pattern, blank):
     got = {l: n for l, (n, _) in read_fields(out).items()}
     bad = [(l, convention[l], got.get(l)) for l in LABELS
            if l in convention and got.get(l) not in convention[l]]
+
+    # The acknowledgements-box site address must read word-for-word like the
+    # sample job's - this is where "at;Lot" (missing space, SEQ) would hide,
+    # since page-1 indents say nothing about it. Word-level, because dotted
+    # leaders and hand spacing around it are known variance.
+    site_bad = None
+    if vals.get("site_address"):
+        got_site, want_site = site_tail(out), site_tail(sample_doc)
+        if got_site != want_site:
+            site_bad = (got_site, want_site)
+
     out.unlink(missing_ok=True)
     jf.unlink(missing_ok=True)
 
@@ -142,7 +165,13 @@ def run_suite(family, root, pattern, blank):
             allowed = " or ".join(str(n) for n in sorted(want))
             print(f"      {label:<16} convention {allowed}, filler {have}")
         return 1
-    print(f"   PASS - filler matches the convention on all {len(convention)} fields")
+    if site_bad:
+        print("   FAIL - site address line disagrees with the sample job:")
+        print(f"      filler: {' '.join(site_bad[0] or ['(missing)'])[:100]}")
+        print(f"      real  : {' '.join(site_bad[1] or ['(missing)'])[:100]}")
+        return 1
+    print(f"   PASS - filler matches the convention on all {len(convention)} fields"
+          " + the site address line")
     return 0
 
 

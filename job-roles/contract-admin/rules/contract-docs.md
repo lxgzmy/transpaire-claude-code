@@ -97,6 +97,12 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-3.7** Dates, signatures, initials and witness fields are left **empty**.
   Claude never fills, signs, or initials them. Per the manual a person initials
   pages 1–12 and signs pages 10–13; that is a person's job.
+- **CD-3.8** **Three or more owners:** owner 1 and owner 2 fill their slots as
+  usual and the acknowledgements box carries all owners (CD-3.1a) — but the
+  third owner's rows are a **manual template edit**: the one observed job
+  (26044) repurposed the Owners Witness rows into `Name of Owner 3` /
+  `Signature of Owner 3` by hand. Claude fills owners 1–2, puts every owner in
+  `owners`, and flags the rest for a person. *(observed 16 Aug 2026)*
 
 ## CD-4 Preliminary agreement
 
