@@ -106,10 +106,24 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   address, and the preliminary work fee. Signature block takes the client name
   and Michael Cronk.
 - **CD-4.3** **The fee in the template is not the job's fee.** The template reads
-  $30,000; the observed Tamworth job used $5,000. Always sourced or confirmed,
-  never carried over. *(observed)*
+  $30,000; both completed Tamworth jobs used $5,000, and completed agreements
+  across regions range $2,500–$32,035. Always sourced or confirmed, never
+  carried over — `fill_prelim.py` refuses to run without a fee. *(observed)*
 - **CD-4.4** The request email may say no preliminary agreement is required. One
-  was still produced on the observed job. Ask — do not resolve it either way.
+  was still produced on the observed job (26045 — email said "no need for
+  Prelim agreement", the folder holds an executed one). Ask — do not resolve it
+  either way.
+- **CD-4.5** Fill conventions, verified across eight completed agreements
+  (jobs 26036/26045 Tamworth — reproduced text-identically by
+  `regress_prelim.py` — plus five Sydney and one Gunnedah for structure):
+  a single client's name replaces the template's `&` as `  <name>`; two
+  clients keep the cells — name 1 after `And`, name 2 after `&`; addresses
+  are typed after their labels; and every job types owner 1 two paragraphs
+  above the first `Client Name` label, owner 2 two above the second, and the
+  builders representative three above `Name who is authorised…` — the printed
+  signing lines. Sydney jobs vary the cosmetic spacing (1–9 spaces, no
+  convention); the Tamworth pair agree exactly and are the reference.
+  *(observed 16 Aug 2026)*
 
 ## CD-5 Build contract — data sheet only
 
@@ -190,7 +204,8 @@ cabinet; and any DocuSign issue to a client.
 2. Should the NSW build contract exist as a fillable template, given the Word
    version is superseded and the PDF cannot be filled? (CD-5.1/5.2)
 3. What sets the preliminary work fee, and should the template default be
-   removed to stop it being carried over? (CD-4.3)
+   removed to stop it being carried over? Observed range $2,500–$32,035;
+   both Tamworth jobs $5,000. (CD-4.3)
 4. ~~`ESTATE` is blank on every recent NSW job — is the field retired?~~
    **Answered 13 Aug 2026:** not retired. Sydney job 26004 uses it for the
    pre-registration parent address + estate name. Rule updated. (CD-2.4)

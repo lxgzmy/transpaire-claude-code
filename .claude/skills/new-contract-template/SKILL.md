@@ -31,8 +31,8 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 
 | Document | Status |
 |---|---|
-| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields |
-| **Preliminary agreement** (`.docx`) | **Produced, filled**, when the job needs one |
+| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
+| **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
 | **Build contract** | **Data sheet only.** The NSW/HIA contract is a flat 45-page PDF with no form fields — a person keys it in and assembles the pack (CD-5) |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
@@ -82,6 +82,23 @@ Two things to report before going further:
   contracted within weeks of each other and a cancelled twin is easy to mistake
   for the live job.
 
+Then **confirm what contract the job actually requires from the folder's own
+evidence** — never from assumption about type, template, structure or
+formatting:
+
+- Any completed or superseded document there shows which template family this
+  job's contracts derive from. Fingerprint it against the blank
+  (`docx_diff.py` blank vs theirs — same block skeleton means same template)
+  rather than trusting filenames.
+- A preliminary agreement in the folder means the business produced one even
+  when the request email said not to (CD-4.4), and its fee is the job's fee
+  history.
+- Neighbouring completed jobs in the same estate are the tie-breaker for
+  conventions (estate field, façade spelling, naming).
+- **If the required contract is unclear, or more than one template or contract
+  set could apply, stop and present the options for confirmation before
+  generating anything.**
+
 ### 3. Pick the template — from the map, not from the filename
 
 Open [`references/contract-template-map.md`](references/contract-template-map.md)
@@ -91,9 +108,11 @@ and choose on region → client type → range → promotion (CD-1). Then check:
 - Not marked "DONT USE", not under `TO BE AMENDED`.
 - Not named for a different marketer or estate.
 
-**State the full path of the template you chose and why**, before filling it. If
-two templates are plausible, name both and ask — picking the wrong inclusions is
-the most expensive mistake available here.
+**State the full path of the template you chose and why**, before filling it,
+and where the job folder holds any existing contract document, confirm the
+choice against it (step 2's fingerprint) — the pick must agree with the job's
+own evidence. If two templates are plausible, name both and ask — picking the
+wrong inclusions is the most expensive mistake available here.
 
 ### 4. Collect the field values, and mark what you can't source
 
@@ -131,6 +150,22 @@ The script edits only the field positions; the template's wording, styles and
 inclusion text are untouched. It fills every occurrence of each field, because
 the signature pages are duplicated for the builder's and owner's copies.
 
+If the job takes a preliminary agreement (CD-4.4 — ask when unclear), fill it
+the same way:
+
+```
+python job-roles/contract-admin/scripts/fill_prelim.py \
+  --template "Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT\NSW PRELIMINARY AGREEMENT 2024.docx" \
+  --job <workdir>/job.json --check
+```
+
+then drop `--check` and add
+`--out "<workdir>/PRELIMINARY AGREEMENT_LOT <lot>_<SUBURB>_<SURNAME>.docx"`.
+The job JSON needs `residential_address` and `prelim_fee`; a missing fee is
+**refused, never defaulted** — the template's $30,000 is not the job's fee
+(CD-4.3; observed jobs range $2,500–$32,035). Fill conventions are verified
+against completed agreements by `regress_prelim.py` (CD-4.5).
+
 ### 6. Read back what changed
 
 Diff the filled document against the blank and show it:
@@ -142,17 +177,29 @@ python job-roles/contract-admin/scripts/docx_diff.py "<blank>" "<filled>"
 The only differences should be the fields you set. Anything else means the script
 touched something it shouldn't have.
 
-### 7. HITL GATE — present for review
+### 7. HITL GATE — preview, and only ever save what was approved
+
+**This gate is permanent. It applies during testing and forever after it, to
+every document this skill generates.**
 
 Show, as a short table: the template path, every field with its value and source,
-and every unresolved flag. Export a PDF preview of the draft so the reviewer sees
-it as it prints (page 1 carries every filled field):
+and every unresolved flag. Then export a **complete** PDF of every drafted
+document and present it for review (send it for inline preview — page 1 carries
+every filled field; the rest lets the reviewer confirm nothing else moved):
 
 ```
-pwsh job-roles/contract-admin/scripts/export_pdf.ps1 -Docx "<filled.docx>" -Out "<workdir>/preview_p1.pdf" -From 1 -To 1
+pwsh job-roles/contract-admin/scripts/export_pdf.ps1 -Docx "<filled.docx>" -Out "<workdir>/PREVIEW_<doc>.pdf"
 ```
 
-Then stop and ask for approval or correction. Do not continue to step 8 without it.
+Then stop. The rules of the gate:
+
+- The reviewer may **approve, or request changes**. On changes: apply them,
+  re-export, and show the complete preview again. Repeat until an explicit
+  approval — there is no change that skips the re-preview.
+- Only an explicit yes **to the preview actually shown** releases step 9.
+  No preview shown, or no approval given, means nothing is saved — there is no
+  other path into a job folder.
+- Do not continue to step 8 without the same approval.
 
 ### 8. Draft the build contract data sheet
 
@@ -167,7 +214,8 @@ building guide, internal colour selection options.
 
 ### 9. Save on approval, and write the evidence bundle
 
-On a clear yes, copy to
+On a clear yes **to the preview shown at step 7** (a document changed since its
+last shown preview goes back through the gate first), copy to
 `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` using the naming
 convention in the map (CD-7). Never overwrite — if the name exists, stop and ask;
 existing versions move to that folder's `SS\`, they are not replaced.
@@ -218,7 +266,13 @@ signing) are a person's job, described here only so the checklist is complete.
 **Never guess a contract value.** Price, house size, garage side, prelim fee,
 GST split, progress payments: sourced or escalated. A plausible number in a
 contract is a liability. The preliminary agreement's template fee is a template
-default and has been wrong for the job in practice — it is not a fallback.
+default and has been wrong for the job in practice — it is not a fallback, and
+`fill_prelim.py` refuses to run without a sourced fee.
+
+**No save without an approved preview.** A generated contract document reaches
+a job folder only after its complete PDF preview was shown and explicitly
+approved in this conversation (step 7). Requested changes loop back through a
+fresh preview. Permanent — during the testing phase and after it.
 
 **No client data into the repo.** Names, addresses, prices, ID documents and
 EOIs stay in `runtime\` on `Z:` — git-ignored — and out of commits, prompts and

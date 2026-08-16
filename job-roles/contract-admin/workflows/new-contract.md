@@ -35,13 +35,13 @@ forwarded marketer → sales manager → contract admin.
 | # | Step | Actor | Rules |
 |---|---|---|---|
 | 1 | Read the whole chain + attachments; read the EOI as an image; note missing client ID | Claude | CD-0 |
-| 2 | Locate the job folder (all lifecycle levels); report existing contract docs and any cancelled twin | Claude (via `z-drive-ops`) | CD-7.6 |
-| 3 | **Select the template** and state its full path + reason | Claude | CD-1 |
+| 2 | Locate the job folder (all lifecycle levels); report existing contract docs and any cancelled twin; **confirm the required contract from the folder's own documents** (fingerprint vs the blank) — unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-1.6 |
+| 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply | Claude | CD-2, CD-3 |
 | 5 | `fill_inclusions.py --check` — confirm every anchor still exists | Claude | CD-1.3 |
 | 6 | Fill the inclusions; diff filled vs blank and show it | Claude | CD-2, CD-3 |
-| 7 | Fill the preliminary agreement, if the job needs one | Claude | CD-4 |
-| 8 | **HITL GATE** — field table + flags reviewed; approve or correct | Human | — |
+| 7 | Fill the preliminary agreement, if the job needs one (`fill_prelim.py --check`, then fill; fee is a mandatory input) | Claude | CD-4 |
+| 8 | **HITL GATE** — field table + flags + **complete PDF preview of every drafted document**; reviewer approves or requests changes; changes re-preview until an explicit yes | Human | — |
 | 9 | Draft the build contract **data sheet** (cover, price from DataBuild, building period, Part B) | Claude | CD-5 |
 | 10 | **HITL GATE** — save to the job folder under the naming convention; never overwrite. The save is the `.docx` **plus its PDF export** (`export_pdf.ps1`), matching every completed job | Human approves, Claude copies | CD-7 |
 | 11 | Evidence bundle to `runtime\contract-admin\outputs\<job>\` | Claude | — |
@@ -66,8 +66,11 @@ scan the six executed documents separately; manila folder to the filing cabinet.
 ## HITL gates
 
 Two: after the draft is assembled (step 8) and before anything is written into a
-job folder (step 10). Beyond those, every outward-facing act — email, signature,
-DocuSign, OSC write — stays with a person permanently.
+job folder (step 10). The step-8 gate is a **preview gate, permanently**: every
+generated document is shown as a complete PDF, requested changes go back through
+a fresh preview, and only an explicit approval of the shown preview releases the
+save — during the testing phase and after it. Beyond those, every outward-facing
+act — email, signature, DocuSign, OSC write — stays with a person permanently.
 
 ## Outputs
 
@@ -88,7 +91,8 @@ EOI email ─> OSC job ─> Z: job folders ─> [wait: PLAN] ─> plan updates �
 
 - [`../rules/contract-docs.md`](../rules/contract-docs.md) — `CD-*`
 - [`../rules/job-details.md`](../rules/job-details.md) — `JD-2`, `JD-9`
-- [`../scripts/fill_inclusions.py`](../scripts/fill_inclusions.py) — template filler
+- [`../scripts/fill_inclusions.py`](../scripts/fill_inclusions.py) — inclusions filler
+- [`../scripts/fill_prelim.py`](../scripts/fill_prelim.py) — preliminary agreement filler (`regress_prelim.py` guards it)
 - [`../scripts/msg_to_text.py`](../scripts/msg_to_text.py) — `.msg` → text + attachments
 - `new-contract-template` skill — orchestrates this workflow
 - `z-drive-ops` skill — locating the job folder and the template

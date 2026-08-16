@@ -7,6 +7,8 @@ new-contract workflow (`../workflows/new-contract.md`).
 |---|---|---|
 | `msg_to_text.py` | **Working** | Outlook `.msg` → plain text (headers + body + attachment names); `-a <dir>` also saves the attachments (EOI PDF, inclusions doc) so Claude can read them. Needs `pip install extract-msg`. |
 | `fill_inclusions.py` | **Working, validated against a real job** | Blank inclusions template + job JSON → filled `.docx` (`CD-2`, `CD-3`). Stdlib only — edits `word/document.xml` in place inside the zip, inserting values as new runs after each label the way Word does, so the template's wording, styles and inclusion text are untouched. Fills every occurrence, because the signature pages are duplicated for the builder's and owner's copies. `--check` verifies every anchor exists and writes nothing — **run it first**; a missing anchor means the template was revised. |
+| `fill_prelim.py` | **Working — reproduces both completed Tamworth agreements text-identically** | Blank `NSW PRELIMINARY AGREEMENT 2024.docx` + job JSON → filled `.docx` (`CD-4`). Same stdlib run-editing approach. Client row, addresses, fee and the three signing-line names, placed per the conventions verified across eight completed agreements (CD-4.5). **Refuses to run without `prelim_fee`** — the template's $30,000 is not the job's fee (CD-4.3). `--check` first, as with the inclusions. |
+| `regress_prelim.py` | **Passing** | Fills the blank prelim with each completed Tamworth job's values and requires the result to be **text-identical** to the real executed agreement, plus a two-client structural smoke test. Run after any `fill_prelim.py` change, alongside `regress_inclusions.py`. |
 | `extract_eoi.py` | **Working, tested** | Request-email text → job-data JSON draft sheet per the `JD-*` rules, plus human-attention flags. Handles labelled emails and free-form forwarded chains (subject-line lot/suburb, e-sign client, `$` price, "site a X with a Y façade"). Read-only; touches nothing. |
 | `test_extract_eoi.py` | **Passing** | Regression test against `../fixtures/eoi-sample-01.md` / `-expected.md`. Run `python test_extract_eoi.py` after any rule change. |
 | `test_job_search.py` | **Passing** | Keeps the job-location logic in step with its owner. The canonical "where can a job folder be" logic is the org z-drive-ops skill's `find_job.ps1`; `probe_job.py` mirrors it in Python. This checks the two agree, that every lifecycle-like folder on the live drive is covered, and that a real job in each location is actually found. `probe_job.py` missed `SYDNEY\HANDED OVER` (199 jobs) before this existed. |
@@ -35,8 +37,10 @@ new-contract workflow, once the plans are in:
 blank template ─┐
 job.json ───────┴─> fill_inclusions.py --check   (anchors present?)
                     fill_inclusions.py --out ... ──> INCLUSIONS_LOT ….docx
+                    fill_prelim.py     --out ... ──> PRELIMINARY AGREEMENT_LOT ….docx  (CD-4.4: if the job needs one)
                                         │  (human reviews field table + diff
-                                        │   + a page-1 PDF preview via export_pdf.ps1)
+                                        │   + a complete PDF preview via export_pdf.ps1;
+                                        │   changes re-preview until an explicit yes)
                                         ▼
                                   saved to the job's CONTRACT DOCUMENTATION\
                                   as .docx + .pdf  (export_pdf.ps1, CD-7.4)
@@ -66,4 +70,7 @@ job.json ───────┴─> fill_inclusions.py --check   (anchors pres
   person keys it in.
 - **Auxiliary/dual-key inclusions text** (CD-6.3) — a pricing and specification
   decision. Fields are filled, the wording is not.
+- **Whether a job needs a preliminary agreement at all** (CD-4.4) — the request
+  email's word has been wrong in practice; a person decides, `fill_prelim.py`
+  only fills.
 - Signatures, initials, dates and witness fields (CD-3.7) — never filled.
