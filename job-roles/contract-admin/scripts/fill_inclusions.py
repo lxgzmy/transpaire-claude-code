@@ -191,6 +191,55 @@ def editor_notes_left(xml):
     return [n for n in EDITOR_NOTES if n.lower() in text.lower()]
 
 
+# Editor-instruction paragraphs the filler deletes outright, per family. Only a
+# line every completed job of that family removes belongs here - deleting text
+# is otherwise a person's call. The one entry so far: SEQ's narrow-lot note.
+# All five completed SEQ jobs checked (lots 1, 2, 13, 58, 70 - 16 Aug 2026)
+# removed the LINE and kept the accessible-entrance block it governs, so the
+# line is part of producing the deliverable. Whether the BLOCK must also go
+# (lot 12.5m wide or less) only the site plan can say - main() prints that
+# decision as a warning every time the line is removed.
+DELETE_PARAS = {
+    "seq": ["DELETE IF BLOCK WIDTH IS 12.5M OR LESS"],
+}
+
+P_RE = re.compile(r"<w:p(?: [^>]*)?>.*?</w:p>", re.S)
+
+
+def drop_instruction_paras(xml, fam_name):
+    """Delete whole paragraphs that are purely template-editor instructions.
+
+    A paragraph that is the only block of its table cell is blanked instead of
+    deleted (a cell must keep at least one block element to stay valid docx).
+    Returns (xml, [notes removed]).
+    """
+    removed = []
+    for needle in DELETE_PARAS.get(fam_name or "", []):
+        while True:
+            hit = next(
+                (m for m in P_RE.finditer(xml)
+                 if needle.lower() in " ".join(
+                     run_text(r.group(0))
+                     for r in RUN_RE.finditer(m.group(0))).lower()),
+                None)
+            if hit is None:
+                break
+            cell_open = xml.rfind("<w:tc>", 0, hit.start())
+            in_cell = (cell_open != -1
+                       and xml.find("</w:tc>", cell_open) > hit.start())
+            if in_cell:
+                cell_close = xml.find("</w:tc>", hit.end())
+                sole = len(P_RE.findall(xml[cell_open:cell_close])) == 1
+            else:
+                sole = False
+            if sole:
+                xml = xml[:hit.start()] + "<w:p/>" + xml[hit.end():]
+            else:
+                xml = xml[:hit.start()] + xml[hit.end():]
+            removed.append(needle)
+    return xml, removed
+
+
 def pick_family(template_path):
     """Which family this template belongs to, from its path on Z:."""
     p = str(Path(template_path)).lower()
@@ -409,6 +458,7 @@ def main():
     xml = read_xml(args.template)
     report = []
     new_xml = fill(xml, values, report, family)
+    new_xml, dropped_notes = drop_instruction_paras(new_xml, fam_name)
 
     print(f"template : {Path(args.template).name}")
     print(f"family   : {fam_name} - {family['label']}")
@@ -435,6 +485,13 @@ def main():
     if problems:
         print(f"WARNING: no anchor found for: {', '.join(problems)}")
         print("The template may have changed. Do not issue this document - check it.")
+
+    if dropped_notes:
+        for n in dropped_notes:
+            print(f"removed  : template editor instruction line {n!r}")
+        print("           The conditional block it governed is STILL in the document.")
+        print("           If the lot is 12.5m wide or less a person must delete that")
+        print("           block too - read the frontage off the site plan.")
 
     notes = editor_notes_left(new_xml)
     if notes:

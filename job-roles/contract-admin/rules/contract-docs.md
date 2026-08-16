@@ -67,7 +67,7 @@ Nine fields, all on page 1. *(manual, confirmed observed)*
 | **CD-2.1** Lot No | Email subject / EOI | Number only |
 | **CD-2.2** Street | Email / job folder | Keeps the house number in brackets when the job folder does: `(3) Pioneer Close` |
 | **CD-2.3** Suburb | Email / EOI | `SUBURB STATE`, CAPS: `WESTDALE NSW` |
-| **CD-2.4** Estate | Job folder / neighbouring lot | Blank on the four observed Tamworth jobs — but **not retired**: Sydney job 26004 (Lot 113, Box Hill) fills it with the pre-registration parent address plus estate, `37 Mason Road, (Luxus Estate)`. When a lot is unregistered and the request email carries a parent street address that is not the lot's street, that address belongs here, not in STREET. Check a completed neighbouring lot before leaving it blank |
+| **CD-2.4** Estate | Job folder / neighbouring lot | Blank on the four observed Tamworth jobs — but **not retired**: Sydney job 26004 (Lot 113, Box Hill) fills it with the pre-registration parent address plus estate, `37 Mason Road, (Luxus Estate)`. When a lot is unregistered and the request email carries a parent street address that is not the lot's street, that address belongs here, not in STREET. **SEQ (observed 16 Aug 2026, 7 jobs):** when the job-folder name carries a bracketed estate, fill it in title case as the most recently contracted completed neighbour spells it (`Forestone Estate`, `Somerfield West`) — the older Forestone jobs (26033/26034) left it blank, the newer ones (26038/26050/26051) fill it; recency wins. No estate in the folder name (infill, 26053) → blank. The same estate goes into the SEQ site address as `<street> (<Estate>),` — no comma before the bracket (majority; 26050's `, (` is one typist) |
 | **CD-2.5** Price | Request email | `$` + thousands separators + `.00`. Disagrees with the EOI → **stop**, do not average or prefer one |
 | **CD-2.6** House Type | Email "Design:" | Design name; auxiliary dwellings read `<design> + Auxiliary Unit`, not the email's shorthand (CD-6) |
 | **CD-2.7** House Size | **PLANS** | `nnn.nn m²`. Not in the email — absent until plans arrive (JD-9.3) |
@@ -97,6 +97,14 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-3.7** Dates, signatures, initials and witness fields are left **empty**.
   Claude never fills, signs, or initials them. Per the manual a person initials
   pages 1–12 and signs pages 10–13; that is a person's job.
+- **CD-3.9** **Company / trust buyer** *(observed 26039, 16 Aug 2026)*: Owner 1
+  takes the full contracting entity as the signed land contract writes it —
+  `VWJJ INVESTMENT No.1 PTY LTD ATF WANG AND LIU No.1 FAMILY TRUST` — Owner 2
+  stays empty, and the acknowledgements box appends the ACN. The signer line
+  (`<Director> on behalf of <entity>`) and the deletion of the unused Owner-2
+  rows are a person's edits at signing. **The entity must come off the signed
+  land contract**: the same job's attached ASIC extract named a sibling company
+  (no `No.1`, different ACN) — an ASIC extract is context, not the authority.
 - **CD-3.8** **Three or more owners:** owner 1 and owner 2 fill their slots as
   usual and the acknowledgements box carries all owners (CD-3.1a) — but the
   third owner's rows are a **manual template edit**: the one observed job
@@ -172,6 +180,11 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-7.2** Naming: `<DOCTYPE>_LOT <lot>_<SUBURB>_<SURNAME>.<ext>`, where
   DOCTYPE is `INCLUSIONS`, `BUILD CONTRACT`, `PLANS` or `PRELIMINARY AGREEMENT`.
   Suburb and surname CAPS. *(observed, 60 files across TAMWORTH and GUNNEDAH)*
+  A company/trust owner's name token is the trustee company's **first word**
+  (`_VWJJ` for `VWJJ INVESTMENT No.1 PTY LTD ATF ...`), never `_LTD`/`_TRUST`
+  *(observed 26039)*. Human files sometimes shorten an unusual surname
+  (26053's `REDDY&SURA` for surname REDDYREDDY) — the actual surname is the
+  convention; the shorthand is that file's typing.
 - **CD-7.3** The manual's older convention is
   `J# L# Street, Estate Stage - Inclusions`. No current file uses it. Follow the
   files; flag the discrepancy.

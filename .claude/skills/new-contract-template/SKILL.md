@@ -47,10 +47,21 @@ never install software to unblock one:
 
 | Input | Do exactly this |
 |---|---|
-| `.msg` path | `python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt -a <workdir>/attachments`. On `No module named 'extract_msg'` (not installed; installing needs approval) fall back to the next route using the file's subject |
-| Outlook subject | Search the mailbox with the mail connector for the exact subject; read the newest matching message's full chain and every attachment |
+| `.msg` path | `python job-roles/contract-admin/scripts/msg_extract.py "<file.msg>" -a <workdir>/attachments -o <workdir>/email_original.txt` — pure stdlib, needs no install. (`msg_to_text.py` needs the `extract_msg` package and is only a fallback where that is installed) |
+| Outlook subject | Search the mailbox with the mail connector for the exact subject; read the newest matching message's full chain. For attachments, prefer the original `.msg` filed in the job's `CONTRACT DOCUMENTATION` (route above) over pulling base64 through the connector |
 | `.txt` / `.md` path | Read the file directly; ask for any attachments it references |
 | Nothing readable | Stop. Report which routes were tried; ask for the email |
+
+Attachment reality on this server (no PDF rasteriser, no OCR): e-sign-flattened
+PDFs (Annature/DocuSign land contracts), photo EOIs and scanned IDs have **no
+machine-readable values**. When the client names live only in those, take them
+from the job folder's completed documents if any exist and FLAG them for
+eye-confirmation against the signed source; on a genuine first draft with no
+folder evidence, leave them blank and stop for a person. An attached ASIC
+extract names A company — the one observed job (26039) contracted under a
+**different sibling entity** (`... No.1 Pty Ltd ATF ... Family Trust`), so an
+ASIC extract is supporting context, never the owner-name authority. A file
+named like a credential (`credential.pdf`) is never opened.
 
 `<workdir>` is `Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\outputs\<job>\`
 where `<job>` is the 5-digit job number (or `lot<lot>-<suburb>` until one exists).
@@ -136,15 +147,15 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `lot_no` | digits only: `"143"` | Subject + EOI |
 | `street` | keeps the house number in brackets when the job folder does: `"(3) Pioneer Close"` | Job folder name (CD-2.2) |
 | `suburb` | `"SUBURB STATE"` in CAPS: `"WESTDALE NSW"` | EOI / subject (CD-2.3) |
-| `estate` | `""` when completed neighbours leave it blank; an unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"`; SEQ estates fill the name (`"Somerfield West"`) where neighbours do (CD-2.4) | Neighbouring completed lot |
+| `estate` | SEQ: when the job-folder name carries a bracketed estate (`(FORESTONE ESTATE)`, `(SOMERFIELD WEST)`), fill it in title case as the **most recently contracted** completed neighbour spells it (`"Forestone Estate"`, `"Somerfield West"`) — older neighbours may be blank, recency wins (observed 26038/26050/26051 vs 26033/26034). No estate in the folder name (infill like 26053) → `""`. An unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"` (CD-2.4) | Job folder name + most recent completed neighbour |
 | `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2) | Email "Design:" |
 | `house_size` | `"nnn.nn m²"` — the plans' Total Areas sum, all dwellings + garages/porches/alfresco | PLANS only (CD-2.7) |
 | `facade` | `"<name> Façade"` with the cedilla — the dominant convention (3 of 4 completed Tamworth jobs); a completed doc's plain `Facade` is that job's typing, not a rule | Email "Facade:" (CD-2.8) |
 | `garage_side` | `"Left Hand Side"` / `"Right Hand Side"`, judged facing the house, ONLY when a drawing or a person confirms it. Drawing unreadable in this session → `""` + flag for the reviewer. Never guess (JD-9.5) | PLANS only (CD-2.9) |
 | `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
 | `owner_1`, `owner_2` | `"Firstname SURNAME"` from the signed EOI; single owner → `owner_2: ""`. **Three or more owners:** fill `owner_1` and `owner_2`, and FLAG the rest — the one observed job hand-repurposed the witness rows into "Name of Owner 3", a template-wording edit a person makes (CD-3.8) | EOI (CD-0.2); ID confirms spelling (CD-0.3) |
-| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a) | EOI |
-| `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6) | Job folder + lookup |
+| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"VWJJ INVESTMENT No.1 PTY LTD ATF WANG AND LIU No.1 FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 693 135 572"`); the signer line ("<Director> on behalf of ...") is typed by a person at signing, never filled (observed 26039) | EOI / signed land contract |
+| `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026) | Job folder + lookup |
 | `builders_rep` | `"Michael CRONK"` (CD-3.5) | Manual |
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
 | `prelim_fee` | prelim only: plain figure `"5,000"` — **required**; the filler refuses to run without it (CD-4.3) | Sourced/confirmed for THIS job |
@@ -166,7 +177,14 @@ One timed run of the whole checked pipeline, writing only into the workdir:
    been revised, stop and have a person look (never issue a half-filled one).
 2. **Fill** — field positions only; wording, styles and inclusion text
    untouched; every occurrence filled (signature pages are duplicated for the
-   builder's and owner's copies). Output names follow CD-7.2 automatically.
+   builder's and owner's copies). Output names follow CD-7.2 automatically
+   (a company/trust owner's filename token is the trustee company's first
+   word — `_VWJJ`, never `_LTD`). One deliberate deletion: the SEQ template's
+   `DELETE IF BLOCK WIDTH IS 12.5M OR LESS` instruction line comes out (every
+   completed SEQ job removes it) and the filler prints the follow-on decision —
+   **if the lot is 12.5m wide or less a person must also delete the
+   accessible-entrance block it governed** (observed: 26039/26037 deleted it,
+   10m sites; 26053/26008 kept it).
 3. **Blank-vs-filled diff** (`diff_*_vs_blank.txt`) — read it; the only
    changed regions may be the fields you set.
 4. **Complete PREVIEW PDFs**, all through a single Word launch.
@@ -181,7 +199,21 @@ underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `docx_diff.py`,
 `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a single stage;
 regressions are `regress_inclusions.py` and `regress_prelim.py`.
 
-`--prelim` is used only after this decision (CD-4.4), never by default:
+**Spec content the email orders is a person's edit, with a defined flag each
+time** — the draft never writes it, the summary always names it:
+
+| The email says | The person's edit (flag it, verbatim) |
+|---|---|
+| "Delete NCC" / chain answers NCC **excluded** | Remove the `NCC 2022 Livable Housing` section and renumber the following sections (observed 26039/26037/26022) |
+| "NCC included" / "Leave in NCC" | Section stays — nothing to do (26053, 26008) |
+| NCC question asked, **no answer in the chain** | FLAG the open question; do not guess either way |
+| Upgrade bullets (ceilings, doors, A/C, tiling, shelving…) | Keyed into `PROMOTIONAL UPGRADES`/upgrade sections by a person, house wording (each observed job's wording differs) |
+| "Sep promotion" / "September Promotion pack" | Promo lines are hand-curated per job — even the promo's own items vary between jobs of the same week (26050 kept Colorbond roofing, 26039 dropped it) |
+| Plan-change bullets (relocate door, add screen…) | Drafting updates the plans; the matching inclusions lines are keyed by a person (26037) |
+
+`--prelim` is used only after this decision (CD-4.4), never by default
+(SEQ has no preliminary-agreement template at all — the analogous "custom plan
+agreement" seen at 26053 is a different document this skill does not produce):
 
 | Evidence | Do |
 |---|---|
@@ -243,6 +275,22 @@ the same Save-as-PDF a person does in Word minutes after finishing the document.
 
 Leave in `<workdir>`: the job JSON, the fill report, the diff, the data sheet,
 and the list of what a person still has to do.
+
+**Delivering anywhere else (the testing folder, a handover folder): end users
+are non-technical and get ONLY the final files.** After the approval — never in
+the same invocation as a fill:
+
+```
+python job-roles/contract-admin/scripts/draft_contract.py --job <workdir>/job.json --deliver "<output folder>"
+```
+
+puts exactly the deliverable pair per document at the folder root under the
+real names (`INCLUSIONS_LOT <lot>_<SUBURB>_<SURNAMES>.docx` + `.pdf` — no
+`PREVIEW_` prefix), and every working file (worddiffs, diffs, fill reports,
+REAL_/PREVIEW_ exports, job JSON, timings) into `<output folder>\temp\`. It
+refuses paths under `Z:\PROJECTS` (job-folder saves stay the manual copy
+above) and refuses to overwrite unless `--deliver-force` (test refreshes
+only). Permanent requirement, 16 Aug 2026.
 
 ## Auxiliary and dual-key dwellings
 

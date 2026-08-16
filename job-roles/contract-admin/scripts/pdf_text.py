@@ -76,6 +76,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pdf")
     ap.add_argument("--grep", help="only show pieces matching this pattern (case-insensitive)")
+    ap.add_argument("--max", type=int, default=4000,
+                    help="cap on characters printed (0 = no cap). The default keeps "
+                         "quick looks cheap; scanned-in land contracts and 90-page "
+                         "packs need --max 0 or they truncate SILENTLY.")
     args = ap.parse_args()
 
     pieces = text_of(args.pdf)
@@ -89,7 +93,10 @@ def main():
                 print(f"        ...{ctx[:160]}")
     else:
         joined = " ".join(pieces)
-        print(joined[:4000])
+        out = joined if args.max == 0 else joined[:args.max]
+        print(out)
+        if args.max and len(joined) > args.max:
+            print(f"\n[TRUNCATED at {args.max} of {len(joined)} chars - rerun with --max 0]")
 
 
 # This console is cp1252; document text carries m², ç and dotted leaders, and

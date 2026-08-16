@@ -3,6 +3,7 @@ r"""Run the whole contract-drafting pipeline for one job, timed. Stdlib only.
     python draft_contract.py --job <workdir>/job.json --template "<blank inclusions>"
     python draft_contract.py --job <workdir>/job.json --template "<blank>" --prelim
     python draft_contract.py --job <workdir>/job.json --template "<blank>" --real-dir "<job's CONTRACT DOCUMENTATION>"
+    python draft_contract.py --job <workdir>/job.json --deliver "<output folder>"   (release, only AFTER approval)
 
 One command instead of six: anchor check, fill, blank-vs-filled diff, optional
 preliminary agreement (same three stages), complete-PDF previews in a single
@@ -31,6 +32,7 @@ owners - and 26045 - a single owner).
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -40,6 +42,28 @@ HERE = Path(__file__).resolve().parent
 PRELIM_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
                     r"\NSW PRELIMINARY AGREEMENT 2024.docx")
 STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
+
+
+COMPANY_TAILS = ("PTY LTD", "PTY LIMITED", "LTD", "LIMITED", "PTY. LTD.")
+
+
+def owner_token(name):
+    """The filename token for one owner: surname, or a company's leading word.
+
+    A company owner ends in Pty Ltd or the like; taking the 'surname' would
+    name every company job _LTD. The completed job 26039 names its files
+    INCLUSIONS_LOT 4_PALLARA_VWJJ for owner 'VWJJ INVESTMENT No.1 PTY LTD ATF
+    WANG AND LIU No.1 FAMILY TRUST' - the distinctive first word of the
+    trustee company is the token, and any 'ATF <trust>' clause is ignored.
+    """
+    up = " ".join(name.upper().replace(".", "").split())
+    up = up.split(" ATF ")[0]  # trustee-for clause never feeds the filename
+    for tail in COMPANY_TAILS:
+        if up.endswith(tail.replace(".", "")):
+            return up.split()[0]
+    if up.endswith("TRUST"):
+        return up.split()[0]
+    return name.split(" ATF ")[0].split()[-1].upper()
 
 
 def doc_suffix(values):
@@ -53,13 +77,59 @@ def doc_suffix(values):
     for key in ("owner_1", "owner_2"):
         name = str(values.get(key) or "").strip()
         if name:
-            last = name.split()[-1].upper()
+            last = owner_token(name)
             if last not in surnames:
                 surnames.append(last)
     if not (lot and suburb and surnames):
         sys.exit(f"ERROR: lot_no/suburb/owner_1 needed to name the documents "
                  f"(got lot={lot!r}, suburb={suburb!r}, owners={surnames})")
     return f"LOT {lot}_{suburb}_{'&'.join(surnames)}"
+
+
+def deliver(workdir, values, dest, force):
+    """Release step, run only AFTER the shown preview was approved (skill step 6).
+
+    End users are non-technical and get exactly the deliverable pair per
+    document - the filled .docx and its .pdf under the REAL deliverable names
+    (no PREVIEW_ prefix). Every working file (diffs, worddiffs, fill reports,
+    REAL_/PREVIEW_ exports, job JSON, timings) goes to <dest>/temp/ so the
+    output folder stays clean but the evidence stays reachable.
+    """
+    suffix = doc_suffix(values)
+    dest = Path(dest)
+    if "PROJECTS" in (part.upper() for part in dest.parts):
+        sys.exit("ERROR: --deliver never writes under Z:\\PROJECTS. Saving into a job "
+                 "folder is the skill's step 8: human approval, a deliberate copy, "
+                 "and export_pdf.ps1 beside it - never this shortcut.")
+    finals = []
+    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT"):
+        docx = workdir / f"{kind}_{suffix}.docx"
+        pdf = workdir / f"PREVIEW_{kind}_{suffix}.pdf"
+        if docx.exists():
+            if not pdf.exists():
+                sys.exit(f"ERROR: {pdf.name} missing - a document is delivered only with "
+                         f"the exact preview that was approved. Re-run the fill first.")
+            finals.append((docx, dest / docx.name))
+            finals.append((pdf, dest / f"{kind}_{suffix}.pdf"))
+    if not finals:
+        sys.exit(f"ERROR: nothing to deliver - no filled documents named *_{suffix} in {workdir}")
+    clash = [b for _, b in finals if b.exists()]
+    if clash and not force:
+        sys.exit("ERROR: already delivered: " + ", ".join(c.name for c in clash)
+                 + ". --deliver-force replaces them (test-folder refreshes only).")
+    dest.mkdir(parents=True, exist_ok=True)
+    temp = dest / "temp"
+    temp.mkdir(exist_ok=True)
+    final_sources = {a for a, _ in finals}
+    for a, b in finals:
+        shutil.copy2(a, b)
+        print(f"  delivered : {b}")
+    moved = 0
+    for f in sorted(workdir.iterdir()):
+        if f.is_file() and f not in final_sources:
+            shutil.copy2(f, temp / f.name)
+            moved += 1
+    print(f"  evidence  : {moved} working file(s) -> {temp}")
 
 
 def run_py(script, *args):
@@ -94,6 +164,12 @@ def main():
                          "export REAL_ PDFs and worddiff the drafts against the completed documents")
     ap.add_argument("--no-pdf", action="store_true",
                     help="skip PDF exports (regression/timing use only - a draft for review ALWAYS gets its preview)")
+    ap.add_argument("--deliver",
+                    help="release AFTER the preview was approved: copy the final docx+pdf under "
+                         "their real deliverable names to this folder, and every working file to "
+                         "<folder>/temp. Its own invocation - cannot be combined with a fill run.")
+    ap.add_argument("--deliver-force", action="store_true",
+                    help="allow --deliver to replace an earlier delivery (test folders only)")
     args = ap.parse_args()
 
     job_path = Path(args.job)
@@ -103,6 +179,14 @@ def main():
         sys.exit("ERROR: workdir is inside Z:\\PROJECTS - this script never writes to job folders. "
                  "Saving there is the skill's step 9: human approval, then a deliberate copy.")
     workdir.mkdir(parents=True, exist_ok=True)
+
+    if args.deliver:
+        if args.template or args.prelim or args.real_dir:
+            sys.exit("ERROR: --deliver is its own step, run AFTER the shown preview was "
+                     "approved - it never fills and delivers in one invocation.")
+        deliver(workdir, values, args.deliver, args.deliver_force)
+        return 0
+
     if not args.template and not args.prelim:
         sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim")
 
