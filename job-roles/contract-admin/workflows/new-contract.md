@@ -102,10 +102,10 @@ EOI email ─> OSC job ─> Z: job folders ─> [wait: PLAN] ─> plan updates �
 
 - [`../rules/contract-docs.md`](../rules/contract-docs.md) — `CD-*`
 - [`../rules/job-details.md`](../rules/job-details.md) — `JD-2`, `JD-9`
-- [`../scripts/draft_contract.py`](../scripts/draft_contract.py) — the one-command pipeline (check → fill → diff → previews → real-comparison), timed
+- [`../scripts/draft_contract.py`](../scripts/draft_contract.py) — the one-command pipeline (check → fill → diff → PDF export → real-comparison → routed save), timed
 - [`../scripts/fill_inclusions.py`](../scripts/fill_inclusions.py) — inclusions filler (`regress_inclusions.py` guards it)
 - [`../scripts/fill_prelim.py`](../scripts/fill_prelim.py) — preliminary agreement filler (`regress_prelim.py` guards it)
-- [`../scripts/msg_to_text.py`](../scripts/msg_to_text.py) — `.msg` → text + attachments
+- [`../scripts/msg_extract.py`](../scripts/msg_extract.py) — `.msg` → text + attachments, stdlib only (`msg_to_text.py` is the superseded fallback)
 - `new-contract-template` skill — orchestrates this workflow
 - `z-drive-ops` skill — locating the job folder and the template
 - `transpire-writing` skill — any drafted email

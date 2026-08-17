@@ -26,7 +26,9 @@ CLAUDE.md            # org-wide guardrails
 README.md            # index
 ONBOARDING.md        # orientation
 .claude/
-  settings.json      # permissions (deny C:, ask on DocuSign), status line
+  settings.json      # permissions (ask on C: writes + DocuSign, deny credential
+                     #   paths — see root CLAUDE.md for why C: is ask, not deny),
+                     #   status line
   skills/            # every activated skill, cross-role and role-scoped alike —
                      #   this is the only place Claude Code loads skills from.
                      #   Docs live with the owner: shared/skills/ or the role.

@@ -21,11 +21,14 @@ and sends every email.**
 ## Steps
 
 1. **Read the email file** the user pointed at. If it is an Outlook `.msg`,
-   convert it first (needs `pip install extract-msg` once per machine):
+   convert it first — pure stdlib, no install needed:
 
    ```
-   python job-roles/contract-admin/scripts/msg_to_text.py "<file.msg>" -o <workdir>/email.txt -a <workdir>/attachments
+   python job-roles/contract-admin/scripts/msg_extract.py "<file.msg>" -a <workdir>/attachments -o <workdir>/email.txt
    ```
+
+   (`msg_to_text.py` is a superseded fallback that needs the `extract_msg`
+   package, which no server has — use it only where that is already installed.)
 
    Read the whole forwarded chain **and the attachments** per `JD-0A`: the EOI
    PDF carries most of what the body lacks and outranks it, signature images
