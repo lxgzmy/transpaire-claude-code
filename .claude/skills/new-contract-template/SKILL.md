@@ -6,7 +6,9 @@ description: >
   Outlook subject, or asks to draft/raise a build contract, inclusions, or
   preliminary agreement from a contract request or EOI. Reads the email and its
   attachments, picks the correct blank template off the Z: drive, fills it, and
-  presents it for review. Draft-only: never sends, signs, or issues anything.
+  saves the finished documents in one pass - to the job folder for a first
+  draft, or to the template-testing folder when the job already exists in
+  production. Never sends, signs, or issues anything.
 ---
 
 # New contract template (contract request → completed template)
@@ -19,8 +21,12 @@ a contract administrator would open, with the same fields, wording and layout.
 template can't be found, say so and stop. A contract that looks plausible but
 isn't the company's document is worse than no draft.
 
-Everything produced here is a **draft for a person to check**. Nothing is sent,
-signed, issued to DocuSign, or saved into a job folder without a named approval.
+The run is **one pass with no preview stop** (rule change, 17 Aug 2026 — it
+replaced the earlier "permanent" preview gate): the documents are generated and
+saved straight to the correct destination, and the full report (destination,
+fields, flags, diffs, PDFs) follows as information, not as a request for
+approval. What stays human, permanently: issuing, sending, DocuSign, signing,
+and resolving every flagged field before the contract goes out.
 
 Source procedure: "RAISING CONTRACTS" in
 `Z:\PROCEDURES & FORMS\ADMINISTRATION\INTERNAL - System and Procedures Manual.docx`.
@@ -33,10 +39,11 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
-| **Build contract** | **Data sheet only.** The NSW/HIA contract is a flat 45-page PDF with no form fields — a person keys it in and assembles the pack (CD-5) |
+| **Build contract (incl. HIA)** | **Target: `.docx` + `.pdf` — currently BLOCKED, so data sheet only.** The business holds a valid HIA licence (stated 17 Aug 2026), so HIA-branded PDF output is permitted and, for the HIA build contract, required as a docx+PDF pair. But there is no current fillable HIA Word template on the drive: every `.docx` HIA contract is superseded (`SS\`, 2016–17 — forbidden, CD-1.3), the live blanks are flat PDFs with zero form fields, and this server cannot fill or edit a flat PDF (CD-5.1/5.2). Until a licensed fillable template lands, produce the data sheet and flag the gap in every run |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
-Be straight about that third row rather than implying a contract was generated.
+Be straight about that third row rather than implying a contract was generated —
+say the HIA docx+PDF requirement is blocked and why, every time it applies.
 
 ## Steps
 
@@ -96,10 +103,16 @@ live region folder (`z-drive-ops` carries the drive map). Exactly one hit →
 proceed. No hits → report it and stop (a first draft with no job folder needs a
 human to say where it lives). Several hits → list them and ask.
 
-Two things to report before going further:
+Two things to check before going further:
 
-- **Contract documents already in that job's `CONTRACT DOCUMENTATION` folder.**
-  If there are, this is an amendment, not a first draft. Say so and ask.
+- **Contract documents already in that job's `CONTRACT DOCUMENTATION` folder**
+  (`SS\` included) mean the job **already exists in production**, so this is a
+  **TEST RUN** (rule, 17 Aug 2026): everything generated saves only to
+  `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\` and
+  nothing is written to the job folder. `draft_contract.py --job-dir` detects
+  this itself and prints the mode; state it in the report. A genuine amendment
+  therefore also lands in the test folder — promoting it into the job folder
+  (old version to `SS\`, CD-7.5) is a person's copy.
 - **A cancelled job at the same lot.** Neighbouring lots in one close are often
   contracted within weeks of each other and a cancelled twin is easy to mistake
   for the live job.
@@ -164,14 +177,16 @@ If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
 Say that plainly and produce the rest — do not invent them, and do not silently
 leave them blank without saying so.
 
-### 5. Fill, diff and preview — one command
+### 5. Fill, diff, export and save — one command
 
 ```
 python job-roles/contract-admin/scripts/draft_contract.py \
-  --job <workdir>/job.json --template "<blank template path>" [--prelim]
+  --job <workdir>/job.json --template "<blank template path>" [--prelim] \
+  --job-dir "<job's CONTRACT DOCUMENTATION>"
 ```
 
-One timed run of the whole checked pipeline, writing only into the workdir:
+One timed run of the whole checked pipeline, ending in the save — there is no
+preview stop (removed 17 Aug 2026):
 
 1. **Anchor check** — a missing anchor aborts that document: the template has
    been revised, stop and have a person look (never issue a half-filled one).
@@ -187,14 +202,23 @@ One timed run of the whole checked pipeline, writing only into the workdir:
    10m sites; 26053/26008 kept it).
 3. **Blank-vs-filled diff** (`diff_*_vs_blank.txt`) — read it; the only
    changed regions may be the fields you set.
-4. **Complete PREVIEW PDFs**, all through a single Word launch.
-5. With `--real-dir "<job's CONTRACT DOCUMENTATION>"` (testing or amendments):
-   REAL_ PDF exports of the completed documents plus a word-level diff against
-   each (`worddiff_*_vs_real.txt`) — classify **every** differing block as a
+4. **Complete PDF exports** (named `PREVIEW_*` in the workdir, delivered under
+   the real names), all through a single Word launch.
+5. **Real-document comparison** — in TEST mode `--real-dir` defaults to the
+   job's `CONTRACT DOCUMENTATION` automatically: REAL_ PDF exports of the
+   completed documents plus a word-level diff against each
+   (`worddiff_*_vs_real.txt`) — classify **every** differing block as a
    field, human spec content, or known variance before calling the run good.
+6. **The save.** `--job-dir` routes it: TEST (the job already has contract
+   documents) → finals plus a `temp\` of working files to
+   `template-testing\<job>\`, refreshed in place, the job folder untouched.
+   PRODUCTION (genuine first draft) → the final `.docx` + `.pdf` pair per
+   document into the job's `CONTRACT DOCUMENTATION` itself (CD-7.1/7.4),
+   never overwriting — a name clash stops the run (CD-7.5). Any failed stage
+   blocks the save: nothing partial ever ships.
 
-Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; that is
-the preview itself, never cut it): a typical run is 25–50 seconds. The
+Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; the PDF
+is half the deliverable pair, never cut it): a typical run is 25–50 seconds. The
 underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `docx_diff.py`,
 `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a single stage;
 regressions are `regress_inclusions.py` and `regress_prelim.py`.
@@ -222,27 +246,7 @@ agreement" seen at 26053 is a different document this skill does not produce):
 | Email silent, none in the folder | Ask once; produce nothing until answered |
 | A person says produce it | `--prelim`, with `prelim_fee` sourced for THIS job — the template's $30,000 is refused, never defaulted (CD-4.3; observed $2,500–$32,035) |
 
-### 6. HITL GATE — preview, and only ever save what was approved
-
-**This gate is permanent. It applies during testing and forever after it, to
-every document this skill generates.**
-
-Show, as a short table: the template path, every field with its value and source,
-and every unresolved flag. Then send the driver's complete `PREVIEW_*.pdf` files
-for inline review (page 1 carries every filled field; the rest lets the reviewer
-confirm nothing else moved).
-
-Then stop. The rules of the gate:
-
-- The reviewer may **approve, or request changes**. On changes: apply them,
-  re-run the driver, and show the fresh complete preview again. Repeat until an
-  explicit approval — there is no change that skips the re-preview.
-- Only an explicit yes **to the preview actually shown** releases step 8.
-  No preview shown, or no approval given, means nothing is saved — there is no
-  other path into a job folder.
-- Do not continue to step 7 without the same approval.
-
-### 7. Draft the build contract data sheet
+### 6. Draft the build contract data sheet
 
 The values a person needs to key into the contract (CD-5): cover page (owners,
 job, lot, site), the building period in contract days (single storey 180,
@@ -255,30 +259,28 @@ or inferred here** (CD-5.4).
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
 
-### 8. Save on approval, and write the evidence bundle
+### 7. Report the run, and leave the evidence
 
-On a clear yes **to the preview shown at step 6** (a document changed since its
-last shown preview goes back through the gate first), copy to
-`Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` using the naming
-convention in the map (CD-7). Never overwrite — if the name exists, stop and ask;
-existing versions move to that folder's `SS\`, they are not replaced.
+The save already happened in step 5 — this step is information, not a gate.
+Report, as a short table: **the destination and mode (TEST or PRODUCTION)**,
+the template path, every field with its value and source, and every unresolved
+flag. Send the final PDFs with `SendUserFile` so they open inline; the reader
+checks them in their own time. A requested change is simply a new run — and
+after a production save the job now has contract documents, so the fixed
+version routes to the test folder and a person promotes it (old version to the
+job folder's `SS\`, CD-7.5).
 
-Every completed job keeps the `.docx` **and its PDF export** side by side
-(CD-7.4 — verified across all three regions). So the save is two files:
-
-```
-pwsh job-roles/contract-admin/scripts/export_pdf.ps1 -Docx "<saved .docx path>"
-```
-
-which writes `INCLUSIONS_LOT <lot>_<SUBURB>_<SURNAME>.pdf` beside the docx —
-the same Save-as-PDF a person does in Word minutes after finishing the document.
+Every save is the `.docx` **and its PDF export** side by side (CD-7.4 —
+verified across all three regions); the driver copies the pair itself, so no
+separate `export_pdf.ps1` step is needed.
 
 Leave in `<workdir>`: the job JSON, the fill report, the diff, the data sheet,
-and the list of what a person still has to do.
+and the list of what a person still has to do. In TEST mode the working files
+are also copied to the destination's `temp\` automatically — **end users are
+non-technical and the folder root gets ONLY the final files** (permanent
+requirement, 16 Aug 2026).
 
-**Delivering anywhere else (the testing folder, a handover folder): end users
-are non-technical and get ONLY the final files.** After the approval — never in
-the same invocation as a fill:
+**Delivering to any other folder (a handover folder):**
 
 ```
 python job-roles/contract-admin/scripts/draft_contract.py --job <workdir>/job.json --deliver "<output folder>"
@@ -288,9 +290,9 @@ puts exactly the deliverable pair per document at the folder root under the
 real names (`INCLUSIONS_LOT <lot>_<SUBURB>_<SURNAMES>.docx` + `.pdf` — no
 `PREVIEW_` prefix), and every working file (worddiffs, diffs, fill reports,
 REAL_/PREVIEW_ exports, job JSON, timings) into `<output folder>\temp\`. It
-refuses paths under `Z:\PROJECTS` (job-folder saves stay the manual copy
-above) and refuses to overwrite unless `--deliver-force` (test refreshes
-only). Permanent requirement, 16 Aug 2026.
+refuses paths under `Z:\PROJECTS` (production saves go through `--job-dir`
+routing, which test-detects first) and refuses to overwrite unless
+`--deliver-force` (test refreshes only).
 
 ## Auxiliary and dual-key dwellings
 
@@ -304,8 +306,9 @@ job checked in detail, the person producing it added a whole
 `– Main Dwelling`. The sales manager's own email said the attached inclusions
 "are not suitable for that" and asked for a review first.
 
-So: fill the fields, use `+ Auxiliary Unit` in the house type, and then **stop and
-route it for review before it is issued**. Do not write the aux inclusions text
+So: fill the fields, use `+ Auxiliary Unit` in the house type, save per the
+normal routing, and **flag the job loudly for review before it is issued** —
+the aux inclusions text is missing until a person writes it. Do not write it
 yourself — that is a pricing and specification decision (CD-6).
 
 ## Safety rules
@@ -328,10 +331,16 @@ contract is a liability. The preliminary agreement's template fee is a template
 default and has been wrong for the job in practice — it is not a fallback, and
 `fill_prelim.py` refuses to run without a sourced fee.
 
-**No save without an approved preview.** A generated contract document reaches
-a job folder only after its complete PDF preview was shown and explicitly
-approved in this conversation (step 6). Requested changes loop back through a
-fresh preview. Permanent — during the testing phase and after it.
+**Saves are automatic, but only ever to two destinations.** Test-mode detection
+runs before any save: a job that already has contract documents is a test run
+and writes ONLY to `template-testing\<job>\`; a genuine first draft writes ONLY
+the final docx+PDF pair into that job's `CONTRACT DOCUMENTATION`, never
+overwriting (superseding a version is a person's copy + `SS\` move, CD-7.5).
+The preview/approval stop was removed 17 Aug 2026 (it superseded the 12/16 Aug
+"permanent" preview gate, by explicit instruction) — but every **data** gate
+stays: a missing anchor aborts its document, an unsourced mandatory value
+refuses the fill, a failed stage blocks the save, and a price conflict stops
+the run.
 
 **No client data into the repo.** Names, addresses, prices, ID documents and
 EOIs stay in `runtime\` on `Z:` — git-ignored — and out of commits, prompts and
@@ -342,8 +351,9 @@ also just don't.
 
 ## Talking to the user
 
-- **Lead with the template you chose and the fields you couldn't fill.** Those
-  are the two things that decide whether the draft is usable.
+- **Lead with the destination and mode (TEST or PRODUCTION), the template you
+  chose, and the fields you couldn't fill.** Those decide whether the output is
+  usable and where the reader finds it.
 - Full copy-pasteable paths, so they can open the document in Explorer.
 - Flag low confidence per field rather than in general. "Garage side isn't in the
   email or the plans I can see — it needs confirming" beats "please review".

@@ -104,11 +104,25 @@ The manual still describes editing a **Word** HIA contract
 (`QLD HIA Contract 1.docx`). Every Word contract of that name now sits in `SS\`,
 dated 2016–2017. The manual is behind the drive on this point.
 
+**HIA licensing (17 Aug 2026):** the business holds a valid HIA licence, so
+HIA-branded PDF output is permitted, and the standing requirement (CD-5.2a) is
+that the HIA build contract ship as a filled `.docx` + `.pdf` pair. That stays
+**blocked** until a current fillable HIA Word template reaches this tree — the
+`SS\` Word versions remain forbidden, and
+`HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR APPROVES.pdf` remains
+off-limits until MCR approves, licence or not. Re-run `pdf_probe.py` on any new
+HIA file that appears here.
+
 ## Output: where the filled copy goes
 
 ```
 Z:\PROJECTS\<REGION>\<job folder>\CONTRACT\CONTRACT DOCUMENTATION\
 ```
+
+**Unless the job already exists in production** — that folder already holding
+any contract document makes the run a test run (CD-7.6/7.7), and everything
+saves to `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`
+instead. `draft_contract.py --job-dir` routes this automatically.
 
 Current filename convention, counted across every `CONTRACT DOCUMENTATION`
 folder in `TAMWORTH` and `GUNNEDAH`:

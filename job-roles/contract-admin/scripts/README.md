@@ -8,7 +8,7 @@ new-contract workflow (`../workflows/new-contract.md`).
 | `msg_extract.py` | **Working — the .msg route, no install** | Pure-stdlib OLE/CFBF reader for Outlook `.msg`: `--list` attachments, `-a <dir>` saves them, `-o` saves the body text. Built 16 Aug 2026 because `extract_msg` isn't installed anywhere (installing needs approval) and the job folders keep the original request `.msg` whose attachments (signed land contracts, EOIs, plans) are the field sources. Use this first for `.msg` files. |
 | `msg_to_text.py` | Superseded by `msg_extract.py` | Outlook `.msg` → plain text; needs `pip install extract-msg`, which no server has. Kept only for environments that already carry the package. |
 | `fill_inclusions.py` | **Working, validated against 12 real jobs across 3 regions** | Blank inclusions template + job JSON → filled `.docx` (`CD-2`, `CD-3`). Stdlib only — edits `word/document.xml` in place inside the zip, inserting values as new runs after each label the way Word does, so the template's wording, styles and inclusion text are untouched. Fills every occurrence, because the signature pages are duplicated for the builder's and owner's copies. `--check` verifies every anchor exists and writes nothing — **run it first**; a missing anchor means the template was revised. One deliberate deletion (`DELETE_PARAS`): the SEQ narrow-lot instruction line, which every completed SEQ job removes — the follow-on block decision (≤12.5m ⇒ a person deletes the block too) is printed every time. |
-| `draft_contract.py` | **Working — the pipeline driver** | One timed command for a whole job: anchor check (aborts the document on a miss), fill (inclusions and/or `--prelim`), blank-vs-filled diffs, complete PREVIEW PDFs through a **single Word launch**, and with `--real-dir` the REAL_ exports + word-level diffs against the completed documents. Writes only into the workdir and refuses a workdir under `Z:\PROJECTS`; the job-folder save stays the skill's manual, approval-gated step. Typical run 25–50s, ~85% of it Word PDF export. **`--deliver <folder>`** (16 Aug 2026, its own invocation, only after the preview approval): final `.docx`+`.pdf` under the real deliverable names at the folder root, every working file to `<folder>\temp\` — end users see only the finals. Refuses `Z:\PROJECTS`; `--deliver-force` for test refreshes. Company/trust owners name correctly (`_VWJJ`, never `_LTD`). |
+| `draft_contract.py` | **Working — the pipeline driver** | One timed command for a whole job, ending in the save (the preview/approval stop was removed 17 Aug 2026): anchor check (aborts the document on a miss), fill (inclusions and/or `--prelim`), blank-vs-filled diffs, complete PDF exports through a **single Word launch**, then **`--job-dir` routing** — the job's `CONTRACT DOCUMENTATION` already holding contract docs (SS\ included) = TEST (finals + `temp\` to `template-testing\<job>\` only, `--real-dir` defaulting to the job folder for REAL_ exports + worddiffs); empty = PRODUCTION (final `.docx`+`.pdf` pair into the job folder, never overwriting). A failed stage blocks the save. Typical run 25–50s, ~85% of it Word PDF export. **`--deliver <folder>`** stays for explicit handover folders (refuses `Z:\PROJECTS`; `--deliver-force` for test refreshes) — end users see only the finals. Company/trust owners name correctly (`_VWJJ`, never `_LTD`). |
 | `fill_prelim.py` | **Working — reproduces both completed Tamworth agreements text- and structure-identically** | Blank `NSW PRELIMINARY AGREEMENT 2024.docx` + job JSON → filled `.docx` (`CD-4`). Same stdlib run-editing approach. Client row (single-client also removes the tab so the name flows after "And", as every completed single does), addresses, fee and the three signing-line names, per the conventions verified across eight completed agreements (CD-4.5). **Refuses to run without `prelim_fee`** — the template's $30,000 is not the job's fee (CD-4.3). `--check` first, as with the inclusions. |
 | `regress_prelim.py` | **Passing** | Fills the blank prelim with each completed Tamworth job's values and requires the result to be **text-identical AND structure-identical** (tabs/breaks/cells via the `docx_text` view) to the real executed agreement, plus a two-client structural smoke test. Run after any `fill_prelim.py` change, alongside `regress_inclusions.py`. |
 | `extract_eoi.py` | **Working, tested** | Request-email text → job-data JSON draft sheet per the `JD-*` rules, plus human-attention flags. Handles labelled emails and free-form forwarded chains (subject-line lot/suburb, e-sign client, `$` price, "site a X with a Y façade"). Read-only; touches nothing. |
@@ -35,19 +35,20 @@ email.txt ──> extract_eoi.py ──> job.json + flags
                                   osc_entry.py --dry-run   (narrates steps)
                                   osc_entry.py --live      (blocked, see below)
 
-new-contract workflow, once the plans are in — one driver command:
+new-contract workflow, once the plans are in — one driver command, fill to save:
 
 blank template ─┐
-job.json ───────┴─> draft_contract.py [--prelim] [--real-dir <job's docs>]
-                      = check ─> fill ─> blank-diff ─> complete PREVIEW PDFs
-                        (one Word launch) ─> REAL_ exports + worddiffs (testing)
-                                        │  (human reviews field table + diffs
-                                        │   + the complete PDF previews;
-                                        │   changes re-run + re-preview until
-                                        │   an explicit yes)
+job.json ───────┴─> draft_contract.py [--prelim] --job-dir "<job's CONTRACT DOCUMENTATION>"
+                      = check ─> fill ─> blank-diff ─> complete PDF exports
+                        (one Word launch) ─> REAL_ exports + worddiffs (test mode)
+                                        │
+                                        ├─ job folder already has contract docs
+                                        │  = TEST: finals + temp\ ONLY to
+                                        │    template-testing\<job>\  (CD-7.7)
                                         ▼
-                                  saved to the job's CONTRACT DOCUMENTATION\
-                                  as .docx + .pdf  (export_pdf.ps1, CD-7.4)
+                                  else PRODUCTION: .docx + .pdf pair into the
+                                  job's CONTRACT DOCUMENTATION\ (CD-7.4, never
+                                  overwrites; flags reported after, not gated)
 ```
 
 ## Before `--live` can ever run (technical session)

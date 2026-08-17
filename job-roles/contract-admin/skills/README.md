@@ -24,13 +24,17 @@ Built:
   [`../workflows/new-contract.md`](../workflows/new-contract.md): reads the build
   contract request chain and its attachments, picks the correct **existing** blank
   template off `Z:\PROCEDURES & FORMS\CONTRACTS\`, fills it via
-  `../scripts/fill_inclusions.py`, diffs filled against blank, and presents a
-  field table plus a page-1 PDF preview for approval before anything reaches a
-  job folder. Produces the inclusions and preliminary agreement as completed
-  `.docx` **plus the PDF export** (`../scripts/export_pdf.ps1`, CD-7.4 — every
-  completed job keeps the pair); the build contract is
-  a **data sheet only**, because the current NSW/SEQ contracts are flat PDFs with
-  no form fields (CD-5.1). Never invents contract wording, never signs, never
+  `../scripts/fill_inclusions.py`, diffs filled against blank, and **saves in the
+  same pass** (the preview/approval stop was removed 17 Aug 2026): a job whose
+  `CONTRACT DOCUMENTATION` already holds contract docs is a **test run** and
+  saves only to `cowork-projects\3.new_contract\template-testing\<job>\`; a
+  genuine first draft saves the pair into the job folder, never overwriting
+  (CD-7.7). Produces the inclusions and preliminary agreement as completed
+  `.docx` **plus the PDF export** (CD-7.4 — every completed job keeps the
+  pair); the build contract is a **data sheet only**, because the current
+  NSW/SEQ contracts are flat PDFs with no form fields (CD-5.1) — the held HIA
+  licence targets a docx+PDF HIA contract, blocked until a fillable HIA Word
+  template exists (CD-5.2a). Never invents contract wording, never signs, never
   sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
 
   Staff guide (HTML source + formatted PDF):

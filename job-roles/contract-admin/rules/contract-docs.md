@@ -147,6 +147,15 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-5.2** The manual describes editing a Word HIA contract
   (`QLD HIA Contract 1.docx`). Every Word contract of that name is now in `SS\`,
   dated 2016–2017. The manual is behind the drive here — flag it for review.
+- **CD-5.2a** **HIA licence held** *(stated by the user 17 Aug 2026)*:
+  generating HIA-branded PDFs is permitted, and the target for the HIA build
+  contract is a filled `.docx` **plus** its `.pdf` export, like the other
+  documents. **Blocked until a current fillable HIA Word template exists on
+  the drive**: the `SS\` Word versions stay forbidden (CD-1.3), the live
+  blanks are flat PDFs with no form fields (CD-5.1), the server cannot fill a
+  flat PDF, and `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR
+  APPROVES.pdf` stays off-limits until MCR approves regardless of licensing.
+  Until unblocked, produce the CD-5 data sheet and flag this gap in every run.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)*
 - **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
@@ -192,8 +201,23 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-7.5** Superseded versions move to an `SS\` subfolder **within the job's
   contract folder**, suffixed ` V2`, ` V3`. Never overwrite — existing file at
   the target name → stop and ask. *(observed)*
-- **CD-7.6** Existing contract documents in the job folder mean this is an
-  **amendment**, not a first draft. Report and ask before producing anything.
+- **CD-7.6** Existing contract documents in the job folder (`SS\` included)
+  mean the job **already exists in production**, so the run is a **test run**
+  (17 Aug 2026, superseding the earlier report-and-ask amendment stop): output
+  goes only to the test destination in CD-7.7, and the job folder is not
+  touched. A genuine amendment is produced the same way; a person promotes it
+  into the job folder with the CD-7.5 `SS\` move.
+- **CD-7.7** **Destination routing, automatic (17 Aug 2026 — the preview/
+  approval gate of 12/16 Aug was removed by explicit instruction).** The fill
+  run saves in the same pass, to exactly one of two places: **TEST** (job
+  already has contract documents) →
+  `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`,
+  finals at the root, working files in `temp\`, refreshable in place;
+  **PRODUCTION** (genuine first draft) → the job's own `CONTRACT
+  DOCUMENTATION`, final `.docx`+`.pdf` pair per document only, never
+  overwriting. Enforced by `draft_contract.py --job-dir`. Data gates stay:
+  anchor miss aborts, unsourced mandatory values refuse, failed stages block
+  the save, price conflicts stop the run.
 
 ## CD-8 What only a person does
 
@@ -212,7 +236,7 @@ cabinet; and any DocuSign issue to a client.
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
 | Template anchor not found by `--check` | Stop; template revised, needs a person |
-| Contract documents already in the job folder | Stop; treat as amendment (CD-7.6) |
+| Contract documents already in the job folder | Test mode: save only to the template-testing folder (CD-7.6/7.7) |
 | Preliminary agreement requirement unclear | Ask (CD-4.4) |
 | Client ID missing from the request | Note it; do not guess the name spelling |
 
@@ -220,8 +244,11 @@ cabinet; and any DocuSign issue to a client.
 
 1. Is the manual's `J# L# Street, Estate Stage - Inclusions` naming retired, or
    is current practice drift that should be corrected? (CD-7.3)
-2. Should the NSW build contract exist as a fillable template, given the Word
-   version is superseded and the PDF cannot be filled? (CD-5.1/5.2)
+2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
+   requirement, but there is no current fillable HIA Word template on the
+   drive — obtaining one (e.g. the licensed Word version from HIA, then MCR
+   approval) is the unblock. Same question applies to the NSW contract, whose
+   Word version is superseded and whose PDF cannot be filled. (CD-5.1/5.2/5.2a)
 3. What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over? Observed range $2,500–$32,035;
    both Tamworth jobs $5,000. (CD-4.3)

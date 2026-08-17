@@ -1,16 +1,22 @@
 # Workflow — New Contract Template (contract request → filled templates)
 
-Assists the manual's **RAISING CONTRACTS** procedure. Claude is **read-and-draft
-only**: it selects the correct blank template, fills the fields it can source,
-and hands a draft to a person. All field rules live in
+Assists the manual's **RAISING CONTRACTS** procedure. Claude selects the correct
+blank template, fills the fields it can source, and **saves the finished
+documents in the same pass** — to the job folder for a genuine first draft, or
+to the template-testing folder when the job already exists in production
+(CD-7.7; the preview/approval stop was removed 17 Aug 2026). Issuing, sending,
+signing and every flagged field stay with a person. All field rules live in
 [`../rules/contract-docs.md`](../rules/contract-docs.md) (referenced as `CD-*`);
 address, CAPS and garage-side rules stay in
 [`../rules/job-details.md`](../rules/job-details.md) (`JD-*`).
 
 This is the stage that [`new-job.md`](new-job.md) marks as *"contract docs — NOT
 in this manual"* in its chain diagram. It now has a source procedure, so it is
-built — but only to the boundary in CD-5: the build contract PDF is not fillable,
-so that part is a data sheet, not a document.
+built — but only to the boundary in CD-5: the build contract PDF is not
+fillable, so that part is a data sheet, not a document. The HIA licence held
+since 17 Aug 2026 permits HIA-branded PDF output and sets the target of a
+docx+PDF pair for the HIA build contract — blocked until a current fillable
+HIA Word template exists on the drive (CD-5.2a).
 
 ## Trigger
 
@@ -35,14 +41,12 @@ forwarded marketer → sales manager → contract admin.
 | # | Step | Actor | Rules |
 |---|---|---|---|
 | 1 | Read the whole chain + attachments; read the EOI as an image; note missing client ID | Claude | CD-0 |
-| 2 | Locate the job folder (all lifecycle levels); report existing contract docs and any cancelled twin; **confirm the required contract from the folder's own documents** (fingerprint vs the blank) — unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-1.6 |
+| 2 | Locate the job folder (all lifecycle levels); check for existing contract docs — any hit means **TEST MODE** (the job already exists in production; output goes only to the template-testing folder) — and any cancelled twin; **confirm the required contract from the folder's own documents** (fingerprint vs the blank) — unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-7.7, CD-1.6 |
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply | Claude | CD-2, CD-3 |
-| 5 | **`draft_contract.py`** — one timed command: anchor checks (a miss aborts that document), fills, blank-vs-filled diffs, complete PREVIEW PDFs through a single Word launch; `--prelim` only after the CD-4.4 decision (fee mandatory); `--real-dir` adds REAL_ exports + word-level diffs for testing/amendments, every differing block classified | Claude | CD-1.3, CD-2, CD-3, CD-4 |
-| 6 | **HITL GATE** — field table + flags + **complete PDF preview of every drafted document**; reviewer approves or requests changes; changes re-run the driver and re-preview until an explicit yes | Human | — |
-| 7 | Draft the build contract **data sheet** (cover, building period; price split and Part B written as `FROM DATABUILD` placeholders, never computed) | Claude | CD-5 |
-| 8 | **HITL GATE** — save to the job folder under the naming convention; never overwrite. The save is the `.docx` **plus its PDF export** (`export_pdf.ps1`), matching every completed job | Human approves, Claude copies | CD-7 |
-| 9 | Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill reports, diffs, timings) | Claude | — |
+| 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (fee mandatory); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
+| 6 | Draft the build contract **data sheet** (cover, building period; price split and Part B written as `FROM DATABUILD` placeholders, never computed) | Claude | CD-5 |
+| 7 | Report destination + mode, field table, flags; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill reports, diffs, timings) | Claude | — |
 
 ## Phase 2 — Issue and execute (human)
 
@@ -58,19 +62,28 @@ scan the six executed documents separately; manila folder to the filing cabinet.
 - **Plans not received** → produce everything else, name the unfilled fields.
 - **Auxiliary / dual key** → fill fields, route for review before issue (CD-6).
 - **Anchor missing on `--check`** → template revised; stop.
-- **Contract docs already in the folder** → amendment, not a first draft (CD-7.6).
+- **Contract docs already in the folder** → TEST MODE: the run saves only to the
+  template-testing folder; a genuine amendment is promoted by a person
+  (CD-7.6/7.7).
 - **Prelim agreement requirement unclear** → ask (CD-4.4).
 
 ## HITL gates
 
-Two: after the draft is assembled (step 6) and before anything is written into a
-job folder (step 8). The step-6 gate is a **preview gate, permanently**: every
-generated document is shown as a complete PDF, requested changes go back through
-a fresh preview, and only an explicit approval of the shown preview releases the
-save — during the testing phase and after it. Beyond those, every outward-facing
-act — email, signature, DocuSign, OSC write — stays with a person permanently.
+The preview/approval gates that used to sit at the old steps 6 and 8 were
+**removed on 17 Aug 2026 by explicit instruction** (they had been declared
+permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
+and bounded by CD-7.7's routing: test runs can never touch a job folder, and
+production saves never overwrite. What stays with a person, permanently: every
+outward-facing act — email, signature, DocuSign, OSC write — plus resolving
+flagged fields, aux inclusions wording, and promoting test/amendment output
+into a job folder.
 
 ## Outputs
+
+Saved automatically to the routed destination (CD-7.7): the job's
+`CONTRACT DOCUMENTATION` for a first draft, or
+`Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\` when
+the job already exists in production.
 
 - Completed inclusions `.docx` + `.pdf` export (CD-2, CD-3, CD-7.4)
 - Completed preliminary agreement `.docx` + `.pdf` export, where required (CD-4)

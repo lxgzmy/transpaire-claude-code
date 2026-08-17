@@ -1,23 +1,41 @@
 r"""Run the whole contract-drafting pipeline for one job, timed. Stdlib only.
 
-    python draft_contract.py --job <workdir>/job.json --template "<blank inclusions>"
-    python draft_contract.py --job <workdir>/job.json --template "<blank>" --prelim
-    python draft_contract.py --job <workdir>/job.json --template "<blank>" --real-dir "<job's CONTRACT DOCUMENTATION>"
-    python draft_contract.py --job <workdir>/job.json --deliver "<output folder>"   (release, only AFTER approval)
+    python draft_contract.py --job <workdir>/job.json --template "<blank>" --job-dir "<job's CONTRACT DOCUMENTATION>"
+    python draft_contract.py --job <workdir>/job.json --template "<blank>" --prelim --job-dir "<...>"
+    python draft_contract.py --job <workdir>/job.json --job-dir "<...>"            (route+deliver an already-filled workdir)
+    python draft_contract.py --job <workdir>/job.json --deliver "<output folder>"  (explicit destination, e.g. a handover)
 
-One command instead of six: anchor check, fill, blank-vs-filled diff, optional
-preliminary agreement (same three stages), complete-PDF previews in a single
-Word launch, and - when --real-dir points at the job's CONTRACT DOCUMENTATION -
-a REAL_ PDF export of the completed documents plus a word-level diff against
-each, for the flip-comparison the testing protocol requires.
+One command for the whole run: anchor check, fill, blank-vs-filled diff,
+optional preliminary agreement (same three stages), complete PDF exports in a
+single Word launch, and - with --job-dir - delivery to the correct destination
+in the same pass. The preview/approval stop was REMOVED by instruction on
+17 Aug 2026: the run no longer pauses for a human between fill and save.
 
-NOTHING here weakens the gates. The anchor check still aborts the run, the
-diffs are still written and must still be read, the preview is still produced
-for the mandatory approval, and this script only ever writes into the workdir -
-it refuses to run with a workdir under Z:\PROJECTS, and --real-dir is read-only
-(the real documents are opened read-only by Word and exported INTO the
-workdir). Saving into a job folder remains step 9 of the skill: a human
-approval and a deliberate copy, never this script.
+--job-dir points at the job's CONTRACT DOCUMENTATION folder and decides the
+destination automatically (skill rule, 17 Aug 2026):
+
+  TEST - the folder already holds contract documents (INCLUSIONS*,
+     PRELIMINARY AGREEMENT* or BUILD CONTRACT*, SS\ included): the job already
+     exists in production, so this run is a test. Finals go ONLY to
+     Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\
+     (refreshed in place), working files to its temp\, and NOTHING is written
+     to the job folder. --real-dir defaults to the job folder so the drafts
+     are worddiffed against the completed documents.
+  PRODUCTION - the folder holds no contract document (a genuine first draft):
+     the final .docx + .pdf pair per document is copied into the job folder
+     itself (CD-7.1/7.4). Never overwrites - a name clash stops the run;
+     superseding a version stays a person's copy + SS\ move (CD-7.5). Note the
+     consequence: re-running the same job after a production save routes to
+     TEST (the job now exists in production), so fixes land in the test folder
+     and a person promotes them.
+
+The gates that remain are data gates, not preview gates: a missing anchor
+still aborts its document, an unsourced mandatory value still refuses the
+fill, any failed stage blocks delivery, production never overwrites, and the
+workdir still may not sit under Z:\PROJECTS - the only thing ever written
+into a job folder is the final pair, by deliver_production. --real-dir stays
+read-only (the real documents are opened read-only by Word and exported INTO
+the workdir).
 
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
@@ -42,6 +60,11 @@ HERE = Path(__file__).resolve().parent
 PRELIM_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
                     r"\NSW PRELIMINARY AGREEMENT 2024.docx")
 STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
+
+# Test-mode destination: a job whose CONTRACT DOCUMENTATION already holds any
+# of these already exists in production, so a new run is a test and lands here.
+TEST_ROOT = Path(r"Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing")
+CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*")
 
 
 COMPANY_TAILS = ("PTY LTD", "PTY LIMITED", "LTD", "LIMITED", "PTY. LTD.")
@@ -86,8 +109,43 @@ def doc_suffix(values):
     return f"LOT {lot}_{suburb}_{'&'.join(surnames)}"
 
 
+def contract_docs_present(job_dir):
+    """Contract documents already in the job's CONTRACT DOCUMENTATION, SS\\ included.
+
+    Any hit means the job already exists in production, so a new run for it is
+    a TEST run and must not touch the job folder (skill rule, 17 Aug 2026).
+    """
+    hits = set()
+    for pattern in CONTRACT_DOC_GLOBS:
+        hits.update(p.relative_to(job_dir).as_posix()
+                    for p in job_dir.rglob(pattern) if p.is_file())
+    return sorted(hits)
+
+
+def collect_finals(workdir, values):
+    """(source, deliverable name) for every filled document in the workdir.
+
+    A document only ever ships as its .docx + .pdf pair (CD-7.4); the PDF is
+    the workdir's PREVIEW_ export renamed to the real deliverable name.
+    """
+    suffix = doc_suffix(values)
+    finals = []
+    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT"):
+        docx = workdir / f"{kind}_{suffix}.docx"
+        pdf = workdir / f"PREVIEW_{kind}_{suffix}.pdf"
+        if docx.exists():
+            if not pdf.exists():
+                sys.exit(f"ERROR: {pdf.name} missing - a document only ships as its "
+                         f"docx + PDF pair (CD-7.4). Re-run the fill without --no-pdf.")
+            finals.append((docx, docx.name))
+            finals.append((pdf, f"{kind}_{suffix}.pdf"))
+    if not finals:
+        sys.exit(f"ERROR: nothing to deliver - no filled documents named *_{suffix} in {workdir}")
+    return finals
+
+
 def deliver(workdir, values, dest, force):
-    """Release step, run only AFTER the shown preview was approved (skill step 6).
+    """Copy the finals to an explicit destination (test or handover folders).
 
     End users are non-technical and get exactly the deliverable pair per
     document - the filled .docx and its .pdf under the REAL deliverable names
@@ -95,24 +153,12 @@ def deliver(workdir, values, dest, force):
     REAL_/PREVIEW_ exports, job JSON, timings) goes to <dest>/temp/ so the
     output folder stays clean but the evidence stays reachable.
     """
-    suffix = doc_suffix(values)
     dest = Path(dest)
     if "PROJECTS" in (part.upper() for part in dest.parts):
-        sys.exit("ERROR: --deliver never writes under Z:\\PROJECTS. Saving into a job "
-                 "folder is the skill's step 8: human approval, a deliberate copy, "
-                 "and export_pdf.ps1 beside it - never this shortcut.")
-    finals = []
-    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT"):
-        docx = workdir / f"{kind}_{suffix}.docx"
-        pdf = workdir / f"PREVIEW_{kind}_{suffix}.pdf"
-        if docx.exists():
-            if not pdf.exists():
-                sys.exit(f"ERROR: {pdf.name} missing - a document is delivered only with "
-                         f"the exact preview that was approved. Re-run the fill first.")
-            finals.append((docx, dest / docx.name))
-            finals.append((pdf, dest / f"{kind}_{suffix}.pdf"))
-    if not finals:
-        sys.exit(f"ERROR: nothing to deliver - no filled documents named *_{suffix} in {workdir}")
+        sys.exit("ERROR: --deliver never writes under Z:\\PROJECTS. A production save is "
+                 "--job-dir pointing at the job's CONTRACT DOCUMENTATION folder - that "
+                 "route test-detects first and never overwrites.")
+    finals = [(src, dest / name) for src, name in collect_finals(workdir, values)]
     clash = [b for _, b in finals if b.exists()]
     if clash and not force:
         sys.exit("ERROR: already delivered: " + ", ".join(c.name for c in clash)
@@ -130,6 +176,24 @@ def deliver(workdir, values, dest, force):
             shutil.copy2(f, temp / f.name)
             moved += 1
     print(f"  evidence  : {moved} working file(s) -> {temp}")
+
+
+def deliver_production(workdir, values, job_dir):
+    """First-draft save into the job's own CONTRACT DOCUMENTATION (CD-7.1).
+
+    Writes the final docx + PDF pairs and nothing else - evidence stays in the
+    workdir. Never overwrites: a name clash stops the run, because superseding
+    a version is a person's copy + SS\\ move (CD-7.5).
+    """
+    finals = [(src, job_dir / name) for src, name in collect_finals(workdir, values)]
+    clash = [b for _, b in finals if b.exists()]
+    if clash:
+        sys.exit("ERROR: already in the job folder: " + ", ".join(c.name for c in clash)
+                 + ". Production never overwrites - superseding a version is a person's "
+                 "copy with the old one moved to the folder's SS\\ (CD-7.5).")
+    for a, b in finals:
+        shutil.copy2(a, b)
+        print(f"  saved     : {b}")
 
 
 def run_py(script, *args):
@@ -163,11 +227,19 @@ def main():
                     help="the job's CONTRACT DOCUMENTATION folder (read-only): "
                          "export REAL_ PDFs and worddiff the drafts against the completed documents")
     ap.add_argument("--no-pdf", action="store_true",
-                    help="skip PDF exports (regression/timing use only - a draft for review ALWAYS gets its preview)")
+                    help="skip PDF exports (regression/timing use only - the deliverable is "
+                         "always the docx+pdf pair, so this cannot combine with a save)")
+    ap.add_argument("--job-dir",
+                    help="the job's CONTRACT DOCUMENTATION folder. Decides the destination and "
+                         "saves in the same pass: existing contract docs there -> TEST (finals "
+                         "to the template-testing folder ONLY); none -> PRODUCTION (finals into "
+                         "the job folder, never overwriting). Without --template/--prelim it "
+                         "routes and delivers an already-filled workdir.")
     ap.add_argument("--deliver",
-                    help="release AFTER the preview was approved: copy the final docx+pdf under "
-                         "their real deliverable names to this folder, and every working file to "
-                         "<folder>/temp. Its own invocation - cannot be combined with a fill run.")
+                    help="explicit destination (handover/test folders, never Z:\\PROJECTS): copy "
+                         "the final docx+pdf under their real deliverable names to this folder, "
+                         "and every working file to <folder>/temp. Its own invocation - for a "
+                         "fill-and-save in one pass use --job-dir.")
     ap.add_argument("--deliver-force", action="store_true",
                     help="allow --deliver to replace an earlier delivery (test folders only)")
     args = ap.parse_args()
@@ -176,19 +248,52 @@ def main():
     values = json.loads(job_path.read_text(encoding="utf-8"))
     workdir = Path(args.workdir) if args.workdir else job_path.parent
     if "PROJECTS" in (part.upper() for part in workdir.parts):
-        sys.exit("ERROR: workdir is inside Z:\\PROJECTS - this script never writes to job folders. "
-                 "Saving there is the skill's step 9: human approval, then a deliberate copy.")
+        sys.exit("ERROR: workdir is inside Z:\\PROJECTS - the workdir is scratch space. The only "
+                 "write into a job folder is the final pair, via --job-dir routing.")
     workdir.mkdir(parents=True, exist_ok=True)
 
     if args.deliver:
-        if args.template or args.prelim or args.real_dir:
-            sys.exit("ERROR: --deliver is its own step, run AFTER the shown preview was "
-                     "approved - it never fills and delivers in one invocation.")
+        if args.template or args.prelim or args.real_dir or args.job_dir:
+            sys.exit("ERROR: --deliver is its own invocation for an explicit folder. To fill "
+                     "and save in one pass, use --job-dir instead.")
         deliver(workdir, values, args.deliver, args.deliver_force)
         return 0
 
+    # --job-dir: detect test vs production BEFORE anything runs, and say so.
+    mode = dest = None
+    if args.job_dir:
+        if args.no_pdf:
+            sys.exit("ERROR: --job-dir saves the docx+pdf pair, so it cannot combine with "
+                     "--no-pdf.")
+        job_dir = Path(args.job_dir)
+        if job_dir.name.upper() != "CONTRACT DOCUMENTATION":
+            sys.exit(f"ERROR: --job-dir must point at the job's CONTRACT DOCUMENTATION "
+                     f"folder, got: {job_dir}")
+        if not job_dir.is_dir():
+            sys.exit(f"ERROR: --job-dir does not exist - verify the job folder before "
+                     f"saving anything: {job_dir}")
+        existing = contract_docs_present(job_dir)
+        if existing:
+            mode, dest = "TEST", TEST_ROOT / workdir.name
+            print(f"  mode      : TEST - the job already exists in production "
+                  f"({len(existing)} contract document(s) in the job folder, e.g. "
+                  f"{existing[0]}). Nothing will be written there. Destination: {dest}")
+            if not args.real_dir:
+                args.real_dir = str(job_dir)
+        else:
+            mode, dest = "PRODUCTION", job_dir
+            print(f"  mode      : PRODUCTION - first draft, no contract documents in the "
+                  f"job folder yet. Destination: {dest}")
+
     if not args.template and not args.prelim:
-        sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim")
+        if mode == "TEST":
+            deliver(workdir, values, dest, force=True)
+            return 0
+        if mode == "PRODUCTION":
+            deliver_production(workdir, values, dest)
+            return 0
+        sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim "
+                 "(add --job-dir to save in the same pass)")
 
     suffix = doc_suffix(values)
     timings, artifacts, failures = [], [], []
@@ -275,6 +380,17 @@ def main():
             return True
         stage(f"{kind}: worddiff vs real", do_diff)
 
+    # Save in the same pass (17 Aug 2026: no preview stop). A failed stage
+    # still blocks the save - the run fails closed, it never ships a partial.
+    if mode and not failures:
+        def do_deliver():
+            if mode == "TEST":
+                deliver(workdir, values, dest, force=True)
+            else:
+                deliver_production(workdir, values, dest)
+            return True
+        stage(f"deliver ({mode.lower()})", do_deliver)
+
     total = time.perf_counter() - t_total
     lines = [f"{name:<44} {dt:7.2f}s" for name, dt in timings]
     lines.append(f"{'TOTAL':<44} {total:7.2f}s")
@@ -286,11 +402,16 @@ def main():
     for a in artifacts:
         print(f"  artifact : {a.name}")
     if failures:
-        print(f"\n  FAILED stages: {', '.join(failures)}")
+        print(f"\n  FAILED stages: {', '.join(failures)}"
+              + (" - NOT delivered; nothing left the workdir." if mode else ""))
         return 1
-    print("\n  DRAFTS ONLY. Show the complete PREVIEW PDFs and get an explicit "
-          "approval before anything moves (skill step 7); saving to the job "
-          "folder is step 9, by hand, on that approval.")
+    if mode:
+        print(f"\n  Saved in one pass ({mode}) - no preview stop (removed 17 Aug 2026). "
+              "Flags and unsourced fields are in the fill reports for a person to "
+              "resolve before issue; issuing, signing and sending stay human.")
+    else:
+        print("\n  No destination given (--job-dir) - the filled documents remain in "
+              "the workdir.")
     return 0
 
 
