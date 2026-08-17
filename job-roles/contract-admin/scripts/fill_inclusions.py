@@ -185,6 +185,18 @@ EDITOR_NOTES = [
 ]
 
 
+# Placeholder text a blank template prints INSIDE a field, where a person types
+# over it rather than beside it. The two Sydney AUXILIARY templates (3 and 4)
+# carry "AUXILIARY" as their HOUSE TYPE value; leaving it turns a filled field
+# into "Custom + Auxiliary UnitAUXILIARY". All four completed auxiliary jobs
+# (25137, 25149, 25192, 26032) replaced it with the design name, so removing it
+# is part of filling the field. Matched on the whole stripped run, per anchor,
+# and only in the runs that belong to that field - it cannot reach contract text.
+FIELD_PLACEHOLDERS = {
+    "HOUSE TYPE :": {"AUXILIARY"},
+}
+
+
 def editor_notes_left(xml):
     """Editor instructions still present in the filled document."""
     text = " ".join(run_text(m.group(0)) for m in RUN_RE.finditer(xml))
@@ -397,6 +409,17 @@ def fill(xml, values, report, family):
                 while j < len(runs) and texts[j] != "" and GAP_ONLY.match(texts[j]):
                     j += 1
                 at = runs[j - 1] if j - 1 > i else runs[i]
+                # The value replaces the template's own placeholder, it does not
+                # sit after it. Only runs immediately past the gap are eligible.
+                placeholders = FIELD_PLACEHOLDERS.get(anchor)
+                if placeholders:
+                    k = j
+                    while k < len(runs) and texts[k].strip() in placeholders:
+                        edits.append((runs[k][0], runs[k][1],
+                                      set_run_text(runs[k][2], "")))
+                        entry.setdefault("placeholders_cleared", 0)
+                        entry["placeholders_cleared"] += 1
+                        k += 1
                 # A negative pad is trailing space, after the value - Sydney's
                 # "Name of Owner 1:" convention leaves the gap between the name
                 # and "Signature of Owner 1:", not between the label and the
