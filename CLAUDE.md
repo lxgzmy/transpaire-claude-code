@@ -70,6 +70,11 @@ skills are scoped to that folder and must not leak into another role.
   screenshots, diffs); a human approves; then the action runs.
 - Start **read-only and draft-only**. Prefer read-only connectors before any write
   access. Flag low-confidence extractions for human confirmation rather than guessing.
+- **Sanctioned exception (17 Aug 2026):** `/new-contract-template` saves its
+  filled documents in one pass with automatic test/production routing
+  (`contract-docs.md` CD-7.7) — no preview stop. Everything outward-facing —
+  issue, send, sign, DocuSign, OSC/DataBuild writes — stays gated. Any further
+  exception needs the same explicit instruction this one had.
 
 ## Security posture
 
@@ -104,8 +109,9 @@ skills are scoped to that folder and must not leak into another role.
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
   there. **Propose any new skill before creating it.** Contract-Admin skills:
   `ca-new-job` (EOI intake, draft-only) and `new-contract-template` (contract
-  request → filled contract templates, draft-only — unprefixed because that name
-  was requested; see the role's `skills/README.md`). Deeper OSC/DataBuild
+  request → filled contract templates, saved with routed destinations per
+  CD-7.7 — unprefixed because that name was requested; see the role's
+  `skills/README.md`). Deeper OSC/DataBuild
   write-automation remains blocked on the technical session with Adam.
 
 ## Do not

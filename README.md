@@ -19,7 +19,7 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** and the org guardrails in
 
 | Job-role | Status | Entry point |
 |---|---|---|
-| Contract Administration | Two workflows built (draft-only), verified against real jobs; variations not started | [job-roles/contract-admin/](job-roles/contract-admin/README.md) |
+| Contract Administration | Two workflows built and verified against real jobs (intake draft-only; contract documents fill-and-save with routed destinations, CD-7.7); variations not started | [job-roles/contract-admin/](job-roles/contract-admin/README.md) |
 
 More roles are added as new `job-roles/<role>/` folders. Business records on `Z:`
 are organised by job / document-type / stage (not by role); roles are a

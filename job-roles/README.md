@@ -8,7 +8,7 @@ all of them.
 
 | Job-role | Status |
 |---|---|
-| [contract-admin](contract-admin/README.md) | Two workflows built (draft-only), verified against real jobs; variations not started |
+| [contract-admin](contract-admin/README.md) | Two workflows built and verified against real jobs (intake draft-only; contract documents fill-and-save with routed destinations, CD-7.7); variations not started |
 
 ## Adding a role
 

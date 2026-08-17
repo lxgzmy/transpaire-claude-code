@@ -4,15 +4,18 @@ Builder-side contract administration for Transpire, on Windows Server 2022. Star
 with [CLAUDE.md](CLAUDE.md) for role context (the org guardrails in the repo-root
 `CLAUDE.md` also apply).
 
-Proof-of-concept, read-only / draft-only first. Three workflows:
+Proof-of-concept, read-only and draft-first. Three workflows:
 
 1. **New Job Creation** (built, draft-only) — EOI email intake → OnSite Companion
    (OSC) job creation → Z-Drive folder → DataBuild handoff → contact details →
    plan-arrival updates. Skill: `/ca-new-job`.
-2. **Contract documents** (built, draft-only) — build contract request → filled
-   inclusions + preliminary agreement (`.docx` + PDF export) → build contract
-   data sheet → review gate. Verified character-for-character against completed
-   jobs in both template families. Skill: `/new-contract-template`.
+2. **Contract documents** (built; fills and saves in one pass) — build contract
+   request → filled inclusions + preliminary agreement (`.docx` + PDF export) →
+   build contract data sheet → saved to the routed destination: the job folder
+   for first drafts, the template-testing folder when the job already exists in
+   production (CD-7.7, 17 Aug 2026 — no preview stop; issuing stays human).
+   Verified character-for-character against completed jobs in all three
+   template families. Skill: `/new-contract-template`.
 3. **Variation Stage 1** (not started) — variation type decision → OSC variation +
    workflow templates → Z-Drive Excel variation → OSC document generation → PDF
    filing → staff alert. Blocked on transcribing `rules/variation-rules.md`.
@@ -45,8 +48,9 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 | [docs/03-automation-flow.md](docs/03-automation-flow.md) | How Claude Code, UI automation, SQL and import routines fit together at runtime. |
 
 > Note: `docs/01–03` predate the read-only-first direction and describe the fuller
-> OSC/DataBuild automation. Treat them as forward design; the current scope is the
-> read-only, draft-only scope. They will be refreshed as the workflows are built.
+> OSC/DataBuild automation. Treat them as forward design; the current scope is
+> read-only and draft-first (the contract-documents save is the one sanctioned
+> automation, CD-7.7). They will be refreshed as the workflows are built.
 
 ## Source manuals
 
