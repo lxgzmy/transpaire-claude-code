@@ -12,14 +12,14 @@ address, CAPS and garage-side rules stay in
 
 This is the stage the retired new-job workflow marked as *"contract docs — NOT
 in this manual"* in its chain diagram. It has a source procedure, so it is
-built — but only to the boundary in CD-5: the build contract PDF is not
-fillable, so that part is a data sheet, not a document. The HIA licence held
-since 17 Aug 2026 permits HIA-branded PDF output and sets the target of a
-docx+PDF pair for the HIA build contract — blocked until a current fillable
-HIA Word template exists on the drive (CD-5.2a). Detection of that template is
-automated: every routed save runs `hia_probe.py` and reports BLOCKED or
-CANDIDATE (CD-5.2b); the unblock path (reflow-repair → MCR approval →
-`fill_hia.py` authored against the real blank) is defined in the skill and the
+built. The HIA licence held since 17 Aug 2026 makes the docx+PDF pair the
+target for the HIA build contract (CD-5.2a), and since 18 Aug 2026 the driver
+fills it in the same pass whenever a usable Word template exists (CD-5.2b:
+approved blank in the region's CONTRACT folder → real name; staged UNAPPROVED
+conversion → TEST runs only; otherwise data sheet only). Every routed save
+runs `hia_probe.py` and reports BLOCKED or CANDIDATE; the remaining human
+steps (highlight review → layout repair → MCR approval) are defined in the
+skill and the
 template map.
 
 ## Trigger
@@ -49,7 +49,7 @@ forwarded marketer → sales manager → contract admin.
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply | Claude | CD-2, CD-3 |
 | 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (fee mandatory); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
-| 6 | Draft the build contract **data sheet** (cover, building period; price split and Part B written as `FROM DATABUILD` placeholders, never computed), carrying the run's `hia contract:` status | Claude | CD-5 |
+| 6 | Draft the build contract **data sheet** (the person-keyed values: price split and Part B as `FROM DATABUILD` placeholders — never computed — guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
 | 7 | Report destination + mode, field table, flags; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill reports, diffs, timings) | Claude | — |
 
 ## Phase 2 — Issue and execute (human)

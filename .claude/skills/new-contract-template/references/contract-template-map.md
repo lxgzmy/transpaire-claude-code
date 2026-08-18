@@ -126,11 +126,15 @@ with fidelity reports in `runtime\contract-admin\outputs\_hia-word-templates\`
 (README there has the full audit). They stay OUT of this tree deliberately:
 a person still reviews the highlighted insertions and repairs visual layout
 page by page against the PDF (not machine-certifiable — no rasteriser), and
-MCR approves, before one is filed here as the live blank — at which point the
-probe reports CANDIDATE and the fill step (`fill_hia.py`) is authored and
-regression-verified against the approved template before the first filled
-contract ships. A CANDIDATE is never filled ad hoc. (The 17 Aug reflow trial
-in `_hia-conversion-trial\` is superseded by this pipeline.)
+MCR approves, before one is filed here as the live blank. The fill step is
+already built and driver-integrated (18 Aug 2026): `fill_hia.py` (NSW + QLD
+anchor sets, `regress_hia.py` passing, commissioned on 26045 and 25163) runs
+inside every `draft_contract.py --job-dir` fill — staged UNAPPROVED
+conversion in TEST runs under a `- TEST UNAPPROVED TEMPLATE` name, and the
+moment an approved blank lands here the probe reports CANDIDATE and the same
+run fills it under the real deliverable name (anchor `--check` gates it;
+eye-verify the first fill after any template lands). (The 17 Aug reflow
+trial in `_hia-conversion-trial\` is superseded by this pipeline.)
 
 ## Output: where the filled copy goes
 

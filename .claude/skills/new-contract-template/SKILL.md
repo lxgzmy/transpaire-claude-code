@@ -39,28 +39,24 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
-| **Build contract (incl. HIA)** | **Target: `.docx` + `.pdf` — status probed automatically every run (`hia_probe.py`), currently BLOCKED, so data sheet only.** The business holds a valid HIA licence (stated 17 Aug 2026), so HIA-branded PDF output is permitted and, for the HIA build contract, required as a docx+PDF pair. But there is no current fillable HIA Word template on the drive: every `.docx` HIA contract is superseded (`SS\`, 2016–17 — forbidden, CD-1.3), the live blanks are flat PDFs with zero form fields, and this server cannot fill or edit a flat PDF (CD-5.1/5.2). Until a licensed fillable template lands, produce the data sheet |
+| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged UNAPPROVED conversion under a `- TEST UNAPPROVED TEMPLATE` name (commissioning evidence, never issuable); PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
-Be straight about that third row rather than implying a contract was generated —
-relay the run's `hia contract:` status line (BLOCKED or CANDIDATE, printed by
-the driver and saved as `hia_status.txt`) every time it applies.
+Be straight about that third row — say which template the build contract came
+from (approved blank, staged UNAPPROVED, or none) and relay the run's
+`hia contract:` status line (`hia_status.txt`) every time.
 
-**Unblocking the build contract** is a built path with one human step left
-(CD-5.2a/5.2b). Both licensed PDF blanks are converted to Word
-(`pdf_to_docx.ps1`) and machine-verified and -repaired to **100.00% text
-completeness** (`pdf_docx_fidelity.py`: every reflow-dropped fragment
-reinserted verbatim from the PDF, each insertion highlighted yellow), staged
-with their fidelity reports in
-`runtime\contract-admin\outputs\_hia-word-templates\` (see its README). What
-no machine on this server can certify is visual layout — pagination, tables,
-checkbox/initial blocks — so a person reviews the highlighted insertions and
-repairs layout page by page against the PDF, MCR approves, and the blank
-lands in the region's `CONTRACT\` template folder. The probe then flips that
-region to `CANDIDATE` on the next run — which still fills nothing: it tells
-the user the template has landed and that the fill step (`fill_hia.py`,
-authored and regression-verified against the approved template like every
-other filler) needs commissioning. Never fill a candidate template ad hoc.
+**What still stands between the staged conversions and an approved blank**
+(CD-5.2b): both licensed blanks are converted and repaired to 100.00% text
+completeness (fidelity reports beside them in
+`runtime\contract-admin\outputs\_hia-word-templates\`), but visual layout is
+not machine-certifiable on this server — a person reviews the yellow
+highlighted insertions and repairs layout page by page against the PDF, MCR
+approves, and the blank is filed in the region's `CONTRACT\` folder. From
+that moment the driver fills it under the real name with no further
+engineering (`regress_hia.py` guards the anchors; eye-verify the first fill
+after any template lands). CD-5.4 always applies: date, prices, GST,
+deposit, progress payments are never filled — FROM DATABUILD.
 
 ## Steps
 
@@ -237,17 +233,27 @@ preview stop (removed 17 Aug 2026):
    never overwriting — a name clash stops the run (CD-7.5). Any failed stage
    blocks the save: nothing partial ever ships.
 
-Every `--job-dir` run also prints an `hia contract:` status line and writes
-`hia_status.txt` (`hia_probe.py`, CD-5.2a): BLOCKED means the build contract
-stays a data sheet (step 6); CANDIDATE means a fillable Word blank has landed
-in the region's contract folder — still a data sheet this run, and the user
-must be told the fill step now needs commissioning against the new template.
+Every `--job-dir` fill run also handles the **build contract** in the same
+pass (CD-5.2b, 18 Aug 2026): it probes the region's template folder
+(`hia_probe.py`, verdict in `hia_status.txt`) and fills `fill_hia.py`
+region-aware — approved blank → real name; staged UNAPPROVED conversion →
+TEST runs only, `- TEST UNAPPROVED TEMPLATE` name; neither → data sheet only
+(step 6). The job JSON carries the extra HIA keys (`job_no`, `site_hia` —
+street + suburb only, **no `Lot n,` prefix**, per the executed 26044/26040/
+26036 covers — owner address parts, NSW `dp_no`/`land_suburb_pc` or QLD
+`sp_rp`/`land_suburb`/`land_state`/`land_postcode`, and `liq_damages` only
+when the job's LD is sourced to differ from the template's $25.00 prefill).
+`--no-build-contract` skips the stage.
 
 Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; the PDF
-is half the deliverable pair, never cut it): a typical run is 25–50 seconds. The
-underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `docx_diff.py`,
-`docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a single stage;
-regressions are `regress_inclusions.py` and `regress_prelim.py`.
+is half the deliverable pair, never cut it): a typical run is 25–70 seconds. The
+underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `fill_hia.py`,
+`docx_diff.py`, `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a
+single stage; regressions are `regress_inclusions.py`, `regress_prelim.py` and
+`regress_hia.py`. A delivery that hits a **locked destination file** (a
+reviewer has the old PDF open) stops with a clear message — close the file
+and re-run `draft_contract.py --job <job.json> --job-dir "<...>"` with no
+`--template`: it re-ships the already-filled workdir without re-filling.
 
 **Spec content the email orders is a person's edit, with a defined flag each
 time** — the draft never writes it, the summary always names it:
@@ -285,10 +291,11 @@ or inferred here** (CD-5.4).
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
 
-The data sheet carries the run's HIA status verbatim (from `hia_status.txt`):
-while BLOCKED it says why the contract itself was not produced; when a
-CANDIDATE template lands, the data sheet is still the deliverable until a
-person has commissioned and verified `fill_hia.py` against the new blank.
+The data sheet carries the run's HIA status verbatim (from `hia_status.txt`)
+and complements the filled contract, never replaces it: even when the driver
+filled the build contract, the data sheet is where the person-keyed values
+live (DATABUILD figures, guarantors, special conditions, resident-owner) —
+and when the run reports BLOCKED in PRODUCTION, it is the whole deliverable.
 
 ### 7. Report the run, and leave the evidence
 

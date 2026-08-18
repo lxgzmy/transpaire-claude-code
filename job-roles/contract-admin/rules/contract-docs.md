@@ -160,19 +160,28 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   classifies every build-contract blank in the region's contract-template
   folder, and `draft_contract.py --job-dir` runs it on every routed save —
   the verdict prints in the run summary and ships as `hia_status.txt` with the
-  evidence. BLOCKED → data sheet only. CANDIDATE (a live `.docx` blank landed
-  outside `SS\`, not marked DONT USE) → **still data sheet this run**; the
-  probe never fills. The unblock path (candidates BUILT 18 Aug 2026): both
-  licensed blanks are converted (`pdf_to_docx.ps1`) and machine-verified and
-  -repaired to **100.00% text completeness** (`pdf_docx_fidelity.py` — every
-  dropped fragment reinserted verbatim from the PDF, insertions highlighted),
-  staged in `runtime\contract-admin\outputs\_hia-word-templates\` with their
-  fidelity reports. Remaining human steps: review the highlighted insertions
-  and repair layout page by page against the PDF (pagination/tables/checkbox
-  blocks are not machine-certifiable — no rasteriser), MCR approves, the
-  blank lands in the `CONTRACT\` folder, then `fill_hia.py` is authored and
-  regression-verified against the approved template before the first filled
-  contract ships — the same discipline as every other filler here.
+  evidence. The **fill is driver-integrated** *(18 Aug 2026, by explicit
+  instruction to streamline the build contract)*: on every `--job-dir` fill
+  run, `draft_contract.py` resolves a template in this order and fills it via
+  `fill_hia.py` (region-aware NSW/QLD anchor sets, `regress_hia.py` is its
+  regression) —
+  1. an approved CANDIDATE `.docx` in the region's `CONTRACT\` folder (a
+     person + MCR filed it) → filled under the **real deliverable name**, in
+     TEST or PRODUCTION; the anchor `--check` is the automated regression
+     gate, and the first fill after a template lands is eye-verified;
+  2. no candidate, **TEST mode only** → the staged UNAPPROVED conversion in
+     `runtime\contract-admin\outputs\_hia-word-templates\`, filled under a
+     `- TEST UNAPPROVED TEMPLATE` name (commissioning evidence, never
+     issuable);
+  3. otherwise (PRODUCTION, no approved blank) → **data sheet only**, and the
+     run says BLOCKED.
+  The staged conversions (built 18 Aug 2026: `pdf_to_docx.ps1` +
+  `pdf_docx_fidelity.py`, both at 100.00% text completeness, reinserted
+  fragments highlighted) stay out of the template tree until the remaining
+  human steps are done: review the highlighted insertions and repair layout
+  page by page against the PDF (not machine-certifiable — no rasteriser),
+  MCR approves, the blank lands in `CONTRACT\` — at which point rule 1 takes
+  over with no further engineering.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)*
 - **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
@@ -262,12 +271,13 @@ cabinet; and any DocuSign issue to a client.
 1. Is the manual's `J# L# Street, Estate Stage - Inclusions` naming retired, or
    is current practice drift that should be corrected? (CD-7.3)
 2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
-   requirement, but there is no current fillable HIA Word template on the
-   drive. The remaining human step: repair the Word-reflow conversions
-   (`_hia-conversion-trial\`, both NSW and QLD, ~95% fidelity) page by page —
-   or obtain the licensed Word version from HIA directly — then MCR approval.
-   Detection of the landed template is automated (CD-5.2b); the fill step is
-   then authored against it. Applies equally to the NSW contract. (CD-5.1/5.2)
+   requirement. The whole pipeline is now built and driver-integrated
+   (CD-5.2b: staged conversions at 100.00% text completeness, `fill_hia.py`
+   NSW+QLD commissioned on 26045/25163, `regress_hia.py` passing); the ONLY
+   remaining step is human — review the highlighted insertions and the layout
+   against the licensed PDF, MCR approval, file the blank in the region's
+   `CONTRACT\` folder. Until then production runs stay data-sheet-only.
+   (CD-5.1/5.2)
 3. What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over? Observed range $2,500–$32,035;
    both Tamworth jobs $5,000. (CD-4.3)

@@ -38,11 +38,15 @@ read-only (the real documents are opened read-only by Word and exported INTO
 the workdir).
 
 Every --job-dir run also probes the HIA build contract status (hia_probe.py,
-CD-5.2a): the licence makes the filled docx+pdf contract a requirement, but it
-stays BLOCKED until a fillable Word blank lands in the region's contract
-folder. The verdict prints in the summary and ships as hia_status.txt with the
-evidence. A CANDIDATE verdict never fills anything - it tells a person the
-template has landed and the fill step needs commissioning against it.
+CD-5.2a) and - since 18 Aug 2026, by explicit instruction - FILLS the build
+contract in the same pass when a template it may use exists (fill_hia.py,
+region-aware): an approved CANDIDATE blank in the region's CONTRACT folder is
+filled under the real deliverable name (the anchor check is the automated
+regression gate; eye-verify the first fill after a template lands); with no
+candidate, TEST runs fill from the staged UNAPPROVED conversion under a
+"- TEST UNAPPROVED TEMPLATE" name; PRODUCTION with no approved blank stays
+data-sheet-only. The verdict prints in the summary and ships as
+hia_status.txt with the evidence. --no-build-contract skips the stage.
 
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
@@ -64,6 +68,8 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import hia_probe  # noqa: E402  (region mapping + blank classification)
 PRELIM_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
                     r"\NSW PRELIMINARY AGREEMENT 2024.docx")
 STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
@@ -72,6 +78,23 @@ STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
 # of these already exists in production, so a new run is a test and lands here.
 TEST_ROOT = Path(r"Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing")
 CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*")
+
+# HIA build contract (CD-5.2a/5.2b, driver-integrated 18 Aug 2026 by explicit
+# instruction). Template resolution order, per region:
+#   1. an approved CANDIDATE .docx in the region's CONTRACT template folder
+#      (a person + MCR put it there) -> filled under the real deliverable name.
+#      The anchor --check is the automated regression gate; the first run
+#      after a template lands must still be eye-verified.
+#   2. no candidate, TEST mode only -> the staged UNAPPROVED conversion below,
+#      filled under a name that says so. Never in PRODUCTION: an unapproved
+#      template never produces a document that could reach a job folder.
+#   3. otherwise -> data sheet only (the pre-existing behaviour).
+STAGED_HIA_DIR = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word-templates"
+STAGED_HIA = {
+    "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT upd 30.07.2026 - REPAIRED UNAPPROVED.docx",
+    "QLD": STAGED_HIA_DIR / "QLD HIA BUILD CONTRACT 09.02.2023 upd 30.07.26 - REPAIRED UNAPPROVED.docx",
+}
+TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"
 
 
 COMPANY_TAILS = ("PTY LTD", "PTY LIMITED", "LTD", "LIMITED", "PTY. LTD.")
@@ -142,15 +165,16 @@ def collect_finals(workdir, values):
     """
     suffix = doc_suffix(values)
     finals = []
-    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT"):
-        docx = workdir / f"{kind}_{suffix}.docx"
-        pdf = workdir / f"PREVIEW_{kind}_{suffix}.pdf"
-        if docx.exists():
-            if not pdf.exists():
-                sys.exit(f"ERROR: {pdf.name} missing - a document only ships as its "
-                         f"docx + PDF pair (CD-7.4). Re-run the fill without --no-pdf.")
-            finals.append((docx, docx.name))
-            finals.append((pdf, f"{kind}_{suffix}.pdf"))
+    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT", "BUILD CONTRACT"):
+        for tag in ("", TEST_BC_TAG):
+            docx = workdir / f"{kind}_{suffix}{tag}.docx"
+            pdf = workdir / f"PREVIEW_{kind}_{suffix}{tag}.pdf"
+            if docx.exists():
+                if not pdf.exists():
+                    sys.exit(f"ERROR: {pdf.name} missing - a document only ships as its "
+                             f"docx + PDF pair (CD-7.4). Re-run the fill without --no-pdf.")
+                finals.append((docx, docx.name))
+                finals.append((pdf, f"{kind}_{suffix}{tag}.pdf"))
     if not finals:
         sys.exit(f"ERROR: nothing to deliver - no filled documents named *_{suffix} in {workdir}")
     return finals
@@ -180,7 +204,7 @@ def deliver(workdir, values, dest, force):
     temp.mkdir(exist_ok=True)
     final_sources = {a for a, _ in finals}
     for a, b in finals:
-        shutil.copy2(a, b)
+        copy_final(a, b)
         print(f"  delivered : {b}")
     moved = 0
     for f in sorted(workdir.iterdir()):
@@ -204,8 +228,23 @@ def deliver_production(workdir, values, job_dir):
                  + ". Production never overwrites - superseding a version is a person's "
                  "copy with the old one moved to the folder's SS\\ (CD-7.5).")
     for a, b in finals:
-        shutil.copy2(a, b)
+        copy_final(a, b)
         print(f"  saved     : {b}")
+
+
+def copy_final(src, dst):
+    """copy2 with retries: a reviewer having the old PDF open must produce a
+    clear message naming the locked file, not a traceback mid-delivery."""
+    for attempt in range(3):
+        try:
+            shutil.copy2(src, dst)
+            return
+        except PermissionError:
+            if attempt < 2:
+                time.sleep(0.8)
+    sys.exit(f"ERROR: {dst} is open in another program (file locked). Close it and "
+             f"re-run the delivery - with --job-dir and no --template it re-ships the "
+             f"already-filled workdir without re-filling anything.")
 
 
 def run_py(script, *args):
@@ -254,6 +293,10 @@ def main():
                          "fill-and-save in one pass use --job-dir.")
     ap.add_argument("--deliver-force", action="store_true",
                     help="allow --deliver to replace an earlier delivery (test folders only)")
+    ap.add_argument("--no-build-contract", action="store_true",
+                    help="skip the HIA build-contract fill (it otherwise runs on every "
+                         "--job-dir fill: approved blank when one exists, staged UNAPPROVED "
+                         "conversion in TEST mode, data sheet otherwise)")
     args = ap.parse_args()
 
     job_path = Path(args.job)
@@ -332,16 +375,16 @@ def main():
             failures.append(name)
         return ok
 
-    def fill_doc(kind, script, template, out_name):
+    def fill_doc(kind, script, template, out_name, extra=()):
         """check -> fill -> blank diff; abort the document on a failed check."""
-        check = run_py(script, "--template", template, "--job", job_path, "--check")
+        check = run_py(script, "--template", template, "--job", job_path, "--check", *extra)
         (workdir / f"check_{kind}.txt").write_text(check.stdout + check.stderr, encoding="utf-8")
         if check.returncode != 0:
             print(f"  {kind}: ANCHOR CHECK FAILED - stopping this document. "
                   f"See check_{kind}.txt; the template may have been revised.")
             return None
         out = workdir / out_name
-        fill = run_py(script, "--template", template, "--job", job_path, "--out", out)
+        fill = run_py(script, "--template", template, "--job", job_path, "--out", out, *extra)
         (workdir / f"fill_{kind}.txt").write_text(fill.stdout + fill.stderr, encoding="utf-8")
         if fill.returncode != 0 or not out.exists():
             print(f"  {kind}: FILL FAILED - see fill_{kind}.txt")
@@ -364,6 +407,47 @@ def main():
             made.setdefault("prelim", fill_doc(
                 "prelim", "fill_prelim.py", args.prelim_template,
                 f"PRELIMINARY AGREEMENT_{suffix}.docx"))))
+
+    # HIA build contract (CD-5.2a/5.2b): filled in the same pass whenever a
+    # usable template exists - see the STAGED_HIA note above for the order.
+    if args.job_dir and not args.no_build_contract:
+        region = hia_probe.region_from_job_dir(job_dir)
+        state = hia_probe.REGION_TO_FOLDER[region][0] if region else None
+        if not state:
+            print(f"  build contract: region not recognised in {job_dir} - data sheet only")
+        else:
+            folder = hia_probe.CONTRACTS_ROOT / hia_probe.REGION_TO_FOLDER[region][1]
+            rows = hia_probe.classify(folder) if folder.is_dir() else []
+            approved = [folder / rel for status, rel, _ in rows if status == "CANDIDATE"]
+            template = out_name = provenance = None
+            if len(approved) == 1:
+                template = approved[0]
+                out_name = f"BUILD CONTRACT_{suffix}.docx"
+                provenance = f"approved blank {template.name} - eye-verify the first fill after a template lands"
+            elif len(approved) > 1:
+                print("  build contract: MORE THAN ONE candidate blank in "
+                      f"{folder} - a person must pick; data sheet only this run")
+            elif mode == "TEST" and STAGED_HIA[state].exists():
+                template = STAGED_HIA[state]
+                out_name = f"BUILD CONTRACT_{suffix}{TEST_BC_TAG}.docx"
+                provenance = ("staged UNAPPROVED conversion (CD-5.2b commissioning) - "
+                              "never issuable, review against the licensed PDF")
+            elif mode == "TEST":
+                print(f"  build contract: no staged conversion for {state} at "
+                      f"{STAGED_HIA[state]} - data sheet only")
+            else:
+                print("  build contract: BLOCKED - no approved Word blank in the region's "
+                      "CONTRACT folder; data sheet only (CD-5.1/5.2a). TEST runs draft "
+                      "from the staged UNAPPROVED conversion.")
+            if template:
+                def do_bc():
+                    doc = fill_doc("buildcontract", "fill_hia.py", template,
+                                   out_name, extra=("--region", state))
+                    if doc:
+                        made["buildcontract"] = doc
+                        print(f"  build contract: from {provenance}")
+                    return bool(doc)
+                stage("build contract: check+fill+diff", do_bc)
 
     # gather every PDF the run needs and export them through one Word launch
     pairs = [(doc, workdir / f"PREVIEW_{doc.stem}.pdf") for doc in made.values() if doc]

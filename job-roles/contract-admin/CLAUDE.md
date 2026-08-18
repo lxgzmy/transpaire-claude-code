@@ -25,11 +25,11 @@ builder). Claude assists by reading requests, applying rules, and producing
    the manual's "RAISING CONTRACTS" section plus the blank templates diffed
    against completed jobs (`rules/contract-docs.md`); workflow spec
    `workflows/new-contract.md`; skill `/new-contract-template`. Produces the
-   inclusions and preliminary agreement; the build contract PDF is not
-   fillable, so that stays a human keying job (CD-5.1) — the held HIA licence
-   sets a docx+PDF target for the HIA contract once a fillable Word template
-   exists (CD-5.2a; detection automated by `hia_probe.py` on every routed
-   save, CD-5.2b).
+   inclusions, the preliminary agreement, and — since 18 Aug 2026 — the HIA
+   build contract in the same pass whenever a usable Word template exists
+   (`fill_hia.py`, NSW+QLD; CD-5.2a/5.2b: approved blank → real name, staged
+   UNAPPROVED conversion → TEST runs only, otherwise data sheet only;
+   DATABUILD figures and legal statements are never filled, CD-5.4).
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 
