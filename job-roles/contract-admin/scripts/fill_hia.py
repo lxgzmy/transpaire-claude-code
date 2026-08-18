@@ -1,7 +1,8 @@
-r"""Fill the NSW/HIA build contract Word template from a job JSON. Stdlib only.
+r"""Fill an HIA build contract Word template from a job JSON. Stdlib only.
 
     python fill_hia.py --template <blank.docx> --job <job.json> --out <filled.docx>
     python fill_hia.py --template <blank.docx> --job <job.json> --check
+    --region NSW (default) | QLD    picks the anchor set for that edition
 
 STATUS: EXPERIMENTAL - commissioning tests only (CD-5.2b). The only Word
 build-contract blanks that exist are the repaired conversions in
@@ -15,11 +16,20 @@ contracts before the driver ever calls it.
 What it fills (label-anchored, value typed after the printed label - the same
 technique as fill_inclusions.py / fill_prelim.py):
 
-  cover        OWNERS: / JOB: / LOT: / SITE:
-  Schedule 1   item 3 Owners: NAME, ADDRESS, SUBURB, STATE, POSTCODE,
-               MOBILE, EMAIL  (ABN/ACN, WORK, HOME left blank)
-  The Land     LOT, DP NO, STREET ADDRESS:, SUBURB POSTCODE
-  item 11      liquidated damages, typed before "per working day"
+  NSW (April 2021 edition):
+    cover        OWNERS: / JOB: / LOT: / SITE:
+    Schedule 1   item 3 Owners: NAME, ADDRESS, SUBURB, STATE, POSTCODE,
+                 MOBILE, EMAIL  (ABN/ACN, WORK, HOME left blank)
+    The Land     LOT, DP NO, STREET ADDRESS:, SUBURB POSTCODE
+    item 11      liquidated damages, replaces the $25.00 "per working day" prefill
+
+  QLD (QC2, October 2020 edition):
+    cover        OWNERS: / JOB: / LOT: / SITE:
+    Schedule 1   item 3 Owner(s): NAME, ADDRESS, SUBURB, STATE, POSTCODE,
+                 MOBILE, EMAIL (company/trust buyer: the whole entity string
+                 goes in NAME, as the executed 25163 contract does)
+    item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE
+    item 15      late completion damages, replaces the $25.00 "per day." prefill
 
 What it NEVER fills (CD-5.4): date, contract price / GST / total, deposit,
 interest %, builder's margin %, progress payments - FROM DATABUILD or keyed
@@ -50,34 +60,64 @@ def para_text(p_xml):
 
 # (field, label, mode) per scope. Scope None = whole document, first hit.
 # mode "after"  : value typed after the label text, same text node
-# mode "before" : value typed before the label text (liquidated damages)
+# mode "before" : value typed before the label text
+# The LIQ item carries the template's own prefill ($25.00) - a job whose
+# sourced LD differs REPLACES the figure, and the report flags it.
 COVER = [
     ("owners",   "OWNERS:", "after"),
     ("job_no",   "JOB:",    "after"),
     ("lot_no",   "LOT:",    "after"),
     ("site_hia", "SITE:",   "after"),
 ]
-OWNERS_SCOPE = ("3. Owners", "4. Builder")
-OWNERS = [
-    ("owner_1",       "NAME",     "after"),
-    ("owner_address", "ADDRESS",  "after"),
-    ("owner_suburb",  "SUBURB",   "after"),
-    ("owner_state",   "STATE",    "after"),
-    ("owner_postcode", "POSTCODE", "after"),
-    ("owner_mobile",  "MOBILE",   "after"),
-    ("owner_email",   "EMAIL",    "after"),
-]
-LAND_SCOPE = ("THE LAND IS:", "must reach the stage")
-LAND = [
-    ("lot_no",        "LOT",             "after"),
-    ("dp_no",         "DP NO",           "after"),
-    ("land_street",   "STREET ADDRESS:", "after"),
-    ("land_suburb_pc", "SUBURB POSTCODE", "after"),
-]
-# item 11 carries the template's own prefill ("$25.00 per working day") -
-# a job whose sourced LD differs REPLACES the figure, and the report flags it
-LIQ = ("liq_damages", "per working day", "replace_amount")
-AMOUNT_RE = re.compile(r"\$[\d,]+\.\d{2}")
+REGIONS = {
+    "NSW": {
+        "owners_scope": ("3. Owners", "4. Builder"),
+        "owners": [
+            ("owner_1",       "NAME",     "after"),
+            ("owner_address", "ADDRESS",  "after"),
+            ("owner_suburb",  "SUBURB",   "after"),
+            ("owner_state",   "STATE",    "after"),
+            ("owner_postcode", "POSTCODE", "after"),
+            ("owner_mobile",  "MOBILE",   "after"),
+            ("owner_email",   "EMAIL",    "after"),
+        ],
+        "land_scope": ("THE LAND IS:", "must reach the stage"),
+        "land": [
+            ("lot_no",        "LOT",             "after"),
+            ("dp_no",         "DP NO",           "after"),
+            ("land_street",   "STREET ADDRESS:", "after"),
+            ("land_suburb_pc", "SUBURB POSTCODE", "after"),
+        ],
+        "liq": ("liq_damages", "per working day", "replace_amount"),
+    },
+    # QC2: the owner labels all sit in the one schedule paragraph, which also
+    # carries "IS THE OWNER A RESIDENT OWNER" - that string is the scope start
+    # (the bare "Owner(s)" heading also appears in the table of contents).
+    "QLD": {
+        "owners_scope": ("IS THE OWNER A RESIDENT OWNER", "TRANSPIRE CONSTRUCTIONS"),
+        "owners": [
+            ("owner_1",       "NAME",     "after"),
+            ("owner_address", "ADDRESS",  "after"),
+            ("owner_suburb",  "SUBURB",   "after"),
+            ("owner_state",   "STATE",    "after"),
+            ("owner_postcode", "POSTCODE", "after"),
+            ("owner_mobile",  "MOBILE",   "after"),
+            ("owner_email",   "EMAIL",    "after"),
+        ],
+        "land_scope": ("The land (Clause 6)", "Anticipated start date"),
+        "land": [
+            ("lot_no",        "LOT",             "after"),
+            ("sp_rp",         "SP/RP",           "after"),
+            ("land_street",   "STREET ADDRESS:", "after"),
+            ("land_suburb",   "SUBURB",          "after"),
+            ("land_state",    "STATE",           "after"),
+            ("land_postcode", "POSTCODE",        "after"),
+        ],
+        "liq": ("liq_damages", "per day", "replace_amount"),
+    },
+}
+# the QLD reflow prints the prefill as "$ 25.00" - tolerate the space
+AMOUNT_RE = re.compile(r"\$ ?[\d,]+\.\d{2}")
 
 
 def fill_para(p_xml, label, value, mode):
@@ -111,7 +151,8 @@ def fill_para(p_xml, label, value, mode):
     return (out, True) if done[0] else (p_xml, False)
 
 
-def run(template, job, out_path, check_only):
+def run(template, job, out_path, check_only, region):
+    anchors = REGIONS[region]
     values = json.loads(Path(job).read_text(encoding="utf-8"))
     xml = __import__("zipfile").ZipFile(template).read("word/document.xml").decode("utf-8")
     paras = [(m.start(), m.end(), m.group(0)) for m in P_RE.finditer(xml)]
@@ -123,10 +164,13 @@ def run(template, job, out_path, check_only):
         return [para_text(p) for _, _, p in paras]
 
     ptexts = texts()
+    # anchor matching is whitespace-normalised: Word's PDF reflow leaves
+    # doubled spaces inside headings ("11.  The land  (Clause 6)")
+    ntexts = [re.sub(" +", " ", t) for t in ptexts]
 
     def first_hit(label, lo=0, hi=None):
-        for i in range(lo, hi if hi is not None else len(ptexts)):
-            if label in ptexts[i]:
+        for i in range(lo, hi if hi is not None else len(ntexts)):
+            if label in ntexts[i]:
                 return i
         return None
 
@@ -139,7 +183,9 @@ def run(template, job, out_path, check_only):
         hi = first_hit(scope[1], lo + 1)
         return lo, (hi if hi is not None else len(ptexts))
 
-    groups = [(None, COVER), (OWNERS_SCOPE, OWNERS), (LAND_SCOPE, LAND)]
+    groups = [(None, COVER),
+              (anchors["owners_scope"], anchors["owners"]),
+              (anchors["land_scope"], anchors["land"])]
     for scope, fields in groups:
         lo, hi = scope_bounds(scope)
         if lo is None:
@@ -149,7 +195,7 @@ def run(template, job, out_path, check_only):
             val = str(values.get(key, "") or "").strip()
             idx = None
             for i in range(lo, hi):
-                if re.search(rf"(^|\s){re.escape(label)}", ptexts[i]):
+                if re.search(rf"(^|\s){re.escape(label)}", ntexts[i]):
                     idx = i
                     break
             if idx is None:
@@ -161,10 +207,10 @@ def run(template, job, out_path, check_only):
             plan.append((idx, key, label, val, mode))
 
     # liquidated damages: the paragraph with both halves of the item
-    key, label, mode = LIQ
+    key, label, mode = anchors["liq"]
     val = str(values.get(key, "") or "").strip()
-    idx = next((i for i, t in enumerate(ptexts)
-                if label in re.sub(" +", " ", t) and AMOUNT_RE.search(t)), None)
+    idx = next((i for i, t in enumerate(ntexts)
+                if label in t and AMOUNT_RE.search(t)), None)
     if idx is None:
         missing_anchor.append(f"{key}: liquidated-damages paragraph not found")
     elif val:
@@ -173,6 +219,7 @@ def run(template, job, out_path, check_only):
         blank_fields.append((key, label))
 
     print(f"template : {Path(template).name}")
+    print(f"region   : {region}")
     print(f"job      : {Path(job).name}")
     print(f"STATUS   : EXPERIMENTAL (CD-5.2b) - template-testing only, never issuable")
     print()
@@ -229,10 +276,11 @@ def main():
     ap.add_argument("--job", required=True)
     ap.add_argument("--out")
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--region", default="NSW", choices=sorted(REGIONS))
     args = ap.parse_args()
     if not args.check and not args.out:
         sys.exit("ERROR: give --out or --check")
-    return run(args.template, args.job, args.out, args.check)
+    return run(args.template, args.job, args.out, args.check, args.region)
 
 
 # This console is cp1252; contract text carries curly quotes and dashes.
