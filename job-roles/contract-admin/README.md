@@ -11,10 +11,13 @@ Proof-of-concept, read-only and draft-first. Three workflows:
    `/new-contract-template`; OSC job entry stays manual pending the technical
    session with Adam. The `JD-*` rules remain (used by workflow 2).
 2. **Contract documents** (built; fills and saves in one pass) — build contract
-   request → filled inclusions + preliminary agreement (`.docx` + PDF export) →
-   build contract data sheet → saved to the routed destination: the job folder
-   for first drafts, the template-testing folder when the job already exists in
-   production (CD-7.7, 17 Aug 2026 — no preview stop; issuing stays human).
+   request → filled inclusions + preliminary agreement + HIA build contract
+   (`.docx` + PDF export each; the build contract fills whenever a usable Word
+   template exists — approved blank → real name, staged UNAPPROVED conversion →
+   TEST runs only, otherwise data sheet, CD-5.2b) → saved to the routed
+   destination: the job folder for first drafts, the template-testing folder
+   when the job already exists in production (CD-7.7, 17 Aug 2026 — no preview
+   stop; issuing stays human).
    Verified character-for-character against completed jobs in all three
    template families. Skill: `/new-contract-template`.
 3. **Variation Stage 1** (not started) — variation type decision → OSC variation +

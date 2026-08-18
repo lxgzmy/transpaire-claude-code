@@ -8,7 +8,7 @@ all of them.
 
 | Job-role | Status |
 |---|---|
-| [contract-admin](contract-admin/README.md) | Two workflows built and verified against real jobs (intake draft-only; contract documents fill-and-save with routed destinations, CD-7.7); variations not started |
+| [contract-admin](contract-admin/README.md) | Contract-documents workflow built and verified against real jobs: inclusions + prelim + HIA build contract filled and saved with routed destinations (CD-7.7; build contract per CD-5.2b - approved blank or TEST-only staged conversion). New-job intake retired 18 Aug 2026; variations not started |
 
 ## Adding a role
 

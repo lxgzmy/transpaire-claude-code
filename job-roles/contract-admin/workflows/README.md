@@ -6,8 +6,10 @@ deterministic steps, HITL gates, outputs, and the rules it relies on.**
 Built:
 
 1. [`new-contract.md`](new-contract.md) — build contract request → filled
-   inclusions + preliminary agreement (docx + PDF export) + build contract data
-   sheet. Rules in `../rules/contract-docs.md`. Skill: `/new-contract-template`.
+   inclusions + preliminary agreement + HIA build contract (docx + PDF export
+   each; the build contract fills whenever a usable Word template exists,
+   CD-5.2b — otherwise its data sheet is the deliverable). Rules in
+   `../rules/contract-docs.md`. Skill: `/new-contract-template`.
 
 Retired: `new-job.md` (EOI intake → OSC job setup, skill `/ca-new-job`) was
 removed 18 Aug 2026 in favour of `/new-contract-template`; its `JD-*` rules in

@@ -139,11 +139,14 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   convention); the Tamworth pair agree exactly and are the reference.
   *(observed 16 Aug 2026)*
 
-## CD-5 Build contract — data sheet only
+## CD-5 Build contract — filled when a Word template exists, data sheet always
 
-- **CD-5.1** The current NSW and SEQ build contracts are **flat PDFs with no form
-  fields**. They cannot be filled programmatically. Produce a data sheet for a
-  person to key in; never present the contract as generated. *(observed)*
+- **CD-5.1** The live NSW and SEQ build-contract **PDFs are flat, with no form
+  fields** — a PDF can never be filled programmatically here. The fill happens
+  only on a Word template (CD-5.2b resolves which one, if any); the data sheet
+  of person-keyed values is produced every run, and in PRODUCTION with no
+  MCR-approved Word blank it is the whole deliverable — never present the
+  contract as generated then. *(observed)*
 - **CD-5.2** The manual describes editing a Word HIA contract
   (`QLD HIA Contract 1.docx`). Every Word contract of that name is now in `SS\`,
   dated 2016–2017. The manual is behind the drive here — flag it for review.

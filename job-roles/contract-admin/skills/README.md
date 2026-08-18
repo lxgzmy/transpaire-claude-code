@@ -21,24 +21,28 @@ Built:
   genuine first draft saves the pair into the job folder, never overwriting
   (CD-7.7). Produces the inclusions and preliminary agreement as completed
   `.docx` **plus the PDF export** (CD-7.4 — every completed job keeps the
-  pair); the build contract is a **data sheet only**, because the current
-  NSW/SEQ contracts are flat PDFs with no form fields (CD-5.1) — the held HIA
-  licence targets a docx+PDF HIA contract, blocked until a fillable HIA Word
-  template exists (CD-5.2a). Never invents contract wording, never signs, never
-  sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
+  pair); the **build contract is filled in the same pass** whenever a usable
+  Word template exists (`../scripts/fill_hia.py`, NSW+QLD, CD-5.2b, 18 Aug
+  2026): an MCR-approved blank in the region's `CONTRACT\` folder → real
+  deliverable name; none yet → TEST runs fill from the staged UNAPPROVED
+  conversion under a `- TEST UNAPPROVED TEMPLATE` name; PRODUCTION with no
+  approved blank → data sheet only (CD-5.1/5.2a). DataBuild figures and legal
+  statements are never filled (CD-5.4). Never invents contract wording, never
+  signs, never sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
 
   Staff guide (HTML source + formatted PDF):
   [`docs/new_contract_claude_guide.html`](../../../docs/new_contract_claude_guide.html)
   → `docs/Transpire_new_contract_claude_guide.pdf`. Markdown source and a PDF copy
   also sit in `Z:\CLAUDE CODE\cowork-projects\3.new_contract\`, mirroring the
-  `z-drive-ops` guide. Rebuild the PDF from the HTML with headless Chrome:
+  `z-drive-ops` guide. Rebuild the PDF from the HTML headlessly — on this
+  server the browser is **Edge** (no Chrome installed; verified 18 Aug 2026):
 
   ```
-  chrome --headless --disable-gpu --no-pdf-header-footer --user-data-dir="Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\state\chrome-render" --print-to-pdf="<out.pdf>" "<file:///...html>"
+  "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless --disable-gpu --no-pdf-header-footer --user-data-dir="Z:\CLAUDE CODE\transpire-claude-code\runtime\shared\state\chrome-render" --print-to-pdf="<out.pdf>" "<file:///...html>"
   ```
 
-  (`--user-data-dir` stops headless Chrome dumping a Crashpad folder at the
-  `Z:\` root — it did exactly that on 11 Aug 2026.)
+  (`--user-data-dir` stops a headless Chromium dumping a Crashpad folder at
+  the `Z:\` root — Chrome did exactly that on 11 Aug 2026.)
 
   **Not role-prefixed**: the name was requested as `/new-contract-template`.
   Renaming it `ca-new-contract-template` would match the convention below —
