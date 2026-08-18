@@ -4,19 +4,9 @@ Contract-Admin job-role skills are authored here (skill definition + any
 PowerShell 7 / Python scripts). **Propose before creating.**
 
 To be loadable by Claude Code, an activated skill is registered under
-`.claude/skills/` (prefix the name with the role, e.g. `ca-new-job`).
+`.claude/skills/` (prefix the name with the role, e.g. `ca-email-intake`).
 
 Built:
-
-- **`ca-new-job`** (registered in `.claude/skills/ca-new-job/`) — invoke as
-  `/ca-new-job <email-file-path>`. Orchestrates the new-job intake workflow
-  (`../workflows/new-job.md` Phase 1): reads the request email, runs
-  `../scripts/extract_eoi.py`, resolves postcode/council flags with web-lookup
-  evidence, presents draft sheets for approval, dry-runs
-  `../scripts/osc_entry.py`, drafts the DataBuild email via
-  `transpire-writing`, writes the evidence bundle. Draft-only: never writes
-  to OSC, never sends email. Supersedes the planned `ca-email-intake` for the
-  new-job case (variation-request intake still to come).
 
 - **`new-contract-template`** (registered in
   `.claude/skills/new-contract-template/`) — invoke as
@@ -50,14 +40,23 @@ Built:
   (`--user-data-dir` stops headless Chrome dumping a Crashpad folder at the
   `Z:\` root — it did exactly that on 11 Aug 2026.)
 
-  **Not role-prefixed**, unlike `ca-new-job`: the name was requested as
-  `/new-contract-template`. Renaming it `ca-new-contract-template` would match the
-  convention below — worth settling before anyone learns the current name.
+  **Not role-prefixed**: the name was requested as `/new-contract-template`.
+  Renaming it `ca-new-contract-template` would match the convention below —
+  worth settling before anyone learns the current name.
+
+Retired:
+
+- **`ca-new-job`** (removed 18 Aug 2026) — EOI intake → OSC draft sheets →
+  DataBuild email draft, with `extract_eoi.py` and the `osc_entry.py` dry-run.
+  Removed with its workflow spec, scripts and fixtures in favour of
+  `/new-contract-template`; OSC job entry stays manual pending the technical
+  session with Adam. The `JD-*` rules it transcribed remain in
+  `../rules/job-details.md` (the new-contract workflow relies on them).
 
 Planned:
 
-- **`ca-email-intake`** — variation-request flavour of intake (EOI/new-job is
-  covered by `ca-new-job`). Blocked on the variation manual transcription.
+- **`ca-email-intake`** — variation-request flavour of intake. Blocked on the
+  variation manual transcription.
 
 ## Not a Contract-Admin skill: `Z:` drive work
 

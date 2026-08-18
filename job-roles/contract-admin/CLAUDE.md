@@ -11,9 +11,12 @@ builder). Claude assists by reading requests, applying rules, and producing
 
 ## Scope
 
-1. **New Job Creation** (built, draft-only). EOI intake → job setup. Rules
-   transcribed from the OSC new-job manual (`rules/job-details.md`); workflow
-   spec `workflows/new-job.md`; intake skill `/ca-new-job`.
+1. **New Job Creation** (retired 18 Aug 2026). The `/ca-new-job` intake skill,
+   its workflow spec and scripts were removed in favour of
+   `/new-contract-template`; OSC job entry stays manual pending the technical
+   session with Adam. The rules transcribed from the OSC new-job manual
+   (`rules/job-details.md`, `JD-*`) remain — the contract-documents workflow
+   relies on them.
 2. **Contract documents** (built; fills **and saves** with automatic routing —
    issuing and every outward act stays human). Build contract request → filled
    templates, saved in the same pass: first drafts into the job's

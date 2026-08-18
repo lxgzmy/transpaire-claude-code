@@ -10,8 +10,8 @@ signing and every flagged field stay with a person. All field rules live in
 address, CAPS and garage-side rules stay in
 [`../rules/job-details.md`](../rules/job-details.md) (`JD-*`).
 
-This is the stage that [`new-job.md`](new-job.md) marks as *"contract docs — NOT
-in this manual"* in its chain diagram. It now has a source procedure, so it is
+This is the stage the retired new-job workflow marked as *"contract docs — NOT
+in this manual"* in its chain diagram. It has a source procedure, so it is
 built — but only to the boundary in CD-5: the build contract PDF is not
 fillable, so that part is a data sheet, not a document. The HIA licence held
 since 17 Aug 2026 permits HIA-branded PDF output and sets the target of a
@@ -95,7 +95,7 @@ the job already exists in production.
 
 ```
 EOI email ─> OSC job ─> Z: job folders ─> [wait: PLAN] ─> plan updates ─> contract docs ─> DocuSign issue
-             [new-job.md]                  [JD-8]         [JD-9]          [THIS WORKFLOW]   [human, always]
+             [human, manual]               [JD-8]         [JD-9]          [THIS WORKFLOW]   [human, always]
 ```
 
 ## Relies on

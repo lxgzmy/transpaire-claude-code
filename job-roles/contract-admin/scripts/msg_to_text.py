@@ -1,4 +1,4 @@
-"""Convert an Outlook .msg email to plain text for extract_eoi.py.
+"""Convert an Outlook .msg email to plain text.
 
 Emits headers (From/To/Subject/Date), the plain-text body (falling back to
 HTML stripped of tags), and the attachment file names — attachment names

@@ -4,9 +4,10 @@ Skills usable across job-roles. This is the register for them.
 
 Role-scoped skills are also registered in `.claude/skills/` so Claude Code can
 load them, but they are **documented under their role**, not here — e.g.
-`ca-new-job` in
+`new-contract-template` in
 [job-roles/contract-admin/skills/README.md](../../job-roles/contract-admin/skills/README.md).
-Role prefixes (`ca-`) keep the two apart at a glance.
+Role prefixes (`ca-`) keep the two apart at a glance (that skill is unprefixed
+by explicit request — see the role's README).
 
 ## Global vs vendored policy
 

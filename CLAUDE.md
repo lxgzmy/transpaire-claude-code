@@ -107,11 +107,11 @@ skills are scoped to that folder and must not leak into another role.
   `docs/z_drive_claude_setup.md`. Keep that skill folder self-contained (no
   `../` references out of it).
 - **Job-role skills** are authored under `job-roles/<role>/skills/` and documented
-  there. **Propose any new skill before creating it.** Contract-Admin skills:
-  `ca-new-job` (EOI intake, draft-only) and `new-contract-template` (contract
-  request → filled contract templates, saved with routed destinations per
-  CD-7.7 — unprefixed because that name was requested; see the role's
-  `skills/README.md`). Deeper OSC/DataBuild
+  there. **Propose any new skill before creating it.** Contract-Admin skill:
+  `new-contract-template` (contract request → filled contract templates, saved
+  with routed destinations per CD-7.7 — unprefixed because that name was
+  requested; see the role's `skills/README.md`). The earlier `ca-new-job` EOI
+  intake skill was retired 18 Aug 2026 in its favour. Deeper OSC/DataBuild
   write-automation remains blocked on the technical session with Adam.
 
 ## Do not
