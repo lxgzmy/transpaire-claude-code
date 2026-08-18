@@ -80,16 +80,21 @@ COMPANY_TAILS = ("PTY LTD", "PTY LIMITED", "LTD", "LIMITED", "PTY. LTD.")
 def owner_token(name):
     """The filename token for one owner: surname, or a company's leading word.
 
-    A company owner ends in Pty Ltd or the like; taking the 'surname' would
+    A company owner carries Pty Ltd or the like; taking the 'surname' would
     name every company job _LTD. The completed job 26039 names its files
     INCLUSIONS_LOT 4_PALLARA_VWJJ for owner 'VWJJ INVESTMENT No.1 PTY LTD ATF
     WANG AND LIU No.1 FAMILY TRUST' - the distinctive first word of the
     trustee company is the token, and any 'ATF <trust>' clause is ignored.
+    The tail is matched anywhere in the name, not just at its end, because a
+    land contract may write the ACN inline after it ('<Name> Pty Ltd A.C.N
+    nnn nnn nnn ATF <trust>', seen 18 Aug 2026 on job 25163): an endswith
+    test falls through and names the file after the ACN's last digit group
+    instead of the company's first word.
     """
     up = " ".join(name.upper().replace(".", "").split())
     up = up.split(" ATF ")[0]  # trustee-for clause never feeds the filename
     for tail in COMPANY_TAILS:
-        if up.endswith(tail.replace(".", "")):
+        if f" {tail.replace('.', '')} " in f" {up} ":
             return up.split()[0]
     if up.endswith("TRUST"):
         return up.split()[0]

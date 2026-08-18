@@ -88,8 +88,11 @@ SITE_ANCHOR = "Being the owners of the proposed new home to be located at;"
 # The NSW and QLD inclusions are DIFFERENT DOCUMENTS, not versions of one, and
 # three things differ:
 #
-#   1. PRICE - Gunnedah's run reads "PRICE : $", SEQ's reads "PRICE : ". An exact
-#      anchor built for one silently finds nothing in the other.
+#   1. PRICE - Gunnedah's run reads "PRICE : $", SEQ's standard blank reads
+#      "PRICE : " - but the SEQ Auxiliary blank (template 2) carries the $ like
+#      Gunnedah, so both shapes exist WITHIN one family. Suffix matching
+#      therefore treats a trailing $ as optional (fill() normalises both sides
+#      with rstrip("$ "), the same normalisation the write path always used).
 #   2. The site address - Gunnedah's template carries runs reading "Lot " to
 #      append to; SEQ has none, so the whole address is typed after the sentence,
 #      twice, for the builder's and the owner's copy.
@@ -350,7 +353,15 @@ def fill(xml, values, report, family):
             continue
 
         for i, t in enumerate(texts):
-            if (t.strip() != anchor) if exact else (anchor not in t):
+            if mode == "suffix":
+                # the label's trailing $ is template typing, not identity: the
+                # SEQ Auxiliary blank reads "PRICE : $" where the standard SEQ
+                # blank reads "PRICE : ", so both sides are compared with the
+                # same rstrip("$ ") the write below applies.
+                tt, aa = t.strip().rstrip("$ "), anchor.rstrip("$ ")
+                if (tt != aa) if exact else (aa not in tt):
+                    continue
+            elif (t.strip() != anchor) if exact else (anchor not in t):
                 continue
             s, e, run = runs[i]
 
@@ -361,16 +372,34 @@ def fill(xml, values, report, family):
                 edits.append((s, e, set_run_text(run, f"{base}{' ' * pad}${value}")))
 
             elif mode == "after_lot":
-                # SEQ has no "Lot " runs to append to, so the whole address is
-                # inserted after the sentence - twice, because the builder's and
-                # the owner's copy sit side by side. All 21 completed SEQ jobs
-                # separate the sentence and the address with a space ("at; Lot")
-                # and butt the two copies together with none - so only the
-                # first copy carries the leading space (verified 16 Aug 2026).
-                first = clone_run(run, f" Lot {value}")
-                second = clone_run(run, f"Lot {value}")
-                edits.append((e, e, first + second))
-                entry["hits"] += 1
+                # The standard SEQ blank has no "Lot " runs to append to, so the
+                # whole address is inserted after the sentence - twice, because
+                # the builder's and the owner's copy sit side by side. All 21
+                # completed SEQ jobs separate the sentence and the address with
+                # a space ("at; Lot") and butt the two copies together with
+                # none - so only the first copy carries the leading space
+                # (verified 16 Aug 2026). The SEQ Auxiliary blank DOES carry
+                # two "Lot " placeholder runs (the Gunnedah shape - seen
+                # 18 Aug 2026 on 25163): those are filled in place instead,
+                # because inserting as well leaves them behind as "Lot Lot".
+                j = i + 1
+                lot_runs = []
+                while j < len(runs) and texts[j].strip() in ("Lot", "Lot:", ""):
+                    if texts[j].strip():
+                        lot_runs.append(j)
+                    j += 1
+                if lot_runs:
+                    for n, jj in enumerate(lot_runs):
+                        sj, ej, rj = runs[jj]
+                        lead = " " if n == 0 else ""
+                        edits.append((sj, ej, set_run_text(
+                            rj, f"{lead}{texts[jj]}{value}")))
+                        entry["hits"] += 1
+                else:
+                    first = clone_run(run, f" Lot {value}")
+                    second = clone_run(run, f"Lot {value}")
+                    edits.append((e, e, first + second))
+                    entry["hits"] += 1
 
             elif mode == "dotted":
                 edits.append((s, e, set_run_text(
