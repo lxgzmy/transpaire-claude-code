@@ -6,9 +6,10 @@ with [CLAUDE.md](CLAUDE.md) for role context (the org guardrails in the repo-roo
 
 Proof-of-concept, read-only and draft-first. Three workflows:
 
-1. **New Job Creation** (built, draft-only) — EOI email intake → OnSite Companion
-   (OSC) job creation → Z-Drive folder → DataBuild handoff → contact details →
-   plan-arrival updates. Skill: `/ca-new-job`.
+1. **New Job Creation** (retired 18 Aug 2026) — the `/ca-new-job` intake skill,
+   `workflows/new-job.md` and its scripts were removed in favour of
+   `/new-contract-template`; OSC job entry stays manual pending the technical
+   session with Adam. The `JD-*` rules remain (used by workflow 2).
 2. **Contract documents** (built; fills and saves in one pass) — build contract
    request → filled inclusions + preliminary agreement (`.docx` + PDF export) →
    build contract data sheet → saved to the routed destination: the job folder
@@ -30,10 +31,10 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 | Folder | Purpose |
 |---|---|
 | `CLAUDE.md` | Role context, scope, systems, rules pointers, HITL. |
-| `workflows/` | One spec per workflow. `new-job.md` and `new-contract.md` built; variation stage 1 to come. |
+| `workflows/` | One spec per workflow. `new-contract.md` built; variation stage 1 to come. |
 | `rules/` | Transcribed, testable business rules. `job-details.md` (`JD-*`) and `contract-docs.md` (`CD-*`) transcribed; `variation-rules.md` still a stub. |
 | `scripts/` | The workflow pipeline: email → extraction → template fill → PDF export, plus probes, diff tools and the three test suites. See [scripts/README.md](scripts/README.md). |
-| `skills/` | Role-only skills, authored and documented here. `ca-new-job` and `new-contract-template` built (registered in `../../.claude/skills/`). |
+| `skills/` | Role-only skills, authored and documented here. `new-contract-template` built (registered in `../../.claude/skills/`). |
 | `reference/` | Pointers to source manuals (never the manuals themselves). |
 | `templates/` | Sanitised prompt / document / output templates. |
 | `fixtures/` | Synthetic test data only. |

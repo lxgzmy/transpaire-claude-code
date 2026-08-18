@@ -1,11 +1,13 @@
 # Contract Admin Automation with Claude Code (Windows Server 2022)
 
 > **Status (Aug 2026):** this is the discovery-phase design and it aims further
-> than what is built. What exists today is read-only / draft-only: the new-job
-> intake (`/ca-new-job`) and the contract-documents workflow
-> (`/new-contract-template`) — the latter isn't in this document at all, as it
-> was scoped after discovery. The OSC/DataBuild write-automation below is
-> deferred pending the technical session with Adam. Current state:
+> than what is built. What exists today is the contract-documents workflow
+> (`/new-contract-template`) — which isn't in this document at all, as it was
+> scoped after discovery. The new-job intake (`/ca-new-job`) described under
+> Workflow 1 was built draft-only and then retired (18 Aug 2026) in favour of
+> `/new-contract-template`; Workflow 1 below is kept as the design record. The
+> OSC/DataBuild write-automation below is deferred pending the technical
+> session with Adam. Current state:
 > [../README.md](../README.md); layout: [architecture-overview](../../../docs/architecture-overview.md).
 
 ## Problem

@@ -1,7 +1,8 @@
 # scripts/
 
-Scripts for the new-job workflow (`../workflows/new-job.md`) and the
-new-contract workflow (`../workflows/new-contract.md`).
+Scripts for the new-contract workflow (`../workflows/new-contract.md`).
+(The new-job intake scripts — `extract_eoi.py`, `test_extract_eoi.py`,
+`osc_entry.py` — were removed with the `/ca-new-job` skill, 18 Aug 2026.)
 
 | Script | Status | Does |
 |---|---|---|
@@ -11,10 +12,7 @@ new-contract workflow (`../workflows/new-contract.md`).
 | `draft_contract.py` | **Working — the pipeline driver** | One timed command for a whole job, ending in the save (the preview/approval stop was removed 17 Aug 2026): anchor check (aborts the document on a miss), fill (inclusions and/or `--prelim`), blank-vs-filled diffs, complete PDF exports through a **single Word launch**, then **`--job-dir` routing** — the job's `CONTRACT DOCUMENTATION` already holding contract docs (SS\ included) = TEST (finals + `temp\` to `template-testing\<job>\` only, `--real-dir` defaulting to the job folder for REAL_ exports + worddiffs); empty = PRODUCTION (final `.docx`+`.pdf` pair into the job folder, never overwriting). A failed stage blocks the save. Typical run 25–50s, ~85% of it Word PDF export. **`--deliver <folder>`** stays for explicit handover folders (refuses `Z:\PROJECTS`; `--deliver-force` for test refreshes) — end users see only the finals. Company/trust owners name correctly (`_VWJJ`, never `_LTD`). |
 | `fill_prelim.py` | **Working — reproduces both completed Tamworth agreements text- and structure-identically** | Blank `NSW PRELIMINARY AGREEMENT 2024.docx` + job JSON → filled `.docx` (`CD-4`). Same stdlib run-editing approach. Client row (single-client also removes the tab so the name flows after "And", as every completed single does), addresses, fee and the three signing-line names, per the conventions verified across eight completed agreements (CD-4.5). **Refuses to run without `prelim_fee`** — the template's $30,000 is not the job's fee (CD-4.3). `--check` first, as with the inclusions. |
 | `regress_prelim.py` | **Passing** | Fills the blank prelim with each completed Tamworth job's values and requires the result to be **text-identical AND structure-identical** (tabs/breaks/cells via the `docx_text` view) to the real executed agreement, plus a two-client structural smoke test. Run after any `fill_prelim.py` change, alongside `regress_inclusions.py`. |
-| `extract_eoi.py` | **Working, tested** | Request-email text → job-data JSON draft sheet per the `JD-*` rules, plus human-attention flags. Handles labelled emails and free-form forwarded chains (subject-line lot/suburb, e-sign client, `$` price, "site a X with a Y façade"). Read-only; touches nothing. |
-| `test_extract_eoi.py` | **Passing** | Regression test against `../fixtures/eoi-sample-01.md` / `-expected.md`. Run `python test_extract_eoi.py` after any rule change. |
 | `test_job_search.py` | **Passing** | Keeps the job-location logic in step with its owner. The canonical "where can a job folder be" logic is the org z-drive-ops skill's `find_job.ps1`; `probe_job.py` mirrors it in Python. This checks the two agree, that every lifecycle-like folder on the live drive is covered, and that a real job in each location is actually found. `probe_job.py` missed `SYDNEY\HANDED OVER` (199 jobs) before this existed. |
-| `osc_entry.py` | **Skeleton — not runnable live** | pywinauto entry script mirroring manual steps 4–10. Dry-run by default; live mode is blocked until control IDs are captured. |
 | `docx_text.py` | **Working** | Dumps a `.docx`'s visible text as numbered blocks, tables in document order. Stdlib only — no `python-docx` on the server. |
 | `regress_inclusions.py` | **Passing** | Per family: reads the page-1 indent convention off every completed job, fills the blank with a sample job's values, and checks the filler reproduces the convention **and** the acknowledgements site-address line word-for-word (where `at;Lot` — the missing SEQ space — hid until 16 Aug). Run after any `fill_inclusions.py` change. |
 | `docx_diff.py` | **Working** | Block-level diff of two `.docx` files, printing only what differs. Used after a fill to prove nothing but the fields changed. |
@@ -31,12 +29,6 @@ new-contract workflow (`../workflows/new-contract.md`).
 
 ```
 .msg file ──> msg_extract.py ──> email text + attachments (stdlib, no install)
-email.txt ──> extract_eoi.py ──> job.json + flags
-                                        │  (human reviews sheet, resolves flags,
-                                        │   verifies postcode + council by search)
-                                        ▼
-                                  osc_entry.py --dry-run   (narrates steps)
-                                  osc_entry.py --live      (blocked, see below)
 
 new-contract workflow, once the plans are in — one driver command, fill to save:
 
@@ -54,24 +46,11 @@ job.json ───────┴─> draft_contract.py [--prelim] --job-dir "<j
                                   overwrites; flags reported after, not gated)
 ```
 
-## Before `--live` can ever run (technical session)
-
-1. On the server with OSC open, capture real control identifiers:
-   `inspect.exe` or pywinauto `print_control_identifiers()`; fill the `CTRL`
-   map and `OSC_EXE` in `osc_entry.py`.
-2. Confirm the approach per `../CLAUDE.md` — OSC write-automation is deferred
-   until the technical session with the IT specialist (Adam).
-3. Test end-to-end against a **throwaway/test job** in OSC, never a real one.
-4. Live mode keeps a HITL gate per screen; the duplicate-search judgment,
-   DataBuild email send, and price-mismatch resolution stay human.
-
 ## Deliberately not automated
 
-- Lot-number duplicate **judgment** (JD-0.2) — script only reminds.
-- Sending the DataBuild email (JD-6.1) — drafted via `transpire-writing`,
-  human sends.
-- Price comparison resolution (JD-6.2) — hard stop for a human.
-- Phase 2 plan updates — pending the same control-mapping session.
+- **OSC job entry** — the `/ca-new-job` intake and its `osc_entry.py` skeleton
+  were removed 18 Aug 2026; OSC write-automation stays deferred until the
+  technical session with the IT specialist (Adam), per `../CLAUDE.md`.
 - **The build contract itself** (CD-5.1). The current NSW and SEQ contracts are
   flat PDFs with no form fields, so there is nothing to fill; `fill_inclusions.py`
   deliberately has no contract equivalent. The workflow drafts a data sheet and a

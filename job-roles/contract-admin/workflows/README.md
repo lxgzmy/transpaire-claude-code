@@ -5,12 +5,13 @@ deterministic steps, HITL gates, outputs, and the rules it relies on.**
 
 Built:
 
-1. [`new-job.md`](new-job.md) — EOI intake → job setup. Transcribed from the OSC
-   new-job manual (rules in `../rules/job-details.md`); pending business review.
-   Skill: `/ca-new-job`.
-2. [`new-contract.md`](new-contract.md) — build contract request → filled
+1. [`new-contract.md`](new-contract.md) — build contract request → filled
    inclusions + preliminary agreement (docx + PDF export) + build contract data
    sheet. Rules in `../rules/contract-docs.md`. Skill: `/new-contract-template`.
+
+Retired: `new-job.md` (EOI intake → OSC job setup, skill `/ca-new-job`) was
+removed 18 Aug 2026 in favour of `/new-contract-template`; its `JD-*` rules in
+`../rules/job-details.md` remain because `new-contract.md` relies on them.
 
 Planned:
 
