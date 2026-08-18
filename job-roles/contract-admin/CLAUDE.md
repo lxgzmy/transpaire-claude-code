@@ -28,7 +28,8 @@ builder). Claude assists by reading requests, applying rules, and producing
    inclusions and preliminary agreement; the build contract PDF is not
    fillable, so that stays a human keying job (CD-5.1) — the held HIA licence
    sets a docx+PDF target for the HIA contract once a fillable Word template
-   exists (CD-5.2a).
+   exists (CD-5.2a; detection automated by `hia_probe.py` on every routed
+   save, CD-5.2b).
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 

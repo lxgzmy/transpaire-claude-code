@@ -39,11 +39,24 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
-| **Build contract (incl. HIA)** | **Target: `.docx` + `.pdf` — currently BLOCKED, so data sheet only.** The business holds a valid HIA licence (stated 17 Aug 2026), so HIA-branded PDF output is permitted and, for the HIA build contract, required as a docx+PDF pair. But there is no current fillable HIA Word template on the drive: every `.docx` HIA contract is superseded (`SS\`, 2016–17 — forbidden, CD-1.3), the live blanks are flat PDFs with zero form fields, and this server cannot fill or edit a flat PDF (CD-5.1/5.2). Until a licensed fillable template lands, produce the data sheet and flag the gap in every run |
+| **Build contract (incl. HIA)** | **Target: `.docx` + `.pdf` — status probed automatically every run (`hia_probe.py`), currently BLOCKED, so data sheet only.** The business holds a valid HIA licence (stated 17 Aug 2026), so HIA-branded PDF output is permitted and, for the HIA build contract, required as a docx+PDF pair. But there is no current fillable HIA Word template on the drive: every `.docx` HIA contract is superseded (`SS\`, 2016–17 — forbidden, CD-1.3), the live blanks are flat PDFs with zero form fields, and this server cannot fill or edit a flat PDF (CD-5.1/5.2). Until a licensed fillable template lands, produce the data sheet |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
 Be straight about that third row rather than implying a contract was generated —
-say the HIA docx+PDF requirement is blocked and why, every time it applies.
+relay the run's `hia contract:` status line (BLOCKED or CANDIDATE, printed by
+the driver and saved as `hia_status.txt`) every time it applies.
+
+**Unblocking the build contract** is a defined path, not an open wish
+(CD-5.2a). A Word-reflow conversion of each licensed PDF blank already exists
+(~95% text fidelity — `runtime\contract-admin\outputs\_hia-conversion-trial\`,
+see its `trial-report.md`); a person repairs the reflow docx page by page
+against the PDF (pagination, tables, checkbox blocks are the casualties), MCR
+approves it, and it lands in the region's `CONTRACT\` template folder. The
+probe then flips that region to `CANDIDATE` on the next run — which still
+fills nothing: it tells the user the template has landed and that the fill
+step (`fill_hia.py`, authored and regression-verified against the real
+template like every other filler) needs commissioning. Never fill a candidate
+template ad hoc.
 
 ## Steps
 
@@ -220,6 +233,12 @@ preview stop (removed 17 Aug 2026):
    never overwriting — a name clash stops the run (CD-7.5). Any failed stage
    blocks the save: nothing partial ever ships.
 
+Every `--job-dir` run also prints an `hia contract:` status line and writes
+`hia_status.txt` (`hia_probe.py`, CD-5.2a): BLOCKED means the build contract
+stays a data sheet (step 6); CANDIDATE means a fillable Word blank has landed
+in the region's contract folder — still a data sheet this run, and the user
+must be told the fill step now needs commissioning against the new template.
+
 Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; the PDF
 is half the deliverable pair, never cut it): a typical run is 25–50 seconds. The
 underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `docx_diff.py`,
@@ -261,6 +280,11 @@ or inferred here** (CD-5.4).
 
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
+
+The data sheet carries the run's HIA status verbatim (from `hia_status.txt`):
+while BLOCKED it says why the contract itself was not produced; when a
+CANDIDATE template lands, the data sheet is still the deliverable until a
+person has commissioned and verified `fill_hia.py` against the new blank.
 
 ### 7. Report the run, and leave the evidence
 

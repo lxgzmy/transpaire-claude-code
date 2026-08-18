@@ -147,15 +147,27 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-5.2** The manual describes editing a Word HIA contract
   (`QLD HIA Contract 1.docx`). Every Word contract of that name is now in `SS\`,
   dated 2016–2017. The manual is behind the drive here — flag it for review.
-- **CD-5.2a** **HIA licence held** *(stated by the user 17 Aug 2026)*:
-  generating HIA-branded PDFs is permitted, and the target for the HIA build
-  contract is a filled `.docx` **plus** its `.pdf` export, like the other
-  documents. **Blocked until a current fillable HIA Word template exists on
-  the drive**: the `SS\` Word versions stay forbidden (CD-1.3), the live
-  blanks are flat PDFs with no form fields (CD-5.1), the server cannot fill a
-  flat PDF, and `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR
+- **CD-5.2a** **HIA licence held** *(stated by the user 17 Aug 2026; reaffirmed
+  18 Aug 2026)*: generating HIA-branded PDFs is permitted, and the target for
+  the HIA build contract is a filled `.docx` **plus** its `.pdf` export, like
+  the other documents. **Blocked until a current fillable HIA Word template
+  exists on the drive**: the `SS\` Word versions stay forbidden (CD-1.3), the
+  live blanks are flat PDFs with no form fields (CD-5.1), the server cannot
+  fill a flat PDF, and `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR
   APPROVES.pdf` stays off-limits until MCR approves regardless of licensing.
-  Until unblocked, produce the CD-5 data sheet and flag this gap in every run.
+  Until unblocked, produce the CD-5 data sheet.
+- **CD-5.2b** **Detection is automated** *(18 Aug 2026)*: `hia_probe.py`
+  classifies every build-contract blank in the region's contract-template
+  folder, and `draft_contract.py --job-dir` runs it on every routed save —
+  the verdict prints in the run summary and ships as `hia_status.txt` with the
+  evidence. BLOCKED → data sheet only. CANDIDATE (a live `.docx` blank landed
+  outside `SS\`, not marked DONT USE) → **still data sheet this run**; the
+  probe never fills. The unblock path: repair the Word-reflow conversion
+  (`runtime\contract-admin\outputs\_hia-conversion-trial\`) page by page
+  against the licensed PDF, MCR approves, the blank lands in the `CONTRACT\`
+  folder, then `fill_hia.py` is authored and regression-verified against the
+  real template before the first filled contract ships — the same discipline
+  as every other filler here.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)*
 - **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
@@ -246,9 +258,11 @@ cabinet; and any DocuSign issue to a client.
    is current practice drift that should be corrected? (CD-7.3)
 2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
    requirement, but there is no current fillable HIA Word template on the
-   drive — obtaining one (e.g. the licensed Word version from HIA, then MCR
-   approval) is the unblock. Same question applies to the NSW contract, whose
-   Word version is superseded and whose PDF cannot be filled. (CD-5.1/5.2/5.2a)
+   drive. The remaining human step: repair the Word-reflow conversions
+   (`_hia-conversion-trial\`, both NSW and QLD, ~95% fidelity) page by page —
+   or obtain the licensed Word version from HIA directly — then MCR approval.
+   Detection of the landed template is automated (CD-5.2b); the fill step is
+   then authored against it. Applies equally to the NSW contract. (CD-5.1/5.2)
 3. What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over? Observed range $2,500–$32,035;
    both Tamworth jobs $5,000. (CD-4.3)

@@ -37,6 +37,13 @@ into a job folder is the final pair, by deliver_production. --real-dir stays
 read-only (the real documents are opened read-only by Word and exported INTO
 the workdir).
 
+Every --job-dir run also probes the HIA build contract status (hia_probe.py,
+CD-5.2a): the licence makes the filled docx+pdf contract a requirement, but it
+stays BLOCKED until a fillable Word blank lands in the region's contract
+folder. The verdict prints in the summary and ships as hia_status.txt with the
+evidence. A CANDIDATE verdict never fills anything - it tells a person the
+template has landed and the fill step needs commissioning against it.
+
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
 why every PDF in the run is exported through one Word instance).
@@ -284,6 +291,19 @@ def main():
             mode, dest = "PRODUCTION", job_dir
             print(f"  mode      : PRODUCTION - first draft, no contract documents in the "
                   f"job folder yet. Destination: {dest}")
+
+        # HIA build contract status (CD-5.2a): the licence makes the filled
+        # docx+pdf pair a requirement, blocked until a fillable Word blank
+        # lands in the region's contract folder. Probe it on every routed save
+        # so the report is automatic and current, not hand-written prose.
+        # Informational only - it never blocks the run, and it never fills:
+        # a CANDIDATE means a person commissions fill_hia.py against it.
+        hia = run_py("hia_probe.py", "--job-dir", job_dir)
+        (workdir / "hia_status.txt").write_text(hia.stdout + hia.stderr,
+                                                encoding="utf-8")
+        for line in hia.stdout.splitlines():
+            if "hia contract:" in line:
+                print(f"  {line.strip()}")
 
     if not args.template and not args.prelim:
         if mode == "TEST":

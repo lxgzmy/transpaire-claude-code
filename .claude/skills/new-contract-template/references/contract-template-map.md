@@ -110,8 +110,20 @@ that the HIA build contract ship as a filled `.docx` + `.pdf` pair. That stays
 **blocked** until a current fillable HIA Word template reaches this tree — the
 `SS\` Word versions remain forbidden, and
 `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR APPROVES.pdf` remains
-off-limits until MCR approves, licence or not. Re-run `pdf_probe.py` on any new
-HIA file that appears here.
+off-limits until MCR approves, licence or not.
+
+Detection is automated (18 Aug 2026): `hia_probe.py` classifies every
+build-contract blank in this tree (SUPERSEDED / OFF-LIMITS / FLAT PDF /
+FILLABLE PDF / CANDIDATE) and `draft_contract.py --job-dir` runs it on every
+routed save, so each run reports the current status instead of restating this
+paragraph from memory. The unblock path is defined: Word-reflow conversions of
+both licensed PDF blanks exist
+(`runtime\contract-admin\outputs\_hia-conversion-trial\`, ~95% text fidelity,
+see `trial-report.md`); a person repairs the reflow docx page by page against
+the PDF, MCR approves, and the approved blank lands in the region's `CONTRACT\`
+folder — the probe then reports CANDIDATE, and the fill step (`fill_hia.py`)
+is authored and regression-verified against the real template before the first
+filled contract ships. A CANDIDATE is never filled ad hoc.
 
 ## Output: where the filled copy goes
 
