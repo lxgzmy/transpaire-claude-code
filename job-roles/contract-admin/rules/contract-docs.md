@@ -162,12 +162,17 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   the verdict prints in the run summary and ships as `hia_status.txt` with the
   evidence. BLOCKED → data sheet only. CANDIDATE (a live `.docx` blank landed
   outside `SS\`, not marked DONT USE) → **still data sheet this run**; the
-  probe never fills. The unblock path: repair the Word-reflow conversion
-  (`runtime\contract-admin\outputs\_hia-conversion-trial\`) page by page
-  against the licensed PDF, MCR approves, the blank lands in the `CONTRACT\`
-  folder, then `fill_hia.py` is authored and regression-verified against the
-  real template before the first filled contract ships — the same discipline
-  as every other filler here.
+  probe never fills. The unblock path (candidates BUILT 18 Aug 2026): both
+  licensed blanks are converted (`pdf_to_docx.ps1`) and machine-verified and
+  -repaired to **100.00% text completeness** (`pdf_docx_fidelity.py` — every
+  dropped fragment reinserted verbatim from the PDF, insertions highlighted),
+  staged in `runtime\contract-admin\outputs\_hia-word-templates\` with their
+  fidelity reports. Remaining human steps: review the highlighted insertions
+  and repair layout page by page against the PDF (pagination/tables/checkbox
+  blocks are not machine-certifiable — no rasteriser), MCR approves, the
+  blank lands in the `CONTRACT\` folder, then `fill_hia.py` is authored and
+  regression-verified against the approved template before the first filled
+  contract ships — the same discipline as every other filler here.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)*
 - **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all

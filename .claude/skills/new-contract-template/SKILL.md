@@ -46,17 +46,21 @@ Be straight about that third row rather than implying a contract was generated �
 relay the run's `hia contract:` status line (BLOCKED or CANDIDATE, printed by
 the driver and saved as `hia_status.txt`) every time it applies.
 
-**Unblocking the build contract** is a defined path, not an open wish
-(CD-5.2a). A Word-reflow conversion of each licensed PDF blank already exists
-(~95% text fidelity — `runtime\contract-admin\outputs\_hia-conversion-trial\`,
-see its `trial-report.md`); a person repairs the reflow docx page by page
-against the PDF (pagination, tables, checkbox blocks are the casualties), MCR
-approves it, and it lands in the region's `CONTRACT\` template folder. The
-probe then flips that region to `CANDIDATE` on the next run — which still
-fills nothing: it tells the user the template has landed and that the fill
-step (`fill_hia.py`, authored and regression-verified against the real
-template like every other filler) needs commissioning. Never fill a candidate
-template ad hoc.
+**Unblocking the build contract** is a built path with one human step left
+(CD-5.2a/5.2b). Both licensed PDF blanks are converted to Word
+(`pdf_to_docx.ps1`) and machine-verified and -repaired to **100.00% text
+completeness** (`pdf_docx_fidelity.py`: every reflow-dropped fragment
+reinserted verbatim from the PDF, each insertion highlighted yellow), staged
+with their fidelity reports in
+`runtime\contract-admin\outputs\_hia-word-templates\` (see its README). What
+no machine on this server can certify is visual layout — pagination, tables,
+checkbox/initial blocks — so a person reviews the highlighted insertions and
+repairs layout page by page against the PDF, MCR approves, and the blank
+lands in the region's `CONTRACT\` template folder. The probe then flips that
+region to `CANDIDATE` on the next run — which still fills nothing: it tells
+the user the template has landed and that the fill step (`fill_hia.py`,
+authored and regression-verified against the approved template like every
+other filler) needs commissioning. Never fill a candidate template ad hoc.
 
 ## Steps
 
