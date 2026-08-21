@@ -133,7 +133,8 @@ DataBuild (purchase orders) is retiring and **out of scope**.
   utility portals are operated by humans only; no credentials to AI.
 - **No RFI judgement.** Analysing an RFI and deciding the response is the
   permit officer's job. Claude tracks, drafts and reports around it.
-- **DataBuild out of scope** (retiring; estimating replacement pending).
+- **DataBuild out of scope** (retiring; its replacement is Estimator
+  Companion — revisit only once that is live).
 
 ## Runtime workspace (server)
 
@@ -300,7 +301,8 @@ testable; open questions are marked ❓.
   responses is the permit officer's role.
 - **PO-14 — No portal automation, no DataBuild.** No AI access or
   credentials to certifier/council/NSW-Planning/utility portals. DataBuild
-  is retiring and out of scope.
+  is retiring and out of scope; revisit only once its replacement
+  (Estimator Companion) is live.
 ```
 
 - [ ] **Step 3: Verify no PII leaked**
@@ -511,7 +513,7 @@ only points at it.
 | Source | Where | Notes |
 |---|---|---|
 | Discovery recording, 20 Aug 2026 | Downloads / to be filed on `Z:` in the AI testing folder | `AI consultation - Approval-20260820_040605UTC-Meeting Recording.mp4`; the substantive session ends when the guests leave the call. |
-| AI testing folder (per-role) | `Z:` — location to be created per the discovery agreement | Destination for past RFIs (NSW standard forms prioritised), blank council/certifier application forms, and a sanitised copy of the current weekly report layout. |
+| AI testing folder (per-role) | `Z:\AI test\Permit Officer` (created by the business owner, 21 Aug 2026) | Destination for past RFIs (NSW standard forms prioritised), blank council/certifier application forms, and a sanitised copy of the current weekly report layout. |
 | Current weekly BA report | Maintained by the permit officer (Excel, updated Mondays) | Never copy into the repo; a **synthetic** layout fixture may go under `../fixtures/` once the template is agreed. |
 ```
 
@@ -561,11 +563,22 @@ git commit -m "permit-officer: reference pointers and gated skill proposals"
    and a field-mapping session confirms endpoints for jobs, activities,
    alerts, documents. First code will be a read-only probe under
    `job-roles/permit-officer/scripts/`, TDD'd against recorded fixtures,
-   planned separately once the API surface is known.
+   planned separately once the API surface is known. Sequencing fixed by
+   the business owner (21 Aug 2026): **integration starts with NSW
+   approvals** — NSW data (email + OSC) is reachable, QLD status sits in
+   the certifier portal AI cannot touch.
 2. **OSC workflow expansion** (adding the missing approval activities to OSC
    so status is machine-readable) — a business change Tony took away to
-   raise with management, staged permits-section-first. Not a repo change.
+   raise with management, staged permits-section-first; re-committed in the
+   business owner's 21 Aug review ("as many detailed standard RFI tasks as
+   possible"). Coordinate the OSC activity names with the RFI corpus so the
+   checklist, the OSC workflow, and the BA report share one item
+   vocabulary. Not a repo change.
 3. **Form pre-fill** — spec after blank forms are collected.
+4. **Dashboard reporting** — added by the business owner's 21 Aug 2026
+   review as a fourth scope item. Undefined (audience, refresh cadence,
+   relationship to the Monday Excel); scope with the business before any
+   spec. Expected to be a by-product of the BA-report pipeline.
 
 ## Self-review notes
 

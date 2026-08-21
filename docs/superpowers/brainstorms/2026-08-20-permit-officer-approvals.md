@@ -53,3 +53,26 @@ flowchart LR
 - No automation of certifier / council / NSW Planning / utility portals — no
   credentials to AI.
 - DataBuild is retiring and out of scope.
+
+## Business owner review (21 Aug 2026)
+
+Written input from the business owner confirms the discovery extraction —
+observations, the three automations, and both hard exclusions restate the
+meeting. New information from that review:
+
+- **NSW first.** AI integration starts with NSW approvals. Structurally right:
+  QLD status lives in the certifier portal AI cannot touch, while NSW data
+  (email + OSC) is reachable.
+- **AI testing folder exists**: `Z:\AI test\Permit Officer` — the agreed drop
+  point for past RFIs, blank forms, and the report layout.
+- **Dashboard reporting** raised as a fourth scope item — undefined (audience,
+  cadence, relationship to the Monday Excel); scope with the business before
+  any spec. Likely a by-product of the BA-report pipeline.
+- **Estimator Companion** named as the DataBuild replacement; DataBuild stays
+  out of scope until it is live.
+- **OSC workflow update** re-committed: standard RFI tasks to be added as
+  detailed OSC activities. Coordinate the activity names with the RFI corpus
+  so checklist, OSC workflow, and BA report share one item vocabulary.
+- Business to assess what is readable from OSC + email, then issue an
+  information-request list for anything missing (add the unconfirmed
+  amber ≤5d / red >5d ageing thresholds to that list).
