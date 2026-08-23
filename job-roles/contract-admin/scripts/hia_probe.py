@@ -62,9 +62,11 @@ REGION_TO_FOLDER = {
 
 # A build-contract blank, by name: "BUILD CONTRACT" or HIA + CONTRACT. This
 # deliberately catches the Gables-specific one too (it is a build contract).
+# The separator tolerates dots/underscores/dashes - the team names files like
+# NSW.BUILD.CONTRACT.Final.docx, and that must still be detected when filed.
 # NOT_BLANK_RE removes pack items and land contracts that share those words:
 # the general conditions, the consumer guide, the Gables sales contract.
-BLANK_RE = re.compile(r"BUILD CONTRACT|HIA.*CONTRACT|CONTRACT.*HIA", re.I)
+BLANK_RE = re.compile(r"BUILD[ ._-]CONTRACT|HIA.*CONTRACT|CONTRACT.*HIA", re.I)
 NOT_BLANK_RE = re.compile(r"GENERAL CONDITIONS|SALES CONTRACT|CONSUMER", re.I)
 
 

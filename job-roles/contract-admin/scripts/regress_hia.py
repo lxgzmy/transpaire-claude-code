@@ -1,4 +1,4 @@
-r"""Regression for fill_hia.py against both staged HIA conversions. Stdlib only.
+r"""Regression for fill_hia.py against both staged HIA templates. Stdlib only.
 
     python regress_hia.py
 
@@ -10,12 +10,15 @@ region it asserts that
      (a miss means the template or the anchor set changed - stop and look),
   2. a fill writes a docx whose document.xml still parses,
   3. every synthetic value actually appears in the filled text, and
-  4. the NSW liquidated-damages replacement swaps the $25.00 prefill.
+  4. every replaced prefill/placeholder is gone (the $25.00 LD figure, and on
+     NSW the $000,000.00-style price placeholders when figures are supplied).
 
-The staged templates live in runtime\ (this machine's checkout), so the test
-SKIPS with a notice on a clone that has no staged conversions - it can only
-pass or fail where the templates exist.
+NSW's staged template is the team's own Word build (21 Aug 2026); QLD's is
+still the repaired PDF conversion. The staged templates live in runtime\
+(this machine's checkout), so the test SKIPS with a notice on a clone that
+has no staged templates - it can only pass or fail where they exist.
 """
+import html
 import json
 import re
 import subprocess
@@ -30,17 +33,28 @@ STAGED = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word
 
 SYNTH = {
     "NSW": {
-        "template": STAGED / "NSW BUILD CONTRACT upd 30.07.2026 - REPAIRED UNAPPROVED.docx",
+        "template": STAGED / "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx",
         "values": {
-            "owners": "Testfirst TESTSURNAME", "job_no": "99991", "lot_no": "901",
+            "owners": "Testfirst TESTSURNAME & Second TESTOWNER",
+            "job_no": "99991", "lot_no": "901",
             "site_hia": "(9) Sample Street, SAMPLEVILLE NSW 2999",
-            "owner_1": "Testfirst TESTSURNAME", "owner_address": "9 Example Road",
+            "owner_1": "Testfirst TESTSURNAME", "owner_2": "Second TESTOWNER",
+            "owner_address": "9 Example Road",
             "owner_suburb": "EXAMPLETON", "owner_state": "NSW", "owner_postcode": "2998",
             "owner_mobile": "0400 000 001", "owner_email": "regress@example.invalid",
             "dp_no": "1234567", "land_street": "(9) Sample Street",
-            "land_suburb_pc": "SAMPLEVILLE 2999", "liq_damages": "$77.00",
+            "land_suburb": "SAMPLEVILLE", "land_postcode": "2999",
+            "liq_damages": "$77.00", "builders_rep": "Regress REPNAME",
+            "guarantor_name": "Guaran TESTGUARANTOR",
+            "guarantor_address": "9 Guarantee Grove",
+            "guarantor_suburb": "EXAMPLETON", "guarantor_state": "NSW",
+            "guarantor_postcode": "2997",
+            # CD-5.4: figures only ever arrive pre-keyed from DataBuild
+            "price_excl_gst": "$636,363.64", "gst_amount": "$63,636.36",
+            "price_incl_gst": "$700,000.00", "deposit": "$70,000.00",
         },
-        "replaced_prefill": "$25.00",
+        # prefills/placeholders that must NOT survive the fill
+        "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
     },
     "QLD": {
         "template": STAGED / "QLD HIA BUILD CONTRACT 09.02.2023 upd 30.07.26 - REPAIRED UNAPPROVED.docx",
@@ -54,7 +68,7 @@ SYNTH = {
             "land_suburb": "SAMPLEVILLE", "land_state": "QLD", "land_postcode": "4999",
             "liq_damages": "$88.00",
         },
-        "replaced_prefill": "$ 25.00",
+        "gone": ["$ 25.00"],
     },
 }
 
@@ -63,7 +77,8 @@ def docx_text(path):
     xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
     ET.fromstring(xml)  # assertion 2: the XML still parses
     return re.sub(" +", " ", " ".join(
-        m.group(1) for m in re.finditer(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S)))
+        html.unescape(m.group(1))
+        for m in re.finditer(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S)))
 
 
 def run(region, spec, tmp):
@@ -97,18 +112,31 @@ def run(region, spec, tmp):
     if missing:
         print(f"  {region}: FAIL - value(s) not in the filled text: {missing}")
         return False
-    if spec["replaced_prefill"] in text:
-        print(f"  {region}: FAIL - the {spec['replaced_prefill']} LD prefill survived "
-              f"a fill that should have replaced it")
+    survived = [g for g in spec["gone"] if g in text]
+    if survived:
+        print(f"  {region}: FAIL - prefill(s)/placeholder(s) survived a fill that "
+              f"should have replaced them: {survived}")
         return False
     print(f"  {region}: PASS ({len([v for v in values.values() if v])} values filled, "
-          f"XML valid, LD prefill replaced)")
+          f"XML valid, {len(spec['gone'])} prefill(s) replaced)")
     return True
 
 
+def legacy_key_split():
+    """Older NSW job JSONs carry 'SUBURB POSTCODE' as one land_suburb_pc value;
+    the filler must split it for the team-build template's separate labels."""
+    sys.path.insert(0, str(HERE))
+    import fill_hia
+    d = fill_hia.derive_values(
+        {"land_suburb_pc": "SAMPLEVILLE 2999", "owners": "A", "owner_1": "A"}, "NSW")
+    ok = d.get("land_suburb") == "SAMPLEVILLE" and d.get("land_postcode") == "2999"
+    print(f"  legacy land_suburb_pc split: {'PASS' if ok else 'FAIL - ' + repr(d)}")
+    return ok
+
+
 def main():
-    print("regress_hia: fill_hia.py vs the staged HIA conversions (synthetic values)")
-    results = []
+    print("regress_hia: fill_hia.py vs the staged HIA templates (synthetic values)")
+    results = [legacy_key_split()]
     with tempfile.TemporaryDirectory(dir=STAGED.parent if STAGED.parent.is_dir() else None) as tmp:
         for region, spec in SYNTH.items():
             results.append(run(region, spec, tmp))

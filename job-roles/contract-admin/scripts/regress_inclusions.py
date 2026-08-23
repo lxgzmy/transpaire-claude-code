@@ -36,9 +36,11 @@ SUITES = [
     # One job, deliberately - see the sydney note in fill_inclusions.py. The
     # glob stays inside the live SYDNEY folder, which keeps the cancelled lot
     # 109 out; adding it would tie six of the nine fields and neuter the check.
+    # 19.08.2026: the whole Sydney NMA blank set was refreshed on the live
+    # drive (old 18.08-dated files gone) - re-pointed 23 Aug 2026.
     ("sydney", Path(r"Z:\PROJECTS\SYDNEY"), "*THE WATER LANE*",
      CONTRACTS / "REGION - SYDNEY" / "INCLUSIONS"
-     / "2. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - STANDARD 10 YEAR CELEBRATION PROMOTION 18.08.2025 NMA.docx"),
+     / "2. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - STANDARD 10 YEAR CELEBRATION PROMOTION 19.08.2026 NMA.docx"),
 ]
 
 LABELS = ["Lot No. :", "HOUSE TYPE :", "STREET :", "HOUSE SIZE :", "SUBURB :",
