@@ -118,32 +118,23 @@ FILLABLE PDF / CANDIDATE) and `draft_contract.py --job-dir` runs it on every
 routed save, so each run reports the current status instead of restating this
 paragraph from memory.
 
-The unblock candidates are staged in
-`runtime\contract-admin\outputs\_hia-word-templates\` (README there has the
-full audit), deliberately OUT of this tree until MCR files one here as the
-live blank:
-
-- **NSW — the team's own Word build** (`NSW.BUILD.CONTRACT.Final.docx`,
-  built 21 Aug 2026, staged 23 Aug 2026). Word-native layout, price
-  placeholders, prefilled builder block; it replaced the earlier repaired
-  PDF conversion, whose reflow artifacts were what the end users flagged in
-  the first testing round. What remains is MCR's read-through of a filled
-  test output against the licensed PDF, then filing the blank here.
-- **QLD — still the repaired conversion** (18 Aug 2026: `pdf_to_docx.ps1` +
-  `pdf_docx_fidelity.py` to 100.00% text completeness, insertions
-  highlighted). A person still reviews the highlights and repairs layout
-  page by page against the PDF before MCR approval — or better, the team
-  provides a QLD Word build like the NSW one.
-
-The fill step is built and driver-integrated (18 Aug 2026; NSW re-anchored
-to the team build 23 Aug 2026): `fill_hia.py` (NSW + QLD anchor sets,
-`regress_hia.py` passing, verified on 26045/26032/25163) runs inside every
-`draft_contract.py --job-dir` fill — staged template in TEST runs under a
-`- TEST UNAPPROVED TEMPLATE` name, and the moment an approved blank lands
-here the probe reports CANDIDATE (its name match tolerates the team's dotted
-file naming) and the same run fills it under the real deliverable name
-(anchor `--check` gates it; eye-verify the first fill after any template
-lands). (The 17 Aug reflow trial in `_hia-conversion-trial\` is superseded.)
+The unblock candidates are BUILT (18 Aug 2026): both licensed blanks are
+converted to Word (`pdf_to_docx.ps1`) and machine-verified and -repaired to
+**100.00% text completeness** (`pdf_docx_fidelity.py` — every reflow-dropped
+fragment reinserted verbatim from the PDF, insertions highlighted), staged
+with fidelity reports in `runtime\contract-admin\outputs\_hia-word-templates\`
+(README there has the full audit). They stay OUT of this tree deliberately:
+a person still reviews the highlighted insertions and repairs visual layout
+page by page against the PDF (not machine-certifiable — no rasteriser), and
+MCR approves, before one is filed here as the live blank. The fill step is
+already built and driver-integrated (18 Aug 2026): `fill_hia.py` (NSW + QLD
+anchor sets, `regress_hia.py` passing, commissioned on 26045 and 25163) runs
+inside every `draft_contract.py --job-dir` fill — staged UNAPPROVED
+conversion in TEST runs under a `- TEST UNAPPROVED TEMPLATE` name, and the
+moment an approved blank lands here the probe reports CANDIDATE and the same
+run fills it under the real deliverable name (anchor `--check` gates it;
+eye-verify the first fill after any template lands). (The 17 Aug reflow
+trial in `_hia-conversion-trial\` is superseded by this pipeline.)
 
 ## Output: where the filled copy goes
 

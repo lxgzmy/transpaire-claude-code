@@ -85,17 +85,13 @@ CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*"
 #      (a person + MCR put it there) -> filled under the real deliverable name.
 #      The anchor --check is the automated regression gate; the first run
 #      after a template lands must still be eye-verified.
-#   2. no candidate, TEST mode only -> the staged template below, filled under
-#      a name that says so. Never in PRODUCTION: a template MCR has not filed
-#      never produces a document that could reach a job folder.
+#   2. no candidate, TEST mode only -> the staged UNAPPROVED conversion below,
+#      filled under a name that says so. Never in PRODUCTION: an unapproved
+#      template never produces a document that could reach a job folder.
 #   3. otherwise -> data sheet only (the pre-existing behaviour).
-# NSW's staged template is the team's own Word build of the contract
-# (NSW.BUILD.CONTRACT.Final.docx, 21 Aug 2026) - it replaced the repaired PDF
-# conversion on 23 Aug 2026 and removed the conversion path's layout artifacts.
-# QLD still fills from its repaired conversion until the team builds one.
 STAGED_HIA_DIR = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word-templates"
 STAGED_HIA = {
-    "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx",
+    "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT upd 30.07.2026 - REPAIRED UNAPPROVED.docx",
     "QLD": STAGED_HIA_DIR / "QLD HIA BUILD CONTRACT 09.02.2023 upd 30.07.26 - REPAIRED UNAPPROVED.docx",
 }
 TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"
@@ -434,8 +430,8 @@ def main():
             elif mode == "TEST" and STAGED_HIA[state].exists():
                 template = STAGED_HIA[state]
                 out_name = f"BUILD CONTRACT_{suffix}{TEST_BC_TAG}.docx"
-                provenance = (f"staged template {template.name} (CD-5.2b, not yet "
-                              f"MCR-filed) - never issuable, review against the licensed PDF")
+                provenance = ("staged UNAPPROVED conversion (CD-5.2b commissioning) - "
+                              "never issuable, review against the licensed PDF")
             elif mode == "TEST":
                 print(f"  build contract: no staged conversion for {state} at "
                       f"{STAGED_HIA[state]} - data sheet only")

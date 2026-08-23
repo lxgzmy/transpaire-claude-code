@@ -172,40 +172,23 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
      person + MCR filed it) → filled under the **real deliverable name**, in
      TEST or PRODUCTION; the anchor `--check` is the automated regression
      gate, and the first fill after a template lands is eye-verified;
-  2. no candidate, **TEST mode only** → the staged template in
+  2. no candidate, **TEST mode only** → the staged UNAPPROVED conversion in
      `runtime\contract-admin\outputs\_hia-word-templates\`, filled under a
-     `- TEST UNAPPROVED TEMPLATE` name (never issuable);
+     `- TEST UNAPPROVED TEMPLATE` name (commissioning evidence, never
+     issuable);
   3. otherwise (PRODUCTION, no approved blank) → **data sheet only**, and the
      run says BLOCKED.
-  The staged NSW template is **the team's own Word build**
-  (`NSW.BUILD.CONTRACT.Final.docx`, built 21 Aug 2026; staged 23 Aug 2026 in
-  response to the end users' review of the 10 test contracts, whose
-  build-contract findings — text artifacts, misalignment, pagination spill,
-  blank pages — all traced to the earlier PDF conversion). Word-native
-  layout; what remains before rule 1 takes over is MCR's read-through of a
-  filled test output against the licensed PDF and filing the blank in
-  `CONTRACT\` — no repair work. The staged QLD template is still the 18 Aug
-  2026 repaired conversion (100.00% text completeness, reinserted fragments
-  highlighted) and carries that class's layout risks until the team provides
-  a QLD Word build — ask for one. Once a blank is filed, rule 1 applies with
-  no further engineering.
+  The staged conversions (built 18 Aug 2026: `pdf_to_docx.ps1` +
+  `pdf_docx_fidelity.py`, both at 100.00% text completeness, reinserted
+  fragments highlighted) stay out of the template tree until the remaining
+  human steps are done: review the highlighted insertions and repair layout
+  page by page against the PDF (not machine-certifiable — no rasteriser),
+  MCR approves, the blank lands in `CONTRACT\` — at which point rule 1 takes
+  over with no further engineering.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
-  site. *(manual)* On the NSW team build the fill also types (23 Aug 2026,
-  per the end users' review): Schedule 1 owners incl. mobile/email, The Land
-  (DP, street, suburb, postcode), the signature-page names (owners +
-  builder's rep — executed 26044/26040/26036 all key `Michael CRONK`), the
-  Attachment A checklist owner names, and — only when a signed source names
-  them — the guarantor details and the deed's BUILDER IS / OWNER IS lines
-  (`guarantor_*` job keys). Signatures, initials and dates stay human
-  (CD-3.7).
+  site. *(manual)*
 - **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
-  come **from DataBuild**. Never calculated or inferred. *(manual)* The NSW
-  team build ships `$000,000.00`-style placeholders for these; `fill_hia.py`
-  replaces them **only** when a person has keyed the DataBuild figures into
-  the job JSON (`price_excl_gst`, `gst_amount`, `price_incl_gst`, `deposit`)
-  — it never derives one figure from another, and the contract order's
-  price is not a substitute for DataBuild. Progress stage amounts are never
-  filled (CD-5.6).
+  come **from DataBuild**. Never calculated or inferred. *(manual)*
 - **CD-5.5** Building period, in contract days: single storey 180; single storey
   duplex 210; double storey 210; double storey duplex 240. *(manual)*
 - **CD-5.6** Part B progress payment schedule is copied from DataBuild.

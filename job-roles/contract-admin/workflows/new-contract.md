@@ -15,13 +15,12 @@ in this manual"* in its chain diagram. It has a source procedure, so it is
 built. The HIA licence held since 17 Aug 2026 makes the docx+PDF pair the
 target for the HIA build contract (CD-5.2a), and since 18 Aug 2026 the driver
 fills it in the same pass whenever a usable Word template exists (CD-5.2b:
-approved blank in the region's CONTRACT folder → real name; staged template →
-TEST runs only; otherwise data sheet only). NSW's staged template is the
-team's own Word build (23 Aug 2026); QLD's is still the repaired conversion.
-Every routed save runs `hia_probe.py` and reports BLOCKED or CANDIDATE; the
-remaining human steps (NSW: read-through of a filled test output → MCR files
-the blank; QLD: highlight review → layout repair → MCR approval) are defined
-in the skill and the template map.
+approved blank in the region's CONTRACT folder → real name; staged UNAPPROVED
+conversion → TEST runs only; otherwise data sheet only). Every routed save
+runs `hia_probe.py` and reports BLOCKED or CANDIDATE; the remaining human
+steps (highlight review → layout repair → MCR approval) are defined in the
+skill and the
+template map.
 
 ## Trigger
 
