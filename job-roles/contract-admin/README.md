@@ -13,8 +13,9 @@ Proof-of-concept, read-only and draft-first. Three workflows:
 2. **Contract documents** (built; fills and saves in one pass) — build contract
    request → filled inclusions + preliminary agreement + HIA build contract
    (`.docx` + PDF export each; the build contract fills whenever a usable Word
-   template exists — approved blank → real name, staged UNAPPROVED conversion →
-   TEST runs only, otherwise data sheet, CD-5.2b) → saved to the routed
+   template exists — approved blank → real name, staged template → TEST runs
+   only (NSW: the team's Word build since 23 Aug 2026), otherwise data
+   sheet, CD-5.2b) → saved to the routed
    destination: the job folder for first drafts, the template-testing folder
    when the job already exists in production (CD-7.7, 17 Aug 2026 — no preview
    stop; issuing stays human).

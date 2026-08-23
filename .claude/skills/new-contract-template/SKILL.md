@@ -39,24 +39,27 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
-| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged UNAPPROVED conversion under a `- TEST UNAPPROVED TEMPLATE` name (commissioning evidence, never issuable); PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
+| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged template under a `- TEST UNAPPROVED TEMPLATE` name (never issuable). The staged NSW template is **the team's own Word build** (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026 — swapped in 23 Aug 2026, replacing the PDF conversion and its layout artifacts); QLD still fills from the repaired conversion until the team builds one. PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
 Be straight about that third row — say which template the build contract came
 from (approved blank, staged UNAPPROVED, or none) and relay the run's
 `hia contract:` status line (`hia_status.txt`) every time.
 
-**What still stands between the staged conversions and an approved blank**
-(CD-5.2b): both licensed blanks are converted and repaired to 100.00% text
-completeness (fidelity reports beside them in
-`runtime\contract-admin\outputs\_hia-word-templates\`), but visual layout is
-not machine-certifiable on this server — a person reviews the yellow
-highlighted insertions and repairs layout page by page against the PDF, MCR
-approves, and the blank is filed in the region's `CONTRACT\` folder. From
-that moment the driver fills it under the real name with no further
-engineering (`regress_hia.py` guards the anchors; eye-verify the first fill
-after any template lands). CD-5.4 always applies: date, prices, GST,
-deposit, progress payments are never filled — FROM DATABUILD.
+**What still stands between the staged templates and an approved blank**
+(CD-5.2b): for NSW only MCR's own steps — eye-review a filled test output
+against the licensed PDF (the layout is the team's own Word build, so this is
+a read-through, not a repair) and file the blank in the region's `CONTRACT\`
+folder. For QLD the staged file is still a repaired PDF conversion
+(fidelity report beside it in
+`runtime\contract-admin\outputs\_hia-word-templates\`) with the layout risks
+that class of file carries — ask the team for a QLD Word build like the NSW
+one. From the moment a blank is filed, the driver fills it under the real
+name with no further engineering (`regress_hia.py` guards the anchors;
+eye-verify the first fill after any template lands). CD-5.4 always applies:
+no figure is ever computed here — price/GST/deposit type in only when a
+person keys the DataBuild figures into the job JSON, and date and progress
+stage amounts are never filled.
 
 ## Steps
 
@@ -236,13 +239,22 @@ preview stop (removed 17 Aug 2026):
 Every `--job-dir` fill run also handles the **build contract** in the same
 pass (CD-5.2b, 18 Aug 2026): it probes the region's template folder
 (`hia_probe.py`, verdict in `hia_status.txt`) and fills `fill_hia.py`
-region-aware — approved blank → real name; staged UNAPPROVED conversion →
-TEST runs only, `- TEST UNAPPROVED TEMPLATE` name; neither → data sheet only
-(step 6). The job JSON carries the extra HIA keys (`job_no`, `site_hia` —
-street + suburb only, **no `Lot n,` prefix**, per the executed 26044/26040/
-26036 covers — owner address parts, NSW `dp_no`/`land_suburb_pc` or QLD
-`sp_rp`/`land_suburb`/`land_state`/`land_postcode`, and `liq_damages` only
-when the job's LD is sourced to differ from the template's $25.00 prefill).
+region-aware — approved blank → real name; staged template → TEST runs only,
+`- TEST UNAPPROVED TEMPLATE` name; neither → data sheet only (step 6). The
+job JSON carries the extra HIA keys (`job_no`, `site_hia` — street + suburb
+only, **no `Lot n,` prefix**, per the executed 26044/26040/26036 covers —
+owner address parts, NSW `dp_no`/`land_suburb`/`land_postcode` (legacy
+`land_suburb_pc` still accepted and split) or QLD `sp_rp`/`land_suburb`/
+`land_state`/`land_postcode`, and `liq_damages` only when the job's LD is
+sourced to differ from the template's $25.00 prefill). On the NSW team build
+the fill also types the signature names (owners + `builders_rep` — executed
+contracts all key Michael CRONK there) and the Attachment A checklist owner
+names, and accepts **explicitly sourced** extras: `price_excl_gst`/
+`gst_amount`/`price_incl_gst`/`deposit` typed only when a person keys the
+DataBuild figures into the JSON (never computed, CD-5.4), and `guarantor_name`/
+`guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
+only when a signed source names them (these also complete the deed's
+BUILDER IS / OWNER IS lines; the deed date is never filled).
 `--no-build-contract` skips the stage.
 
 Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; the PDF
