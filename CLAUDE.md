@@ -114,6 +114,18 @@ skills are scoped to that folder and must not leak into another role.
   intake skill was retired 18 Aug 2026 in its favour. Deeper OSC/DataBuild
   write-automation remains blocked on the technical session with Adam.
 
+## Git workflow (instruction, 23 Aug 2026)
+
+- **Every change lands through a pull request** — branch per change, a
+  detailed commit message (what + why + how it was verified), then the PR.
+  Never commit or push directly to `main`; never force-push. PRs are how each
+  change is tracked and reviewed.
+- **Merging is a human decision.** Leave the PR open; merge only when the
+  reviewer says so. If something must come off `main`, `git revert` and
+  re-land it via a PR (done for 5b7b3b3 → PR #5) — never rewrite history.
+- After a merge, return the server checkout to `main` and pull, so test runs
+  exercise the merged code.
+
 ## Do not
 
 - Do not write runtime / client data into the repo or any Dropbox-synced folder.
