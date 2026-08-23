@@ -164,6 +164,15 @@ sandbox workflow has been reviewed:
 3. Keep `docusign-demo` installed for testing, and keep the names distinct so a
    workflow cannot send a real envelope while someone thinks they are testing.
 
+## Evaluated — cannot be connected
+
+Systems investigated for an MCP server where the answer was no. Recorded here so
+the work is not redone.
+
+| System | Outcome |
+|---|---|
+| DataBuild (estimating / job-costing) | **No API access — vendor-confirmed 23 Aug 2026.** No MCP server or any other integration can be built against it; the once-planned MCP-over-SQL route (Microsoft Data API Builder) died with that confirmation and was removed from the docs. DataBuild stays a manual system (a person keys its figures — contract-admin rules CD-5.4, JD-6) and is retiring in favour of Estimator Companion. Background: [contract-admin docs/01](../job-roles/contract-admin/docs/01-solution-architecture.md). |
+
 ## Adding another shared MCP server
 
 1. Propose it first (org guardrail: no MCP server, skill, or software without

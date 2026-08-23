@@ -40,8 +40,12 @@ UI automation only works in an **unlocked, interactive desktop session**:
 ## Supporting pieces
 
 - **Task Scheduler** (or NSSM as a service wrapper) — run the orchestrator / email-intake agent on schedule.
-- **Microsoft Data API Builder** (`dotnet tool install Microsoft.DataApiBuilder`, requires .NET 8) — read-only REST/MCP layer over the DataBuild SQL Server DB (Tier 1 of the DataBuild adapter).
 - **Microsoft Office** (Excel/Word) — already present for staff; needed for COM automation and OSC's Generate Document flow.
+
+*(Microsoft Data API Builder was listed here as the read-only REST/MCP layer
+over the DataBuild SQL DB. Removed 23 Aug 2026 — DataBuild confirmed no API
+access, the integration was dropped, and the tool was never installed; no
+.NET SDK is required on this server.)*
 
 ## Early validation item
 

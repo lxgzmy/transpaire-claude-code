@@ -42,12 +42,19 @@ is **not** a Contract-Admin deliverable — it is the org-level
 every other role. This role keeps only the job-specific `Z:` rules: `JD-10` in
 `rules/job-details.md` and `scripts/new_job_folders.ps1`.
 
-Deeper OSC / DataBuild write-automation is deferred until a technical session with
-the IT specialist (Adam) confirms the integration surfaces, per the discovery record.
+Deeper OSC write-automation is deferred until a technical session with the IT
+specialist (Adam) confirms the integration surface, per the discovery record.
+DataBuild automation is **ruled out entirely** (23 Aug 2026): the vendor
+confirmed it provides no API access, so no MCP server, adapter, or import
+automation can be built against it. DataBuild stays manual — a person keys its
+figures into the job JSON (CD-5.4) and the new-job handoff is a drafted email
+(JD-6). It is retiring in favour of Estimator Companion. Background on the
+tool: `docs/01-solution-architecture.md`.
 
 ## Systems
 
-OnSite Companion (OSC), DataBuild, the `Z:` share, Microsoft 365 / Outlook (a shared
+OnSite Companion (OSC), DataBuild (manual only — no API access, confirmed
+23 Aug 2026), the `Z:` share, Microsoft 365 / Outlook (a shared
 Contract-Admin mailbox), DocuSign. The **authoritative record varies per field** and
 must be confirmed — the canonical job record is not tied to any single system.
 
