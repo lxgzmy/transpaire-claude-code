@@ -24,9 +24,11 @@ Built:
   pair); the **build contract is filled in the same pass** whenever a usable
   Word template exists (`../scripts/fill_hia.py`, NSW+QLD, CD-5.2b, 18 Aug
   2026): an MCR-approved blank in the region's `CONTRACT\` folder → real
-  deliverable name; none yet → TEST runs fill from the staged UNAPPROVED
-  conversion under a `- TEST UNAPPROVED TEMPLATE` name; PRODUCTION with no
-  approved blank → data sheet only (CD-5.1/5.2a). DataBuild figures and legal
+  deliverable name; none yet → TEST runs fill from the staged template
+  (NSW: the team's own Word build, 23 Aug 2026; QLD: still the repaired
+  conversion) under a `- TEST UNAPPROVED TEMPLATE` name; PRODUCTION with no
+  approved blank → data sheet only (CD-5.1/5.2a). DataBuild figures fill only
+  when a person keys them into the job JSON — never calculated — and legal
   statements are never filled (CD-5.4). Never invents contract wording, never
   signs, never sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
 
