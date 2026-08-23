@@ -6,8 +6,11 @@
 > scoped after discovery. The new-job intake (`/ca-new-job`) described under
 > Workflow 1 was built draft-only and then retired (18 Aug 2026) in favour of
 > `/new-contract-template`; Workflow 1 below is kept as the design record. The
-> OSC/DataBuild write-automation below is deferred pending the technical
-> session with Adam. Current state:
+> OSC write-automation below is deferred pending the technical session with
+> Adam. The **DataBuild integration was closed 23 Aug 2026** — DataBuild
+> confirmed it provides no API access, so the adapter/tier design below is
+> superseded and kept only as the record (see the Key Research Finding for
+> what DataBuild is and the closure note under Integration Tiers). Current state:
 > [../README.md](../README.md); layout: [architecture-overview](../../../docs/architecture-overview.md).
 
 ## Problem
@@ -19,7 +22,22 @@ Automate two contract-admin workflows for the builder client, executed today as 
 
 ## Key Research Finding
 
-**DataBuild has no public API.** It is a legacy 32-bit VB Windows app backed by MS Access (small installs) or SQL Server 2012–2022 (larger installs). All known third-party integrations work at the database level (PlanSwift DBxConnector reads the live SQL DB), via built-in XML/CSV import-export routines, or through the native OSC↔DataBuild partner bridge (Companion Systems, since 2012). The discovery-session claim "DataBuild has an API" almost certainly refers to DB-level or file-based integration. OSC's own integration surface also remains unconfirmed (open risk — confirm with IT specialist Adam Wordrop).
+**DataBuild provides no API access — vendor-confirmed, 23 Aug 2026.** The
+discovery-phase research already found no *public* API: DataBuild is the
+builder's estimating and job-costing package (price files and cost centres,
+job pricing, progress-claim schedules, purchase orders — the source of the
+contract price figures in CD-5.4), a legacy 32-bit VB Windows app backed by
+MS Access (small installs) or SQL Server 2012–2022 (larger installs). Known
+third-party integrations worked at the database level (PlanSwift DBxConnector
+reads the live SQL DB), via built-in XML/CSV import-export routines, or
+through the native OSC↔DataBuild partner bridge (Companion Systems, since
+2012). DataBuild has since confirmed it does not provide API access, which
+closes the DB-level/MCP route too: no MCP server, adapter, or import
+automation can be stood up against it. DataBuild stays a manual system (a
+person keys its figures, JD-6/CD-5.4) and is retiring in favour of Estimator
+Companion (per the 20 Aug 2026 permit-officer record). OSC's own integration
+surface remains unconfirmed (open risk — confirm with IT specialist Adam
+Wordrop).
 
 ## Architecture
 
@@ -32,15 +50,18 @@ flowchart LR
   Review1 -->|approved| Orch["Workflow Orchestrator\nClaude Code headless on Win Server 2022\nstate machine per job"]
   Orch --> OSCS["OSC Skill"]
   Orch --> ZS["Z-Drive Skill"]
-  Orch --> DBS["DataBuild Adapter\n(thin abstraction)"]
   OSCS -->|"UI automation\n(computer use + pywinauto)"| OSC["OnSite Companion\ndesktop app"]
   ZS -->|filesystem + Office automation| Z["Z-Drive\nPROJECTS folders, Excel variation,\nWord/PDF documents"]
-  DBS -->|"Tier 1: read-only SQL\n(DAB / MCP over SQL Server)"| DBSQL[("DataBuild\nSQL Server DB")]
-  DBS -->|"Tier 2: XML/CSV import\nTier 3: UI automation"| DB["DataBuild app"]
-  OSC -.->|existing vendor bridge\nactivity-triggered push| DB
   Orch --> Ev["Evidence log\nscreenshot per step + action log"]
   Orch --> Review2{"Final human review\nbefore anything external"}
 ```
+
+DataBuild sits **outside** the automated flow: it has no integration surface
+(no API access, vendor-confirmed), so its only touchpoints are drafts for a
+person — the JD-6 handoff email to the DataBuild administrator, and figures a
+person keys into the job JSON (CD-5.4). An earlier revision of this diagram
+had a "DataBuild Adapter" with SQL/import/UI tiers; that design is closed —
+see below.
 
 ## Integration Tiers per System
 
@@ -49,14 +70,19 @@ flowchart LR
 - Investigate API / DB-level access with Adam (ODBC/SQL, existing integration layer).
 - Fallback (assumed baseline): Windows UI automation driven by Claude Code — computer-use screenshots for verification plus `pywinauto`/UIA scripts for deterministic clicks and field entry. Every step logged with a screenshot.
 
-### DataBuild (no public API)
+### DataBuild — no integration (closed 23 Aug 2026)
 
-Behind a thin adapter interface (`pricing.get()`, `variation.create()`, …) so it can be swapped when "Estimating Companion" replaces it:
-
-- **Tier 1 — read-only SQL**: confirm SQL Server backend with Adam; stand up Microsoft Data API Builder (free, on-prem, REST + MCP over SQL Server) or a small custom MCP server against the DataBuild DB. Covers price double-check (new-job step 11) and variation pricing lookups. Validate against a backup/test copy first.
-- **Tier 2 — native import routines**: DataBuild ships XML/CSV import-export; Claude Code generates import files for structured writes (e.g. variation entry, killing the duplicate re-entry pain point). Confirm spec with DataBuild support (1300 015 153).
-- **Tier 3 — UI automation**: same tooling as OSC, as last resort.
-- **Leverage the existing OSC→DataBuild vendor bridge**: entering data once in OSC may propagate automatically; confirm scope with Companion Systems (02 9635 0000).
+**Superseded.** The tiered adapter designed here — a thin abstraction
+(`pricing.get()`, `variation.create()`, …) over read-only SQL via Microsoft
+Data API Builder or a custom MCP server (Tier 1), native XML/CSV import
+routines (Tier 2), UI automation (Tier 3), and the OSC→DataBuild vendor
+bridge — was dropped when DataBuild confirmed it provides **no API access**.
+There is nothing to stand an MCP server or adapter on, so none was built and
+none will be. DataBuild interaction stays manual: the JD-6 email handoff to
+the DataBuild administrator, the JD-6.2 price double-check, and figures a
+person keys into the job JSON before a contract fill (CD-5.4). With DataBuild
+also retiring in favour of Estimator Companion, there is no reason to revisit.
+What the tool is and does is recorded under Key Research Finding above.
 
 ### Z-Drive (lowest risk — pure filesystem/Office automation)
 
@@ -86,7 +112,7 @@ runtime state / evidence live outside git under
 3. OSC job creation: region, generated contract no., Pre Sales Investor v1 template, client creation.
 4. Job details entry per `rules/job-details.md` (address logic, suburb/postcode verification via web lookup, council lookup, certifier=Buildable for QLD, marketer CAPS conventions).
 5. Activities 1, 2, 6 completed; request email attached to JOB and Item 11 with `NEW JOB` subject (uppercase enforced).
-6. DataBuild handoff: email Lisa (draft) — later replaced/augmented by Tier 1 SQL price verification when Lisa's entry lands.
+6. DataBuild handoff: email Lisa (draft); the price double-check when her confirmation lands stays manual (JD-6.2 — no DataBuild integration exists).
 7. Contact details: client (primary/secondary rules), SALES and `MARKETER_ cc in all emails` relationships.
 8. Plan arrival (Item 12): update street/design/facade/inclusions per PLANS, garage side mapping (else escalate to Michael).
 
@@ -106,16 +132,17 @@ Every externally visible artefact (job record summary, variation doc, alert, Doc
 ## Rollout Sequencing
 
 1. **Validate OSC integration surface** with Adam (API/DB/UI-only) — critical path. Build and demo the UI-automation step library on a test job.
-2. **DataBuild validation spike (1–2 days)**: confirm SQL vs Access; read-only DAB/MCP against a test copy; ask DataBuild support for import spec; ask Companion Systems what the OSC→DataBuild push covers.
-3. **Email intake pipeline** end-to-end with a self-addressed test EOI.
-4. **Workflow 1 (New Job)** assisted mode with review gates.
-5. **Workflow 2 (Variation Stage 1)** — reuses OSC step library + Z-Drive skill.
-6. Later phases: DocuSign API, Z-Drive RAG knowledge layer, follow-up tracking.
+2. **Email intake pipeline** end-to-end with a self-addressed test EOI.
+3. **Workflow 1 (New Job)** assisted mode with review gates.
+4. **Workflow 2 (Variation Stage 1)** — reuses OSC step library + Z-Drive skill.
+5. Later phases: DocuSign API, Z-Drive RAG knowledge layer, follow-up tracking.
+
+*(A "DataBuild validation spike" once sat second on this list; it was removed
+when DataBuild confirmed no API access — there is nothing to validate.)*
 
 ## Key Risks
 
 - OSC automation surface unproven — UI automation of a legacy VB app can be brittle (window titles, modal dialogs, grid controls); mitigate with pywinauto/UIA (not pure pixel clicking), per-step verification screenshots, and resumable state.
-- DataBuild SQL writes are unsafe until schema is understood — start read-only; prefer import routines or the OSC bridge for writes.
-- DataBuild replacement in 6–12 months — all access behind the thin adapter.
+- DataBuild figures reach the workflow only through a person keying them (CD-5.4) — a typo there flows into the contract data sheet; the JD-6.2 price double-check is the control.
 - On-prem compliance — orchestrator, MCP servers and all data stay on the client's server; only Graph/DocuSign cloud APIs are called for their own data.
 - Claude Code on Windows Server 2022 runs natively; UI automation requires an unlocked interactive session (console session or persistent RDP with disconnect-keeps-session policy) — needs IT setup. See [02-windows-server-setup.md](02-windows-server-setup.md).

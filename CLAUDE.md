@@ -111,8 +111,11 @@ skills are scoped to that folder and must not leak into another role.
   `new-contract-template` (contract request → filled contract templates, saved
   with routed destinations per CD-7.7 — unprefixed because that name was
   requested; see the role's `skills/README.md`). The earlier `ca-new-job` EOI
-  intake skill was retired 18 Aug 2026 in its favour. Deeper OSC/DataBuild
+  intake skill was retired 18 Aug 2026 in its favour. Deeper OSC
   write-automation remains blocked on the technical session with Adam.
+  DataBuild automation is ruled out (23 Aug 2026): the vendor confirmed it has
+  no API access, so no MCP server or integration is possible — DataBuild stays
+  manual, kept in the docs as background only.
 
 ## Git workflow (instruction, 23 Aug 2026)
 

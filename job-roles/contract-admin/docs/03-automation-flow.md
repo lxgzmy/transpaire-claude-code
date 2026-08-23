@@ -1,6 +1,6 @@
 # Runtime Automation Flow
 
-How Claude Code, Python UI automation, SQL access and import routines fit together when processing an email into OSC and DataBuild.
+How Claude Code and Python UI automation fit together when processing an email into OSC. DataBuild sits outside the automated flow entirely — it has no API access (vendor-confirmed 23 Aug 2026), so its touchpoints are drafts and keyed values for a person, never automation.
 
 ## Division of labour
 
@@ -19,13 +19,23 @@ Scripted steps are fast and repeatable; Claude's judgment handles extraction, de
 
 All OSC work (create job, fill fields, complete activities, attach documents, add alerts) goes through the Python step-script library, with per-step screenshot evidence.
 
-### DataBuild — UI automation is the last resort
+### DataBuild — manual only (no integration)
 
-Preferred order:
+DataBuild confirmed (23 Aug 2026) that it provides no API access, so there is
+no automated path: no SQL reads, no XML/CSV import routines, no MCP server.
+(An earlier revision of this doc set out a preferred order of SQL reads,
+import-routine writes, and UI automation as last resort — all closed.) Every
+DataBuild touchpoint stays with a person:
 
-1. **Reads** (price checks, lookups) → direct **read-only SQL** against the DataBuild database. No UI at all.
-2. **Writes** (new jobs, variations) → DataBuild's native **XML/CSV import routines**, or ideally the existing **OSC→DataBuild vendor bridge** (data entered once into OSC gets pushed automatically — confirm coverage with Companion Systems).
-3. Only if neither works → Python UI automation, same tooling as OSC (Tier 3).
+- **New-job handoff** — an email to the DataBuild administrator, drafted for
+  human review (JD-6); the price double-check when the confirmation returns is
+  manual too (JD-6.2).
+- **Contract figures** — a person keys the DataBuild figures into the job JSON
+  before a fill; the fill scripts never compute or fetch them (CD-5.4).
+
+DataBuild is also retiring in favour of Estimator Companion, so no automation
+against it will be built. Background on what the tool is:
+[01-solution-architecture.md](01-solution-architecture.md).
 
 ## Flow diagram
 
@@ -33,9 +43,7 @@ Preferred order:
 flowchart LR
   Email["Email (Graph API)"] --> CC["Claude Code<br/>extract + decide + orchestrate"]
   CC -->|"python step scripts<br/>(pywinauto)"| OSC["OnSite Companion UI"]
-  CC -->|"SQL read-only"| DBQ[("DataBuild DB")]
-  CC -->|"XML/CSV import or<br/>OSC bridge (writes)"| DB["DataBuild"]
-  OSC -.->|vendor push| DB
+  CC -->|"drafts only: JD-6 handoff email,<br/>figures keyed by a person (CD-5.4)"| DB["DataBuild<br/>(manual — no integration)"]
 ```
 
 ## Human in the loop

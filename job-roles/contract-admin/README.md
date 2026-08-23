@@ -50,12 +50,15 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 |---|---|
 | [docs/01-solution-architecture.md](docs/01-solution-architecture.md) | Draft solution: architecture, integration tiers per system, workflow design, HITL, rollout, risks. |
 | [docs/02-windows-server-setup.md](docs/02-windows-server-setup.md) | Software/config on Windows Server 2022 for the OSC UI-automation skill. |
-| [docs/03-automation-flow.md](docs/03-automation-flow.md) | How Claude Code, UI automation, SQL and import routines fit together at runtime. |
+| [docs/03-automation-flow.md](docs/03-automation-flow.md) | How Claude Code and UI automation fit together at runtime. DataBuild is manual-only — no integration. |
 
 > Note: `docs/01–03` predate the read-only-first direction and describe the fuller
-> OSC/DataBuild automation. Treat them as forward design; the current scope is
+> OSC automation. Treat the OSC parts as forward design; the current scope is
 > read-only and draft-first (the contract-documents save is the one sanctioned
-> automation, CD-7.7). They will be refreshed as the workflows are built.
+> automation, CD-7.7). The DataBuild integration they once proposed (SQL/MCP
+> adapter, import routines) was **dropped 23 Aug 2026** — DataBuild confirmed it
+> provides no API access — so DataBuild stays manual and appears in the docs as
+> background only. The docs will be refreshed as the workflows are built.
 
 ## Source manuals
 
