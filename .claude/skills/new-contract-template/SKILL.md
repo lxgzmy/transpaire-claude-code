@@ -39,7 +39,7 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
-| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged template under a `- TEST UNAPPROVED TEMPLATE` name (never issuable). The staged NSW template is **the team's own Word build** (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026 — swapped in 23 Aug 2026, replacing the PDF conversion and its layout artifacts); QLD still fills from the repaired conversion until the team builds one. PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
+| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged template under a `- TEST UNAPPROVED TEMPLATE` name (never issuable). Both staged templates are **the team's own Word builds** (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026, swapped in 23 Aug 2026; `QLD.BUILD.CONTRACT.Final.docx`, provided and swapped in 25 Aug 2026 — each replaced its PDF conversion and that path's layout artifacts). PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
 Be straight about that third row — say which template the build contract came
@@ -47,14 +47,21 @@ from (approved blank, staged UNAPPROVED, or none) and relay the run's
 `hia contract:` status line (`hia_status.txt`) every time.
 
 **What still stands between the staged templates and an approved blank**
-(CD-5.2b): for NSW only MCR's own steps — eye-review a filled test output
-against the licensed PDF (the layout is the team's own Word build, so this is
-a read-through, not a repair) and file the blank in the region's `CONTRACT\`
-folder. For QLD the staged file is still a repaired PDF conversion
-(fidelity report beside it in
-`runtime\contract-admin\outputs\_hia-word-templates\`) with the layout risks
-that class of file carries — ask the team for a QLD Word build like the NSW
-one. From the moment a blank is filed, the driver fills it under the real
+(CD-5.2b): in both regions only MCR's own steps — eye-review a filled test
+output against the licensed PDF (the layout is the team's own Word build, so
+this is a read-through, not a repair) and file the blank in the region's
+`CONTRACT\` folder. For QLD, three open team queries from the 25 Aug 2026
+build review sit with that read-through (see the staging README in
+`runtime\contract-admin\outputs\_hia-word-templates\`): the build's
+wrap-crushed label columns (cover, Schedule 1 items 3/7, the deed's BUILDER
+IS line) cannot take typed values — by this fill or by hand in Word —
+without page spill (filled tests export 40 pages vs the blank's licensed-
+matching 37; the NSW build's real tables are the fix to ask for), it drops
+~35 sub-clause margin numbers in the general conditions, and it lacks the
+e-sign anchor codes (`/bs1/builder_sig`, `/i1/signer1_sig`) the business's
+updated licensed PDF carries — template wording and layout are the team's
+to fix, never filled in. Until that v2 lands, say in every QLD run report
+that the filled build contract carries the +3-page spill. From the moment a blank is filed, the driver fills it under the real
 name with no further engineering (`regress_hia.py` guards the anchors;
 eye-verify the first fill after any template lands). CD-5.4 always applies:
 no figure is ever computed here — price/GST/deposit type in only when a
@@ -246,15 +253,22 @@ only, **no `Lot n,` prefix**, per the executed 26044/26040/26036 covers —
 owner address parts, NSW `dp_no`/`land_suburb`/`land_postcode` (legacy
 `land_suburb_pc` still accepted and split) or QLD `sp_rp`/`land_suburb`/
 `land_state`/`land_postcode`, and `liq_damages` only when the job's LD is
-sourced to differ from the template's $25.00 prefill). On the NSW team build
-the fill also types the signature names (owners + `builders_rep` — executed
-contracts all key Michael CRONK there) and the Attachment A checklist owner
-names, and accepts **explicitly sourced** extras: `price_excl_gst`/
-`gst_amount`/`price_incl_gst`/`deposit` typed only when a person keys the
-DataBuild figures into the JSON (never computed, CD-5.4), and `guarantor_name`/
+sourced to differ from the template's $25.00 prefill). On both team builds
+the fill also types the owner signature name and accepts **explicitly
+sourced** extras: `price_excl_gst`/`gst_amount`/`price_incl_gst` (NSW also
+`deposit`; QC2 has no schedule deposit item — its deposit is a Schedule 2
+progress row, never filled) typed only when a person keys the DataBuild
+figures into the JSON (never computed, CD-5.4), and `guarantor_name`/
 `guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
 only when a signed source names them (these also complete the deed's
-BUILDER IS / OWNER IS lines; the deed date is never filled).
+BUILDER IS / OWNER IS lines; the deed date is never filled). Region
+specifics: NSW types `builders_rep` on the Builder NAME line (executed
+contracts all key Michael CRONK there) and the Attachment A checklist owner
+names; QLD types the Consumer Building Guide acknowledgement NAME(S) on both
+copies (executed 25163 keys the owner at each) and leaves the builder line
+alone — the QLD build ships it prefilled (Michael CRONK). The QLD build also
+prefills a 210-day building period — the data sheet still carries the job's
+CD-5.5 period for the reviewer to check against it.
 `--no-build-contract` skips the stage.
 
 Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; the PDF

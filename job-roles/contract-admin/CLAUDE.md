@@ -28,11 +28,11 @@ builder). Claude assists by reading requests, applying rules, and producing
    inclusions, the preliminary agreement, and — since 18 Aug 2026 — the HIA
    build contract in the same pass whenever a usable Word template exists
    (`fill_hia.py`, NSW+QLD; CD-5.2a/5.2b: approved blank → real name, staged
-   template → TEST runs only, otherwise data sheet only; NSW's staged
-   template is the team's own Word build since 23 Aug 2026, QLD still a
-   repaired conversion. DataBuild figures fill only when a person keys them
-   into the job JSON — never calculated — and legal statements are never
-   filled, CD-5.4).
+   template → TEST runs only, otherwise data sheet only; both staged
+   templates are the team's own Word builds — NSW since 23 Aug 2026, QLD
+   since 25 Aug 2026, each replacing its repaired PDF conversion. DataBuild
+   figures fill only when a person keys them into the job JSON — never
+   calculated — and legal statements are never filled, CD-5.4).
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 

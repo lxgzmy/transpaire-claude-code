@@ -177,35 +177,47 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
      `- TEST UNAPPROVED TEMPLATE` name (never issuable);
   3. otherwise (PRODUCTION, no approved blank) → **data sheet only**, and the
      run says BLOCKED.
-  The staged NSW template is **the team's own Word build**
+  Both staged templates are **the team's own Word builds**: NSW
   (`NSW.BUILD.CONTRACT.Final.docx`, built 21 Aug 2026; staged 23 Aug 2026 in
   response to the end users' review of the 10 test contracts, whose
   build-contract findings — text artifacts, misalignment, pagination spill,
-  blank pages — all traced to the earlier PDF conversion). Word-native
-  layout; what remains before rule 1 takes over is MCR's read-through of a
-  filled test output against the licensed PDF and filing the blank in
-  `CONTRACT\` — no repair work. The staged QLD template is still the 18 Aug
-  2026 repaired conversion (100.00% text completeness, reinserted fragments
-  highlighted) and carries that class's layout risks until the team provides
-  a QLD Word build — ask for one. Once a blank is filed, rule 1 applies with
-  no further engineering.
+  blank pages — all traced to the earlier PDF conversion) and QLD
+  (`QLD.BUILD.CONTRACT.Final.docx`, provided and staged 25 Aug 2026,
+  retiring the QLD repaired conversion the same way — 25163's
+  build-contract findings traced to it). Word-native layout in both; what
+  remains before rule 1 takes over is MCR's read-through of a filled test
+  output against the licensed PDF and filing the blank in `CONTRACT\` — no
+  repair work. The QLD read-through also settles three open team queries
+  from the 25 Aug 2026 build review (staging README): the wrap-crushed
+  label columns that spill pages when any value is typed (filled tests
+  export 40 pages vs the blank's licensed-matching 37 — the NSW build's
+  real tables are the fix), ~35 dropped sub-clause margin numbers in the
+  general conditions, and the e-sign anchor codes (`/bs1/builder_sig`,
+  `/i1/signer1_sig`) present in the business's updated licensed PDF but
+  absent from the build. Once a blank is filed, rule 1 applies with no
+  further engineering.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
-  site. *(manual)* On the NSW team build the fill also types (23 Aug 2026,
-  per the end users' review): Schedule 1 owners incl. mobile/email, The Land
-  (DP, street, suburb, postcode), the signature-page names (owners +
-  builder's rep — executed 26044/26040/26036 all key `Michael CRONK`), the
-  Attachment A checklist owner names, and — only when a signed source names
-  them — the guarantor details and the deed's BUILDER IS / OWNER IS lines
-  (`guarantor_*` job keys). Signatures, initials and dates stay human
-  (CD-3.7).
+  site. *(manual)* On the team builds the fill also types (NSW 23 Aug 2026
+  per the end users' review; QLD 25 Aug 2026): Schedule 1 owners incl.
+  mobile/email, the land (NSW: DP, street, suburb, postcode; QLD: SP/RP,
+  street, suburb, state, postcode), the owner signature name, and — only
+  when a signed source names them — the guarantor details and the deed's
+  BUILDER IS / OWNER IS lines (`guarantor_*` job keys). Region specifics:
+  NSW types the builder's rep on the Builder NAME line (executed
+  26044/26040/26036 all key `Michael CRONK`) and the Attachment A checklist
+  owner names; QLD types the Consumer Building Guide acknowledgement
+  NAME(S) on both copies (executed 25163 keys the owner at each) and leaves
+  the builder line alone — the QLD build ships it prefilled (Michael CRONK).
+  Signatures, initials and dates stay human (CD-3.7).
 - **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
-  come **from DataBuild**. Never calculated or inferred. *(manual)* The NSW
-  team build ships `$000,000.00`-style placeholders for these; `fill_hia.py`
+  come **from DataBuild**. Never calculated or inferred. *(manual)* Both
+  team builds ship `$000,000.00`-style placeholders for these; `fill_hia.py`
   replaces them **only** when a person has keyed the DataBuild figures into
-  the job JSON (`price_excl_gst`, `gst_amount`, `price_incl_gst`, `deposit`)
-  — it never derives one figure from another, and the contract order's
-  price is not a substitute for DataBuild. Progress stage amounts are never
-  filled (CD-5.6).
+  the job JSON (`price_excl_gst`, `gst_amount`, `price_incl_gst`, and on NSW
+  `deposit` — QC2 has no schedule deposit item; its deposit is a Schedule 2
+  progress row, never filled) — it never derives one figure from another,
+  and the contract order's price is not a substitute for DataBuild. Progress
+  stage amounts are never filled (CD-5.6).
 - **CD-5.5** Building period, in contract days: single storey 180; single storey
   duplex 210; double storey 210; double storey duplex 240. *(manual)*
 - **CD-5.6** Part B progress payment schedule is copied from DataBuild.
@@ -292,12 +304,13 @@ cabinet; and any DocuSign issue to a client.
    is current practice drift that should be corrected? (CD-7.3)
 2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
    requirement. The whole pipeline is now built and driver-integrated
-   (CD-5.2b: staged conversions at 100.00% text completeness, `fill_hia.py`
-   NSW+QLD commissioned on 26045/25163, `regress_hia.py` passing); the ONLY
-   remaining step is human — review the highlighted insertions and the layout
-   against the licensed PDF, MCR approval, file the blank in the region's
-   `CONTRACT\` folder. Until then production runs stay data-sheet-only.
-   (CD-5.1/5.2)
+   (CD-5.2b: both regions staged on the team's own Word builds — NSW 23 Aug,
+   QLD 25 Aug 2026 — `fill_hia.py` NSW+QLD commissioned on 26045/25163,
+   `regress_hia.py` passing); the ONLY remaining step is human — a
+   read-through of a filled test output against the licensed PDF (for QLD,
+   settling the two open team queries in the staging README with it), MCR
+   approval, file the blank in the region's `CONTRACT\` folder. Until then
+   production runs stay data-sheet-only. (CD-5.1/5.2)
 3. What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over? Observed range $2,500–$32,035;
    both Tamworth jobs $5,000. (CD-4.3)

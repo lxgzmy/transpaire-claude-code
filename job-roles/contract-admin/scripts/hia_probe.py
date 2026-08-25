@@ -35,12 +35,13 @@ draft_contract.py runs this on every --job-dir save and writes hia_status.txt
 into the workdir, so the status ships with the evidence instead of relying on
 hand-written prose staying accurate.
 
-Path to the unblock (trialled 17 Aug 2026, see
-runtime\contract-admin\outputs\_hia-conversion-trial\trial-report.md): Word's
-PDF reflow converts the licensed blanks at ~95% text fidelity but breaks
-pagination, tables and checkbox blocks - a person repairs the reflow docx page
-by page against the PDF, MCR approves it, and it lands in the region's CONTRACT
-folder, where this probe picks it up.
+Path to the unblock: the team's own Word builds of both contracts are staged
+in runtime\contract-admin\outputs\_hia-word-templates\ (NSW 23 Aug 2026, QLD
+25 Aug 2026 - they superseded the 17-18 Aug PDF-reflow conversions and that
+path's layout damage; the conversion trial is kept in
+runtime\contract-admin\outputs\_hia-conversion-trial\ as history). MCR
+eye-reviews a filled test output against the licensed PDF and files the blank
+in the region's CONTRACT folder, where this probe picks it up as CANDIDATE.
 """
 import argparse
 import re

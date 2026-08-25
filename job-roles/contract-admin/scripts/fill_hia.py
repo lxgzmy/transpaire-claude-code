@@ -4,15 +4,19 @@ r"""Fill an HIA build contract Word template from a job JSON. Stdlib only.
     python fill_hia.py --template <blank.docx> --job <job.json> --check
     --region NSW (default) | QLD    picks the anchor set for that edition
 
-STATUS (23 Aug 2026):
+STATUS (25 Aug 2026):
   NSW - anchored to the team's own Word build of the NSW contract
         (NSW.BUILD.CONTRACT.Final.docx, built 21 Aug 2026, staged as
         "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx").
         A real Word-native document, not a PDF conversion - native pagination,
         no reflow artifacts. Still fills to template-testing only until MCR
         files the blank in the region's CONTRACT folder (CD-5.2b rule 1).
-  QLD - still the repaired PDF conversion (UNAPPROVED); anchor set unchanged.
-        Ask the team for the QLD equivalent of the NSW Word build.
+  QLD - anchored to the team's own Word build of the QC2 contract
+        (QLD.BUILD.CONTRACT.Final.docx, provided 25 Aug 2026, staged as
+        "QLD BUILD CONTRACT Final 25.08.2026 - TEAM BUILD PENDING MCR.docx").
+        It replaced the repaired PDF conversion and its layout risks the same
+        way the NSW build did. Same gate: template-testing only until MCR
+        files the blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
 
 What it fills (label-anchored, value typed after the printed label - the same
 technique as fill_inclusions.py / fill_prelim.py):
@@ -42,19 +46,31 @@ technique as fill_inclusions.py / fill_prelim.py):
                   first / second "Name (print):" (capacity stays blank -
                   it matters only for company or agent signings).
 
-  QLD (QC2, October 2020 edition):
+  QLD (QC2, October 2020 edition, team Word build):
     cover        OWNERS: / JOB: / LOT: / SITE:
+    guide        Consumer Building Guide owner-acknowledgement NAME(S), both
+                 copies (the executed 25163 contract keys the owner at each)
     Schedule 1   item 3 Owner(s): NAME, ADDRESS, SUBURB, STATE, POSTCODE,
                  MOBILE, EMAIL (company/trust buyer: the whole entity string
                  goes in NAME, as the executed 25163 contract does)
+    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - ONLY when the
+                 job JSON carries the figures explicitly (CD-5.4, as NSW).
+                 QC2 has no schedule deposit item: the deposit is a
+                 Schedule 2 progress row, never filled (CD-5.6)
+    item 7       guarantors - only when sourced; a guarantor also completes
+                 the deed's BUILDER IS / OWNER IS lines (deed date never)
     item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE
     item 15      late completion damages, replaces the $25.00 "per day." prefill
+    signatures   owner name on the Owner NAME line only - the builder line
+                 ships prefilled (Michael CRONK, signed for TRANSPIRE
+                 CONSTRUCTIONS PTY LTD), so builders_rep is not typed here
 
 What it NEVER fills (CD-5.4): date, interest %, builder's margin %, progress
 payment stage amounts, and any figure not explicitly present in the job JSON.
-The building period and initial period carry the template's own prefills
-(52 weeks / 90 + 180 days on the NSW build - matches all executed jobs
-checked) and are left untouched for the reviewer.
+The building and initial periods carry the template's own prefills (NSW build:
+52 weeks / 90 + 180 days; QLD build: 210 days / 90 days start / 10 days
+inclement weather) and are left untouched for the reviewer - on QLD check the
+210 against the job's CD-5.5 period.
 
 Anchor discipline as everywhere else: --check first; a missing anchor is a
 revised template and stops the fill. The fill engine tolerates Word's habit
@@ -254,14 +270,27 @@ REGIONS = {
         ],
         "liq": ("liq_damages", "per working day"),
     },
-    # QC2: the owner labels all sit in the one schedule paragraph, which also
-    # carries "IS THE OWNER A RESIDENT OWNER" - that string is the scope start
-    # (the bare "Owner(s)" heading also appears in the table of contents).
+    # The team's own Word build of the QC2 October 2020 contract (25 Aug
+    # 2026). The schedule pages are multi-column: labels sit in narrow
+    # indented columns (several labels share one wrapping paragraph, e.g.
+    # "NAME ADDRESS SUBURB", "SUBURB<tab>STATE<tab>POSTCODE"), and a value
+    # types inline after its label - the pattern the build's own prefilled
+    # builder block uses ("NAME TRANSPIRE CONSTRUCTIONS PTY LTD"). Scopes are
+    # picked from strings unique-first in document order (the TOC repeats
+    # the schedule headings, so heading-only scopes would land there).
     "QLD": {
         "groups": [
             (None, COVER),
-            (("IS THE OWNER A RESIDENT OWNER", "TRANSPIRE CONSTRUCTIONS"), [
-                ("owner_1",        "NAME",     "after"),
+            # Consumer Building Guide - owner acknowledgement, both copies
+            # (the executed 25163 contract keys the owner entity at each)
+            (("Complete and sign the section below", "For further building information"), [
+                ("owners", "NAME(S):", "after", 1),
+                ("owners", "NAME(S):", "after", 2),
+            ]),
+            # item 3 Owner(s) - between item 2's closing note and the
+            # builder block's prefilled company name
+            (("However, the contract price may include amounts", "TRANSPIRE CONSTRUCTIONS"), [
+                ("_sch1_owner",    "NAME",     "after"),
                 ("owner_address",  "ADDRESS",  "after"),
                 ("owner_suburb",   "SUBURB",   "after"),
                 ("owner_state",    "STATE",    "after"),
@@ -269,7 +298,16 @@ REGIONS = {
                 ("owner_mobile",   "MOBILE",   "after"),
                 ("owner_email",    "EMAIL",    "after"),
             ]),
-            (("The land (Clause 6)", "Anticipated start date"), [
+            # item 7 Owner's guarantors - sourced names only, else left blank
+            (("Owner's guarantors (Clause 32)", "Default interest rate"), [
+                ("guarantor_name",     "NAME",     "after"),
+                ("guarantor_address",  "ADDRESS",  "after"),
+                ("guarantor_suburb",   "SUBURB",   "after"),
+                ("guarantor_state",    "STATE",    "after"),
+                ("guarantor_postcode", "POSTCODE", "after"),
+            ]),
+            # item 11 The land
+            (("The land (Clause 6)", "Matters affecting the site"), [
                 ("lot_no",        "LOT",             "after"),
                 ("sp_rp",         "SP/RP",           "after"),
                 ("land_street",   "STREET ADDRESS:", "after"),
@@ -277,8 +315,36 @@ REGIONS = {
                 ("land_state",    "STATE",           "after"),
                 ("land_postcode", "POSTCODE",        "after"),
             ]),
+            # Signatures: the owner NAME line only (occurrence 2 is the
+            # witness, left for a person) - the builder's line ships
+            # prefilled with Michael CRONK in this build
+            (("has read and understood this contract", "Michael CRONK"), [
+                ("_sch1_owner", "NAME", "after", 1),
+            ]),
+            # Deed of guarantee and indemnity - completed only when the job
+            # has a sourced guarantor; the deed date is never filled
+            (("BUILDER IS", "Background"), [
+                ("_deed_builder",      "BUILDER IS",     "after"),
+                ("_deed_owner",        "OWNER IS",       "after"),
+                ("guarantor_name",     "Guarantors",     "after"),
+                ("guarantor_address",  "ADDRESS LINE 1", "after"),
+                ("guarantor_suburb",   "SUBURB",         "after"),
+                ("guarantor_state",    "STATE",          "after"),
+                ("guarantor_postcode", "POSTCODE",       "after"),
+            ]),
         ],
-        "amounts": [],
+        # item 2: the three price lines stack in the left column (the GST and
+        # CONTRACT PRICE labels share one paragraph) and the three
+        # $ 000,000.00 placeholders stack in the next column, in the same
+        # order - the third element picks the nth placeholder after the
+        # label. Filled ONLY from explicitly keyed DataBuild figures
+        # (CD-5.4). No deposit item on QC2: the deposit is a Schedule 2
+        # progress row, never filled (CD-5.6).
+        "amounts": [
+            ("price_excl_gst", "PRICE EXCLUDING GST:",     1),
+            ("gst_amount",     "GST ON THE ABOVE AMOUNT:", 2),
+            ("price_incl_gst", "THE CONTRACT PRICE IS:",   3),
+        ],
         "liq": ("liq_damages", "per day"),
     },
 }
@@ -363,24 +429,29 @@ def run(template, job, out_path, check_only, region):
                 continue
             plan.append((idx, key, label, val, mode, para_occ))
 
-    # item 2 amounts: the label's paragraph, then the first $-placeholder in
-    # it or the next few paragraphs (label and figure sit in separate cells)
-    for key, label in anchors["amounts"]:
+    # item 2 amounts: the label's paragraph, then the nth $-placeholder in it
+    # or the next few paragraphs (label and figure sit in separate cells or
+    # columns; on the QLD build the placeholders stack, so the spec's third
+    # element says which one belongs to this label - default the first)
+    for spec in anchors["amounts"]:
+        key, label = spec[:2]
+        nth = spec[2] if len(spec) > 2 else 1
         lre = label_regex(label)
         idx = next((i for i, t in enumerate(ntexts) if lre.search(t)), None)
         if idx is None:
             missing_anchor.append(f"{key}: label {label!r} not found")
             continue
-        amt = next((j for j in range(idx, min(idx + 5, len(ntexts)))
-                    if AMOUNT_RE.search(ntexts[j])), None)
-        if amt is None:
-            missing_anchor.append(f"{key}: no $ placeholder near label {label!r}")
+        hits = [j for j in range(idx, min(idx + 8, len(ntexts)))
+                if AMOUNT_RE.search(ntexts[j])]
+        if len(hits) < nth:
+            missing_anchor.append(
+                f"{key}: no $ placeholder (#{nth}) near label {label!r}")
             continue
         val = str(values.get(key, "") or "").strip()
         if not val:
             blank_fields.append((key, label))
             continue
-        plan.append((amt, key, label, val, "replace_amount", 1))
+        plan.append((hits[nth - 1], key, label, val, "replace_amount", 1))
 
     # liquidated damages: the paragraph with both halves of the item
     key, label = anchors["liq"]
