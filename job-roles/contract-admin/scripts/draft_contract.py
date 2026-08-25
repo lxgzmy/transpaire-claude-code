@@ -43,7 +43,7 @@ contract in the same pass when a template it may use exists (fill_hia.py,
 region-aware): an approved CANDIDATE blank in the region's CONTRACT folder is
 filled under the real deliverable name (the anchor check is the automated
 regression gate; eye-verify the first fill after a template lands); with no
-candidate, TEST runs fill from the staged UNAPPROVED conversion under a
+candidate, TEST runs fill from the staged UNAPPROVED template under a
 "- TEST UNAPPROVED TEMPLATE" name; PRODUCTION with no approved blank stays
 data-sheet-only. The verdict prints in the summary and ships as
 hia_status.txt with the evidence. --no-build-contract skips the stage.
@@ -89,14 +89,15 @@ CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*"
 #      a name that says so. Never in PRODUCTION: a template MCR has not filed
 #      never produces a document that could reach a job folder.
 #   3. otherwise -> data sheet only (the pre-existing behaviour).
-# NSW's staged template is the team's own Word build of the contract
-# (NSW.BUILD.CONTRACT.Final.docx, 21 Aug 2026) - it replaced the repaired PDF
-# conversion on 23 Aug 2026 and removed the conversion path's layout artifacts.
-# QLD still fills from its repaired conversion until the team builds one.
+# Both staged templates are the team's own Word builds of their contracts
+# (NSW.BUILD.CONTRACT.Final.docx 21 Aug 2026, staged 23 Aug 2026;
+# QLD.BUILD.CONTRACT.Final.docx provided and staged 25 Aug 2026) - each
+# replaced its repaired PDF conversion and the conversion path's layout
+# artifacts.
 STAGED_HIA_DIR = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word-templates"
 STAGED_HIA = {
     "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx",
-    "QLD": STAGED_HIA_DIR / "QLD HIA BUILD CONTRACT 09.02.2023 upd 30.07.26 - REPAIRED UNAPPROVED.docx",
+    "QLD": STAGED_HIA_DIR / "QLD BUILD CONTRACT Final 25.08.2026 - TEAM BUILD PENDING MCR.docx",
 }
 TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"
 
@@ -300,7 +301,7 @@ def main():
     ap.add_argument("--no-build-contract", action="store_true",
                     help="skip the HIA build-contract fill (it otherwise runs on every "
                          "--job-dir fill: approved blank when one exists, staged UNAPPROVED "
-                         "conversion in TEST mode, data sheet otherwise)")
+                         "template in TEST mode, data sheet otherwise)")
     args = ap.parse_args()
 
     job_path = Path(args.job)
@@ -437,12 +438,12 @@ def main():
                 provenance = (f"staged template {template.name} (CD-5.2b, not yet "
                               f"MCR-filed) - never issuable, review against the licensed PDF")
             elif mode == "TEST":
-                print(f"  build contract: no staged conversion for {state} at "
+                print(f"  build contract: no staged template for {state} at "
                       f"{STAGED_HIA[state]} - data sheet only")
             else:
                 print("  build contract: BLOCKED - no approved Word blank in the region's "
                       "CONTRACT folder; data sheet only (CD-5.1/5.2a). TEST runs draft "
-                      "from the staged UNAPPROVED conversion.")
+                      "from the staged UNAPPROVED template.")
             if template:
                 def do_bc():
                     doc = fill_doc("buildcontract", "fill_hia.py", template,

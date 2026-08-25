@@ -10,13 +10,14 @@ region it asserts that
      (a miss means the template or the anchor set changed - stop and look),
   2. a fill writes a docx whose document.xml still parses,
   3. every synthetic value actually appears in the filled text, and
-  4. every replaced prefill/placeholder is gone (the $25.00 LD figure, and on
-     NSW the $000,000.00-style price placeholders when figures are supplied).
+  4. every replaced prefill/placeholder is gone (the $25.00 LD figure, and
+     the $000,000.00-style price placeholders when figures are supplied).
 
-NSW's staged template is the team's own Word build (21 Aug 2026); QLD's is
-still the repaired PDF conversion. The staged templates live in runtime\
-(this machine's checkout), so the test SKIPS with a notice on a clone that
-has no staged templates - it can only pass or fail where they exist.
+Both staged templates are the team's own Word builds (NSW 21 Aug 2026,
+QLD 25 Aug 2026 - each replaced its repaired PDF conversion). The staged
+templates live in runtime\ (this machine's checkout), so the test SKIPS with
+a notice on a clone that has no staged templates - it can only pass or fail
+where they exist.
 """
 import html
 import json
@@ -57,18 +58,28 @@ SYNTH = {
         "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
     },
     "QLD": {
-        "template": STAGED / "QLD HIA BUILD CONTRACT 09.02.2023 upd 30.07.26 - REPAIRED UNAPPROVED.docx",
+        "template": STAGED / "QLD BUILD CONTRACT Final 25.08.2026 - TEAM BUILD PENDING MCR.docx",
         "values": {
-            "owners": "Testfirst TESTSURNAME", "job_no": "99992", "lot_no": "902",
+            "owners": "Testfirst TESTSURNAME & Second TESTOWNER",
+            "job_no": "99992", "lot_no": "902",
             "site_hia": "Sample Street, SAMPLEVILLE QLD 4999",
-            "owner_1": "Testfirst TESTSURNAME", "owner_address": "9 Example Road",
+            "owner_1": "Testfirst TESTSURNAME", "owner_2": "Second TESTOWNER",
+            "owner_address": "9 Example Road",
             "owner_suburb": "EXAMPLETON", "owner_state": "QLD", "owner_postcode": "4998",
             "owner_mobile": "0400 000 002", "owner_email": "regress@example.invalid",
             "sp_rp": "SP999999", "land_street": "Sample Street",
             "land_suburb": "SAMPLEVILLE", "land_state": "QLD", "land_postcode": "4999",
             "liq_damages": "$88.00",
+            "guarantor_name": "Guaran TESTGUARANTOR",
+            "guarantor_address": "9 Guarantee Grove",
+            "guarantor_suburb": "EXAMPLETON", "guarantor_state": "QLD",
+            "guarantor_postcode": "4997",
+            # CD-5.4: figures only ever arrive pre-keyed from DataBuild; QC2
+            # has no schedule deposit item, so no deposit key here
+            "price_excl_gst": "$636,363.64", "gst_amount": "$63,636.36",
+            "price_incl_gst": "$700,000.00",
         },
-        "gone": ["$ 25.00"],
+        "gone": ["$ 25.00", "$ 000,000.00"],
     },
 }
 
