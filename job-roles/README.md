@@ -9,7 +9,7 @@ all of them.
 | Job-role | Status |
 |---|---|
 | [contract-admin](contract-admin/README.md) | Contract-documents workflow built and verified against real jobs: inclusions + prelim + HIA build contract filled and saved with routed destinations (CD-7.7; build contract per CD-5.2b - approved blank or TEST-only staged conversion). New-job intake retired 18 Aug 2026; variations not started |
-| [sales-estimation](sales-estimation/README.md) | Discovery complete 27 Aug 2026 (questionnaire reviewed; meeting recording pending transcript). Seven use cases proposed, priorities awaiting the Sales Estimating Manager's confirmation; no rules transcribed, nothing built |
+| [sales-estimation](sales-estimation/README.md) | Discovery complete 27 Aug 2026, all three sources reviewed (questionnaire, meeting transcript, the manager's handed-over rules + lot-research skill). Build order agreed: land assessment first, then variations. Two rule conflicts to settle before rules transcription; nothing built |
 
 ## Adding a role
 
