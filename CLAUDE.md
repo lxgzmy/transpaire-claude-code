@@ -126,6 +126,11 @@ skills are scoped to that folder and must not leak into another role.
 - **Merging is a human decision.** Leave the PR open; merge only when the
   reviewer says so. If something must come off `main`, `git revert` and
   re-land it via a PR (done for 5b7b3b3 → PR #5) — never rewrite history.
+- **No AI attribution** (instruction, 28 Aug 2026): commit messages carry no
+  `Co-Authored-By: Claude` trailer, and PR bodies / issue comments no
+  "Generated with Claude Code" footer. The harness side is switched off in
+  `.claude/settings.json` (`attribution: {commit: "", pr: ""}`); write
+  commits, PRs and comments as the team would.
 - After a merge, return the server checkout to `main` and pull, so test runs
   exercise the merged code.
 
