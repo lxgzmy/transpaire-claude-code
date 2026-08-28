@@ -34,8 +34,10 @@ space-for-space):
     fee named in the request changes it.
   - 3. ENDING AGREEMENT: the third paragraph (the sunset-clause insertion) and
     the empty spacer above it are re-indented to match their neighbours
-    (left 820 / right 105, justified BodyText) - the blank template carries
-    them misaligned and every corrected agreement fixes both the same way.
+    (left 820 / right 105, justified BodyText). The master template was
+    corrected at source 28 Aug 2026 (CD-4.6), so this is a no-op on the current
+    blank; it is kept as a guard for older copies and any future revision that
+    reintroduces the fault, and it still applies to the Stage F2 sibling.
   - Signature block: owner 1 goes two paragraphs above the first "Client Name"
     label, owner 2 two above the second, and the builders representative three
     above "Name who is authorised..." - typed in Calibri 12, confirmed by the
