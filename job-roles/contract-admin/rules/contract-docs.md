@@ -169,14 +169,27 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
     `Name who is authorised…` — typed **Calibri 12** *(confirmed by the team
     28 Aug 2026, chosen over both the blank's 8–9pt rendering and the
     corrected documents' own 10–11pt)*.
-- **CD-4.6** The blank template carries two formatting faults the team fixes
-  on every job, so the filler normalises them on every fill: the third
-  paragraph of `3. ENDING AGREEMENT` (the sunset-clause insertion) is indented
-  `left 720` where its neighbours are `left 820 / right 105` justified
-  BodyText, and the empty spacer above it is a condensed 9.5pt paragraph —
-  both are reset to the neighbours' properties, exactly as the corrected
-  26019/26032 agreements do. *(observed 28 Aug 2026; the real fix is editing
-  the master template — flagged for business review.)*
+- **CD-4.6** **The master template was corrected at source on 28 Aug 2026**, so
+  these faults no longer ship in the blank a person opens:
+  - the third paragraph of `3. ENDING AGREEMENT` (the sunset-clause insertion)
+    was indented `left 720` where its neighbours are `left 820 / right 105`
+    justified BodyText, and the empty spacer above it was a condensed 9.5pt
+    paragraph — both now carry the neighbours' properties;
+  - the client row's `&` run held a tab that pushed a typed name onto a tab
+    stop — removed. The single tab before `(“Client”)` is deliberate and stays.
+
+  The outgoing blank is filed as
+  `SS\NSW PRELIMINARY AGREEMENT 2024 - superseded 28.08.2026.docx`. The swap was
+  proved output-neutral first: identical wording, byte-identical filled XML from
+  either blank, unchanged 3-page pagination, and `regress_prelim.py` still
+  reproducing 26019/26032/26052.
+
+  **The filler keeps normalising both on every fill** — now a no-op on this
+  template, retained as a guard for older copies, restored files, and any
+  future revision that reintroduces them. The sibling
+  `NSW PRELIMINARY AGREEMENT 2024 - STAGE F2 - LOTS 12XX AND 18XX.docx` still
+  carries the tab and the misaligned sunset paragraph; it was out of scope for
+  the 28 Aug correction and needs the same treatment before it is relied on.
 
 ## CD-5 Build contract — filled when a Word template exists, data sheet always
 
@@ -356,11 +369,12 @@ cabinet; and any DocuSign issue to a client.
    team's review sheet: $30,000 is the standard fee and stands unless the
    request names another — the filler no longer refuses a missing fee. Rule
    reversed. (CD-4.3)
-3a. The blank `NSW PRELIMINARY AGREEMENT 2024.docx` itself carries the
-   misaligned sunset-clause paragraph and spacer that the team re-indents on
-   every job (CD-4.6), and its client row renders the AI-rejected tab-stop
-   layout. The filler now normalises these per fill — should the master
-   template be corrected instead? (CD-4.6)
+3a. ~~The blank `NSW PRELIMINARY AGREEMENT 2024.docx` itself carries the
+   misaligned sunset-clause paragraph and spacer, and its client row renders
+   the AI-rejected tab-stop layout — should the master template be corrected
+   instead of normalised per fill?~~ **Answered 28 Aug 2026:** yes. The master
+   was corrected at source, the outgoing blank filed in `SS\`, and the per-fill
+   normalisation kept as a guard. The Stage F2 sibling still needs it. (CD-4.6)
 4. ~~`ESTATE` is blank on every recent NSW job — is the field retired?~~
    **Answered 13 Aug 2026:** not retired. Sydney job 26004 uses it for the
    pre-registration parent address + estate name. Rule updated. (CD-2.4)
