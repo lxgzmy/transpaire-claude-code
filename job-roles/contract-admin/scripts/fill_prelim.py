@@ -4,29 +4,38 @@
     python fill_prelim.py --template <blank.docx> --job <job.json> --check
 
 Writes the client, addresses, fee and signature names into the blank template
-exactly the way the completed agreements on the drive do it (CD-4). Verified
-against eight completed preliminary agreements: the two Tamworth jobs at Pioneer
-Close (26036, 26045 - reproduced text-for-text by regress_prelim.py), plus five
-Sydney and one Gunnedah/SEQ-filed job for the structural conventions:
+the way the team's corrected agreements do it (CD-4.5). The conventions were
+rebuilt 28 Aug 2026 from the team's review of the AI-filled documents
+(AI.Manual.comparison (2).xlsx, "Preliminary Agreement" sheet) and verified
+against the three corrected Sydney agreements that review screenshots (jobs
+26019, 26032, 26052 - regress_prelim.py reproduces 26032 and 26052
+space-for-space):
 
-  - Client row: a single client's name replaces the "&" run as "  <name>";
-    two clients keep the template's cells - name 1 typed after "And", name 2
-    after "&" (the cell-preserving shape used by the majority of two-client
-    jobs; the others hand-merge the cells and agree on nothing).
-  - Single-client jobs also carry a 62-space layout run pushing the
-    "(Current Residential Address)" label right - both Tamworth singles have
-    exactly this run, so reproducing them requires it.
-  - Addresses: typed after their labels - 3 spaces before the residential
-    address, 6 before "Lot <site address>" (the Tamworth pair agree exactly;
-    Sydney jobs use anything from 1 to 9 spaces - hand-typed, no convention).
-  - Signature block: every one of the eight jobs types owner 1 two paragraphs
-    above the first "Client Name" label, owner 2 two above the second, and
-    Michael CRONK three above "Name who is authorised..." - i.e. onto the
-    printed signing lines.
-
-THE FEE IS A MANDATORY INPUT. The template's $30,000 is not the job's fee and
-has been wrong in practice (CD-4.3): every observed job edits it ($2,500 to
-$32,035). A job JSON without prelim_fee is refused, never defaulted.
+  - Client row: the name(s) flow straight after "And" - two clients join as
+    "name1 & name2" - with the one tab kept before ("Client"), which becomes
+    ("Clients") when there are two (the sheet's spec; the corrected docs
+    predate it and keep the singular).
+  - "(Current Residential Address)" starts its own paragraph, cloned from the
+    client row's properties, with the value one space after the label. The old
+    62-space layout run (measured off the Tamworth pair) is gone - on every
+    job with a different name length it dragged the label up onto the client
+    line, which is the exact fault the team flagged.
+  - "(For Construction Address)": value five spaces after the label, prefixed
+    "Lot " (the corrected 26032/26052 agree on five).
+  - The fee: replaced when the job supplies one; ABSENT MEANS THE TEMPLATE'S
+    $30,000 STANDS. CD-4.3 reversed 28 Aug 2026 - the team: "$30,000 is the
+    standard prelim fees amount, please proceed ... without asking"; only a
+    fee named in the request changes it.
+  - 3. ENDING AGREEMENT: the third paragraph (the sunset-clause insertion) and
+    the empty spacer above it are re-indented to match their neighbours
+    (left 820 / right 105, justified BodyText) - the blank template carries
+    them misaligned and every corrected agreement fixes both the same way.
+  - Signature block: owner 1 goes two paragraphs above the first "Client Name"
+    label, owner 2 two above the second, and the builders representative three
+    above "Name who is authorised..." - typed in Calibri 12 (the sheet's spec;
+    cloning the blank's paragraph marks rendered the names at 8-9pt, the
+    "too small" fault the team flagged. The corrected docs themselves sit at
+    10-11pt - if the team ever wants that instead, change SIG_RPR).
 
 Whether the job needs a preliminary agreement at all is a human decision
 (CD-4.4) - the request email saying "no prelim required" has been overridden in
@@ -46,13 +55,22 @@ from pathlib import Path
 T_RE = re.compile(r"<w:t(?: [^>]*)?>(.*?)</w:t>", re.S)
 RUN_RE = re.compile(r"<w:r(?: [^>]*)?>(?:(?!<w:r[ >]).)*?</w:r>", re.S)
 P_RE = re.compile(r"<w:p\b[^>]*>(?:(?!</w:p>|<w:p\b).)*?</w:p>", re.S)
+PPR_RE = re.compile(r"<w:pPr>.*?</w:pPr>", re.S)
 
 RESI_LABEL = "(Current Residential Address)"
 CONS_LABEL = "(For Construction Address)"
 FEE_TEXT = "$30,000."
-# pads measured off the two completed Tamworth agreements (26036, 26045)
-RESI_PAD, CONS_PAD, CLIENT_PAD = 3, 6, 62
+RESI_PAD, CONS_PAD = 1, 5  # spaces between label and value (corrected 26032/26052)
 SIG_LEAD = {"owner_1": "  ", "owner_2": "  ", "builders_rep": "   "}
+# Calibri 12 for the typed signature names (comparison sheet, 28 Aug 2026)
+SIG_RPR = ('<w:rPr><w:rFonts w:ascii="Calibri" w:eastAsia="Calibri"'
+           ' w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="24"/>'
+           '<w:szCs w:val="24"/></w:rPr>')
+# What the paragraphs around the sunset clause use; the corrected agreements
+# re-indent the clause and its spacer to exactly this
+BODY_PPR = ('<w:pPr><w:pStyle w:val="BodyText"/>'
+            '<w:ind w:left="820" w:right="105"/><w:jc w:val="both"/></w:pPr>')
+SUNSET_ANCHOR = "pursuant to a sunset clause"
 
 
 def xml_escape(s):
@@ -107,12 +125,6 @@ def run_at(offsets, pos):
     return lo
 
 
-def para_rpr(p_xml):
-    """The paragraph mark's run properties - what Word gives a run typed here."""
-    m = re.search(r"<w:pPr>.*?(<w:rPr>.*?</w:rPr>).*?</w:pPr>", p_xml, re.S)
-    return m.group(1) if m else ""
-
-
 def fill(xml, values, report):
     runs = [(m.start(), m.end(), m.group(0)) for m in RUN_RE.finditer(xml)]
     joined, offsets = joined_index(runs)
@@ -132,38 +144,40 @@ def fill(xml, values, report):
              if run_text(runs[j][2]) == "&"]
     if len(pairs) != 1:
         note("owner_1", "And ... & (client row)", owner_1)
+        if owner_2:
+            note("owner_2", "And ... & (client row)", owner_2)
     else:
         i_and, i_amp = pairs[0]
         s, e, amp_run = runs[i_amp]
+        # the name(s) flow straight after "And": the corrected agreements
+        # delete the tab ahead of the old "&" (it sits INSIDE the & run) so
+        # nothing lands on a tab stop before ("Client")
+        names = f"  {owner_1} & {owner_2}" if owner_2 else f"  {owner_1}"
+        edits.append((s, e, set_run_text(amp_run, names).replace("<w:tab/>", "")))
+        for j in range(i_and + 1, i_amp):  # tab as its own run, same rule
+            if "<w:tab" in runs[j][2] and not run_text(runs[j][2]):
+                edits.append((runs[j][0], runs[j][1], ""))
         if owner_2:
-            edits.append((runs[i_and][1], runs[i_and][1],
-                          clone_run(runs[i_and][2], f" {owner_1}")))
-            edits.append((e, e, clone_run(amp_run, f" {owner_2}")))
-            note("owner_1", "after And (two clients)", owner_1, 1)
-            note("owner_2", "after & (two clients)", owner_2, 1)
+            note("owner_1", "after And (two clients)", f"{owner_1} & …", 1)
+            note("owner_2", "joined with & (two clients)", owner_2, 1)
+            # two buyers sign as ("Clients") - comparison sheet, 28 Aug 2026
+            for j in range(i_amp + 1, min(i_amp + 8, len(runs))):
+                if run_text(runs[j][2]) == "Client”":
+                    edits.append((runs[j][0], runs[j][1],
+                                  set_run_text(runs[j][2], "Clients”")))
+                    note("clients_plural", "(“Client”) → (“Clients”)",
+                         "Clients", 1)
+                    break
+            else:
+                note("clients_plural", "(“Client”) after the names", "Clients")
         else:
-            # every completed single-client agreement also deletes the tab
-            # before the old "&" (it sits INSIDE the & run, ahead of the
-            # text), so the name flows straight after "And" - keeping it
-            # shifts the name a tab stop right
-            new_run = set_run_text(amp_run, f"  {owner_1}").replace("<w:tab/>", "")
-            edits.append((s, e, new_run))
-            for j in range(i_and + 1, i_amp):  # tab as its own run, same rule
-                if "<w:tab" in runs[j][2] and not run_text(runs[j][2]):
-                    edits.append((runs[j][0], runs[j][1], ""))
             note("owner_1", "replaces & (single client)", owner_1, 1)
             note("owner_2", "Name of Owner 2", skipped=True)
-            # both completed single-client Tamworth jobs carry this layout run
-            lbl = joined.find(RESI_LABEL)
-            if lbl != -1:
-                k = run_at(offsets, lbl)
-                edits.append((runs[k][0], runs[k][0],
-                              clone_run(runs[k][2], " " * CLIENT_PAD)))
 
     # --- the two addresses, typed after their labels ---
-    for key, label, pad, prefix in (
-            ("residential_address", RESI_LABEL, RESI_PAD, ""),
-            ("site_address", CONS_LABEL, CONS_PAD, "Lot ")):
+    for key, label, pad, prefix, own_line in (
+            ("residential_address", RESI_LABEL, RESI_PAD, "", True),
+            ("site_address", CONS_LABEL, CONS_PAD, "Lot ", False)):
         value = (values.get(key) or "").strip()
         lbl = joined.find(label)
         if lbl == -1:
@@ -172,21 +186,69 @@ def fill(xml, values, report):
         if not value:
             note(key, label, skipped=True)
             continue
+        k0 = run_at(offsets, lbl)
         k = run_at(offsets, lbl + len(label) - 1)
         edits.append((runs[k][1], runs[k][1],
                       clone_run(runs[k][2], f"{' ' * pad}{prefix}{value}")))
         note(key, label, f"{prefix}{value}", 1)
+        if not own_line:
+            continue
+        # the label starts its own paragraph, directly under the client name
+        # (comparison sheet, 28 Aug 2026): split the client-row paragraph
+        # just before the label, cloning the paragraph properties
+        para = next((m for m in P_RE.finditer(xml)
+                     if m.start() < runs[k0][0] < m.end()), None)
+        before = ""
+        if para:
+            before = "".join(T_RE.findall(para.group(0)[:runs[k0][0] - para.start()]))
+        if para and offsets[k0] == lbl and before.strip():
+            ppr = PPR_RE.search(para.group(0))
+            edits.append((runs[k0][0], runs[k0][0],
+                          "</w:p><w:p>" + (ppr.group(0) if ppr else "")))
+            note("resi_own_line", "new paragraph before label", "", 1)
+        elif para and not before.strip():
+            # already at the start of its paragraph - nothing to split
+            note("resi_own_line", "label already starts a paragraph", "", 1)
+        else:
+            note("resi_own_line", "label run not clean to split")
 
-    # --- the fee: replace the template's figure, never keep it ---
+    # --- the fee: replace when the job names one; otherwise the template's
+    # standard $30,000 stands (CD-4.3, reversed 28 Aug 2026) ---
     fee = (values.get("prelim_fee") or "").strip().lstrip("$").rstrip(".")
     fee_hits = [i for i, (_, _, r) in enumerate(runs) if FEE_TEXT in run_text(r)]
     if len(fee_hits) != 1:
-        note("prelim_fee", FEE_TEXT, fee)
+        note("prelim_fee", FEE_TEXT, fee or "(template default)")
+    elif not fee:
+        note("prelim_fee", FEE_TEXT, "$30,000. (standard fee kept)", 1)
     else:
         s, e, r = runs[fee_hits[0]]
         t = run_text(r).replace(FEE_TEXT, f"${fee}.")
         edits.append((s, e, set_run_text(r, t)))
         note("prelim_fee", FEE_TEXT, f"${fee}.", 1)
+
+    # --- 3. ENDING AGREEMENT: re-indent the sunset paragraph and its spacer
+    # to match the neighbouring paragraphs (every corrected agreement does) ---
+    ps = list(P_RE.finditer(xml))
+    sun = next((n for n, m in enumerate(ps)
+                if SUNSET_ANCHOR in run_text(m.group(0))), None)
+    if sun is None:
+        note("sunset_align", SUNSET_ANCHOR)
+    else:
+        m = ps[sun]
+        ppr = PPR_RE.search(m.group(0))
+        if ppr and ppr.group(0) != BODY_PPR:
+            edits.append((m.start() + ppr.start(), m.start() + ppr.end(),
+                          BODY_PPR))
+        note("sunset_align", "sunset clause ¶ → 820/105", "", 1)
+        spacer = ps[sun - 1] if sun else None
+        if spacer is not None and not run_text(spacer.group(0)).strip():
+            sppr = PPR_RE.search(spacer.group(0))
+            if sppr and sppr.group(0) != BODY_PPR:
+                edits.append((spacer.start() + sppr.start(),
+                              spacer.start() + sppr.end(), BODY_PPR))
+            note("sunset_spacer", "empty ¶ above → 820/105", "", 1)
+        else:
+            note("sunset_spacer", "no empty ¶ above sunset clause")
 
     # --- signature block: names typed onto the printed signing lines ---
     ex = xml.find("EXECUTED")
@@ -215,11 +277,10 @@ def fill(xml, values, report):
             continue
         p = sig_ps[n].group(0)
         at = sig_ps[n].start() + p.rindex("</w:p>")
-        rpr = para_rpr(p)
         edits.append((at, at,
-                      f'<w:r>{rpr}<w:t xml:space="preserve">'
+                      f'<w:r>{SIG_RPR}<w:t xml:space="preserve">'
                       f'{xml_escape(SIG_LEAD[key] + value)}</w:t></w:r>'))
-        note(f"sig:{key}", anchor, value, 1)
+        note(f"sig:{key}", anchor, f"{value} (Calibri 12)", 1)
     if not targets:
         for key in ("owner_1", "owner_2", "builders_rep"):
             note(f"sig:{key}", "signature block not recognised")
@@ -263,13 +324,8 @@ def main():
         print("ERROR: owner_1 is required - a preliminary agreement without a "
               "client is not a draft", file=sys.stderr)
         return 2
-    if not (values.get("prelim_fee") or "").strip():
-        print("ERROR: prelim_fee is required and must be sourced or confirmed "
-              "for THIS job (CD-4.3).", file=sys.stderr)
-        print("       The template's $30,000 is not the job's fee - observed "
-              "jobs range $2,500-$32,035.", file=sys.stderr)
-        return 2
-    if not re.fullmatch(r"[\d,]+", values["prelim_fee"].strip().lstrip("$").rstrip(".")):
+    fee = (values.get("prelim_fee") or "").strip()
+    if fee and not re.fullmatch(r"[\d,]+", fee.lstrip("$").rstrip(".")):
         print(f"ERROR: prelim_fee {values['prelim_fee']!r} is not a plain "
               "figure like 5,000", file=sys.stderr)
         return 2
@@ -282,6 +338,9 @@ def main():
 
     print(f"template : {Path(args.template).name}")
     print(f"job      : {Path(args.job).name}")
+    if not fee:
+        print("fee      : none supplied - the template's standard $30,000 "
+              "stands (CD-4.3, 28 Aug 2026)")
     print()
     print(f"{'field':<22} {'hits':>4}  {'anchor':<28} value")
     print("-" * 88)

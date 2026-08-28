@@ -38,7 +38,7 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 | Document | Status |
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
-| **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4), and the fee is a mandatory sourced input (CD-4.3) |
+| **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4); the standard $30,000 fee stands unless the request names another (CD-4.3, reversed 28 Aug 2026) |
 | **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged template under a `- TEST UNAPPROVED TEMPLATE` name (never issuable). Both staged templates are **the team's own Word builds** (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026, swapped in 23 Aug 2026; `QLD.BUILD.CONTRACT.Final.docx`, provided and swapped in 25 Aug 2026 — each replaced its PDF conversion and that path's layout artifacts). PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
@@ -197,7 +197,7 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026) | Job folder + lookup |
 | `builders_rep` | `"Michael CRONK"` (CD-3.5) | Manual |
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
-| `prelim_fee` | prelim only: plain figure `"5,000"` — **required**; the filler refuses to run without it (CD-4.3) | Sourced/confirmed for THIS job |
+| `prelim_fee` | prelim only: plain figure `"5,000"` — **only when the request names a fee**; left empty, the template's standard $30,000 stands (CD-4.3, reversed 28 Aug 2026 — do not stop or ask for a missing fee) | Request email, else standard |
 
 If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
 Say that plainly and produce the rest — do not invent them, and do not silently
@@ -302,7 +302,7 @@ agreement" seen at 26053 is a different document this skill does not produce):
 | Folder already holds a preliminary agreement | It exists — regenerating is an amendment (CD-7.6); its fee is the job's fee history |
 | Email says no prelim is required | Surface the exact line and ask — the one observed job produced one anyway |
 | Email silent, none in the folder | Ask once; produce nothing until answered |
-| A person says produce it | `--prelim`, with `prelim_fee` sourced for THIS job — the template's $30,000 is refused, never defaulted (CD-4.3; observed $2,500–$32,035) |
+| A person says produce it | `--prelim`; pass `prelim_fee` only if the request names one — otherwise leave it empty and the standard $30,000 stands (CD-4.3, reversed 28 Aug 2026) |
 
 ### 6. Draft the build contract data sheet
 

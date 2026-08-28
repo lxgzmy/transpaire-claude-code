@@ -119,25 +119,47 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-4.2** Fields: client name, current residential address, construction
   address, and the preliminary work fee. Signature block takes the client name
   and Michael Cronk.
-- **CD-4.3** **The fee in the template is not the job's fee.** The template reads
-  $30,000; both completed Tamworth jobs used $5,000, and completed agreements
-  across regions range $2,500–$32,035. Always sourced or confirmed, never
-  carried over — `fill_prelim.py` refuses to run without a fee. *(observed)*
+- **CD-4.3** **$30,000 is the standard preliminary fee — it stands unless the
+  request names another.** *(Reversed 28 Aug 2026 by the team's review of the
+  AI-filled documents — `AI.Manual.comparison (2).xlsx`, Preliminary Agreement
+  sheet: "$30,000 is the standard prelim fees amount, please proceed the
+  preliminary agreement prepare without asking even not specify in the email.
+  Prelim agreement fee is only amended when specify request in the contract.")*
+  A job JSON without `prelim_fee` keeps the template's figure; a supplied fee
+  replaces it. Do not stop or ask for a missing fee. History: the rule
+  originally required a sourced fee because completed agreements ranged
+  $2,500–$32,035 (both Tamworth jobs $5,000) — that variance is real, but the
+  team owns it; only a fee stated in the request changes the figure.
 - **CD-4.4** The request email may say no preliminary agreement is required. One
   was still produced on the observed job (26045 — email said "no need for
   Prelim agreement", the folder holds an executed one). Ask — do not resolve it
   either way.
-- **CD-4.5** Fill conventions, verified across eight completed agreements
-  (jobs 26036/26045 Tamworth — reproduced text-identically by
-  `regress_prelim.py` — plus five Sydney and one Gunnedah for structure):
-  a single client's name replaces the template's `&` as `  <name>`; two
-  clients keep the cells — name 1 after `And`, name 2 after `&`; addresses
-  are typed after their labels; and every job types owner 1 two paragraphs
-  above the first `Client Name` label, owner 2 two above the second, and the
-  builders representative three above `Name who is authorised…` — the printed
-  signing lines. Sydney jobs vary the cosmetic spacing (1–9 spaces, no
-  convention); the Tamworth pair agree exactly and are the reference.
-  *(observed 16 Aug 2026)*
+- **CD-4.5** Fill conventions *(rebuilt 28 Aug 2026 from the team's review —
+  `AI.Manual.comparison (2).xlsx`, Preliminary Agreement sheet — and its three
+  corrected Sydney references, jobs 26019/26032/26052; `regress_prelim.py`
+  reproduces 26032 and 26052 space-for-space. Supersedes the Tamworth-pair
+  conventions of 16 Aug 2026: the review rejects exactly those cosmetics —
+  names on tab stops, the 62-space label pad, cloned signature fonts)*:
+  - Client row: the name(s) flow straight after `And` — two clients join as
+    `name1 & name2` — with one tab kept before `(“Client”)`, which becomes
+    `(“Clients”)` when there are two (the sheet's spec; the corrected
+    documents predate it and keep the singular).
+  - `(Current Residential Address)` starts its own paragraph directly under
+    the client name (same paragraph properties as the client row), value one
+    space after the label. `(For Construction Address)`: value five spaces
+    after the label, prefixed `Lot `.
+  - Signature block: owner 1 two paragraphs above the first `Client Name`
+    label, owner 2 two above the second, builders representative three above
+    `Name who is authorised…` — typed **Calibri 12** (sheet's spec; the
+    corrected documents themselves sit at 10–11pt, so this is deliberate).
+- **CD-4.6** The blank template carries two formatting faults the team fixes
+  on every job, so the filler normalises them on every fill: the third
+  paragraph of `3. ENDING AGREEMENT` (the sunset-clause insertion) is indented
+  `left 720` where its neighbours are `left 820 / right 105` justified
+  BodyText, and the empty spacer above it is a condensed 9.5pt paragraph —
+  both are reset to the neighbours' properties, exactly as the corrected
+  26019/26032 agreements do. *(observed 28 Aug 2026; the real fix is editing
+  the master template — flagged for business review.)*
 
 ## CD-5 Build contract — filled when a Word template exists, data sheet always
 
@@ -296,6 +318,7 @@ cabinet; and any DocuSign issue to a client.
 | Template anchor not found by `--check` | Stop; template revised, needs a person |
 | Contract documents already in the job folder | Test mode: save only to the template-testing folder (CD-7.6/7.7) |
 | Preliminary agreement requirement unclear | Ask (CD-4.4) |
+| Preliminary fee not stated in the request | Proceed; the standard $30,000 stands (CD-4.3) |
 | Client ID missing from the request | Note it; do not guess the name spelling |
 
 ## Open questions for business review
@@ -311,9 +334,16 @@ cabinet; and any DocuSign issue to a client.
    settling the two open team queries in the staging README with it), MCR
    approval, file the blank in the region's `CONTRACT\` folder. Until then
    production runs stay data-sheet-only. (CD-5.1/5.2)
-3. What sets the preliminary work fee, and should the template default be
-   removed to stop it being carried over? Observed range $2,500–$32,035;
-   both Tamworth jobs $5,000. (CD-4.3)
+3. ~~What sets the preliminary work fee, and should the template default be
+   removed to stop it being carried over?~~ **Answered 28 Aug 2026** by the
+   team's review sheet: $30,000 is the standard fee and stands unless the
+   request names another — the filler no longer refuses a missing fee. Rule
+   reversed. (CD-4.3)
+3a. The blank `NSW PRELIMINARY AGREEMENT 2024.docx` itself carries the
+   misaligned sunset-clause paragraph and spacer that the team re-indents on
+   every job (CD-4.6), and its client row renders the AI-rejected tab-stop
+   layout. The filler now normalises these per fill — should the master
+   template be corrected instead? (CD-4.6)
 4. ~~`ESTATE` is blank on every recent NSW job — is the field retired?~~
    **Answered 13 Aug 2026:** not retired. Sydney job 26004 uses it for the
    pre-registration parent address + estate name. Rule updated. (CD-2.4)
