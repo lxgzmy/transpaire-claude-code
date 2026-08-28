@@ -58,7 +58,7 @@ SYNTH = {
         "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
     },
     "QLD": {
-        "template": STAGED / "QLD BUILD CONTRACT Final 25.08.2026 - TEAM BUILD PENDING MCR.docx",
+        "template": STAGED / "QLD BUILD CONTRACT v1.1 ANCHORS 28.08.2026 - INTERIM PENDING MCR.docx",
         "values": {
             "owners": "Testfirst TESTSURNAME & Second TESTOWNER",
             "job_no": "99992", "lot_no": "902",

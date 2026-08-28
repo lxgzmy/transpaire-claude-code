@@ -12,11 +12,15 @@ STATUS (25 Aug 2026):
         no reflow artifacts. Still fills to template-testing only until MCR
         files the blank in the region's CONTRACT folder (CD-5.2b rule 1).
   QLD - anchored to the team's own Word build of the QC2 contract
-        (QLD.BUILD.CONTRACT.Final.docx, provided 25 Aug 2026, staged as
-        "QLD BUILD CONTRACT Final 25.08.2026 - TEAM BUILD PENDING MCR.docx").
-        It replaced the repaired PDF conversion and its layout risks the same
-        way the NSW build did. Same gate: template-testing only until MCR
-        files the blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
+        (QLD.BUILD.CONTRACT.Final.docx, provided 25 Aug 2026), which replaced
+        the repaired PDF conversion and its layout risks the same way the NSW
+        build did. Since 28 Aug 2026 the staged copy is the sanctioned interim
+        "QLD BUILD CONTRACT v1.1 ANCHORS 28.08.2026 - INTERIM PENDING MCR.docx"
+        - the team build plus the licensed PDF's e-sign anchor codes
+        (/bs1/\builder_sig, /i1/\signer1_sig, four witness /na/), nothing
+        else changed; blank still exports at 37 pages. Same gate:
+        template-testing only until MCR files the blank in
+        REGION - SEQ\CONTRACT (CD-5.2b rule 1).
 
 What it fills (label-anchored, value typed after the printed label - the same
 technique as fill_inclusions.py / fill_prelim.py):
