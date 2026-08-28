@@ -79,7 +79,14 @@ Nine fields, all on page 1. *(manual, confirmed observed)*
 Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 
 - **CD-3.1** Owner names appear in **five** places for owner 1, plus the
-  acknowledgements text box. Format `Firstname SURNAME`. *(observed)*
+  acknowledgements text box. Format **`First name + Middle name + LAST NAME`**,
+  surname in CAPS. The middle name is included whenever the client ID shows
+  one — it is the half most often missed, because it rarely appears in the
+  request email and has to be read off the licence or passport (CD-0.3). The
+  same name is typed in the preliminary agreement (CD-4.5), so both documents
+  read alike. *(Format confirmed by the team 28 Aug 2026; observed on executed
+  25176, which carries `Shaun Leslie MCMEEKEN` in the inclusions and the
+  agreement alike. Earlier revisions of this rule said `Firstname SURNAME`.)*
 - **CD-3.1a** The acknowledgements text box carries **all** owners joined by
   ` & ` — not just owner 1. Verified on lot 113 Box Hill (two owners) and
   lot 141 Westdale (three). `fill_inclusions.py` takes this as the `owners`
@@ -140,18 +147,28 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   reproduces 26032 and 26052 space-for-space. Supersedes the Tamworth-pair
   conventions of 16 Aug 2026: the review rejects exactly those cosmetics —
   names on tab stops, the 62-space label pad, cloned signature fonts)*:
-  - Client row: the name(s) flow straight after `And` — two clients join as
-    `name1 & name2` — with one tab kept before `(“Client”)`, which becomes
-    `(“Clients”)` when there are two (the sheet's spec; the corrected
-    documents predate it and keep the singular).
+  - Client row, as the team wrote it out *(confirmed 28 Aug 2026)*:
+
+    ```
+    Single buyer:  And <First name> <Middle name> <LAST NAME>  (“Client”)
+    Two buyers:    And <buyer 1 name> & <buyer 2 name>  (“Clients”)
+    ```
+
+    The name(s) flow straight after `And`, with one tab kept before
+    `(“Client”)`, which becomes `(“Clients”)` when there are two. Each name
+    follows CD-3.1 — First name + Middle name + LAST NAME, surname in CAPS.
+    The corrected 26052 predates the plural and keeps `(“Client”)`; the team
+    confirmed the plural, so the filler writes it and `regress_prelim.py`
+    normalises before comparing against 26052.
   - `(Current Residential Address)` starts its own paragraph directly under
     the client name (same paragraph properties as the client row), value one
     space after the label. `(For Construction Address)`: value five spaces
     after the label, prefixed `Lot `.
   - Signature block: owner 1 two paragraphs above the first `Client Name`
     label, owner 2 two above the second, builders representative three above
-    `Name who is authorised…` — typed **Calibri 12** (sheet's spec; the
-    corrected documents themselves sit at 10–11pt, so this is deliberate).
+    `Name who is authorised…` — typed **Calibri 12** *(confirmed by the team
+    28 Aug 2026, chosen over both the blank's 8–9pt rendering and the
+    corrected documents' own 10–11pt)*.
 - **CD-4.6** The blank template carries two formatting faults the team fixes
   on every job, so the filler normalises them on every fill: the third
   paragraph of `3. ENDING AGREEMENT` (the sunset-clause insertion) is indented
