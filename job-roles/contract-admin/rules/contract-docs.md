@@ -184,12 +184,15 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   either blank, unchanged 3-page pagination, and `regress_prelim.py` still
   reproducing 26019/26032/26052.
 
-  **The filler keeps normalising both on every fill** — now a no-op on this
-  template, retained as a guard for older copies, restored files, and any
+  **The filler keeps normalising both on every fill** — now a no-op on both
+  templates, retained as a guard for older copies, restored files, and any
   future revision that reintroduces them. The sibling
-  `NSW PRELIMINARY AGREEMENT 2024 - STAGE F2 - LOTS 12XX AND 18XX.docx` still
-  carries the tab and the misaligned sunset paragraph; it was out of scope for
-  the 28 Aug correction and needs the same treatment before it is relied on.
+  `NSW PRELIMINARY AGREEMENT 2024 - STAGE F2 - LOTS 12XX AND 18XX.docx` was
+  corrected the same way later that day (its spacer was already right, so only
+  the client-row tab and the sunset indent changed; outgoing blank filed as
+  `SS\... - superseded 28.08.2026.docx`), verified by the same checks:
+  wording byte-identical, fill output-neutral, 3-page pagination unchanged,
+  the deliberate tab before `(“Client”)` kept.
 
 ## CD-5 Build contract — filled when a Word template exists, data sheet always
 
@@ -374,7 +377,8 @@ cabinet; and any DocuSign issue to a client.
    the AI-rejected tab-stop layout — should the master template be corrected
    instead of normalised per fill?~~ **Answered 28 Aug 2026:** yes. The master
    was corrected at source, the outgoing blank filed in `SS\`, and the per-fill
-   normalisation kept as a guard. The Stage F2 sibling still needs it. (CD-4.6)
+   normalisation kept as a guard. The Stage F2 sibling got the same correction
+   later that day. (CD-4.6)
 4. ~~`ESTATE` is blank on every recent NSW job — is the field retired?~~
    **Answered 13 Aug 2026:** not retired. Sydney job 26004 uses it for the
    pre-registration parent address + estate name. Rule updated. (CD-2.4)
