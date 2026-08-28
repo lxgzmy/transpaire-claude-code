@@ -50,18 +50,25 @@ from (approved blank, staged UNAPPROVED, or none) and relay the run's
 (CD-5.2b): in both regions only MCR's own steps — eye-review a filled test
 output against the licensed PDF (the layout is the team's own Word build, so
 this is a read-through, not a repair) and file the blank in the region's
-`CONTRACT\` folder. For QLD, three open team queries from the 25 Aug 2026
-build review sit with that read-through (see the staging README in
+`CONTRACT\` folder. For QLD, one open team query from the 25 Aug 2026
+build review sits with that read-through (see the staging README in
 `runtime\contract-admin\outputs\_hia-word-templates\`): the build's
 wrap-crushed label columns (cover, Schedule 1 items 3/7, the deed's BUILDER
 IS line) cannot take typed values — by this fill or by hand in Word —
 without page spill (filled tests export 40 pages vs the blank's licensed-
-matching 37; the NSW build's real tables are the fix to ask for), it drops
-~35 sub-clause margin numbers in the general conditions, and it lacks the
-e-sign anchor codes (`/bs1/builder_sig`, `/i1/signer1_sig`) the business's
-updated licensed PDF carries — template wording and layout are the team's
-to fix, never filled in. Until that v2 lands, say in every QLD run report
-that the filled build contract carries the +3-page spill. From the moment a blank is filed, the driver fills it under the real
+matching 37; the NSW build's real tables are the fix to ask for) — that
+layout is the team's to fix, never filled in. Until their v2 lands, say in
+every QLD run report that the filled build contract carries the +3-page
+spill. The review's other two findings closed 28 Aug 2026: the "~35 dropped
+sub-clause margin numbers" claim was a text-extraction artifact — every
+sub-clause number in the licensed QC2 renders in the build (67 as Word list
+numbering, the rest as literal text labels; verified against Word's own
+rendered list markers) — and the missing e-sign anchor codes were added in
+a sanctioned interim copy the QLD stage now fills from
+(`QLD BUILD CONTRACT v1.1 ANCHORS 28.08.2026 - INTERIM PENDING MCR.docx`:
+the team build plus `/bs1/\builder_sig`, `/i1/\signer1_sig` and the licensed
+PDF's four witness `/na/`, typed white 3pt like the build's own `/na/`;
+nothing else changed, blank still 37 pages). From the moment a blank is filed, the driver fills it under the real
 name with no further engineering (`regress_hia.py` guards the anchors;
 eye-verify the first fill after any template lands). CD-5.4 always applies:
 no figure is ever computed here — price/GST/deposit type in only when a
