@@ -19,11 +19,16 @@ also match block-for-block on structure (tabs/breaks/cells, space runs
 collapsed) - that is where the spacing conventions are held. 26019 carries
 a stray hand-typed tab after the residential address, so it is text-only.
 
-Two deliberate deviations from the corrected documents, both from the sheet:
-two buyers get ("Clients") where the corrected 26052 kept the template's
-("Client") - normalised before comparing - and signature names are typed at
-Calibri 12 where the corrected documents sit at 10-11pt (font size is
+Two deliberate deviations from the corrected documents, both from the sheet
+and both CONFIRMED by the team on 28 Aug 2026 (they were open judgment calls
+until then): two buyers get ("Clients") where the corrected 26052 kept the
+template's ("Client") - normalised before comparing - and signature names are
+typed at Calibri 12 where the corrected documents sit at 10-11pt (font size is
 invisible to text comparison; the synthetic suite asserts it in the XML).
+
+The same confirmation set the client-name format: First name + Middle name +
+LAST NAME, surname in CAPS (CD-3.1). The synthetic fixture carries middle
+names so the suite fails if a name is ever split or reordered on the way in.
 
 A synthetic two-client fill then asserts what text comparison cannot see:
 inline names + ("Clients"), the residential label starting its own paragraph,
@@ -170,7 +175,7 @@ def main():
             print(f"      real  : {want_s[i] if i < len(want_s) else '(missing)'}")
 
     # synthetic two-client suite: everything text comparison cannot see
-    vals = {"owner_1": "Alpha ONE", "owner_2": "Beta TWO",
+    vals = {"owner_1": "Alpha Quentin ONE", "owner_2": "Beta Rae TWO",
             "residential_address": "1 Test Street, TESTVILLE NSW 2000",
             "site_address": "9, Example Road, TESTVILLE NSW 2000",
             "prelim_fee": "", "builders_rep": "Michael CRONK"}
@@ -194,7 +199,9 @@ def main():
 
         checks = [
             ("names flow inline after And",
-             "And  Alpha ONE & Beta TWO" in t),
+             "And  Alpha Quentin ONE & Beta Rae TWO" in t),
+            ("middle names kept, surnames in CAPS",
+             "Alpha Quentin ONE" in t and "Beta Rae TWO" in t),
             ("two buyers sign as (“Clients”)",
              "(“Clients”)" in t and "(“Client”)" not in t),
             # docx_text counts pPr tab-stop definitions as " | ", so a block
@@ -205,8 +212,8 @@ def main():
                  and not b.split(RESI_LABEL)[0].strip(" |/")
                  for _, b in blocks)),
             ("standard fee kept when none supplied", "$30,000." in t),
-            ("owner 1 signing line", "  Alpha ONE" in t),
-            ("owner 2 signing line", "  Beta TWO" in t),
+            ("owner 1 signing line", "  Alpha Quentin ONE" in t),
+            ("owner 2 signing line", "  Beta Rae TWO" in t),
             ("builders rep signing line", "   Michael CRONK" in t),
             ("signature names typed Calibri 12", xml.count(fp.SIG_RPR) == 3),
             ("sunset clause ¶ re-indented", ppr_ok(sun)),

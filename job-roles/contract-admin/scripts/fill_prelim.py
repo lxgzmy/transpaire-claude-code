@@ -11,10 +11,16 @@ against the three corrected Sydney agreements that review screenshots (jobs
 26019, 26032, 26052 - regress_prelim.py reproduces 26032 and 26052
 space-for-space):
 
-  - Client row: the name(s) flow straight after "And" - two clients join as
-    "name1 & name2" - with the one tab kept before ("Client"), which becomes
-    ("Clients") when there are two (the sheet's spec; the corrected docs
-    predate it and keep the singular).
+  - Client row, as the team wrote it out (confirmed 28 Aug 2026):
+        single buyer  And <First> <Middle> <LAST NAME>  (“Client”)
+        two buyers    And <buyer 1> & <buyer 2>  (“Clients”)
+    The name(s) flow straight after "And" with the one tab kept before
+    ("Client"), which becomes ("Clients") when there are two. Each name is
+    First name + Middle name + LAST NAME with the surname in CAPS (CD-3.1) -
+    the middle name comes off the client ID and is easy to miss, and it is
+    typed the same way in the inclusions (executed 25176 carries "Shaun Leslie
+    MCMEEKEN" in both documents). The corrected 26052 predates the plural and
+    keeps ("Client"); the team confirmed the plural, so it stays.
   - "(Current Residential Address)" starts its own paragraph, cloned from the
     client row's properties, with the value one space after the label. The old
     62-space layout run (measured off the Tamworth pair) is gone - on every
@@ -32,10 +38,10 @@ space-for-space):
     them misaligned and every corrected agreement fixes both the same way.
   - Signature block: owner 1 goes two paragraphs above the first "Client Name"
     label, owner 2 two above the second, and the builders representative three
-    above "Name who is authorised..." - typed in Calibri 12 (the sheet's spec;
-    cloning the blank's paragraph marks rendered the names at 8-9pt, the
-    "too small" fault the team flagged. The corrected docs themselves sit at
-    10-11pt - if the team ever wants that instead, change SIG_RPR).
+    above "Name who is authorised..." - typed in Calibri 12, confirmed by the
+    team 28 Aug 2026. Cloning the blank's paragraph marks rendered the names at
+    8-9pt, the "too small" fault the team flagged; the corrected documents
+    themselves sit at 10-11pt, and the team chose 12 over both.
 
 Whether the job needs a preliminary agreement at all is a human decision
 (CD-4.4) - the request email saying "no prelim required" has been overridden in
@@ -62,7 +68,8 @@ CONS_LABEL = "(For Construction Address)"
 FEE_TEXT = "$30,000."
 RESI_PAD, CONS_PAD = 1, 5  # spaces between label and value (corrected 26032/26052)
 SIG_LEAD = {"owner_1": "  ", "owner_2": "  ", "builders_rep": "   "}
-# Calibri 12 for the typed signature names (comparison sheet, 28 Aug 2026)
+# Calibri 12 for the typed signature names (comparison sheet; team-confirmed
+# 28 Aug 2026, over both the blank's 8-9pt and the corrected docs' 10-11pt)
 SIG_RPR = ('<w:rPr><w:rFonts w:ascii="Calibri" w:eastAsia="Calibri"'
            ' w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="24"/>'
            '<w:szCs w:val="24"/></w:rPr>')
@@ -75,6 +82,25 @@ SUNSET_ANCHOR = "pursuant to a sunset clause"
 
 def xml_escape(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def name_advisory(key, value):
+    """Flag a client name that is not First name + Middle name + LAST NAME.
+
+    Advisory only, never fatal: the surname's CAPS is the checkable half of
+    the team's format (CD-3.1), while a missing middle name is indistinguishable
+    from a client who has none. Company/trust owners (CD-3.9) are typed in CAPS
+    throughout and pass.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    last = value.split()[-1]
+    if any(c.isalpha() for c in last) and last != last.upper():
+        return (f"{key} \"{value}\": surname is not in CAPS - the team's format "
+                "is First name + Middle name + LAST NAME (CD-3.1). Check it "
+                "against the client ID before this goes out.")
+    return None
 
 
 def run_text(run):
@@ -160,7 +186,7 @@ def fill(xml, values, report):
         if owner_2:
             note("owner_1", "after And (two clients)", f"{owner_1} & …", 1)
             note("owner_2", "joined with & (two clients)", owner_2, 1)
-            # two buyers sign as ("Clients") - comparison sheet, 28 Aug 2026
+            # two buyers sign as ("Clients") - team-confirmed 28 Aug 2026
             for j in range(i_amp + 1, min(i_amp + 8, len(runs))):
                 if run_text(runs[j][2]) == "Client”":
                     edits.append((runs[j][0], runs[j][1],
@@ -341,6 +367,10 @@ def main():
     if not fee:
         print("fee      : none supplied - the template's standard $30,000 "
               "stands (CD-4.3, 28 Aug 2026)")
+    for advisory in (name_advisory("owner_1", values.get("owner_1")),
+                     name_advisory("owner_2", values.get("owner_2"))):
+        if advisory:
+            print(f"NOTE     : {advisory}")
     print()
     print(f"{'field':<22} {'hits':>4}  {'anchor':<28} value")
     print("-" * 88)
