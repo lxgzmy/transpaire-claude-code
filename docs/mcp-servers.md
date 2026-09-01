@@ -10,6 +10,7 @@ server without approval, and no credentials in the repo.
 | Server | Scope | Environment | State |
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
+| `osc-api` | User (all projects) | Companion Systems OSC API — **dev** | Built + tested, not yet registered |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -163,6 +164,88 @@ sandbox workflow has been reviewed:
 2. Add `mcp__docusign` to `ask` **before** first use.
 3. Keep `docusign-demo` installed for testing, and keep the names distinct so a
    workflow cannot send a real envelope while someone thinks they are testing.
+
+## OSC API (Companion Systems)
+
+### What it is
+
+A **local (stdio) MCP server** — Python, in-repo at
+[`shared/mcp/osc-api/`](../shared/mcp/osc-api/) — bridging Claude Code to the
+Companion Systems **OSC API** (OSCAPI). Unlike DocuSign (a remote HTTP server we
+only register), this one is **our code**, so it lives in the repo and is
+installed from there. It is the read/write counterpart to the manual OSC work in
+Contract Admin, and the intended integration point now that DataBuild is ruled
+out (see the table below).
+
+```
+Server name   osc-api            (dev)   /  osc-api-prod (production, later)
+Transport     stdio (local Python process)
+Code          shared/mcp/osc-api/  (osc_mcp package)
+Auth          OAuth client-credentials -> Bearer token (RFC6750/7617)
+Config        OSC_* environment variables only — no creds in the repo
+```
+
+### Tools
+
+Five generic, spec-driven tools cover all 148 OSCAPI endpoints (the OpenAPI spec
+is loaded at run time, so no per-endpoint code to maintain across versions):
+
+- `osc_token_info` *(read)* — granted scope + token expiry; use to check access.
+- `osc_list_endpoints` *(read)* — list endpoints, filter by substring/method.
+- `osc_describe_endpoint` *(read)* — params/body/responses for one path.
+- `osc_get` *(read)* — GET any endpoint; supports OData query params and the
+  body-filter GETs (e.g. `/api/Jobs`).
+- `osc_write` *(write — gated)* — POST/PUT/PATCH/DELETE.
+
+### Human-in-the-loop
+
+Reading OSC is safe; writing changes a system of record, which the org rules do
+not allow without human sign-off. `osc_write` is gated three independent ways:
+
+1. **Off by default** — refuses unless the server is started with
+   `OSC_ENABLE_WRITES=true`; returns a preview and sends nothing otherwise.
+2. **Approved per call** — `mcp__osc-api__osc_write` (and the future
+   `mcp__osc-api-prod__osc_write`) are on `ask` in
+   [`.claude/settings.json`](../.claude/settings.json), so every write prompts
+   with the exact request shown.
+3. **Explicit confirm** — the tool needs `confirm=true`; without it, it returns a
+   dry-run preview.
+
+The read-only tools are on `allow` so queries run without a prompt.
+
+### Credentials
+
+The OAuth **client id / secret** are issued per environment by Companion Systems
+and belong in the company password store. They are passed to the server through
+`OSC_CLIENT_ID` / `OSC_CLIENT_SECRET` at registration time and are **never** in
+the repo, a commit, a log, or a prompt. Server host names live only in the env
+too (`OSC_BASE_URL`, `OSC_SWAGGER_URL`) — not in the repo — per the guardrail
+against committing server names.
+
+### Install / register (Windows server, `pwsh`, user scope)
+
+Full steps are in [`shared/mcp/osc-api/README.md`](../shared/mcp/osc-api/README.md).
+In short: `uv venv` + `uv pip install -e .` inside the package, then
+`claude mcp add osc-api --scope user --env OSC_...=... -- <venv-python> -m osc_mcp.server`.
+Verify with `claude mcp get osc-api` and `osc_token_info` in a session.
+
+Before registering, confirm configuration with the host-free check:
+`python -m osc_mcp.selftest` (read-only; uses the same `OSC_*` env).
+
+### Note on the dev environment
+
+The nominal *dev* instance serves **real production client data** (real names,
+ABNs, contact details) and its host resolves to a **public IP** with the API port
+open. Treat its output as live client data under the org guardrails, and keep the
+credential out of shared logs. Flag the public exposure to the integration owner.
+
+### Promoting to production
+
+Register a **second** server, `osc-api-prod`, with the prod `OSC_BASE_URL`, prod
+credentials, prod `OSC_SWAGGER_URL`, and `OSC_VERIFY_TLS=true`. Keep the names
+distinct so a workflow cannot hit prod while someone believes they are on dev.
+Leave `OSC_ENABLE_WRITES=false` until a write workflow has been reviewed, and the
+`mcp__osc-api-prod__osc_write` `ask` rule is already in place.
 
 ## Evaluated — cannot be connected
 
