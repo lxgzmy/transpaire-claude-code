@@ -10,7 +10,7 @@ server without approval, and no credentials in the repo.
 | Server | Scope | Environment | State |
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
-| `osc-api` | User (all projects) | Companion Systems OSC API — **dev** | Built + tested, not yet registered |
+| `osc-api` | User (all projects) | Companion Systems OSC API — **dev** | Registered (user scope), connected — loads in every new session |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -226,8 +226,15 @@ against committing server names.
 
 Full steps are in [`shared/mcp/osc-api/README.md`](../shared/mcp/osc-api/README.md).
 In short: `uv venv` + `uv pip install -e .` inside the package, then
-`claude mcp add osc-api --scope user --env OSC_...=... -- <venv-python> -m osc_mcp.server`.
+`claude mcp add osc-api --scope user -- <venv-python> -m osc_mcp.server`.
+As registered, the `OSC_*` values come from the git-ignored `.env` beside the
+package (loaded by `osc_mcp.config`), so no credential lands in `.claude.json`;
+passing `--env OSC_...=...` at registration still works and overrides the file.
 Verify with `claude mcp get osc-api` and `osc_token_info` in a session.
+
+Note: the `mcp` Python SDK is pinned to `<2` in `pyproject.toml` — mcp 2.x
+negotiates the 2026-07-28 MCP protocol, which the Claude Code CLI rejects at
+the initialize handshake (`-32022`), and the server then never connects.
 
 Before registering, confirm configuration with the host-free check:
 `python -m osc_mcp.selftest` (read-only; uses the same `OSC_*` env).

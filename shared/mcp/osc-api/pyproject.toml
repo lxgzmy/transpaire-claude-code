@@ -5,7 +5,9 @@ description = "MCP server bridging Claude Code to the Companion Systems OSC API 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp>=1.2.0",
+    # mcp 2.x negotiates the 2026-07-28 MCP protocol, which Claude Code
+    # (CLI 2.1.x) rejects at the initialize handshake — stay on 1.x.
+    "mcp>=1.2.0,<2",
     "httpx>=0.27",
 ]
 
