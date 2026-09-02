@@ -1,8 +1,11 @@
 # MCP servers (org-wide)
 
-Register of MCP servers connected to Claude Code for Transpire. Servers listed here
-are installed at **user scope**, so they are available in every project and to
-**every job-role** — a role does not install its own copy.
+Register of MCP servers connected to Claude Code for Transpire. Scope is per
+server (see the table): `docusign-demo` is at **user scope** (all projects, per
+Windows account), while `osc-api` is at **project scope** via the committed
+[`.mcp.json`](../.mcp.json), so every session started in this repo gets it, for
+**every job-role**, with nothing to redo per account. A role never installs its
+own copy of a server.
 
 The org guardrails in [CLAUDE.md](../CLAUDE.md) apply. In particular: no new MCP
 server without approval, and no credentials in the repo.
@@ -10,7 +13,7 @@ server without approval, and no credentials in the repo.
 | Server | Scope | Environment | State |
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
-| `osc-api` | User (all projects) | Companion Systems OSC API — **dev** | Registered (user scope), connected — loads in every new session |
+| `osc-api` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **dev** | Registered, connected — loads in every session started in this repo; needs the per-checkout venv + `.env` (see below) |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -222,22 +225,42 @@ the repo, a commit, a log, or a prompt. Server host names live only in the env
 too (`OSC_BASE_URL`, `OSC_SWAGGER_URL`) — not in the repo — per the guardrail
 against committing server names.
 
-### Install / register (Windows server, `pwsh`, user scope)
+### Install / register (Windows server, `pwsh`, project scope)
 
-Full steps are in [`shared/mcp/osc-api/README.md`](../shared/mcp/osc-api/README.md).
-In short: `uv venv` + `uv pip install -e .` inside the package, then
-`claude mcp add osc-api --scope user -- <venv-python> -m osc_mcp.server`.
-As registered, the `OSC_*` values come from the git-ignored `.env` beside the
-package (loaded by `osc_mcp.config`), so no credential lands in `.claude.json`;
-passing `--env OSC_...=...` at registration still works and overrides the file.
-Verify with `claude mcp get osc-api` and `osc_token_info` in a session.
+Registration is **committed**: [`.mcp.json`](../.mcp.json) at the repo root
+registers `osc-api` at project scope, and `enabledMcpjsonServers` in
+[`.claude/settings.json`](../.claude/settings.json) pre-approves it, so there
+is no `claude mcp add` to run and nothing to redo per Windows account. (It was
+first registered at user scope, which is per-account — a new account or a
+re-clone silently lost it. Project scope travels with the checkout; moved
+2 Sep 2026.)
+
+What the committed registration does **not** carry is per-checkout state. Each
+checkout needs, under `shared/mcp/osc-api/`:
+
+1. the git-ignored `.env` with the `OSC_*` values (hosts and credentials come
+   from the company password store, never the repo), loaded by `osc_mcp.config`
+   so nothing sensitive lands in `.mcp.json`; and
+2. the venv the committed command points at:
+
+```powershell
+Set-Location "Z:\CLAUDE CODE\transpire-claude-code\shared\mcp\osc-api"
+python -m venv .venv        # or `uv venv` where uv is installed
+.\.venv\Scripts\python.exe -m pip install -e .
+```
+
+The one env var `.mcp.json` does set is `OSC_TIMEOUT=120`: the dev API's first
+response after idling can exceed the 30-second default (cold app pool), which
+surfaces as a `ReadTimeout` on the token call and then succeeds on retry.
 
 Note: the `mcp` Python SDK is pinned to `<2` in `pyproject.toml` — mcp 2.x
 negotiates the 2026-07-28 MCP protocol, which the Claude Code CLI rejects at
 the initialize handshake (`-32022`), and the server then never connects.
 
-Before registering, confirm configuration with the host-free check:
-`python -m osc_mcp.selftest` (read-only; uses the same `OSC_*` env).
+Verify a fresh checkout with the read-only check
+`.\.venv\Scripts\python.exe -m osc_mcp.selftest`, then `claude mcp list` from
+the repo root should show `osc-api` connected. Already-open sessions pick the
+server up on restart, not live.
 
 ### Note on the dev environment
 
@@ -268,8 +291,11 @@ the work is not redone.
 1. Propose it first (org guardrail: no MCP server, skill, or software without
    approval).
 2. Prefer read-only access before any write access.
-3. Install with `--scope user` if more than one role needs it; `--scope local` only
-   for a genuinely project-specific server.
+3. Pick the scope deliberately: commit it to [`.mcp.json`](../.mcp.json)
+   (project scope) when it should travel with this repo for every account,
+   like `osc-api`; `--scope user` when it must also be available outside this
+   repo (per-account, like `docusign-demo`); `--scope local` only for a
+   personal experiment.
 4. Put the secret in an environment variable at install time, never in the JSON that
    goes into a doc or a commit.
 5. Add it to the table at the top of this file, with an `ask` rule if it can cause an
