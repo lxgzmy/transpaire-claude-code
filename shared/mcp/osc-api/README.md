@@ -262,7 +262,8 @@ python -m venv .venv          # or `uv venv` where uv is installed
 
 # 3. Confirm - read-only selftest, then the registration itself
 .\.venv\Scripts\python.exe -m osc_mcp.selftest
-claude mcp list
+claude mcp list   # "Pending approval" only means this account hasn't accepted
+                  # the workspace trust dialog yet; sessions still load it
 ```
 
 Then in an interactive session, run `/mcp` and check `osc-api` is connected, and

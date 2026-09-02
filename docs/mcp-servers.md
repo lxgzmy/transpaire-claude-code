@@ -258,8 +258,12 @@ negotiates the 2026-07-28 MCP protocol, which the Claude Code CLI rejects at
 the initialize handshake (`-32022`), and the server then never connects.
 
 Verify a fresh checkout with the read-only check
-`.\.venv\Scripts\python.exe -m osc_mcp.selftest`, then `claude mcp list` from
-the repo root should show `osc-api` connected. Already-open sessions pick the
+`.\.venv\Scripts\python.exe -m osc_mcp.selftest`. One display quirk:
+`claude mcp list` shows the server as *Pending approval* until the account has
+accepted the one-time workspace trust dialog (first interactive `claude` run in
+the repo) — sessions themselves still load it through the settings
+pre-approval, which is what counts; verified with a headless `claude -p` call
+of `osc_token_info` on an untrusted account. Already-open sessions pick the
 server up on restart, not live.
 
 ### Note on the dev environment
