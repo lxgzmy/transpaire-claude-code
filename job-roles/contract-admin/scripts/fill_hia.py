@@ -11,19 +11,27 @@ STATUS (25 Aug 2026):
         A real Word-native document, not a PDF conversion - native pagination,
         no reflow artifacts. Still fills to template-testing only until MCR
         files the blank in the region's CONTRACT folder (CD-5.2b rule 1).
-  QLD - anchored to the team's own Word build of the QC2 contract
-        (QLD.BUILD.CONTRACT.Final.docx, provided 25 Aug 2026), which replaced
-        the repaired PDF conversion and its layout risks the same way the NSW
-        build did. Since 28 Aug 2026 the staged copy is the sanctioned interim
-        "QLD BUILD CONTRACT v1.1 ANCHORS 28.08.2026 - INTERIM PENDING MCR.docx"
-        - the team build plus the licensed PDF's e-sign anchor codes
-        (/bs1/\builder_sig, /i1/\signer1_sig, four witness /na/), nothing
-        else changed; blank still exports at 37 pages. Same gate:
-        template-testing only until MCR files the blank in
-        REGION - SEQ\CONTRACT (CD-5.2b rule 1).
+  QLD - anchored to the team's v2 Word build of the QC2 contract
+        (QLD_HIA_BUILD_CONTRACT_v2.docx, uploaded 1 Sep 2026 on issue #8,
+        staged as "QLD BUILD CONTRACT v2 01.09.2026 - TEAM BUILD PENDING
+        MCR.docx"). v2 closes the page-spill query at source: the cover
+        fields, Schedule 1 item 3 (owners), item 7 (guarantors) and the
+        deed's BUILDER IS / OWNER IS lines are real label-cell + value-cell
+        tables, so a typed value lands in a wide empty cell instead of
+        wrap-crushing a narrow label column - filled exports hold the
+        blank's 37 pages. v2 also carries the e-sign anchor set at source
+        (/bs1/\builder_sig, four witness /na/; /i1/\signer1_sig moved to
+        the owner SIGNATURE line, where the licensed PDF and the superseded
+        v1.1 interim had it at Special Conditions "Owner(s) to initial
+        here" - flagged for MCR's read-through, no fill impact). Supersedes
+        the 28 Aug v1.1 ANCHORS interim copy and the 25 Aug team build it
+        patched. Same gate: template-testing only until MCR files the
+        blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
 
-What it fills (label-anchored, value typed after the printed label - the same
-technique as fill_inclusions.py / fill_prelim.py):
+What it fills (label-anchored - the same technique as fill_inclusions.py /
+fill_prelim.py. Mode "after" types the value inline after the printed label;
+mode "cell" - the QLD v2 table layout - lands it in the empty table cell
+beside the label's cell, the way a person typing in the value column would):
 
   NSW (April 2021 edition, team Word build):
     cover         OWNERS: / JOB: / LOT: / SITE:
@@ -50,7 +58,7 @@ technique as fill_inclusions.py / fill_prelim.py):
                   first / second "Name (print):" (capacity stays blank -
                   it matters only for company or agent signings).
 
-  QLD (QC2, October 2020 edition, team Word build):
+  QLD (QC2, October 2020 edition, team v2 Word build):
     cover        OWNERS: / JOB: / LOT: / SITE:
     guide        Consumer Building Guide owner-acknowledgement NAME(S), both
                  copies (the executed 25163 contract keys the owner at each)
@@ -80,7 +88,10 @@ Anchor discipline as everywhere else: --check first; a missing anchor is a
 revised template and stops the fill. The fill engine tolerates Word's habit
 of splitting a printed label across runs (this is why the team's Word build
 needs it: "BUILDER IS", "THE DEPOSIT IS:" etc. arrive split), and matching
-is whitespace-normalised.
+is whitespace-normalised. Mode "cell" validates structure as well as text:
+the label paragraph must close its table cell and the next cell in the row
+must be empty - anything else reads as a revised template and stops the
+fill, even on --check with no value to type.
 """
 import argparse
 import html
@@ -195,6 +206,52 @@ def fill_para(p_xml, label, value, mode, occ=1):
     return _rebuild(p_xml, segs), True
 
 
+T_RE = re.compile(r"<w:t(?: [^>]*)?>(.*?)</w:t>", re.S)
+TC_OPEN_RE = re.compile(r"<w:tc\b")
+P_ANY_RE = re.compile(r"<w:p\b[^>]*/>|<w:p\b[^>]*>")  # self-closed first
+LABEL_RPR_RE = re.compile(r"<w:r\b[^>]*>\s*(<w:rPr>.*?</w:rPr>)", re.S)
+BOLD_RE = re.compile(r"<w:b(?:Cs)?(?: [^>]*)?/>")
+
+
+def cell_value_run(label_p_xml, value):
+    """A run for the empty value cell: the label run's own face minus bold,
+    the way a typed entry renders beside a bold printed label."""
+    m = LABEL_RPR_RE.search(label_p_xml)
+    rpr = BOLD_RE.sub("", m.group(1)) if m else ""
+    return f'<w:r>{rpr}<w:t xml:space="preserve">{xml_escape(value)}</w:t></w:r>'
+
+
+def cell_slot(xml, para_end):
+    """((start, end, before, after), None) locating the value slot in the
+    table cell after the label's cell, or (None, reason).
+
+    The slot replaces xml[start:end] with before + value run + after. The
+    label's paragraph must close its cell, the next cell must start in the
+    same row, and it must hold no visible text - anything else reads as a
+    revised template and stops the fill like any other missing anchor."""
+    if not xml[para_end:para_end + 40].lstrip().startswith("</w:tc>"):
+        return None, "label paragraph does not close a table cell"
+    tc = TC_OPEN_RE.search(xml, para_end)
+    row_end = xml.find("</w:tr>", para_end)
+    if not tc or (0 <= row_end < tc.start()):
+        return None, "no value cell follows in the same table row"
+    cell_start = tc.start()
+    cell = xml[cell_start:xml.find("</w:tc>", cell_start)]
+    if "".join(m.group(1) for m in T_RE.finditer(cell)).strip():
+        return None, "the value cell beside the label is not empty"
+    pm = P_ANY_RE.search(cell)
+    if not pm:
+        return None, "the value cell has no paragraph"
+    if pm.group(0).endswith("/>"):   # <w:p .../> -> open it around the run
+        a = cell_start + pm.start()
+        return (a, a + len(pm.group(0)), pm.group(0)[:-2] + ">", "</w:p>"), None
+    close = cell.find("</w:p>", pm.end())
+    if close < 0:
+        return None, "the value cell's paragraph does not close"
+    a = cell_start + close
+    return (a, a, "", ""), None
+
+
 # Anchor sets. Field tuples are (json key, printed label, mode[, occurrence]).
 # Scope None = whole document, first occurrence.
 COVER = [
@@ -203,6 +260,9 @@ COVER = [
     ("lot_no",   "LOT:",    "after"),
     ("site_hia", "SITE:",   "after"),
 ]
+# The QLD v2 build boxes each cover label into a narrow table cell with a
+# wide empty value cell beside it; the NSW build keeps them inline.
+QLD_COVER = [(key, label, "cell") for key, label, _ in COVER]
 REGIONS = {
     # The team's own Word build of the April 2021 NSW contract (21 Aug 2026).
     # Schedule 1's owner rows are a real table; the deed and checklist are
@@ -274,17 +334,21 @@ REGIONS = {
         ],
         "liq": ("liq_damages", "per working day"),
     },
-    # The team's own Word build of the QC2 October 2020 contract (25 Aug
-    # 2026). The schedule pages are multi-column: labels sit in narrow
-    # indented columns (several labels share one wrapping paragraph, e.g.
-    # "NAME ADDRESS SUBURB", "SUBURB<tab>STATE<tab>POSTCODE"), and a value
-    # types inline after its label - the pattern the build's own prefilled
-    # builder block uses ("NAME TRANSPIRE CONSTRUCTIONS PTY LTD"). Scopes are
-    # picked from strings unique-first in document order (the TOC repeats
-    # the schedule headings, so heading-only scopes would land there).
+    # The team's v2 Word build of the QC2 October 2020 contract (1 Sep 2026,
+    # issue #8). v2 rebuilt the wrap-prone label areas as real tables: the
+    # cover fields, item 3 owners, item 7 guarantors and the deed's BUILDER
+    # IS / OWNER IS lines are a narrow label cell + wide empty value cell,
+    # filled with mode "cell" - the value lands in the empty cell, the way
+    # the build's own ABN/ACN prefills sit beside their labels. Everything
+    # else keeps the v1 inline layout (the land, the Consumer Building
+    # Guide, the deed's guarantor lines and the signature names still share
+    # label paragraphs, e.g. "SUBURB<tab>STATE<tab>POSTCODE") and a value
+    # types inline after its label. Scopes are picked from strings
+    # unique-first in document order (the TOC repeats the schedule
+    # headings, so heading-only scopes would land there).
     "QLD": {
         "groups": [
-            (None, COVER),
+            (None, QLD_COVER),
             # Consumer Building Guide - owner acknowledgement, both copies
             # (the executed 25163 contract keys the owner entity at each)
             (("Complete and sign the section below", "For further building information"), [
@@ -294,21 +358,21 @@ REGIONS = {
             # item 3 Owner(s) - between item 2's closing note and the
             # builder block's prefilled company name
             (("However, the contract price may include amounts", "TRANSPIRE CONSTRUCTIONS"), [
-                ("_sch1_owner",    "NAME",     "after"),
-                ("owner_address",  "ADDRESS",  "after"),
-                ("owner_suburb",   "SUBURB",   "after"),
-                ("owner_state",    "STATE",    "after"),
-                ("owner_postcode", "POSTCODE", "after"),
-                ("owner_mobile",   "MOBILE",   "after"),
-                ("owner_email",    "EMAIL",    "after"),
+                ("_sch1_owner",    "NAME",     "cell"),
+                ("owner_address",  "ADDRESS",  "cell"),
+                ("owner_suburb",   "SUBURB",   "cell"),
+                ("owner_state",    "STATE",    "cell"),
+                ("owner_postcode", "POSTCODE", "cell"),
+                ("owner_mobile",   "MOBILE",   "cell"),
+                ("owner_email",    "EMAIL",    "cell"),
             ]),
             # item 7 Owner's guarantors - sourced names only, else left blank
             (("Owner's guarantors (Clause 32)", "Default interest rate"), [
-                ("guarantor_name",     "NAME",     "after"),
-                ("guarantor_address",  "ADDRESS",  "after"),
-                ("guarantor_suburb",   "SUBURB",   "after"),
-                ("guarantor_state",    "STATE",    "after"),
-                ("guarantor_postcode", "POSTCODE", "after"),
+                ("guarantor_name",     "NAME",     "cell"),
+                ("guarantor_address",  "ADDRESS",  "cell"),
+                ("guarantor_suburb",   "SUBURB",   "cell"),
+                ("guarantor_state",    "STATE",    "cell"),
+                ("guarantor_postcode", "POSTCODE", "cell"),
             ]),
             # item 11 The land
             (("The land (Clause 6)", "Matters affecting the site"), [
@@ -328,8 +392,8 @@ REGIONS = {
             # Deed of guarantee and indemnity - completed only when the job
             # has a sourced guarantor; the deed date is never filled
             (("BUILDER IS", "Background"), [
-                ("_deed_builder",      "BUILDER IS",     "after"),
-                ("_deed_owner",        "OWNER IS",       "after"),
+                ("_deed_builder",      "BUILDER IS",     "cell"),
+                ("_deed_owner",        "OWNER IS",       "cell"),
                 ("guarantor_name",     "Guarantors",     "after"),
                 ("guarantor_address",  "ADDRESS LINE 1", "after"),
                 ("guarantor_suburb",   "SUBURB",         "after"),
@@ -411,8 +475,10 @@ def run(template, job, out_path, check_only, region):
             seen += k
         return None, None
 
-    # resolve each field to (paragraph index, key, label, value, mode, occ)
-    plan, missing_anchor, blank_fields = [], [], []
+    # resolve each field to (paragraph index, key, label, value, mode, occ);
+    # cell-mode fields resolve straight to an xml edit (their value lands in
+    # the next table cell, outside the label's paragraph)
+    plan, cell_edits, cell_shown, missing_anchor, blank_fields = [], [], [], [], []
     for scope, fields in anchors["groups"]:
         lo, hi = scope_bounds(scope)
         if lo is None:
@@ -427,6 +493,21 @@ def run(template, job, out_path, check_only, region):
                 missing_anchor.append(
                     f"{key}: label {label!r} (occurrence {occ}) not in scope "
                     f"{scope and scope[0]}")
+                continue
+            if mode == "cell":
+                # validate the slot even with no value to type, so --check
+                # catches template drift on every anchor
+                slot, why = cell_slot(xml, paras[idx][1])
+                if why:
+                    missing_anchor.append(f"{key}: label {label!r} - {why}")
+                    continue
+                if not val:
+                    blank_fields.append((key, label))
+                    continue
+                s, e, before, after = slot
+                cell_edits.append(
+                    (s, e, before + cell_value_run(paras[idx][2], val) + after))
+                cell_shown.append((idx, key, label, val))
                 continue
             if not val:
                 blank_fields.append((key, label))
@@ -476,7 +557,8 @@ def run(template, job, out_path, check_only, region):
     print()
     print(f"{'field':<18} {'para':>5}  {'label':<18} value")
     print("-" * 80)
-    for idx, key, label, val, mode, occ in sorted(plan):
+    for idx, key, label, val in sorted(
+            [(i, k, l, v) for i, k, l, v, _, _ in plan] + cell_shown):
         print(f"{key:<18} {idx:>5}  {label:<18} {val[:40]}")
     for key, label in blank_fields:
         print(f"{key:<18} {'-':>5}  {label:<18} (no value - left blank)")
@@ -491,7 +573,9 @@ def run(template, job, out_path, check_only, region):
         return 0
 
     # apply, back-to-front so offsets stay valid; all fills for one
-    # paragraph compose on the same XML before it is spliced back once
+    # paragraph compose on the same XML before it is spliced back once,
+    # and cell edits land in the same descending pass
+    edits = list(cell_edits)
     by_para = {}
     for idx, key, label, val, mode, occ in plan:
         by_para.setdefault(idx, []).append((key, label, val, mode, occ))
@@ -502,7 +586,15 @@ def run(template, job, out_path, check_only, region):
             if not ok:
                 print(f"FILL FAILED at paragraph {idx} for {key} - stopping, nothing written")
                 return 1
-        xml = xml[:start] + p_xml + xml[end:]
+        edits.append((start, end, p_xml))
+    edits.sort(key=lambda e: e[0], reverse=True)
+    applied_to = len(xml) + 1
+    for start, end, new in edits:
+        if end > applied_to:
+            print("FILL FAILED: overlapping edits - stopping, nothing written")
+            return 1
+        xml = xml[:start] + new + xml[end:]
+        applied_to = start
 
     import shutil
     import zipfile
