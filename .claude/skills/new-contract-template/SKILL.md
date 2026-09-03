@@ -39,7 +39,7 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 |---|---|
 | **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4); the standard $30,000 fee stands unless the request names another (CD-4.3, reversed 28 Aug 2026) |
-| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged template under a `- TEST UNAPPROVED TEMPLATE` name (never issuable). Both staged templates are **the team's own Word builds** (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026, swapped in 23 Aug 2026; QLD: the team's v2, `QLD_HIA_BUILD_CONTRACT_v2.docx` from issue #8, staged 3 Sep 2026 — real value-cell tables in the areas that used to wrap, e-sign anchors at source). PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
+| **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → TEST runs fill from the staged template under a `- TEST UNAPPROVED TEMPLATE` name (never issuable). Staged templates: NSW is **the team's own Word build** (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026, swapped in 23 Aug 2026); QLD is the **v2.1 LAND TABLES interim** (3 Sep 2026) — the team's v2 from issue #8 (value-cell tables, e-sign anchors at source) plus the same table fix for the land block v2 missed; filled exports hold the licensed 37 pages. PRODUCTION with no approved blank → **data sheet only** and the run reports BLOCKED |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
 
 Be straight about that third row — say which template the build contract came
@@ -50,23 +50,23 @@ from (approved blank, staged UNAPPROVED, or none) and relay the run's
 (CD-5.2b): in both regions only MCR's own steps — eye-review a filled test
 output against the licensed PDF (the layout is the team's own Word build, so
 this is a read-through, not a repair) and file the blank in the region's
-`CONTRACT\` folder. For QLD the stage fills from the team's v2 master
-(1 Sep 2026, issue #8; staged 3 Sep 2026 — see the staging README in
-`runtime\contract-admin\outputs\_hia-word-templates\`). v2 fixed the 25 Aug
-build review at source: the wrap-crushed label areas (cover, Schedule 1
-items 3/7, the deed's BUILDER IS / OWNER IS) are real label-cell +
-value-cell tables — the fill types those values into the value cell (mode
-"cell"), never the narrow label cell — and the licensed PDF's e-sign
-anchor codes are in the master itself. Two flagged items ride with MCR's
-read-through, so say in every QLD run report: the filled build contract
-still carries a **+1-page spill** (Schedule 1 item 11's `STREET ADDRESS:`
-line wraps any typed value — 38 pages vs the licensed 37, down from the
-old build's 40; the fix is the same table structure, or MCR accepts it),
-and v2 moved `/i1/\signer1_sig` from the licensed "Owner(s) to initial
-here" spot to the owner SIGNATURE line. (The review's "~35 dropped
-sub-clause margin numbers" finding stays closed 28 Aug 2026 — it was a
-text-extraction artifact; every sub-clause number in the licensed QC2
-renders in the build.) From the moment a blank is filed, the driver fills it under the real
+`CONTRACT\` folder. For QLD the stage fills from the **v2.1 LAND TABLES
+interim** (sanctioned repair 3 Sep 2026 — see the staging README in
+`runtime\contract-admin\outputs\_hia-word-templates\`): the team's v2
+master (1 Sep 2026, issue #8), which fixed the 25 Aug build review at
+source — the wrap-crushed label areas (cover, Schedule 1 items 3/7, the
+deed's BUILDER IS / OWNER IS) are real label-cell + value-cell tables, and
+the licensed PDF's e-sign anchor codes are in the master itself — plus the
+same table fix for the one area v2 missed, Schedule 1 item 11 The land
+(`make_v21.py`). The fill types every such value into the value cell (mode
+"cell"), never a narrow label cell, so **filled exports hold the licensed
+37 pages** (the old build filled at 40, plain v2 at 38). One flagged item
+rides with MCR's read-through, so say it in every QLD run report: v2 moved
+`/i1/\signer1_sig` from the licensed "Owner(s) to initial here" spot to
+the owner SIGNATURE line — awaiting confirmation it is deliberate. (The
+review's "~35 dropped sub-clause margin numbers" finding stays closed
+28 Aug 2026 — it was a text-extraction artifact; every sub-clause number
+in the licensed QC2 renders in the build.) From the moment a blank is filed, the driver fills it under the real
 name with no further engineering (`regress_hia.py` guards the anchors and
 the cell placement; eye-verify the first fill after any template lands). CD-5.4 always applies:
 no figure is ever computed here — price/GST/deposit type in only when a

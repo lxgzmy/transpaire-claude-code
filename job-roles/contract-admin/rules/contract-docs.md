@@ -245,15 +245,20 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   tables — `fill_hia.py` types those values into the empty value cell
   (mode "cell", 3 Sep 2026; `regress_hia.py` asserts the placement
   row-by-row and that the six e-sign anchor codes survive a fill) — and
-  the licensed PDF's anchor codes are in the master itself. Two items ride
-  with MCR's read-through (staging README): Schedule 1 item 11's `STREET
-  ADDRESS:` line still wraps any typed value (filled exports run 38 pages
-  vs the licensed 37, down from the 25 Aug build's 40), and v2 moved
+  the licensed PDF's anchor codes are in the master itself. v2 missed one
+  wrap area — Schedule 1 item 11's `STREET ADDRESS:` line, which cascaded
+  a near-empty spill page (38 vs the licensed 37) — so the staged copy is
+  the **v2.1 LAND TABLES interim** (sanctioned repair, 3 Sep 2026,
+  `make_v21.py`): v2 plus the same table fix for the land, band geometry
+  held to the v2 render within 0.1pt, wording word-identical. Filled
+  exports hold the licensed **37 pages** (v1.1: 40 → v2: 38 → v2.1: 37).
+  One item rides with MCR's read-through (staging README): v2 moved
   `/i1/\signer1_sig` from the licensed "Owner(s) to initial here" spot to
-  the owner SIGNATURE line. What remains before rule 1 takes over is that
-  read-through of a filled test output against the licensed PDF and filing
-  the blank in `CONTRACT\` — no repair work. Once a blank is filed, rule 1
-  applies with no further engineering.
+  the owner SIGNATURE line — confirm it is deliberate. What remains before
+  rule 1 takes over is that read-through of a filled test output against
+  the licensed PDF and filing the blank in `CONTRACT\` (for the master,
+  fold the land fix in at source as v2 folded in the v1.1 anchors). Once a
+  blank is filed, rule 1 applies with no further engineering.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)* On the team builds the fill also types (NSW 23 Aug 2026
   per the end users' review; QLD 25 Aug 2026): Schedule 1 owners incl.
@@ -363,14 +368,15 @@ cabinet; and any DocuSign issue to a client.
    is current practice drift that should be corrected? (CD-7.3)
 2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
    requirement. The whole pipeline is now built and driver-integrated
-   (CD-5.2b: both regions staged on the team's own Word builds — NSW 23 Aug
-   2026, QLD v2 3 Sep 2026 — `fill_hia.py` NSW+QLD commissioned on
-   26045/25163, cell mode verified on 26015, `regress_hia.py` passing); the
-   ONLY remaining step is human — a read-through of a filled test output
-   against the licensed PDF (for QLD, settling the two flagged v2 items in
-   the staging README with it: the land line's residual one-page spill, and
-   the moved `/i1/\signer1_sig` placement), MCR approval, file the blank in
-   the region's `CONTRACT\` folder. Until then production runs stay
+   (CD-5.2b: NSW staged on the team's own Word build, 23 Aug 2026; QLD on
+   the v2.1 LAND TABLES interim, 3 Sep 2026 — the team's v2 plus the land
+   table fix, filled exports at the licensed 37 pages — `fill_hia.py`
+   NSW+QLD commissioned on 26045/25163, cell mode verified on 26015,
+   `regress_hia.py` passing); the ONLY remaining step is human — a
+   read-through of a filled test output against the licensed PDF (for QLD,
+   settling the one flagged item in the staging README with it: the moved
+   `/i1/\signer1_sig` placement), MCR approval, file the blank in the
+   region's `CONTRACT\` folder. Until then production runs stay
    data-sheet-only. (CD-5.1/5.2)
 3. ~~What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over?~~ **Answered 28 Aug 2026** by the
