@@ -3,6 +3,9 @@
     "commit": "",
     "pr": ""
   },
+  "enabledMcpjsonServers": [
+    "osc-api"
+  ],
   "permissions": {
     "allow": [
       "mcp__osc-api__osc_token_info",

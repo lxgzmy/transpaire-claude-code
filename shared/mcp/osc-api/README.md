@@ -241,34 +241,37 @@ All via environment variables - see [`.env.example`](.env.example).
 
 ## Install & register (Windows server, `pwsh`)
 
-The server is a Python package. Install its dependencies with `uv`, then
-register it with Claude Code at **user scope** so every role sees it (matching
-the pattern in [docs/mcp-servers.md](../../../docs/mcp-servers.md)).
+The server is **registered at project scope** by the committed
+[`.mcp.json`](../../../.mcp.json) at the repo root, pre-approved via
+`enabledMcpjsonServers` in `.claude/settings.json` — so every session started
+in this repo sees it and there is no `claude mcp add` to run. Details and
+history in [docs/mcp-servers.md](../../../docs/mcp-servers.md).
+
+A fresh checkout needs only the two git-ignored pieces the registration
+points at:
 
 ```powershell
 # 1. Create the environment and install (run once, and after dependency changes)
 Set-Location "Z:\CLAUDE CODE\transpire-claude-code\shared\mcp\osc-api"
-uv venv
-uv pip install -e .
+python -m venv .venv          # or `uv venv` where uv is installed
+.\.venv\Scripts\python.exe -m pip install -e .
 
-# 2. Register the server. Credentials are passed as env vars, never written into
-#    a doc or commit. Substitute the real values.
-$py = Resolve-Path ".\.venv\Scripts\python.exe"
-claude mcp add osc-api --scope user `
-  --env OSC_BASE_URL=https://<host>:53502 `
-  --env OSC_CLIENT_ID=<client-id> `
-  --env OSC_CLIENT_SECRET=<client-secret> `
-  --env OSC_SWAGGER_URL=https://<vendor-swagger-host>:53500/swagger/v7.3/swagger.json `
-  --env OSC_VERIFY_TLS=false `
-  --env OSC_ENABLE_WRITES=false `
-  -- "$py" -m osc_mcp.server
+# 2. Put the OSC_* values in a .env beside this README (copy .env.example).
+#    Values come from the company password store - never a doc, commit,
+#    or prompt.
 
-# 3. Confirm
-claude mcp get osc-api
+# 3. Confirm - read-only selftest, then the registration itself
+.\.venv\Scripts\python.exe -m osc_mcp.selftest
+claude mcp list   # "Pending approval" only means this account hasn't accepted
+                  # the workspace trust dialog yet; sessions still load it
 ```
 
 Then in an interactive session, run `/mcp` and check `osc-api` is connected, and
 try `osc_token_info` to confirm the credential and its granted scope.
+
+A checkout at a different path (e.g. a dev clone) won't match the committed
+command path; if it ever needs a live server, register there manually with
+`claude mcp add osc-api -- <its-venv-python> -m osc_mcp.server`.
 
 ## Pointing at production
 
