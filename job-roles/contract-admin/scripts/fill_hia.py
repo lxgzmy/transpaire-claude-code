@@ -11,22 +11,26 @@ STATUS (25 Aug 2026):
         A real Word-native document, not a PDF conversion - native pagination,
         no reflow artifacts. Still fills to template-testing only until MCR
         files the blank in the region's CONTRACT folder (CD-5.2b rule 1).
-  QLD - anchored to the team's v2 Word build of the QC2 contract
-        (QLD_HIA_BUILD_CONTRACT_v2.docx, uploaded 1 Sep 2026 on issue #8,
-        staged as "QLD BUILD CONTRACT v2 01.09.2026 - TEAM BUILD PENDING
-        MCR.docx"). v2 closes the page-spill query at source: the cover
-        fields, Schedule 1 item 3 (owners), item 7 (guarantors) and the
-        deed's BUILDER IS / OWNER IS lines are real label-cell + value-cell
-        tables, so a typed value lands in a wide empty cell instead of
-        wrap-crushing a narrow label column - filled exports hold the
-        blank's 37 pages. v2 also carries the e-sign anchor set at source
-        (/bs1/\builder_sig, four witness /na/; /i1/\signer1_sig moved to
-        the owner SIGNATURE line, where the licensed PDF and the superseded
-        v1.1 interim had it at Special Conditions "Owner(s) to initial
-        here" - flagged for MCR's read-through, no fill impact). Supersedes
-        the 28 Aug v1.1 ANCHORS interim copy and the 25 Aug team build it
-        patched. Same gate: template-testing only until MCR files the
-        blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
+  QLD - anchored to the v2.1 LAND TABLES interim (staged as "QLD BUILD
+        CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        sanctioned repair 3 Sep 2026): the team's v2 Word build of the QC2
+        contract (QLD_HIA_BUILD_CONTRACT_v2.docx, uploaded 1 Sep 2026 on
+        issue #8) plus the same table fix applied to the one wrap-prone
+        area v2 missed. v2 rebuilt the cover fields, Schedule 1 item 3
+        (owners), item 7 (guarantors) and the deed's BUILDER IS / OWNER IS
+        lines as real label-cell + value-cell tables; v2.1 (make_v21.py in
+        the staging folder) does the same for item 11 The land, whose
+        STREET ADDRESS: line had no room for any typed value and cascaded
+        a near-empty spill page. A typed value now always lands in a wide
+        empty cell - filled exports hold the licensed 37 pages (v1.1
+        filled at 40, v2 at 38, v2.1 at 37). The e-sign anchor set rides
+        at source (/bs1/\builder_sig, four witness /na/; /i1/\signer1_sig
+        moved by the team's v2 to the owner SIGNATURE line, where the
+        licensed PDF and the old v1.1 interim had it at Special Conditions
+        "Owner(s) to initial here" - flagged for MCR's read-through, no
+        fill impact). Supersedes the 28 Aug v1.1 ANCHORS interim and the
+        25 Aug team build. Same gate: template-testing only until MCR
+        files the blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
 
 What it fills (label-anchored - the same technique as fill_inclusions.py /
 fill_prelim.py. Mode "after" types the value inline after the printed label;
@@ -374,11 +378,15 @@ REGIONS = {
                 ("guarantor_state",    "STATE",    "cell"),
                 ("guarantor_postcode", "POSTCODE", "cell"),
             ]),
-            # item 11 The land
+            # item 11 The land - LOT/SP-RP/STREET are value cells since the
+            # v2.1 LAND TABLES interim (3 Sep 2026: v2 left this block in the
+            # old narrow label column, the one residual page-spill area);
+            # the SUBURB row below it stays inline - it absorbs its three
+            # values on the line without wrapping
             (("The land (Clause 6)", "Matters affecting the site"), [
-                ("lot_no",        "LOT",             "after"),
-                ("sp_rp",         "SP/RP",           "after"),
-                ("land_street",   "STREET ADDRESS:", "after"),
+                ("lot_no",        "LOT",             "cell"),
+                ("sp_rp",         "SP/RP",           "cell"),
+                ("land_street",   "STREET ADDRESS:", "cell"),
                 ("land_suburb",   "SUBURB",          "after"),
                 ("land_state",    "STATE",           "after"),
                 ("land_postcode", "POSTCODE",        "after"),
