@@ -36,9 +36,10 @@ into the workdir, so the status ships with the evidence instead of relying on
 hand-written prose staying accurate.
 
 Path to the unblock: the team's own Word builds of both contracts are staged
-in runtime\contract-admin\outputs\_hia-word-templates\ (NSW 23 Aug 2026, QLD
-25 Aug 2026 - they superseded the 17-18 Aug PDF-reflow conversions and that
-path's layout damage; the conversion trial is kept in
+in runtime\contract-admin\outputs\_hia-word-templates\ (NSW 23 Aug 2026;
+QLD: the team's v2 of 1 Sep 2026, staged 3 Sep - value-cell tables and
+e-sign anchors at source. They superseded the 17-18 Aug PDF-reflow
+conversions and that path's layout damage; the conversion trial is kept in
 runtime\contract-admin\outputs\_hia-conversion-trial\ as history). MCR
 eye-reviews a filled test output against the licensed PDF and files the blank
 in the region's CONTRACT folder, where this probe picks it up as CANDIDATE.

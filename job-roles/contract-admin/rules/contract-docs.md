@@ -236,21 +236,24 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   (`NSW.BUILD.CONTRACT.Final.docx`, built 21 Aug 2026; staged 23 Aug 2026 in
   response to the end users' review of the 10 test contracts, whose
   build-contract findings — text artifacts, misalignment, pagination spill,
-  blank pages — all traced to the earlier PDF conversion) and QLD
-  (`QLD.BUILD.CONTRACT.Final.docx`, provided and staged 25 Aug 2026,
-  retiring the QLD repaired conversion the same way — 25163's
-  build-contract findings traced to it). Word-native layout in both; what
-  remains before rule 1 takes over is MCR's read-through of a filled test
-  output against the licensed PDF and filing the blank in `CONTRACT\` — no
-  repair work. The QLD read-through also settles three open team queries
-  from the 25 Aug 2026 build review (staging README): the wrap-crushed
-  label columns that spill pages when any value is typed (filled tests
-  export 40 pages vs the blank's licensed-matching 37 — the NSW build's
-  real tables are the fix), ~35 dropped sub-clause margin numbers in the
-  general conditions, and the e-sign anchor codes (`/bs1/builder_sig`,
-  `/i1/signer1_sig`) present in the business's updated licensed PDF but
-  absent from the build. Once a blank is filed, rule 1 applies with no
-  further engineering.
+  blank pages — all traced to the earlier PDF conversion) and QLD v2
+  (`QLD_HIA_BUILD_CONTRACT_v2.docx`, uploaded by the owner 1 Sep 2026 on
+  issue #8; staged 3 Sep 2026, superseding the 28 Aug v1.1 ANCHORS interim
+  and the 25 Aug team build before it). v2 resolved the 25 Aug build review
+  at source: the wrap-crushed label areas (cover fields, Schedule 1 items
+  3/7, the deed's BUILDER IS / OWNER IS) are real label-cell + value-cell
+  tables — `fill_hia.py` types those values into the empty value cell
+  (mode "cell", 3 Sep 2026; `regress_hia.py` asserts the placement
+  row-by-row and that the six e-sign anchor codes survive a fill) — and
+  the licensed PDF's anchor codes are in the master itself. Two items ride
+  with MCR's read-through (staging README): Schedule 1 item 11's `STREET
+  ADDRESS:` line still wraps any typed value (filled exports run 38 pages
+  vs the licensed 37, down from the 25 Aug build's 40), and v2 moved
+  `/i1/\signer1_sig` from the licensed "Owner(s) to initial here" spot to
+  the owner SIGNATURE line. What remains before rule 1 takes over is that
+  read-through of a filled test output against the licensed PDF and filing
+  the blank in `CONTRACT\` — no repair work. Once a blank is filed, rule 1
+  applies with no further engineering.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)* On the team builds the fill also types (NSW 23 Aug 2026
   per the end users' review; QLD 25 Aug 2026): Schedule 1 owners incl.
@@ -360,13 +363,15 @@ cabinet; and any DocuSign issue to a client.
    is current practice drift that should be corrected? (CD-7.3)
 2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
    requirement. The whole pipeline is now built and driver-integrated
-   (CD-5.2b: both regions staged on the team's own Word builds — NSW 23 Aug,
-   QLD 25 Aug 2026 — `fill_hia.py` NSW+QLD commissioned on 26045/25163,
-   `regress_hia.py` passing); the ONLY remaining step is human — a
-   read-through of a filled test output against the licensed PDF (for QLD,
-   settling the two open team queries in the staging README with it), MCR
-   approval, file the blank in the region's `CONTRACT\` folder. Until then
-   production runs stay data-sheet-only. (CD-5.1/5.2)
+   (CD-5.2b: both regions staged on the team's own Word builds — NSW 23 Aug
+   2026, QLD v2 3 Sep 2026 — `fill_hia.py` NSW+QLD commissioned on
+   26045/25163, cell mode verified on 26015, `regress_hia.py` passing); the
+   ONLY remaining step is human — a read-through of a filled test output
+   against the licensed PDF (for QLD, settling the two flagged v2 items in
+   the staging README with it: the land line's residual one-page spill, and
+   the moved `/i1/\signer1_sig` placement), MCR approval, file the blank in
+   the region's `CONTRACT\` folder. Until then production runs stay
+   data-sheet-only. (CD-5.1/5.2)
 3. ~~What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over?~~ **Answered 28 Aug 2026** by the
    team's review sheet: $30,000 is the standard fee and stands unless the

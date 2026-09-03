@@ -90,14 +90,15 @@ CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*"
 #      never produces a document that could reach a job folder.
 #   3. otherwise -> data sheet only (the pre-existing behaviour).
 # Both staged templates are the team's own Word builds of their contracts
-# (NSW.BUILD.CONTRACT.Final.docx 21 Aug 2026, staged 23 Aug 2026;
-# QLD.BUILD.CONTRACT.Final.docx provided and staged 25 Aug 2026) - each
-# replaced its repaired PDF conversion and the conversion path's layout
-# artifacts.
+# (NSW.BUILD.CONTRACT.Final.docx 21 Aug 2026, staged 23 Aug 2026; QLD v2
+# uploaded 1 Sep 2026 on issue #8 - real value-cell tables in the areas that
+# used to wrap, e-sign anchors at source; it superseded the 28 Aug v1.1
+# ANCHORS interim and the 25 Aug team build) - each replaced its repaired
+# PDF conversion and the conversion path's layout artifacts.
 STAGED_HIA_DIR = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word-templates"
 STAGED_HIA = {
     "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx",
-    "QLD": STAGED_HIA_DIR / "QLD BUILD CONTRACT v1.1 ANCHORS 28.08.2026 - INTERIM PENDING MCR.docx",
+    "QLD": STAGED_HIA_DIR / "QLD BUILD CONTRACT v2 01.09.2026 - TEAM BUILD PENDING MCR.docx",
 }
 TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"
 
