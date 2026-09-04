@@ -6,9 +6,9 @@ outputs go to `runtime\permit-officer\` only.
 
 | Script | Purpose |
 |---|---|
-| `xlsx_min.py` | Minimal stdlib `.xlsx` reader (sheets, rows, TSV dump) used to parse the weekly BA report export. Read-only. |
+| `xlsx_min.py` | Minimal stdlib `.xlsx` reader + single-sheet writer (no openpyxl on the server). Reading never modifies a workbook. |
+| `ba_report_parse.py` | Weekly BA report export → row model (columns, date serials, the "PENDING …" item list in column G). |
+| `ba_report_draft.py` | Deterministic Monday draft: last week's report + per-job OSC snapshot JSONs → draft workbook + evidence bundle + ageing (first-seen state persisted). Items drop only on fresh evidence; everything uncertain is kept and flagged. |
+| `regress_ba_report.py` | Regression over synthetic fixtures (fake jobs/names only). Run after any change to the two scripts above. |
 
-Planned for the `ba-weekly-report` build (see `../workflows/ba-weekly-report.md`):
-`ba_report_parse.py` (report → row model), `ba_report_draft.py`
-(carry-forward + OSC snapshot → draft + evidence bundle),
-`regress_ba_report.py` (regression over synthetic fixtures).
+Run mechanics are in `../workflows/ba-weekly-report.md` (§How to run).

@@ -47,6 +47,37 @@ testing folder (see `../reference/README.md`).
 - Deciding whether an RFI item is satisfied when evidence conflicts —
   flag for the officer (PO-13).
 
+## How to run (v0.1)
+
+1. **Snapshot step (Claude + `osc-api` MCP, read-only).** For each job row in
+   last week's report: resolve the contract number to its `jobID`, read
+   activities, alerts and documents (queries in
+   `../reference/osc-field-map.md`), and save one JSON per job to
+   `runtime\permit-officer\state\snapshots\<jobno>.json` (shape documented in
+   `../scripts/ba_report_draft.py`).
+2. **Draft step (deterministic, no network):**
+
+   ```
+   python ../scripts/ba_report_draft.py
+          --prev "runtime\permit-officer\reports\BA REPORT - <last>.xlsx"
+          --snapshots runtime\permit-officer\state\snapshots
+          --out runtime\permit-officer\outputs
+          --state runtime\permit-officer\state
+   ```
+
+   Produces the draft workbook (columns A–K unchanged plus a proposed
+   ageing column) and the evidence bundle (`…-evidence.md` / `.json`).
+   Carried values are never overwritten; items are dropped only on fresh
+   completion evidence; everything else is kept and flagged. First-seen
+   dates persist in `state\ba-items-first-seen.json` so ageing accumulates
+   across weeks.
+3. **Review (the officer):** correct the draft, distribute as today; file
+   the corrected copy into `runtime\permit-officer\reports\` as next week's
+   base. Corrections worth keeping become evidence-rule fixes in
+   `../scripts/ba_report_draft.py` (`FAMILIES`).
+
+Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
+
 ## Build gates
 
 1. **OSC access — CLEARED.** The read-only `osc-api` MCP server is live
