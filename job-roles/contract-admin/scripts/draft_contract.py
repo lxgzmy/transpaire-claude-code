@@ -90,14 +90,17 @@ CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*"
 #      never produces a document that could reach a job folder.
 #   3. otherwise -> data sheet only (the pre-existing behaviour).
 # Both staged templates are the team's own Word builds of their contracts
-# (NSW.BUILD.CONTRACT.Final.docx 21 Aug 2026, staged 23 Aug 2026; QLD v2
-# uploaded 1 Sep 2026 on issue #8 - real value-cell tables in the areas that
-# used to wrap, e-sign anchors at source; it superseded the 28 Aug v1.1
-# ANCHORS interim and the 25 Aug team build) - each replaced its repaired
-# PDF conversion and the conversion path's layout artifacts.
+# plus a sanctioned interim repair each (both built by make_*.py scripts in
+# the staging folder): NSW = the 21 Aug 2026 build + the v1.1 TABLES interim
+# (3 Sep 2026 - the team's build-contract review sheet's layout fixes: the
+# cover, item 3 owners, the land and the signature NAME lines take typed
+# values without wrap-crushing, and Special Conditions clause 1 cites
+# Item 2); QLD = the team's v2 (1 Sep 2026, issue #8) + the v2.1 LAND
+# TABLES interim (3 Sep 2026). Each lineage replaced its repaired PDF
+# conversion and the conversion path's layout artifacts.
 STAGED_HIA_DIR = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word-templates"
 STAGED_HIA = {
-    "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx",
+    "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
     "QLD": STAGED_HIA_DIR / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
 }
 TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"

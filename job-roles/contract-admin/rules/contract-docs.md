@@ -232,43 +232,74 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
      `- TEST UNAPPROVED TEMPLATE` name (never issuable);
   3. otherwise (PRODUCTION, no approved blank) → **data sheet only**, and the
      run says BLOCKED.
-  Both staged templates are **the team's own Word builds**: NSW
-  (`NSW.BUILD.CONTRACT.Final.docx`, built 21 Aug 2026; staged 23 Aug 2026 in
-  response to the end users' review of the 10 test contracts, whose
-  build-contract findings — text artifacts, misalignment, pagination spill,
-  blank pages — all traced to the earlier PDF conversion) and QLD v2
-  (`QLD_HIA_BUILD_CONTRACT_v2.docx`, uploaded by the owner 1 Sep 2026 on
-  issue #8; staged 3 Sep 2026, superseding the 28 Aug v1.1 ANCHORS interim
-  and the 25 Aug team build before it). v2 resolved the 25 Aug build review
-  at source: the wrap-crushed label areas (cover fields, Schedule 1 items
-  3/7, the deed's BUILDER IS / OWNER IS) are real label-cell + value-cell
-  tables — `fill_hia.py` types those values into the empty value cell
-  (mode "cell", 3 Sep 2026; `regress_hia.py` asserts the placement
-  row-by-row and that the six e-sign anchor codes survive a fill) — and
-  the licensed PDF's anchor codes are in the master itself. v2 missed one
-  wrap area — Schedule 1 item 11's `STREET ADDRESS:` line, which cascaded
-  a near-empty spill page (38 vs the licensed 37) — so the staged copy is
-  the **v2.1 LAND TABLES interim** (sanctioned repair, 3 Sep 2026,
-  `make_v21.py`): v2 plus the same table fix for the land, band geometry
-  held to the v2 render within 0.1pt, wording word-identical. Filled
-  exports hold the licensed **37 pages** (v1.1: 40 → v2: 38 → v2.1: 37).
-  One item rides with MCR's read-through (staging README): v2 moved
-  `/i1/\signer1_sig` from the licensed "Owner(s) to initial here" spot to
-  the owner SIGNATURE line — confirm it is deliberate. What remains before
-  rule 1 takes over is that read-through of a filled test output against
-  the licensed PDF and filing the blank in `CONTRACT\` (for the master,
-  fold the land fix in at source as v2 folded in the v1.1 anchors). Once a
-  blank is filed, rule 1 applies with no further engineering.
+  Both staged templates are **the team's own Word builds plus a sanctioned
+  interim repair each** (each interim carries fixes the team's own review
+  ordered, until the team folds them into its master):
+  - **NSW — the v1.1 TABLES interim** (sanctioned repair 3 Sep 2026,
+    `make_nsw_v11.py` in the staging folder), on the team's Word build
+    (`NSW.BUILD.CONTRACT.Final.docx`, 21 Aug 2026; staged 23 Aug 2026 after
+    the end users' review of the 10 test contracts traced every
+    build-contract finding to the earlier PDF conversion). The team's
+    review of the filled NSW build contract
+    (`NSW.BUILD.CONTRACT.updated.8.28.xlsx`, 28 Aug, updated 3 Sep 2026)
+    found the same construction QLD's v2 fixed: typed values wrap-crushed
+    vertically under narrow labels (cover fields ~950tw usable, item 3
+    owners, item 5 land), values rendering in the labels' bold, checklist
+    acknowledgement names typed into the `Name (print):` label cell (which
+    stretched the box and hid its Date row), and the overflow cascading
+    two spill pages (filled 47pp vs the blank's 45). v1.1 rebuilds the
+    cover, the item 3 SUBURB|STATE|POSTCODE row and the land block (QLD
+    v2.1's twin construction) as label-cell + value-cell tables, puts a
+    tab stop at 2233 on the signature NAME lines (the SIGNATURE rules'
+    own x, where the manual contracts key the names), and makes the
+    sheet's one wording order verbatim — Special Conditions clause 1
+    cites **Item 2** (contract price), not Item 3 (owners). The blank
+    renders identical to the team build outside those bands (45pp both,
+    y-diff to the licensed count); **filled exports hold the licensed 45
+    pages**.
+  - **QLD — the v2.1 LAND TABLES interim** (sanctioned repair, 3 Sep 2026,
+    `make_v21.py`), on the team's v2 (`QLD_HIA_BUILD_CONTRACT_v2.docx`,
+    uploaded by the owner 1 Sep 2026 on issue #8; staged 3 Sep 2026,
+    superseding the 28 Aug v1.1 ANCHORS interim and the 25 Aug team build
+    before it). v2 resolved the 25 Aug build review at source: the
+    wrap-crushed label areas (cover fields, Schedule 1 items 3/7, the
+    deed's BUILDER IS / OWNER IS) are real label-cell + value-cell tables,
+    with the licensed PDF's e-sign anchor codes in the master itself. v2
+    missed one wrap area — Schedule 1 item 11's `STREET ADDRESS:` line,
+    which cascaded a near-empty spill page (38 vs the licensed 37) — and
+    v2.1 applies the same table fix there, band geometry held to the v2
+    render within 0.1pt, wording word-identical. Filled exports hold the
+    licensed **37 pages** (v1.1: 40 → v2: 38 → v2.1: 37). One item rides
+    with MCR's read-through (staging README): v2 moved `/i1/\signer1_sig`
+    from the licensed "Owner(s) to initial here" spot to the owner
+    SIGNATURE line — confirm it is deliberate.
+  `fill_hia.py` types every such value into the empty value cell (mode
+  "cell"; `regress_hia.py` asserts the placement row-by-row in both
+  regions and that the e-sign anchor codes survive a fill — QLD's six,
+  NSW's two witness `/na/`), and every inline/tab-typed value renders
+  regular weight (the labels' bold/italic is stripped — review items
+  2/7/10/14). What remains before rule 1 takes over is the read-through
+  of a filled test output against the licensed PDF and filing the blank
+  in `CONTRACT\` (for each master, fold the interim's fix in at source as
+  v2 folded in the v1.1 anchors). Once a blank is filed, rule 1 applies
+  with no further engineering.
 - **CD-5.3** Cover page: owners' name (per client type, CD-1.4), job number, lot,
   site. *(manual)* On the team builds the fill also types (NSW 23 Aug 2026
   per the end users' review; QLD 25 Aug 2026): Schedule 1 owners incl.
   mobile/email, the land (NSW: DP, street, suburb, postcode; QLD: SP/RP,
   street, suburb, state, postcode), the owner signature name, and — only
   when a signed source names them — the guarantor details and the deed's
-  BUILDER IS / OWNER IS lines (`guarantor_*` job keys). Region specifics:
-  NSW types the builder's rep on the Builder NAME line (executed
-  26044/26040/26036 all key `Michael CRONK`) and the Attachment A checklist
-  owner names; QLD types the Consumer Building Guide acknowledgement
+  BUILDER IS / OWNER IS lines (`guarantor_*` job keys). **Every purchaser's
+  mobile and email rides on the contract**, joined `"; "` — the job JSON
+  carries the second owner's under `owner_2_mobile` / `owner_2_email` and
+  the filler joins them (team review item 8, 3 Sep 2026: all purchaser
+  emails are required for DocuSign; the executed multi-owner contracts key
+  both). Region specifics: NSW types the builder's rep on the Builder NAME
+  line (executed 26044/26040/26036 all key `Michael CRONK`) and the owner
+  names — both at the signature NAME lines' 2233 tab stop (v1.1) — plus
+  the Attachment A checklist owner names in the value cell beside
+  `Name (print):` (box N belongs to owner N; boxes 3/4 stay blank on a
+  two-owner job); QLD types the Consumer Building Guide acknowledgement
   NAME(S) on both copies (executed 25163 keys the owner at each) and leaves
   the builder line alone — the QLD build ships it prefilled (Michael CRONK).
   Signatures, initials and dates stay human (CD-3.7).
@@ -368,11 +399,13 @@ cabinet; and any DocuSign issue to a client.
    is current practice drift that should be corrected? (CD-7.3)
 2. The HIA licence (CD-5.2a) makes the HIA build contract's docx+PDF output a
    requirement. The whole pipeline is now built and driver-integrated
-   (CD-5.2b: NSW staged on the team's own Word build, 23 Aug 2026; QLD on
-   the v2.1 LAND TABLES interim, 3 Sep 2026 — the team's v2 plus the land
-   table fix, filled exports at the licensed 37 pages — `fill_hia.py`
-   NSW+QLD commissioned on 26045/25163, cell mode verified on 26015,
-   `regress_hia.py` passing); the ONLY remaining step is human — a
+   (CD-5.2b: NSW staged on the v1.1 TABLES interim, 3 Sep 2026 — the team's
+   21 Aug build plus the team review sheet's layout fixes, filled exports
+   at the licensed 45 pages; QLD on the v2.1 LAND TABLES interim,
+   3 Sep 2026 — the team's v2 plus the land table fix, filled exports at
+   the licensed 37 pages — `fill_hia.py` NSW+QLD commissioned on
+   26045/25163, cell mode verified on 26015 and the hamilton-crescent
+   dummy, `regress_hia.py` passing); the ONLY remaining step is human — a
    read-through of a filled test output against the licensed PDF (for QLD,
    settling the one flagged item in the staging README with it: the moved
    `/i1/\signer1_sig` placement), MCR approval, file the blank in the
@@ -395,3 +428,24 @@ cabinet; and any DocuSign issue to a client.
    pre-registration parent address + estate name. Rule updated. (CD-2.4)
 5. Who approves aux/dual-key inclusions, and is there an approved template for
    them outside Sydney? (CD-6.3/6.4)
+6. The team's build-contract review sheet (item 4, 3 Sep 2026) asks for the
+   contract price sections to be completed from the order email's
+   GST-inclusive price before any DataBuild/OSC integration exists: item
+   2(a) price excl GST + GST + price incl GST, item 2(b) deposit as 10% of
+   the inclusive price, and the Part B progress claims per the schedule's
+   own percentages. That is a **CD-5.4 reversal** — the rule the sheet
+   itself calls "not wrong, but not practical" makes those figures
+   DataBuild-only and never computed, because a plausible-but-wrong GST
+   split or claim amount in a signed contract is a liability. Deriving
+   them is mechanically trivial; the decision (and the rounding rules —
+   cents vs dollars, last-claim-as-balance vs rounded percentage, whether
+   the derived figures must later reconcile to DataBuild) belongs to the
+   business. Held pending that decision. (CD-5.4)
+7. Review sheet item 12 asks whether the Special Conditions validity clause
+   can be amended per job when the fixed period differs from six months or
+   a specific end date is requested ("otherwise, this section may be a
+   human spec clause"). Amending clause wording is exactly what the skill
+   never does (contract wording is a person's edit), so it stays a human
+   spec clause — flagged per run when the request names a validity date.
+   Raised here in case the business wants a sanctioned template variant
+   instead. (CD-5.2b)

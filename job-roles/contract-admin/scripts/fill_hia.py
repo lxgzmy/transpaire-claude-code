@@ -4,13 +4,24 @@ r"""Fill an HIA build contract Word template from a job JSON. Stdlib only.
     python fill_hia.py --template <blank.docx> --job <job.json> --check
     --region NSW (default) | QLD    picks the anchor set for that edition
 
-STATUS (25 Aug 2026):
-  NSW - anchored to the team's own Word build of the NSW contract
-        (NSW.BUILD.CONTRACT.Final.docx, built 21 Aug 2026, staged as
-        "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx").
-        A real Word-native document, not a PDF conversion - native pagination,
-        no reflow artifacts. Still fills to template-testing only until MCR
-        files the blank in the region's CONTRACT folder (CD-5.2b rule 1).
+STATUS (3 Sep 2026):
+  NSW - anchored to the v1.1 TABLES interim (staged as "NSW BUILD CONTRACT
+        v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx", sanctioned
+        repair 3 Sep 2026, built by make_nsw_v11.py in the staging folder):
+        the team's own Word build of the April 2021 contract (21 Aug 2026)
+        plus the fixes the team's build-contract review sheet ordered
+        (NSW.BUILD.CONTRACT.updated.8.28.xlsx) - the same label-cell +
+        value-cell treatment QLD's v2/v2.1 got, in the areas the review
+        marked. The cover fields, Schedule 1 item 3 owners (whose SUBURB
+        row split into SUBURB|STATE|POSTCODE label+value cells) and item 5
+        The Land (the LOT / CERTIFICATE OF TITLE / STREET ADDRESS: column,
+        QLD v2.1's twin) are real value-cell tables now; the signature
+        NAME lines carry a tab stop at the SIGNATURE lines' own x; and
+        Special Conditions clause 1 cites Item 2 (contract price), not
+        Item 3 - the sheet's one wording order. Blank renders identical
+        to the team build outside those bands (45pp both). Still fills to
+        template-testing only until MCR files the blank in the region's
+        CONTRACT folder (CD-5.2b rule 1).
   QLD - anchored to the v2.1 LAND TABLES interim (staged as "QLD BUILD
         CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         sanctioned repair 3 Sep 2026): the team's v2 Word build of the QC2
@@ -33,16 +44,25 @@ STATUS (25 Aug 2026):
         files the blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
 
 What it fills (label-anchored - the same technique as fill_inclusions.py /
-fill_prelim.py. Mode "after" types the value inline after the printed label;
-mode "cell" - the QLD v2 table layout - lands it in the empty table cell
-beside the label's cell, the way a person typing in the value column would):
+fill_prelim.py. Mode "after" types the value inline after the printed label,
+as its own regular-weight run - bold/italic/underline are stripped, since
+the completed contracts key values regular beside bold printed labels
+(review items 2/7/10/14); mode "tab" does the same but leads with a tab, for
+lines whose value column is a tab stop; mode "cell" - the QLD v2 / NSW v1.1
+table layout - lands it in the empty table cell beside the label's cell, the
+way a person typing in the value column would):
 
-  NSW (April 2021 edition, team Word build):
-    cover         OWNERS: / JOB: / LOT: / SITE:
-    Schedule 1    item 3 Owners: NAME, ADDRESS, SUBURB, STATE, POSTCODE,
-                  MOBILE, EMAIL  (ABN/ACN, WORK, HOME left blank)
-    The Land      LOT, DP NO, STREET ADDRESS:, SUBURB, POSTCODE (STATE is
-                  prefilled NSW in the template)
+  NSW (April 2021 edition, team Word build + v1.1 TABLES interim):
+    cover         OWNERS: / JOB: / LOT: / SITE: - value cells since v1.1
+    Schedule 1    item 3 Owners: NAME, ADDRESS, SUBURB, STATE, POSTCODE and
+                  EMAIL in value cells; MOBILE inline after its label
+                  (ABN/ACN, WORK, HOME left blank). A second owner's
+                  contact keys (owner_2_mobile / owner_2_email) join the
+                  first with "; " - every purchaser's mobile and email
+                  rides on the contract, DocuSign needs them (review
+                  item 8; the executed multi-owner contracts key both)
+    The Land      LOT, DP NO and STREET ADDRESS: in value cells; SUBURB,
+                  POSTCODE inline (STATE is prefilled NSW in the template)
     item 11       liquidated damages, replaces the $25.00 "per working day" prefill
     item 2(a)/(b) PRICE EXCLUDING GST / GST / CONTRACT PRICE / DEPOSIT -
                   ONLY when the job JSON carries the figures explicitly
@@ -57,10 +77,16 @@ beside the label's cell, the way a person typing in the value column would):
                   lines are completed too; the deed date is never filled.
     signatures    owner name(s) on the Owner NAME line, builders_rep on the
                   Builder NAME line (executed 26044/26040/26036 all key
-                  Michael CRONK there). Signatures themselves stay human.
-    Attachment A  checklist acknowledgement: owner_1 / owner_2 after the
-                  first / second "Name (print):" (capacity stays blank -
-                  it matters only for company or agent signings).
+                  Michael CRONK there), both typed at the lines' 2233 tab
+                  stop - the x the SIGNATURE rules start at, where the
+                  manual contracts key the names (review item 13).
+                  Signatures themselves stay human.
+    Attachment A  checklist acknowledgement: owner_1 / owner_2 in the value
+                  cell beside the first / second "Name (print):" box - the
+                  boxes were already label|value tables; typing in the
+                  label cell stretched it and hid the Date row (review
+                  items 15-16). Capacity stays blank - it matters only
+                  for company or agent signings.
 
   QLD (QC2, October 2020 edition, team v2 Word build):
     cover        OWNERS: / JOB: / LOT: / SITE:
@@ -147,14 +173,10 @@ def label_regex(label):
 
 
 def _splice(segs, start, end, text):
-    """Replace [start, end) of the segments' joined text with `text`.
-
-    Deletion applies only to real segments (a tab in the middle of a match
-    survives - no HIA anchor spans one). The replacement lands where the
-    match starts; a pure insertion (start == end) lands at the end of the
-    segment holding that offset, so a typed value inherits the label run's
-    formatting the way typing in Word after the label would.
-    """
+    """Replace the non-empty span [start, end) of the segments' joined text
+    with `text` (the replace_amount path - a $-placeholder swaps in place
+    and keeps its own regular face). Deletion applies only to real segments;
+    a tab in the middle of a match survives - no HIA anchor spans one."""
     pos, ins_done = 0, False
     for s in segs:
         ln = len(s["text"])
@@ -167,15 +189,6 @@ def _splice(segs, start, end, text):
             a, b = del_from - s_start, del_to - s_start
             s["text"] = s["text"][:a] + (text if not ins_done else "") + s["text"][b:]
             ins_done = True
-        elif not ins_done and start == end and s_start <= start <= s_end:
-            a = start - s_start
-            s["text"] = s["text"][:a] + text + s["text"][a:]
-            ins_done = True
-    if not ins_done:
-        for s in reversed(segs):
-            if not s["virtual"]:
-                s["text"] += text
-                return
 
 
 def _rebuild(p_xml, segs):
@@ -190,38 +203,82 @@ def _rebuild(p_xml, segs):
     return p_xml
 
 
+def insert_value_run(p_xml, segs, offset, value, tab=False):
+    """Insert the typed value as its OWN run right after the label text at
+    `offset`, in the label's face minus bold/italic/underline (STRIP_RE) -
+    the way the completed contracts key regular-weight values beside bold
+    printed labels. Mode "tab" leads with a tab (the line's value column)
+    instead of the two-space gap."""
+    pos, seg, off_in = 0, None, 0
+    for s in segs:
+        ln = len(s["text"])
+        if not s["virtual"] and pos < offset <= pos + ln:
+            seg, off_in = s, offset - pos
+            break
+        pos += ln
+    if seg is None:
+        return p_xml, False
+    t_start, t_end = seg["span"]
+    run = next((m for m in RUN_RE.finditer(p_xml)
+                if m.start() < t_start and m.end() > t_end), None)
+    if run is None:
+        return p_xml, False
+    rpr_m = RPR_RE.search(run.group(0))
+    rpr = STRIP_RE.sub("", rpr_m.group(0)) if rpr_m else ""
+    lead = "<w:tab/>" if tab else ""
+    text = value if tab else f"  {value}"
+    new_run = f'<w:r>{rpr}{lead}<w:t xml:space="preserve">{xml_escape(text)}</w:t></w:r>'
+    if off_in == len(seg["text"]) and not T_RE.search(
+            run.group(0), t_end - run.start()):
+        # the label ends this run: the value run goes right after it
+        return p_xml[:run.end()] + new_run + p_xml[run.end():], True
+    # otherwise split the label's text node and re-open its run around the
+    # inserted value, keeping the original face on the tail
+    head = xml_escape(seg["text"][:off_in])
+    tail = xml_escape(seg["text"][off_in:])
+    orig_rpr = rpr_m.group(0) if rpr_m else ""
+    repl = (f'<w:t xml:space="preserve">{head}</w:t></w:r>{new_run}'
+            f'<w:r>{orig_rpr}<w:t xml:space="preserve">{tail}</w:t>')
+    return p_xml[:t_start] + repl + p_xml[t_end:], True
+
+
 def fill_para(p_xml, label, value, mode, occ=1):
     """Type value beside the occ-th occurrence of label in this paragraph."""
     segs = parse_segments(p_xml)
     concat = "".join(s["text"] for s in segs)
-    if mode == "after":
+    if mode in ("after", "tab"):
         hits = list(label_regex(label).finditer(concat))
         if len(hits) < occ:
             return p_xml, False
-        m = hits[occ - 1]
-        _splice(segs, m.end(), m.end(), f"  {value}")
-    elif mode == "replace_amount":
+        return insert_value_run(p_xml, segs, hits[occ - 1].end(), value,
+                                tab=(mode == "tab"))
+    if mode == "replace_amount":
         m = AMOUNT_RE.search(concat)
         if not m:
             return p_xml, False
         _splice(segs, m.start(), m.end(), value)
-    else:
-        return p_xml, False
-    return _rebuild(p_xml, segs), True
+        return _rebuild(p_xml, segs), True
+    return p_xml, False
 
 
 T_RE = re.compile(r"<w:t(?: [^>]*)?>(.*?)</w:t>", re.S)
 TC_OPEN_RE = re.compile(r"<w:tc\b")
 P_ANY_RE = re.compile(r"<w:p\b[^>]*/>|<w:p\b[^>]*>")  # self-closed first
 LABEL_RPR_RE = re.compile(r"<w:r\b[^>]*>\s*(<w:rPr>.*?</w:rPr>)", re.S)
-BOLD_RE = re.compile(r"<w:b(?:Cs)?(?: [^>]*)?/>")
+RUN_RE = re.compile(r"<w:r\b[^>]*>.*?</w:r>", re.S)
+RPR_RE = re.compile(r"<w:rPr>.*?</w:rPr>", re.S)
+# typed values render regular: no bold, italic or underline off the label
+# (review sheet items 2/7/10/14 - the completed contracts key values in
+# regular weight beside their bold printed labels)
+STRIP_RE = re.compile(r"<w:(?:b|bCs|i|iCs|u)(?: [^>]*)?/>")
 
 
 def cell_value_run(label_p_xml, value):
-    """A run for the empty value cell: the label run's own face minus bold,
-    the way a typed entry renders beside a bold printed label."""
+    """A run for the empty value cell: the label run's own face minus
+    bold/italic/underline, the way a typed entry renders beside a printed
+    label."""
     m = LABEL_RPR_RE.search(label_p_xml)
-    rpr = BOLD_RE.sub("", m.group(1)) if m else ""
+    rpr = STRIP_RE.sub("", m.group(1)) if m else ""
     return f'<w:r>{rpr}<w:t xml:space="preserve">{xml_escape(value)}</w:t></w:r>'
 
 
@@ -258,39 +315,44 @@ def cell_slot(xml, para_end):
 
 # Anchor sets. Field tuples are (json key, printed label, mode[, occurrence]).
 # Scope None = whole document, first occurrence.
+# Both builds box each cover label into a narrow table cell with a wide
+# empty value cell beside it - QLD since the team's v2, NSW since the v1.1
+# TABLES interim (the review's item 1: values wrapped vertically in the old
+# 950tw-wide label paragraphs and pushed the cover's HIA notice off-page).
 COVER = [
-    ("owners",   "OWNERS:", "after"),
-    ("job_no",   "JOB:",    "after"),
-    ("lot_no",   "LOT:",    "after"),
-    ("site_hia", "SITE:",   "after"),
+    ("owners",   "OWNERS:", "cell"),
+    ("job_no",   "JOB:",    "cell"),
+    ("lot_no",   "LOT:",    "cell"),
+    ("site_hia", "SITE:",   "cell"),
 ]
-# The QLD v2 build boxes each cover label into a narrow table cell with a
-# wide empty value cell beside it; the NSW build keeps them inline.
-QLD_COVER = [(key, label, "cell") for key, label, _ in COVER]
 REGIONS = {
-    # The team's own Word build of the April 2021 NSW contract (21 Aug 2026).
-    # Schedule 1's owner rows are a real table; the deed and checklist are
-    # plain paragraphs. Scopes are picked from strings unique-first in
-    # document order (the TOC repeats most headings).
+    # The team's Word build of the April 2021 NSW contract plus the v1.1
+    # TABLES interim (3 Sep 2026, review sheet fixes): the cover, item 3
+    # owner rows (SUBURB|STATE|POSTCODE split into label+value cells) and
+    # the land's LOT/DP NO/STREET ADDRESS: block are label-cell +
+    # value-cell tables; MOBILE and the land's SUBURB/POSTCODE stay inline
+    # (their lines absorb a value without wrapping); the deed and
+    # guarantors are plain paragraphs. Scopes are picked from strings
+    # unique-first in document order (the TOC repeats most headings).
     "NSW": {
         "groups": [
             (None, COVER),
             # item 3 Owners - between item 2(b)'s closing note and the
             # builder block's prefilled company name
             (("(The deposit must not exceed", "TRANSPIRE CONSTRUCTIONS"), [
-                ("_sch1_owner",    "NAME",     "after"),
-                ("owner_address",  "ADDRESS",  "after"),
-                ("owner_suburb",   "SUBURB",   "after"),
-                ("owner_state",    "STATE",    "after"),
-                ("owner_postcode", "POSTCODE", "after"),
+                ("_sch1_owner",    "NAME",     "cell"),
+                ("owner_address",  "ADDRESS",  "cell"),
+                ("owner_suburb",   "SUBURB",   "cell"),
+                ("owner_state",    "STATE",    "cell"),
+                ("owner_postcode", "POSTCODE", "cell"),
                 ("owner_mobile",   "MOBILE",   "after"),
-                ("owner_email",    "EMAIL",    "after"),
+                ("owner_email",    "EMAIL",    "cell"),
             ]),
             # item 5 The Land (STATE is prefilled NSW in the template)
             (("THE LAND IS:", "must reach the stage"), [
-                ("lot_no",        "LOT",             "after"),
-                ("dp_no",         "DP NO",           "after"),
-                ("land_street",   "STREET ADDRESS:", "after"),
+                ("lot_no",        "LOT",             "cell"),
+                ("dp_no",         "DP NO",           "cell"),
+                ("land_street",   "STREET ADDRESS:", "cell"),
                 ("land_suburb",   "SUBURB",          "after"),
                 ("land_postcode", "POSTCODE",        "after"),
             ]),
@@ -304,12 +366,14 @@ REGIONS = {
             ]),
             # Signatures page: the owner block runs to the first witness
             # "/na/" prefill; the builder block runs from there to the
-            # e-signing note
+            # e-signing note. Names type at the NAME lines' 2233 tab stop
+            # (v1.1) - the x the SIGNATURE rules start at, where the
+            # manual contracts key them (review item 13)
             (("has read and understood this contract", "/na/"), [
-                ("_sch1_owner", "NAME", "after"),
+                ("_sch1_owner", "NAME", "tab"),
             ]),
             (("/na/", "electronically signed"), [
-                ("builders_rep", "NAME", "after"),
+                ("builders_rep", "NAME", "tab"),
             ]),
             # Deed of guarantee and indemnity - completed only when the job
             # has a sourced guarantor; the deed date is never filled
@@ -322,10 +386,14 @@ REGIONS = {
                 ("guarantor_state",    "STATE",          "after"),
                 ("guarantor_postcode", "POSTCODE",       "after"),
             ]),
-            # Attachment A checklist acknowledgement (owners' printed names)
+            # Attachment A checklist acknowledgement (owners' printed
+            # names). The boxes are label|value tables: the name lands in
+            # the value cell beside "Name (print):" - typed into the label
+            # cell it stretched the box and hid the Date row (review items
+            # 15-16). Boxes 3 and 4 stay blank: box N belongs to owner N.
             (("Acknowledgement of owners", "Consumer"), [
-                ("owner_1", "Name (print):", "after", 1),
-                ("owner_2", "Name (print):", "after", 2),
+                ("owner_1", "Name (print):", "cell", 1),
+                ("owner_2", "Name (print):", "cell", 2),
             ]),
         ],
         # item 2: the template ships $000,000.00-style placeholders; each is
@@ -352,7 +420,7 @@ REGIONS = {
     # headings, so heading-only scopes would land there).
     "QLD": {
         "groups": [
-            (None, QLD_COVER),
+            (None, COVER),
             # Consumer Building Guide - owner acknowledgement, both copies
             # (the executed 25163 contract keys the owner entity at each)
             (("Complete and sign the section below", "For further building information"), [
@@ -428,6 +496,14 @@ REGIONS = {
 
 def derive_values(values, region):
     """Convenience keys derived from sourced ones - never from thin air."""
+    # Every purchaser's mobile and email rides on the contract - DocuSign
+    # needs them all (review item 8; the executed multi-owner contracts key
+    # both, ";"-separated). A second owner's contact keys join the first.
+    for key in ("owner_mobile", "owner_email"):
+        extra = str(values.get(key.replace("owner_", "owner_2_", 1)) or "").strip()
+        if extra:
+            main = str(values.get(key) or "").strip()
+            values[key] = f"{main}; {extra}" if main else extra
     # Schedule 1 / signature NAME: every executed multi-owner job keys the
     # joined names; a company job keys the entity (owner_1) without the ACN
     if not values.get("_sch1_owner"):
