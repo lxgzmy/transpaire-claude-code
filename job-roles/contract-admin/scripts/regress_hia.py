@@ -65,7 +65,7 @@ SYNTH = {
         "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
     },
     "QLD": {
-        "template": STAGED / "QLD BUILD CONTRACT v2 01.09.2026 - TEAM BUILD PENDING MCR.docx",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         "values": {
             "owners": "Testfirst TESTSURNAME & Second TESTOWNER",
             "job_no": "99992", "lot_no": "902",
@@ -105,6 +105,10 @@ SYNTH = {
             ["SUBURB", "EXAMPLETON", "STATE", "QLD", "POSTCODE", "4997"],
             ["BUILDER IS", "TRANSPIRE CONSTRUCTIONS PTY LTD"],
             ["OWNER IS", "Testfirst TESTSURNAME & Second TESTOWNER"],
+            # the land rows, tables since the v2.1 LAND TABLES interim
+            # (3 Sep 2026 - the last narrow area, the residual spill's home)
+            ["LOT", "902", "SP/RP", "SP999999"],
+            ["STREET ADDRESS:", "Sample Street"],
         ],
         # e-sign anchor codes are at source in v2 and must survive a fill
         # (counted on space-stripped text: Word may split a code across runs)
