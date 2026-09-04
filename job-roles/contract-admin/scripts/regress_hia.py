@@ -12,19 +12,22 @@ region it asserts that
   3. every synthetic value actually appears in the filled text,
   4. every replaced prefill/placeholder is gone (the $25.00 LD figure, and
      the $000,000.00-style price placeholders when figures are supplied), and
-  5. on QLD v2: each cell-mode value sits in the empty value cell beside its
-     label (asserted row-by-row on the filled tables - the page-spill fix
-     depends on values never landing in the narrow label cells), and the
-     e-sign anchor strings (/bs1/\builder_sig, /i1/\signer1_sig, four /na/)
-     survive the fill at source.
+  5. in both regions: each cell-mode value sits in the empty value cell
+     beside its label (asserted row-by-row on the filled tables - the
+     page-spill fix depends on values never landing in the narrow label
+     cells), and the e-sign anchor strings survive the fill (QLD:
+     /bs1/\builder_sig, /i1/\signer1_sig, four /na/ at source; NSW: the
+     two witness /na/).
 
-Both staged templates are the team's own Word builds (NSW 21 Aug 2026; QLD
-v2 1 Sep 2026, issue #8 - real label-cell + value-cell tables in the areas
-that used to wrap-crush, e-sign anchors at source; it superseded the 28 Aug
-v1.1 ANCHORS interim and the 25 Aug team build, which superseded the
-repaired PDF conversion). The staged templates live in runtime\ (this
-machine's checkout), so the test SKIPS with a notice on a clone that has no
-staged templates - it can only pass or fail where they exist.
+Both staged templates are the team's own Word builds plus a sanctioned
+interim repair each: NSW = the 21 Aug 2026 build + the v1.1 TABLES interim
+(3 Sep 2026 - the build-contract review sheet's layout fixes: cover, item 3
+owners, the land and the signature NAME lines take typed values without
+wrap-crushing, and Special Conditions clause 1 cites Item 2); QLD = the
+team's v2 (1 Sep 2026, issue #8) + the v2.1 LAND TABLES interim (3 Sep
+2026). The staged templates live in runtime\ (this machine's checkout), so
+the test SKIPS with a notice on a clone that has no staged templates - it
+can only pass or fail where they exist.
 """
 import html
 import json
@@ -41,7 +44,7 @@ STAGED = HERE.parents[2] / "runtime" / "contract-admin" / "outputs" / "_hia-word
 
 SYNTH = {
     "NSW": {
-        "template": STAGED / "NSW BUILD CONTRACT Final 21.08.2026 - TEAM BUILD PENDING MCR.docx",
+        "template": STAGED / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         "values": {
             "owners": "Testfirst TESTSURNAME & Second TESTOWNER",
             "job_no": "99991", "lot_no": "901",
@@ -50,6 +53,9 @@ SYNTH = {
             "owner_address": "9 Example Road",
             "owner_suburb": "EXAMPLETON", "owner_state": "NSW", "owner_postcode": "2998",
             "owner_mobile": "0400 000 001", "owner_email": "regress@example.invalid",
+            # review item 8: the second owner's contacts join the first "; "
+            "owner_2_mobile": "0400 000 003",
+            "owner_2_email": "second@example.invalid",
             "dp_no": "1234567", "land_street": "(9) Sample Street",
             "land_suburb": "SAMPLEVILLE", "land_postcode": "2999",
             "liq_damages": "$77.00", "builders_rep": "Regress REPNAME",
@@ -63,6 +69,30 @@ SYNTH = {
         },
         # prefills/placeholders that must NOT survive the fill
         "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
+        # v1.1's structural contract: cell-mode values land in the value
+        # cell beside their label, never inside the narrow label cell (the
+        # 28 Aug review's wrap-crush findings); the joined contact strings
+        # pin the "; " convention for multi-owner mobiles/emails
+        "cell_rows": [
+            ["OWNERS:", "Testfirst TESTSURNAME & Second TESTOWNER"],
+            ["JOB:", "99991"],
+            ["LOT:", "901"],
+            ["SITE:", "(9) Sample Street, SAMPLEVILLE NSW 2999"],
+            ["", "NAME", "Testfirst TESTSURNAME & Second TESTOWNER"],
+            ["", "ADDRESS", "9 Example Road"],
+            ["", "SUBURB", "EXAMPLETON", "STATE", "NSW", "POSTCODE", "2998"],
+            ["", "HOME", "MOBILE 0400 000 001; 0400 000 003"],
+            ["", "EMAIL", "regress@example.invalid; second@example.invalid"],
+            ["LOT", "901", "DP NO", "1234567"],
+            ["CERTIFICATE OF TITLE"],
+            ["STREET ADDRESS:", "(9) Sample Street"],
+            # Attachment A acknowledgement boxes: name in the value cell
+            # beside "Name (print):" (review items 15-16), box N = owner N
+            ["Name (print):", "Testfirst TESTSURNAME"],
+            ["Name (print):", "Second TESTOWNER"],
+        ],
+        # the two witness /na/ e-sign codes must survive the fill
+        "anchors": {"/na/": 2},
     },
     "QLD": {
         "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
