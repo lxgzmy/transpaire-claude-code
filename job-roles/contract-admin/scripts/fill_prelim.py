@@ -11,21 +11,38 @@ against the three corrected Sydney agreements that review screenshots (jobs
 26019, 26032, 26052 - regress_prelim.py reproduces 26032 and 26052
 space-for-space):
 
-  - Client row, as the team wrote it out (confirmed 28 Aug 2026):
+  - Client row, as the team wrote it out (confirmed 28 Aug 2026; three-client
+    format from the 9.1 review round, issue #10, 4 Sep 2026):
         single buyer  And <First> <Middle> <LAST NAME>  (“Client”)
         two buyers    And <buyer 1> & <buyer 2>  (“Clients”)
+        three buyers  And <buyer 1> & <buyer 2> & <buyer 3>  (“Client”)
     The name(s) flow straight after "And" with the one tab kept before
-    ("Client"), which becomes ("Clients") when there are two. Each name is
-    First name + Middle name + LAST NAME with the surname in CAPS (CD-3.1) -
-    the middle name comes off the client ID and is easy to miss, and it is
-    typed the same way in the inclusions (executed 25176 carries "Shaun Leslie
-    MCMEEKEN" in both documents). The corrected 26052 predates the plural and
-    keeps ("Client"); the team confirmed the plural, so it stays.
+    ("Client"), which becomes ("Clients") when there are exactly two. Each
+    name is First name + Middle name + LAST NAME with the surname in CAPS
+    (CD-3.1) - the middle name comes off the client ID and is easy to miss,
+    and it is typed the same way in the inclusions (executed 25176 carries
+    "Shaun Leslie MCMEEKEN" in both documents). The corrected 26052 predates
+    the plural and keeps ("Client"); the team confirmed the plural for two.
+    THREE clients keep the template's ("Client") - both the 9.1 sheet's
+    written format and the team's manual 26011 agreement do exactly that.
+    That sits oddly beside the two-client ("Clients") rule; flagged with the
+    round in case the team wants one rule for both (one-word change here).
+  - Company/trust client (9.1 round, item 1): the page-1 recital carries the
+    entity (owner_1, CD-3.9) as usual. When the job JSON names a
+    company_signatory - sourced from the signed land contract, never derived -
+    the page-3 signing line takes two lines above the horizontal rule:
+        <signatory full name>
+        on behalf of <entity as `owners` carries it, incl. ABN/ACN>
+    and that row's printed label becomes "Client Name / Company", per the
+    review's reference image (the manual document the team supplied).
   - "(Current Residential Address)" starts its own paragraph, cloned from the
     client row's properties, with the value one space after the label. The old
     62-space layout run (measured off the Tamworth pair) is gone - on every
     job with a different name length it dragged the label up onto the client
-    line, which is the exact fault the team flagged.
+    line, which is the exact fault the team flagged. The split happens even
+    when the job has no residential address yet (9.1 items 3-5: an empty
+    value used to skip the split too, gluing the label to the client row and
+    overlapping the two rules below it).
   - "(For Construction Address)": value five spaces after the label, prefixed
     "Lot " (the corrected 26032/26052 agree on five).
   - The fee: replaced when the job supplies one; ABSENT MEANS THE TEMPLATE'S
@@ -44,6 +61,11 @@ space-for-space):
     team 28 Aug 2026. Cloning the blank's paragraph marks rendered the names at
     8-9pt, the "too small" fault the team flagged; the corrected documents
     themselves sit at 10-11pt, and the team chose 12 over both.
+  - Third client (9.1 round, items 2 and 6): owner_3 joins the page-1 client
+    row, and the second client's whole signing row (spacers, name line, rule,
+    "Client Name" label) is cloned below itself for the third name - the
+    Transpire authorised-signatory block moves down with the flow, exactly as
+    the team's manual 26011 agreement lays it out.
 
 Whether the job needs a preliminary agreement at all is a human decision
 (CD-4.4) - the request email saying "no prelim required" has been overridden in
@@ -164,31 +186,44 @@ def fill(xml, values, report):
 
     owner_1 = (values.get("owner_1") or "").strip()
     owner_2 = (values.get("owner_2") or "").strip()
+    owner_3 = (values.get("owner_3") or "").strip()
+    clients = [n for n in (owner_1, owner_2, owner_3) if n]
     rep = (values.get("builders_rep") or "Michael CRONK").strip()
+    signatory = (values.get("company_signatory") or "").strip()
+    entity = (values.get("owners") or owner_1).strip()
 
     # --- client row: the one "And" followed by a "&" run within three runs ---
     pairs = [(i, j) for i, (_, _, r) in enumerate(runs) if run_text(r) == "And"
              for j in range(i + 1, min(i + 4, len(runs)))
              if run_text(runs[j][2]) == "&"]
     if len(pairs) != 1:
-        note("owner_1", "And ... & (client row)", owner_1)
-        if owner_2:
-            note("owner_2", "And ... & (client row)", owner_2)
+        for key, val in (("owner_1", owner_1), ("owner_2", owner_2),
+                         ("owner_3", owner_3)):
+            if val:
+                note(key, "And ... & (client row)", val)
     else:
         i_and, i_amp = pairs[0]
         s, e, amp_run = runs[i_amp]
         # the name(s) flow straight after "And": the corrected agreements
         # delete the tab ahead of the old "&" (it sits INSIDE the & run) so
         # nothing lands on a tab stop before ("Client")
-        names = f"  {owner_1} & {owner_2}" if owner_2 else f"  {owner_1}"
+        names = "  " + " & ".join(clients)
         edits.append((s, e, set_run_text(amp_run, names).replace("<w:tab/>", "")))
         for j in range(i_and + 1, i_amp):  # tab as its own run, same rule
             if "<w:tab" in runs[j][2] and not run_text(runs[j][2]):
                 edits.append((runs[j][0], runs[j][1], ""))
-        if owner_2:
-            note("owner_1", "after And (two clients)", f"{owner_1} & …", 1)
-            note("owner_2", "joined with & (two clients)", owner_2, 1)
-            # two buyers sign as ("Clients") - team-confirmed 28 Aug 2026
+        for n, (key, val) in enumerate(
+                (("owner_1", owner_1), ("owner_2", owner_2),
+                 ("owner_3", owner_3)), 1):
+            if val:
+                note(key, f"client {n} of {len(clients)} after And", val, 1)
+            elif key != "owner_3":
+                note(key, "client row", skipped=True)
+        # exactly two buyers sign as ("Clients") - team-confirmed 28 Aug 2026.
+        # THREE keep the template's ("Client"): the 9.1 sheet's written format
+        # and the team's manual 26011 agreement both do (flagged - one word
+        # here if the team ever wants the plural for three as well)
+        if len(clients) == 2:
             for j in range(i_amp + 1, min(i_amp + 8, len(runs))):
                 if run_text(runs[j][2]) == "Client”":
                     edits.append((runs[j][0], runs[j][1],
@@ -198,9 +233,9 @@ def fill(xml, values, report):
                     break
             else:
                 note("clients_plural", "(“Client”) after the names", "Clients")
-        else:
-            note("owner_1", "replaces & (single client)", owner_1, 1)
-            note("owner_2", "Name of Owner 2", skipped=True)
+        elif len(clients) >= 3:
+            note("clients_plural", "(“Client”) kept for three clients "
+                 "(9.1 sheet + manual 26011)", "Client", 1)
 
     # --- the two addresses, typed after their labels ---
     for key, label, pad, prefix, own_line in (
@@ -211,34 +246,37 @@ def fill(xml, values, report):
         if lbl == -1:
             note(key, label, value)
             continue
+        k0 = run_at(offsets, lbl)
+        k = run_at(offsets, lbl + len(label) - 1)
+        if own_line:
+            # the label starts its own paragraph, directly under the client
+            # name (comparison sheet, 28 Aug 2026): split the client-row
+            # paragraph just before the label, cloning the paragraph
+            # properties. This runs whether or not the job has the address
+            # yet - an empty value used to skip the split too, gluing the
+            # label to the client row and overlapping the rules below it
+            # (9.1 review, items 3-5)
+            para = next((m for m in P_RE.finditer(xml)
+                         if m.start() < runs[k0][0] < m.end()), None)
+            before = ""
+            if para:
+                before = "".join(T_RE.findall(para.group(0)[:runs[k0][0] - para.start()]))
+            if para and offsets[k0] == lbl and before.strip():
+                ppr = PPR_RE.search(para.group(0))
+                edits.append((runs[k0][0], runs[k0][0],
+                              "</w:p><w:p>" + (ppr.group(0) if ppr else "")))
+                note("resi_own_line", "new paragraph before label", "", 1)
+            elif para and not before.strip():
+                # already at the start of its paragraph - nothing to split
+                note("resi_own_line", "label already starts a paragraph", "", 1)
+            else:
+                note("resi_own_line", "label run not clean to split")
         if not value:
             note(key, label, skipped=True)
             continue
-        k0 = run_at(offsets, lbl)
-        k = run_at(offsets, lbl + len(label) - 1)
         edits.append((runs[k][1], runs[k][1],
                       clone_run(runs[k][2], f"{' ' * pad}{prefix}{value}")))
         note(key, label, f"{prefix}{value}", 1)
-        if not own_line:
-            continue
-        # the label starts its own paragraph, directly under the client name
-        # (comparison sheet, 28 Aug 2026): split the client-row paragraph
-        # just before the label, cloning the paragraph properties
-        para = next((m for m in P_RE.finditer(xml)
-                     if m.start() < runs[k0][0] < m.end()), None)
-        before = ""
-        if para:
-            before = "".join(T_RE.findall(para.group(0)[:runs[k0][0] - para.start()]))
-        if para and offsets[k0] == lbl and before.strip():
-            ppr = PPR_RE.search(para.group(0))
-            edits.append((runs[k0][0], runs[k0][0],
-                          "</w:p><w:p>" + (ppr.group(0) if ppr else "")))
-            note("resi_own_line", "new paragraph before label", "", 1)
-        elif para and not before.strip():
-            # already at the start of its paragraph - nothing to split
-            note("resi_own_line", "label already starts a paragraph", "", 1)
-        else:
-            note("resi_own_line", "label run not clean to split")
 
     # --- the fee: replace when the job names one; otherwise the template's
     # standard $30,000 stands (CD-4.3, reversed 28 Aug 2026) ---
@@ -305,6 +343,39 @@ def fill(xml, values, report):
             continue
         p = sig_ps[n].group(0)
         at = sig_ps[n].start() + p.rindex("</w:p>")
+        if key == "owner_1" and signatory:
+            # company/trust client (9.1 round, item 1): the person signs on
+            # behalf of the entity, both lines above the horizontal rule -
+            #   <signatory>
+            #   on behalf of <entity, as `owners` carries it incl. ABN/ACN>
+            lead = SIG_LEAD[key]
+            edits.append((at, at,
+                          f'<w:r>{SIG_RPR}<w:t xml:space="preserve">'
+                          f'{xml_escape(lead + signatory)}</w:t><w:br/>'
+                          f'<w:t xml:space="preserve">'
+                          f'{xml_escape(lead + "on behalf of " + entity)}</w:t></w:r>'))
+            note("sig:company_signatory", anchor,
+                 f"{signatory} / on behalf of {entity} (Calibri 12)", 1)
+            # and that row's printed label reads "Client Name / Company",
+            # per the review's reference image. The paragraph also carries
+            # the tabbed "Client Signature" label and the text is split
+            # across runs, so the " / Company" run (cloned from the label's
+            # own face) goes right after the run that completes "Client
+            # Name" - before the tab, never after "Client Signature"
+            lbl_m = sig_ps[labels[0]]
+            acc, ins, src = "", None, None
+            for r in RUN_RE.finditer(lbl_m.group(0)):
+                acc += run_text(r.group(0))
+                if "Client Name" in acc:
+                    ins, src = lbl_m.start() + r.end(), r.group(0)
+                    break
+            if ins is not None:
+                edits.append((ins, ins, clone_run(src, " / Company")))
+                note("sig:company_label", "Client Name → Client Name / Company",
+                     "", 1)
+            else:
+                note("sig:company_label", "Client Name label run not found")
+            continue
         edits.append((at, at,
                       f'<w:r>{SIG_RPR}<w:t xml:space="preserve">'
                       f'{xml_escape(SIG_LEAD[key] + value)}</w:t></w:r>'))
@@ -312,6 +383,36 @@ def fill(xml, values, report):
     if not targets:
         for key in ("owner_1", "owner_2", "builders_rep"):
             note(f"sig:{key}", "signature block not recognised")
+
+    # --- third client (9.1 round, item 6): clone the second client's whole
+    # signing row (spacers, name line, rule, "Client Name" label) below
+    # itself and type owner_3 into the clone - the Transpire block flows
+    # down, exactly as the team's manual 26011 agreement lays it out ---
+    if owner_3:
+        if len(labels) != 2 or not owner_2:
+            note("sig:owner_3", "needs the 2-row block and an owner_2",
+                 owner_3)
+        else:
+            u0 = sig_ps[labels[0] + 1].start()
+            u1 = sig_ps[labels[1]].end()
+            unit = xml[u0:u1]
+            cps = list(P_RE.finditer(unit))
+            c_lbl = next((n for n, m in enumerate(cps)
+                          if "Client Name" in run_text(m.group(0))), None)
+            name_i = c_lbl - 2 if c_lbl is not None else -1
+            if (0 <= name_i < len(cps)
+                    and not run_text(cps[name_i].group(0)).strip()):
+                p3 = cps[name_i].group(0)
+                at3 = cps[name_i].start() + p3.rindex("</w:p>")
+                unit = (unit[:at3]
+                        + f'<w:r>{SIG_RPR}<w:t xml:space="preserve">'
+                        f'{xml_escape(SIG_LEAD["owner_2"] + owner_3)}</w:t></w:r>'
+                        + unit[at3:])
+                edits.append((u1, u1, unit))
+                note("sig:owner_3", "2nd client row cloned below itself",
+                     f"{owner_3} (Calibri 12)", 1)
+            else:
+                note("sig:owner_3", "clone's name line not clean to type")
 
     for s, e, repl in sorted(edits, key=lambda x: -x[0]):
         xml = xml[:s] + repl + xml[e:]
@@ -370,7 +471,10 @@ def main():
         print("fee      : none supplied - the template's standard $30,000 "
               "stands (CD-4.3, 28 Aug 2026)")
     for advisory in (name_advisory("owner_1", values.get("owner_1")),
-                     name_advisory("owner_2", values.get("owner_2"))):
+                     name_advisory("owner_2", values.get("owner_2")),
+                     name_advisory("owner_3", values.get("owner_3")),
+                     name_advisory("company_signatory",
+                                   values.get("company_signatory"))):
         if advisory:
             print(f"NOTE     : {advisory}")
     print()
