@@ -10,6 +10,7 @@ all of them.
 |---|---|
 | [contract-admin](contract-admin/README.md) | Contract-documents workflow built and verified against real jobs: inclusions + prelim + HIA build contract filled and saved with routed destinations (CD-7.7; build contract per CD-5.2b - approved blank or TEST-only staged conversion). New-job intake retired 18 Aug 2026; variations not started |
 | [sales-estimation](sales-estimation/README.md) | Discovery complete 27 Aug 2026, all three sources reviewed (questionnaire, meeting transcript, the manager's handed-over rules + lot-research skill). Build order agreed: land assessment first, then variations. Two rule conflicts to settle before rules transcription; nothing built |
+| [permit-officer](permit-officer/README.md) | Building approvals (QLD certifier portal + NSW email/planning portal), RFI tracking, weekly BA report. Discovery 20 Aug 2026, business-owner review 21 Aug (NSW first); rules + workflow specs transcribed; OSC access gate cleared by the read-only `osc-api` MCP; no skills built yet |
 
 ## Adding a role
 
