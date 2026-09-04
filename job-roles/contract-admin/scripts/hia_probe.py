@@ -36,13 +36,14 @@ into the workdir, so the status ships with the evidence instead of relying on
 hand-written prose staying accurate.
 
 Path to the unblock: the staged blanks live in
-runtime\contract-admin\outputs\_hia-word-templates\ (NSW: the team's own
-Word build, 23 Aug 2026; QLD: the v2.1 LAND TABLES interim of 3 Sep 2026 -
-the team's v2 with value-cell tables and e-sign anchors at source, plus the
-same table fix for the land block v2 missed. They superseded the 17-18 Aug
-PDF-reflow conversions and that path's layout damage; the conversion trial
-is kept in runtime\contract-admin\outputs\_hia-conversion-trial\ as
-history). MCR
+runtime\contract-admin\outputs\_hia-word-templates\ (NSW: the v1.1 TABLES
+interim of 3 Sep 2026 - the team's own 21 Aug Word build plus the team
+review sheet's layout fixes; QLD: the v2.1 LAND TABLES interim of
+3 Sep 2026 - the team's v2 with value-cell tables and e-sign anchors at
+source, plus the same table fix for the land block v2 missed. They
+superseded the 17-18 Aug PDF-reflow conversions and that path's layout
+damage; the conversion trial is kept in
+runtime\contract-admin\outputs\_hia-conversion-trial\ as history). MCR
 eye-reviews a filled test output against the licensed PDF and files the blank
 in the region's CONTRACT folder, where this probe picks it up as CANDIDATE.
 """

@@ -38,9 +38,12 @@ SUITES = [
     # 109 out; adding it would tie six of the nine fields and neuter the check.
     # 19.08.2026: the whole Sydney NMA blank set was refreshed on the live
     # drive (old 18.08-dated files gone) - re-pointed 23 Aug 2026.
+    # 03.09.2026: the "2. ... 10 YEAR CELEBRATION PROMOTION" blank was removed
+    # from the live drive (promotion over); re-pointed to the STANDARD blank -
+    # the field anchors are the check, and the NMA skeleton is shared.
     ("sydney", Path(r"Z:\PROJECTS\SYDNEY"), "*THE WATER LANE*",
      CONTRACTS / "REGION - SYDNEY" / "INCLUSIONS"
-     / "2. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - STANDARD 10 YEAR CELEBRATION PROMOTION 19.08.2026 NMA.docx"),
+     / "1. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - STANDARD 19.08.2026 NMA.docx"),
 ]
 
 LABELS = ["Lot No. :", "HOUSE TYPE :", "STREET :", "HOUSE SIZE :", "SUBURB :",
