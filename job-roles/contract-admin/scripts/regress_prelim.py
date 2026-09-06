@@ -56,7 +56,16 @@ SYDNEY = Path(r"Z:\PROJECTS\SYDNEY")
 #            label                                glob      drop_fee  structure
 REF_JOBS = [("26032 lot 5085 (single, std fee)", "26032*", True,  True),
             ("26052 lot 2053 (two clients)",     "26052*", False, True),
-            ("26019 lot 4153 (single)",          "26019*", False, False)]
+            ("26019 lot 4153 (single)",          "26019*", False, False),
+            # the 9.1 review round's reference: three clients on page 1
+            # (("Client") kept) and a hand-built third signing row - the
+            # fill must reproduce its TEXT (4 Sep 2026, issue #10).
+            # Text-only like 26019: the manual document predates the 28 Aug
+            # conventions (it types the residential label into the client
+            # row's own paragraph, where the corrected 26032/26052 - and the
+            # fill - give it its own paragraph). The structural conventions
+            # are held by those two and the synthetic suites.
+            ("26011 lot 209 (three clients)",    "26011*", False, False)]
 
 RESI_LABEL = fp.RESI_LABEL
 CONS_LABEL = fp.CONS_LABEL
@@ -108,11 +117,11 @@ def values_from(real):
     t = text(real)
     names = re.search(r"Constructions”\)And\s+(.+?)\s*\(“Client",
                       t).group(1).strip()
-    owner_1, _, owner_2 = names.partition(" & ")
+    parts = [p.strip() for p in names.split(" & ")] + ["", ""]
     resi = re.search(re.escape(RESI_LABEL) + r"\s+(.+?)\s*\(For", t).group(1)
     cons = re.search(re.escape(CONS_LABEL) + r"\s+Lot (.+?)Herein", t).group(1)
     fee = re.search(r"pay Transpire Constructions \$([\d,]+)\.", t).group(1)
-    return {"owner_1": owner_1, "owner_2": owner_2.strip(),
+    return {"owner_1": parts[0], "owner_2": parts[1], "owner_3": parts[2],
             "residential_address": resi.strip(), "site_address": cons.strip(),
             "prelim_fee": fee, "builders_rep": "Michael CRONK"}
 
@@ -140,7 +149,8 @@ def main():
             failures += 1
             continue
         vals = values_from(real)
-        plural = bool(vals["owner_2"])
+        # ("Clients") applies to exactly two buyers; three keep ("Client")
+        plural = bool(vals["owner_2"]) and not vals.get("owner_3")
         if drop_fee:
             vals["prelim_fee"] = ""   # exercises the standard-fee default
         out = tmp / "prelim_filled.docx"
@@ -226,6 +236,85 @@ def main():
             print(f"FAIL  two-client smoke - {', '.join(bad)}")
         else:
             print("PASS  two-client smoke - structure, fonts and indents hold")
+
+    # synthetic three-client suite (9.1 round, issue #10): third name inline,
+    # the template's ("Client") kept, the second signing row cloned for the
+    # third name, and the residential label split even with NO address value
+    # (items 3-5: an empty value used to skip the split)
+    vals = {"owner_1": "Alpha Quentin ONE", "owner_2": "Beta Rae TWO",
+            "owner_3": "Gamma Sol THREE",
+            "residential_address": "",
+            "site_address": "9, Example Road, TESTVILLE NSW 2000",
+            "prelim_fee": "", "builders_rep": "Michael CRONK"}
+    out = tmp / "prelim_three.docx"
+    r = run_fill(vals, out)
+    if not out.exists():
+        print(f"FAIL  three-client smoke - fill did not run: {r.stderr.strip()[:200]}")
+        failures += 1
+    else:
+        t = text(out)
+        blocks = structure(out)
+        xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf8")
+        out.unlink(missing_ok=True)
+        checks = [
+            ("three names flow inline after And",
+             "And  Alpha Quentin ONE & Beta Rae TWO & Gamma Sol THREE" in t),
+            ("three buyers keep (“Client”) - 9.1 sheet + manual 26011",
+             "(“Client”)" in t and "(“Clients”)" not in t),
+            ("third signing row cloned (three Client Name labels)",
+             t.count("Client Name") == 3),
+            ("owner 3 signing line", "  Gamma Sol THREE" in t),
+            ("four Calibri-12 signature runs", xml.count(fp.SIG_RPR) == 4),
+            ("residential label splits even with no value",
+             any(RESI_LABEL in b
+                 and not b.split(RESI_LABEL)[0].strip(" |/")
+                 for _, b in blocks)),
+        ]
+        bad = [label for label, ok in checks if not ok]
+        if bad:
+            failures += 1
+            print(f"FAIL  three-client smoke - {', '.join(bad)}")
+        else:
+            print("PASS  three-client smoke - third row, (“Client”), value-free split hold")
+
+    # synthetic company suite (9.1 round, item 1): the entity carries page 1,
+    # the sourced signatory signs page 3 on two lines above the rule, and
+    # that row's label reads "Client Name / Company"
+    vals = {"owner_1": "TESTCO HOLDINGS PTY LTD",
+            "owners": "TESTCO HOLDINGS PTY LTD ACN: 000 000 000",
+            "company_signatory": "Casey Quinn SIGNER",
+            "residential_address": "1 Test Street, TESTVILLE NSW 2000",
+            "site_address": "9, Example Road, TESTVILLE NSW 2000",
+            "prelim_fee": "", "builders_rep": "Michael CRONK"}
+    out = tmp / "prelim_company.docx"
+    r = run_fill(vals, out)
+    if not out.exists():
+        print(f"FAIL  company smoke - fill did not run: {r.stderr.strip()[:200]}")
+        failures += 1
+    else:
+        t = text(out)
+        xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf8")
+        out.unlink(missing_ok=True)
+        checks = [
+            ("entity carries the page-1 recital",
+             "And  TESTCO HOLDINGS PTY LTD" in t and "(“Client”)" in t),
+            ("signatory line typed", "  Casey Quinn SIGNER" in t),
+            ("on-behalf-of line carries the entity incl. ACN",
+             "on behalf of TESTCO HOLDINGS PTY LTD ACN: 000 000 000" in t),
+            ("two lines share one run above the rule (line break present)",
+             "Casey Quinn SIGNER</w:t><w:br/>" in xml),
+            ("label reads Client Name / Company (first row only)",
+             t.count("Client Name / Company") == 1
+             and t.count("Client Name") == 2),
+            ("two Calibri-12 signature runs (signatory + rep)",
+             xml.count(fp.SIG_RPR) == 2),
+        ]
+        bad = [label for label, ok in checks if not ok]
+        if bad:
+            failures += 1
+            print(f"FAIL  company smoke - {', '.join(bad)}")
+        else:
+            print("PASS  company smoke - two-line signatory, label swap, entity recital hold")
 
     print("\n" + ("PASS" if not failures else f"FAIL - {failures} suite(s)"))
     return 1 if failures else 0

@@ -147,28 +147,49 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   reproduces 26032 and 26052 space-for-space. Supersedes the Tamworth-pair
   conventions of 16 Aug 2026: the review rejects exactly those cosmetics —
   names on tab stops, the 62-space label pad, cloned signature fonts)*:
-  - Client row, as the team wrote it out *(confirmed 28 Aug 2026)*:
+  - Client row, as the team wrote it out *(confirmed 28 Aug 2026; three-buyer
+    format from the 9.1 review round — issue #10's follow-up sheet,
+    implemented 4 Sep 2026 and verified text-identical against the team's
+    manual 26011 agreement)*:
 
     ```
     Single buyer:  And <First name> <Middle name> <LAST NAME>  (“Client”)
     Two buyers:    And <buyer 1 name> & <buyer 2 name>  (“Clients”)
+    Three buyers:  And <buyer 1> & <buyer 2> & <buyer 3>  (“Client”)
     ```
 
     The name(s) flow straight after `And`, with one tab kept before
-    `(“Client”)`, which becomes `(“Clients”)` when there are two. Each name
-    follows CD-3.1 — First name + Middle name + LAST NAME, surname in CAPS.
-    The corrected 26052 predates the plural and keeps `(“Client”)`; the team
-    confirmed the plural, so the filler writes it and `regress_prelim.py`
-    normalises before comparing against 26052.
+    `(“Client”)`, which becomes `(“Clients”)` when there are **exactly two**.
+    Each name follows CD-3.1 — First name + Middle name + LAST NAME, surname
+    in CAPS. The corrected 26052 predates the plural and keeps `(“Client”)`;
+    the team confirmed the plural for two, so the filler writes it and
+    `regress_prelim.py` normalises before comparing against 26052. **Three
+    buyers keep the template's `(“Client”)`** — the 9.1 sheet's written
+    format and the manual 26011 both do — which sits oddly beside the
+    two-buyer plural; flagged for the team in case one rule should cover
+    both (a one-word change in `fill_prelim.py`).
   - `(Current Residential Address)` starts its own paragraph directly under
     the client name (same paragraph properties as the client row), value one
-    space after the label. `(For Construction Address)`: value five spaces
-    after the label, prefixed `Lot `.
+    space after the label — **the split happens even when the job has no
+    residential address yet** (9.1 items 3–5: an empty value used to skip
+    the split too, gluing the label to the client row and overlapping the
+    rules below). `(For Construction Address)`: value five spaces after the
+    label, prefixed `Lot `.
   - Signature block: owner 1 two paragraphs above the first `Client Name`
     label, owner 2 two above the second, builders representative three above
     `Name who is authorised…` — typed **Calibri 12** *(confirmed by the team
     28 Aug 2026, chosen over both the blank's 8–9pt rendering and the
-    corrected documents' own 10–11pt)*.
+    corrected documents' own 10–11pt)*. **A third buyer** (`owner_3`, 9.1
+    item 6) gets the second client's whole signing row cloned below itself —
+    spacers, name line, rule and `Client Name` label — with the Transpire
+    authorised-signatory block flowing down, as the manual 26011 lays it out.
+  - **Company/trust client** (9.1 item 1): page 1 carries the entity
+    (CD-3.9) as usual. When the job JSON names a `company_signatory` —
+    sourced from the signed land contract, never derived — the page-3
+    signing line takes two lines above the horizontal rule
+    (`<signatory>` ⏎ `on behalf of <entity as `owners` carries it, incl.
+    ABN/ACN>`) and that row's printed label becomes `Client Name / Company`,
+    per the review's reference image.
 - **CD-4.6** **The master template was corrected at source on 28 Aug 2026**, so
   these faults no longer ship in the blank a person opens:
   - the third paragraph of `3. ENDING AGREEMENT` (the sunset-clause insertion)
