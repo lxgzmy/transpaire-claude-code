@@ -19,18 +19,20 @@ builder). Claude assists by reading requests, applying rules, and producing
    relies on them.
 2. **Contract documents** (built; fills **and saves** with automatic routing —
    issuing and every outward act stays human). Build contract request → filled
-   templates, saved in the same pass: first drafts into the job's
-   `CONTRACT DOCUMENTATION`, jobs that already exist in production into the
-   template-testing folder (CD-7.7, 17 Aug 2026 — no preview stop). Rules from
+   templates, saved in the same pass and routed per document: a document the
+   job's `CONTRACT DOCUMENTATION` does not hold yet goes into it; a document
+   it already holds refreshes to the template-testing folder (CD-7.6/7.7,
+   per-document since 8 Sep 2026 — no preview stop). Rules from
    the manual's "RAISING CONTRACTS" section plus the blank templates diffed
    against completed jobs (`rules/contract-docs.md`); workflow spec
    `workflows/new-contract.md`; skill `/new-contract-template`. Produces the
    inclusions, the preliminary agreement, and — since 18 Aug 2026 — the HIA
    build contract in the same pass whenever a usable Word template exists
-   (`fill_hia.py`, NSW+QLD; CD-5.2a/5.2b: approved blank → real name, staged
-   template → TEST runs only, otherwise data sheet only; both staged
-   templates are the team's own Word builds — NSW since 23 Aug 2026, QLD
-   since 25 Aug 2026, each replacing its repaired PDF conversion. DataBuild
+   (`fill_hia.py`, NSW+QLD; CD-5.2a/5.2b: approved blank → real name,
+   otherwise the staged interim template → real name too, in production as
+   well as test since 8 Sep 2026, no template at all → data sheet only; both
+   staged templates are the team's own Word builds plus a sanctioned interim
+   repair each — NSW v1.1 TABLES, QLD v2.1 LAND TABLES, 3 Sep 2026. DataBuild
    figures fill only when a person keys them into the job JSON — never
    calculated — and legal statements are never filled, CD-5.4).
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
@@ -90,7 +92,8 @@ DocuSign) is produced as a **draft with an evidence bundle** for review. Nothing
 sent to a client/owner or written to a system of record without explicit approval.
 
 **Sanctioned exception (17 Aug 2026):** the `/new-contract-template` save is
-automatic — routed by CD-7.7 to the job folder (first drafts, never
-overwriting) or the template-testing folder (jobs already in production), with
-the full report following the save. Issuing, sending, signing, OSC/DataBuild
+automatic — routed by CD-7.6/7.7 per document: into the job folder for a
+document the job does not hold yet (never overwriting), to the template-testing
+folder for a document it already holds — with the full report following the
+save. Issuing, sending, signing, OSC/DataBuild
 writes, and promoting test output into a job folder stay human.

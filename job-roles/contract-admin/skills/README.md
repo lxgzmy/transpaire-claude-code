@@ -15,19 +15,21 @@ Built:
   contract request chain and its attachments, picks the correct **existing** blank
   template off `Z:\PROCEDURES & FORMS\CONTRACTS\`, fills it via
   `../scripts/fill_inclusions.py`, diffs filled against blank, and **saves in the
-  same pass** (the preview/approval stop was removed 17 Aug 2026): a job whose
-  `CONTRACT DOCUMENTATION` already holds contract docs is a **test run** and
-  saves only to `cowork-projects\3.new_contract\template-testing\<job>\`; a
-  genuine first draft saves the pair into the job folder, never overwriting
-  (CD-7.7). Produces the inclusions and preliminary agreement as completed
+  same pass** (the preview/approval stop was removed 17 Aug 2026), **routed
+  per document** (8 Sep 2026): a document type the job's `CONTRACT
+  DOCUMENTATION` already holds refreshes to
+  `cowork-projects\3.new_contract\template-testing\<job>\`; a document type
+  not there yet saves its pair into the job folder, never overwriting
+  (CD-7.6/7.7). Produces the inclusions and preliminary agreement as completed
   `.docx` **plus the PDF export** (CD-7.4 — every completed job keeps the
   pair); the **build contract is filled in the same pass** whenever a usable
   Word template exists (`../scripts/fill_hia.py`, NSW+QLD, CD-5.2b, 18 Aug
   2026): an MCR-approved blank in the region's `CONTRACT\` folder → real
-  deliverable name; none yet → TEST runs fill from the staged template
-  (NSW: the team's own Word build, 23 Aug 2026; QLD: still the repaired
-  conversion) under a `- TEST UNAPPROVED TEMPLATE` name; PRODUCTION with no
-  approved blank → data sheet only (CD-5.1/5.2a). DataBuild figures fill only
+  deliverable name; none yet → the region's staged interim template (NSW:
+  v1.1 TABLES; QLD: v2.1 LAND TABLES — both 3 Sep 2026) fills under the real
+  name too, in PRODUCTION and TEST alike (8 Sep 2026), with the interim
+  provenance flagged for the reviewer; no staged template → data sheet only
+  (CD-5.1/5.2a). DataBuild figures fill only
   when a person keys them into the job JSON — never calculated — and legal
   statements are never filled (CD-5.4). Never invents contract wording, never
   signs, never sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).

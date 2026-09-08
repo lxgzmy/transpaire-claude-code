@@ -8,8 +8,9 @@ The business holds a valid HIA licence (17 Aug 2026), so the HIA build contract
 is REQUIRED to ship as a filled .docx + .pdf pair (CD-5.2a) - but only once a
 current fillable Word blank exists in the region's contract-template folder.
 This probe is the detection half of that requirement: it classifies every
-build-contract blank and says, machine-readably, whether the region is still
-BLOCKED (data sheet only) or a CANDIDATE template has landed.
+build-contract blank and says, machine-readably, whether the region still has
+NO APPROVED BLANK (the driver then fills from its staged interim template,
+8 Sep 2026) or a CANDIDATE template has landed.
 
 Classification, in the order the rules bite (CD-1.3, CD-5.1, CD-5.2a):
 
@@ -27,9 +28,12 @@ Classification, in the order the rules bite (CD-1.3, CD-5.1, CD-5.2a):
 
 Verdict line per region, for the driver to relay:
 
-  hia contract: BLOCKED - ...        (produce the CD-5 data sheet, flag the gap)
-  hia contract: CANDIDATE - <name>   (template landed; fill step not yet
-                                      commissioned - still data sheet this run)
+  hia contract: NO APPROVED BLANK - ...  (driver fills from the staged interim
+                                          template under the real name; the
+                                          data sheet still ships alongside)
+  hia contract: CANDIDATE - <name>       (approved blank landed; the driver
+                                          fills it under the real name)
+  hia contract: BLOCKED - ...            (contract folder unreachable only)
 
 draft_contract.py runs this on every --job-dir save and writes hia_status.txt
 into the workdir, so the status ships with the evidence instead of relying on
@@ -140,9 +144,12 @@ def report(region):
         return "CANDIDATE"
     extra = (f" (a FILLABLE PDF exists - {fillable_pdfs[0]} - but the pipeline "
              f"fills .docx only; tell a person)" if fillable_pdfs else "")
-    print(f"  hia contract: BLOCKED - no fillable Word blank; data sheet only "
-          f"(CD-5.1/5.2a){extra}")
-    return "BLOCKED"
+    print(f"  hia contract: NO APPROVED BLANK - no fillable Word blank filed here; "
+          f"draft_contract.py fills from the region's staged INTERIM template under "
+          f"the real name (CD-5.2b, 8 Sep 2026) - review the draft against the "
+          f"licensed PDF before issue; MCR files a blank here to replace the interim"
+          f"{extra}")
+    return "NO APPROVED BLANK"
 
 
 def main():

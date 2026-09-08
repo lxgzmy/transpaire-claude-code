@@ -219,10 +219,11 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 
 - **CD-5.1** The live NSW and SEQ build-contract **PDFs are flat, with no form
   fields** — a PDF can never be filled programmatically here. The fill happens
-  only on a Word template (CD-5.2b resolves which one, if any); the data sheet
-  of person-keyed values is produced every run, and in PRODUCTION with no
-  MCR-approved Word blank it is the whole deliverable — never present the
-  contract as generated then. *(observed)*
+  only on a Word template (CD-5.2b resolves which one); the data sheet of
+  person-keyed values is produced every run alongside the filled contract.
+  Only a region with neither an approved blank nor a staged interim template
+  gets the data sheet alone — never present the contract as generated then.
+  *(observed)*
 - **CD-5.2** The manual describes editing a Word HIA contract
   (`QLD HIA Contract 1.docx`). Every Word contract of that name is now in `SS\`,
   dated 2016–2017. The manual is behind the drive here — flag it for review.
@@ -234,7 +235,9 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   live blanks are flat PDFs with no form fields (CD-5.1), the server cannot
   fill a flat PDF, and `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR
   APPROVES.pdf` stays off-limits until MCR approves regardless of licensing.
-  Until unblocked, produce the CD-5 data sheet.
+  **Unblocked 8 Sep 2026 by business instruction**: the staged interim Word
+  templates (CD-5.2b) fill real contracts until an approved blank replaces
+  them. The data sheet still ships with every run.
 - **CD-5.2b** **Detection is automated** *(18 Aug 2026)*: `hia_probe.py`
   classifies every build-contract blank in the region's contract-template
   folder, and `draft_contract.py --job-dir` runs it on every routed save —
@@ -248,11 +251,16 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
      person + MCR filed it) → filled under the **real deliverable name**, in
      TEST or PRODUCTION; the anchor `--check` is the automated regression
      gate, and the first fill after a template lands is eye-verified;
-  2. no candidate, **TEST mode only** → the staged template in
-     `runtime\contract-admin\outputs\_hia-word-templates\`, filled under a
-     `- TEST UNAPPROVED TEMPLATE` name (never issuable);
-  3. otherwise (PRODUCTION, no approved blank) → **data sheet only**, and the
-     run says BLOCKED.
+  2. no candidate → the region's **staged interim template** in
+     `runtime\contract-admin\outputs\_hia-word-templates\`, filled under the
+     **real deliverable name** in PRODUCTION and TEST alike *(business rule,
+     8 Sep 2026: a job with no build contract in `Z:\PROJECTS` gets a real
+     contract document, not a blocked data sheet — this replaced the
+     18 Aug–7 Sep rule that confined the staged template to TEST runs under
+     a `- TEST UNAPPROVED TEMPLATE` name)*. The run report names the interim
+     template so the reviewer reads the draft against the licensed PDF before
+     issue; issuing stays human regardless (CD-8);
+  3. otherwise (no staged template for the region) → **data sheet only**.
   Both staged templates are **the team's own Word builds plus a sanctioned
   interim repair each** (each interim carries fixes the team's own review
   ordered, until the team folds them into its master):
@@ -374,23 +382,30 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-7.5** Superseded versions move to an `SS\` subfolder **within the job's
   contract folder**, suffixed ` V2`, ` V3`. Never overwrite — existing file at
   the target name → stop and ask. *(observed)*
-- **CD-7.6** Existing contract documents in the job folder (`SS\` included)
-  mean the job **already exists in production**, so the run is a **test run**
-  (17 Aug 2026, superseding the earlier report-and-ask amendment stop): output
-  goes only to the test destination in CD-7.7, and the job folder is not
-  touched. A genuine amendment is produced the same way; a person promotes it
-  into the job folder with the CD-7.5 `SS\` move.
+- **CD-7.6** Routing is decided **per document, not per job** *(business rule,
+  8 Sep 2026, replacing the 17 Aug whole-run switch)*. A document type
+  (`INCLUSIONS`, `PRELIMINARY AGREEMENT`, `BUILD CONTRACT`) already in the
+  job's `CONTRACT DOCUMENTATION` (`SS\` included) **already exists in
+  production**, so a new copy of *that document* is a **test/refresh** and goes
+  only to the test destination in CD-7.7; a person promotes it with the CD-7.5
+  `SS\` move. A document type **not yet in the folder is a real first draft**
+  and is saved into the job folder — whatever else the folder holds. A job that
+  already has its inclusions but no build contract therefore gets the build
+  contract saved into `Z:\PROJECTS` while the inclusions refresh lands in
+  template-testing.
 - **CD-7.7** **Destination routing, automatic (17 Aug 2026 — the preview/
-  approval gate of 12/16 Aug was removed by explicit instruction).** The fill
-  run saves in the same pass, to exactly one of two places: **TEST** (job
-  already has contract documents) →
+  approval gate of 12/16 Aug was removed by explicit instruction; per-document
+  since 8 Sep 2026).** The fill run saves in the same pass, each document to
+  exactly one of two places: **TEST** (that document already in the job
+  folder) →
   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`,
   finals at the root, working files in `temp\`, refreshable in place;
-  **PRODUCTION** (genuine first draft) → the job's own `CONTRACT
-  DOCUMENTATION`, final `.docx`+`.pdf` pair per document only, never
-  overwriting. Enforced by `draft_contract.py --job-dir`. Data gates stay:
-  anchor miss aborts, unsourced mandatory values refuse, failed stages block
-  the save, price conflicts stop the run.
+  **PRODUCTION** (that document not yet in the job folder) → the job's own
+  `CONTRACT DOCUMENTATION`, final `.docx`+`.pdf` pair only, never
+  overwriting. Enforced by `draft_contract.py --job-dir`, which prints the
+  route per document before anything runs. Data gates stay: anchor miss
+  aborts, unsourced mandatory values refuse, failed stages block the save,
+  price conflicts stop the run.
 
 ## CD-8 What only a person does
 
@@ -409,7 +424,7 @@ cabinet; and any DocuSign issue to a client.
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
 | Template anchor not found by `--check` | Stop; template revised, needs a person |
-| Contract documents already in the job folder | Test mode: save only to the template-testing folder (CD-7.6/7.7) |
+| A document type already in the job folder | That document refreshes to the template-testing folder; documents not yet there still save into the job folder (CD-7.6/7.7, per document) |
 | Preliminary agreement requirement unclear | Ask (CD-4.4) |
 | Preliminary fee not stated in the request | Proceed; the standard $30,000 stands (CD-4.3) |
 | Client ID missing from the request | Note it; do not guess the name spelling |
@@ -430,8 +445,11 @@ cabinet; and any DocuSign issue to a client.
    read-through of a filled test output against the licensed PDF (for QLD,
    settling the one flagged item in the staging README with it: the moved
    `/i1/\signer1_sig` placement), MCR approval, file the blank in the
-   region's `CONTRACT\` folder. Until then production runs stay
-   data-sheet-only. (CD-5.1/5.2)
+   region's `CONTRACT\` folder. **Since 8 Sep 2026 production runs no
+   longer wait for it**: the interim template fills real build contracts
+   under the real name, and the run report flags the interim provenance for
+   the reviewer. Filing the approved blank swaps the template, nothing else.
+   (CD-5.1/5.2)
 3. ~~What sets the preliminary work fee, and should the template default be
    removed to stop it being carried over?~~ **Answered 28 Aug 2026** by the
    team's review sheet: $30,000 is the standard fee and stands unless the

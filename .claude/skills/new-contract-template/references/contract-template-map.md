@@ -138,10 +138,11 @@ live blank:
 The fill step is built and driver-integrated (18 Aug 2026; NSW re-anchored
 to the team build 23 Aug 2026): `fill_hia.py` (NSW + QLD anchor sets,
 `regress_hia.py` passing, verified on 26045/26032/25163) runs inside every
-`draft_contract.py --job-dir` fill — staged template in TEST runs under a
-`- TEST UNAPPROVED TEMPLATE` name, and the moment an approved blank lands
-here the probe reports CANDIDATE (its name match tolerates the team's dotted
-file naming) and the same run fills it under the real deliverable name
+`draft_contract.py --job-dir` fill — from the region's staged interim template
+under the real deliverable name, in production and test alike (8 Sep 2026;
+the report flags the interim provenance for the reviewer), and the moment an
+approved blank lands here the probe reports CANDIDATE (its name match
+tolerates the team's dotted file naming) and the same run fills that instead
 (anchor `--check` gates it; eye-verify the first fill after any template
 lands). (The 17 Aug reflow trial in `_hia-conversion-trial\` is superseded.)
 
@@ -151,10 +152,12 @@ lands). (The 17 Aug reflow trial in `_hia-conversion-trial\` is superseded.)
 Z:\PROJECTS\<REGION>\<job folder>\CONTRACT\CONTRACT DOCUMENTATION\
 ```
 
-**Unless the job already exists in production** — that folder already holding
-any contract document makes the run a test run (CD-7.6/7.7), and everything
-saves to `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`
-instead. `draft_contract.py --job-dir` routes this automatically.
+**Per document** (CD-7.6/7.7, 8 Sep 2026): a document type that folder already
+holds is a refresh and saves to
+`Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`
+instead; a document type not there yet saves into the job folder above.
+`draft_contract.py --job-dir` routes this automatically and prints the route
+per document.
 
 Current filename convention, counted across every `CONTRACT DOCUMENTATION`
 folder in `TAMWORTH` and `GUNNEDAH`:

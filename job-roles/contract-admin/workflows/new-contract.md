@@ -15,9 +15,11 @@ in this manual"* in its chain diagram. It has a source procedure, so it is
 built. The HIA licence held since 17 Aug 2026 makes the docx+PDF pair the
 target for the HIA build contract (CD-5.2a), and since 18 Aug 2026 the driver
 fills it in the same pass whenever a usable Word template exists (CD-5.2b:
-approved blank in the region's CONTRACT folder → real name; staged template →
-TEST runs only; otherwise data sheet only). Staged: NSW is the team's own
-Word build (23 Aug 2026); QLD is the v2.1 LAND TABLES interim (3 Sep 2026)
+approved blank in the region's CONTRACT folder → real name; otherwise the
+staged interim template → real name too, in production and test alike since
+8 Sep 2026; no template → data sheet only). Staged: NSW is the v1.1 TABLES
+interim (3 Sep 2026) on the team's own Word build; QLD is the v2.1 LAND
+TABLES interim (3 Sep 2026)
 — the team's v2 of 1 Sep (value-cell tables, e-sign anchors at source) plus
 the same table fix for the land block v2 missed, filled in cell mode;
 filled exports hold the licensed 37 pages. Every routed save runs
@@ -81,8 +83,9 @@ scan the six executed documents separately; manila folder to the filing cabinet.
 The preview/approval gates that used to sit at the old steps 6 and 8 were
 **removed on 17 Aug 2026 by explicit instruction** (they had been declared
 permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
-and bounded by CD-7.7's routing: test runs can never touch a job folder, and
-production saves never overwrite. What stays with a person, permanently: every
+and bounded by CD-7.6/7.7's per-document routing (8 Sep 2026): a document the
+job already holds refreshes only to the test folder, a document it does not
+hold yet saves into the job folder, and production saves never overwrite. What stays with a person, permanently: every
 outward-facing act — email, signature, DocuSign, OSC write — plus resolving
 flagged fields, aux inclusions wording, and promoting test/amendment output
 into a job folder.

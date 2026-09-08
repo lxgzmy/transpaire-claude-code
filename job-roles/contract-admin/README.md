@@ -13,12 +13,12 @@ Proof-of-concept, read-only and draft-first. Three workflows:
 2. **Contract documents** (built; fills and saves in one pass) — build contract
    request → filled inclusions + preliminary agreement + HIA build contract
    (`.docx` + PDF export each; the build contract fills whenever a usable Word
-   template exists — approved blank → real name, staged template → TEST runs
-   only (NSW: the team's Word build since 23 Aug 2026), otherwise data
-   sheet, CD-5.2b) → saved to the routed
-   destination: the job folder for first drafts, the template-testing folder
-   when the job already exists in production (CD-7.7, 17 Aug 2026 — no preview
-   stop; issuing stays human).
+   template exists — approved blank → real name, otherwise the staged interim
+   template → real name too, in production as well as test since 8 Sep 2026,
+   no template at all → data sheet, CD-5.2b) → saved to the routed
+   destination per document: the job folder for a document not yet there,
+   the template-testing folder for a document the job already holds
+   (CD-7.6/7.7 — no preview stop; issuing stays human).
    Verified character-for-character against completed jobs in all three
    template families. Skill: `/new-contract-template`.
 3. **Variation Stage 1** (not started) — variation type decision → OSC variation +

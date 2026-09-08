@@ -71,9 +71,11 @@ skills are scoped to that folder and must not leak into another role.
 - Start **read-only and draft-only**. Prefer read-only connectors before any write
   access. Flag low-confidence extractions for human confirmation rather than guessing.
 - **Sanctioned exception (17 Aug 2026):** `/new-contract-template` saves its
-  filled documents in one pass with automatic test/production routing
-  (`contract-docs.md` CD-7.7) — no preview stop. Everything outward-facing —
-  issue, send, sign, DocuSign, OSC/DataBuild writes — stays gated. Any further
+  filled documents in one pass with automatic routing (`contract-docs.md`
+  CD-7.6/7.7, per document since 8 Sep 2026: a document the job folder does
+  not hold yet goes into the job folder, one it already holds refreshes to
+  template-testing) — no preview stop. Everything outward-facing — issue,
+  send, sign, DocuSign, OSC/DataBuild writes — stays gated. Any further
   exception needs the same explicit instruction this one had.
 
 ## Security posture
