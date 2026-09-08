@@ -30,6 +30,28 @@ reporting) is **company-wide, not role-specific** — it lives in the org-level
 [`z-drive-ops`](../../.claude/skills/z-drive-ops/SKILL.md) skill. This role keeps
 only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 
+## Where the documents go
+
+**Where the contract documents go (four rules, 8 Sep 2026)**
+
+1. Every `/new-contract-template` run first looks in the job's
+   `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
+   notes which contract documents are already there: inclusions, preliminary
+   agreement, build contract (`SS\` included).
+2. A document the job folder does **not** have is a **real contract, not a
+   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder. It never goes to template-testing.
+3. A document the job folder **already** has is treated as a **test /
+   refresh**. Its `.docx` + `.pdf` go only to
+   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
+   The original in the job folder is never overwritten; a person swaps it in
+   (old version to `SS\`).
+4. The build contract is **no longer blocked**. While NSW / QLD has no
+   MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
+   staged interim template under the real file name; the run report names
+   the template, and a person reads the draft against the licensed HIA PDF
+   before it is issued.
+
 ## Folder map
 
 | Folder | Purpose |
