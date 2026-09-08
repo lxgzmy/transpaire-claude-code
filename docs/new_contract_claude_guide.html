@@ -272,7 +272,7 @@
 
 <div class="card" style="--c:var(--blue)">
   <div class="hd"><span class="num">1</span><h3>It reads the whole email chain, and the attachments</h3></div>
-  <p class="when">Including the EOI, when the file has readable text.</p>
+  <p class="when">Including the EOI and the ID, when Claude can read them.</p>
   <div class="say">
     <span class="lbl">What it pulls out</span>
     <ul>
@@ -286,10 +286,10 @@
   <p class="back"><b>Why this matters:</b> these emails get forwarded two or three
      times. The instruction to you is in the newest part, the job facts are in the
      oldest part from the marketer. It reads all of it.</p>
-  <p class="tip"><b>Scanned EOIs.</b> If the EOI and ID are a scanned picture with no
-     text, Claude cannot read them on this server and will ask you for the names.
-     Type them exactly as they appear on the ID, including middle names, and
-     check the spelling on the finished document yourself.</p>
+  <p class="tip"><b>Scanned EOIs and IDs.</b> This server has no OCR, so a scanned or
+     photographed EOI or ID often cannot be read. When Claude cannot read it, it
+     asks you for the names. Type them exactly as they appear on the ID, including
+     middle names, and check the spelling on the finished document yourself.</p>
 </div>
 
 <div class="card" style="--c:var(--green)">
@@ -318,7 +318,7 @@
           fa&ccedil;ade, garage side, client names, site address, Builders
           Representative</li>
       <li>Build contract: cover page (owners, job, lot, site), the owner block, the
-          land details, the signature names and the checklist names</li>
+          land details, the signature names and the owner acknowledgement names</li>
       <li>Owner address, mobiles, emails, DP number and land address, when the
           request gives them</li>
     </ul>
@@ -328,9 +328,9 @@
      against the blank template so you can see it touched the fields and nothing
      else.</p>
   <p class="tip"><b>Signatures, dates, initials and money are left empty.</b> Always.
-     Signing is yours and Michael&rsquo;s. Price excluding GST, GST, contract price,
-     deposit and progress payments come from DataBuild and Claude never types them
-     unless you give it the exact figures.</p>
+     Signing is yours and Michael&rsquo;s. Price excluding GST, GST, contract price
+     and deposit come from DataBuild and are typed only when you give Claude the
+     exact figures. The progress payment schedule is never filled by Claude.</p>
 </div>
 
 <div class="card" style="--c:var(--amber)">
@@ -362,8 +362,8 @@
         template is the team&rsquo;s own build and is still waiting on the
         manager&rsquo;s formal sign-off, so this read-through is your safety
         check on layout and wording.</li>
-    <li><b>Check the owner names and spelling against the ID.</b> If the EOI was a
-        scan, the names came from what was typed into the chat.</li>
+    <li><b>Check the owner names and spelling against the ID.</b> If Claude could
+        not read the EOI, the names came from what was typed into the chat.</li>
     <li><b>Key the money from DataBuild.</b> Contract price, GST, deposit and the
         progress payment schedule are never filled automatically.</li>
     <li><b>Fill what is still blank.</b> Owner address, every purchaser&rsquo;s
@@ -383,15 +383,18 @@
     <caption>Filling in the blanks afterwards</caption>
     <thead><tr><th>What you have</th><th>What to do</th></tr></thead>
     <tbody>
-      <tr><td>Owner contacts, DP number, land address, guarantor, DataBuild figures</td>
+      <tr><td>Owner contacts, DP number, land address, guarantor, house size, garage
+              side, and the DataBuild figures (price excluding GST, GST, contract
+              price, deposit)</td>
           <td><b>Tell Claude the values in the same chat and ask it to run the job
               again.</b> Say them plainly: &ldquo;Lot 142: owner mobile is &hellip;,
-              second owner email is &hellip;, DP number is &hellip;, price excluding
-              GST is &hellip;&rdquo;. Because the job folder already has the
-              document, the new version lands in the testing folder (rule 3). Check
-              it, move the old one into <code>SS</code>, copy the new one across.</td></tr>
+              second owner email is &hellip;, DP number is &hellip;, garage side is
+              left, price excluding GST is &hellip;&rdquo;. Because the job folder
+              already has the document, the new version lands in the testing folder
+              (rule 3). Check it, move the old one into <code>SS</code>, copy the new
+              one across.</td></tr>
       <tr><td>Progress payment schedule, special conditions, auxiliary dwelling
-              inclusions text, house size, garage side, building period</td>
+              inclusions text, a building period different from the template</td>
           <td><b>Edit the <code>.docx</code> in Word yourself.</b> Claude will never
               write these. Type them in, then save a fresh PDF (File, Save As, PDF)
               so the Word file and the PDF stay together under the same names. Move
@@ -411,8 +414,9 @@
   <ul>
     <li><b>Never</b> invent contract wording, or a contract format. It fills the
         company&rsquo;s template or it stops.</li>
-    <li><b>Never</b> guess a number that goes in a contract. Price, house size,
-        garage side and the prelim fee are either sourced or flagged for you.</li>
+    <li><b>Never</b> guess a number that goes in a contract. Price, house size and
+        garage side are either sourced or flagged for you. The preliminary
+        agreement fee is the standard amount unless the request names another.</li>
     <li><b>Never</b> sign, initial or date anything, and never send an email or
         issue anything to DocuSign.</li>
     <li><b>Never</b> overwrite a file that is already in a job folder. A document
@@ -461,7 +465,7 @@
     <caption>Getting a good draft</caption>
     <thead><tr><th>Do this</th><th>Why it helps</th></tr></thead>
     <tbody>
-      <tr><td>Include the EOI and the ID, as readable files if you can</td><td>The buyer&rsquo;s name comes off the EOI. A scanned picture cannot be read here, so you will be asked to type the names</td></tr>
+      <tr><td>Include the EOI and the ID, as readable files if you can</td><td>The buyer&rsquo;s name comes off the EOI. If Claude cannot read a scan, it asks you to type the names</td></tr>
       <tr><td>Give the owner contacts and land details up front</td><td>Address, mobiles, emails, DP number and land address go straight onto the build contract instead of being blanks to fill later</td></tr>
       <tr><td>Wait for the plans if you can</td><td>House size and garage side come off the plans and nowhere else</td></tr>
       <tr><td>Say if it is a dual key or auxiliary dwelling</td><td>The standard inclusions do not cover the second dwelling. It flags this, but confirming saves a round trip</td></tr>
@@ -488,8 +492,9 @@
               (rule 3). Check the new one, move the old pair into <code>SS</code>, and
               copy the new pair across.</td></tr>
       <tr><td>Claude asked me for the owner names</td>
-          <td>The EOI or ID was a scanned picture with no text. Type the names exactly
-              as on the ID and check the spelling on the finished document.</td></tr>
+          <td>Claude could not read the EOI or ID (a scan or photo with no text layer;
+              this server has no OCR). Type the names exactly as on the ID and check
+              the spelling on the finished document.</td></tr>
       <tr><td>It left garage side blank</td>
           <td>Working as intended. It is read off the site plan drawing and Claude will
               not guess it. Fill it in yourself, or ask Michael.</td></tr>
