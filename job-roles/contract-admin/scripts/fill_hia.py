@@ -19,9 +19,10 @@ STATUS (3 Sep 2026):
         NAME lines carry a tab stop at the SIGNATURE lines' own x; and
         Special Conditions clause 1 cites Item 2 (contract price), not
         Item 3 - the sheet's one wording order. Blank renders identical
-        to the team build outside those bands (45pp both). Still fills to
-        template-testing only until MCR files the blank in the region's
-        CONTRACT folder (CD-5.2b rule 1).
+        to the team build outside those bands (45pp both). Since 8 Sep 2026
+        the driver fills real contracts from it under the real name (CD-5.2b
+        rule 2); MCR filing a blank in the region's CONTRACT folder swaps
+        the template (rule 1).
   QLD - anchored to the v2.1 LAND TABLES interim (staged as "QLD BUILD
         CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         sanctioned repair 3 Sep 2026): the team's v2 Word build of the QC2
@@ -40,8 +41,9 @@ STATUS (3 Sep 2026):
         licensed PDF and the old v1.1 interim had it at Special Conditions
         "Owner(s) to initial here" - flagged for MCR's read-through, no
         fill impact). Supersedes the 28 Aug v1.1 ANCHORS interim and the
-        25 Aug team build. Same gate: template-testing only until MCR
-        files the blank in REGION - SEQ\CONTRACT (CD-5.2b rule 1).
+        25 Aug team build. Same standing as NSW: real fills since 8 Sep
+        2026; MCR filing the blank in REGION - SEQ\CONTRACT swaps the
+        template (CD-5.2b rule 1).
 
 What it fills (label-anchored - the same technique as fill_inclusions.py /
 fill_prelim.py. Mode "after" types the value inline after the printed label,
@@ -637,7 +639,11 @@ def run(template, job, out_path, check_only, region):
     print(f"template : {Path(template).name}")
     print(f"region   : {region}")
     print(f"job      : {Path(job).name}")
-    print("STATUS   : CD-5.2b - not MCR-filed; template-testing only, never issuable")
+    interim = "INTERIM PENDING MCR" in Path(template).name.upper()
+    print("STATUS   : " + ("CD-5.2b rule 2 - staged INTERIM template, not yet MCR-filed; "
+                           "review the draft against the licensed PDF before issue"
+                           if interim else
+                           "CD-5.2b rule 1 - approved blank from the region's CONTRACT folder"))
     print()
     print(f"{'field':<18} {'para':>5}  {'label':<18} value")
     print("-" * 80)
@@ -692,8 +698,9 @@ def run(template, job, out_path, check_only, region):
             zout.writestr(item, data)
     tmp.replace(out_path)
     print(f"\nwritten  : {out_path}")
-    print("Not MCR-filed - a person must review it against the licensed PDF; "
-          "it is not issuable.")
+    if interim:
+        print("Filled from the staged interim template (not yet MCR-filed) - a person "
+              "reads it against the licensed PDF before it is issued; issuing stays human.")
     return 0
 
 

@@ -12,22 +12,27 @@ in the same pass. The preview/approval stop was REMOVED by instruction on
 17 Aug 2026: the run no longer pauses for a human between fill and save.
 
 --job-dir points at the job's CONTRACT DOCUMENTATION folder and decides the
-destination automatically (skill rule, 17 Aug 2026):
+destination automatically, PER DOCUMENT (business rule, 8 Sep 2026, replacing
+the whole-run TEST/PRODUCTION switch of 17 Aug 2026):
 
-  TEST - the folder already holds contract documents (INCLUSIONS*,
-     PRELIMINARY AGREEMENT* or BUILD CONTRACT*, SS\ included): the job already
-     exists in production, so this run is a test. Finals go ONLY to
+  PRODUCTION - a document type (INCLUSIONS, PRELIMINARY AGREEMENT, BUILD
+     CONTRACT) that the job folder does NOT yet hold, SS\ included, is a real
+     contract document: its final .docx + .pdf pair is copied into the job
+     folder itself (CD-7.1/7.4). Never overwrites - a name clash stops the
+     run; superseding a version stays a person's copy + SS\ move (CD-7.5).
+  TEST - a document type the job folder ALREADY holds is a refresh of an
+     existing contract document: its finals go to
      Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\
-     (refreshed in place), working files to its temp\, and NOTHING is written
-     to the job folder. --real-dir defaults to the job folder so the drafts
-     are worddiffed against the completed documents.
-  PRODUCTION - the folder holds no contract document (a genuine first draft):
-     the final .docx + .pdf pair per document is copied into the job folder
-     itself (CD-7.1/7.4). Never overwrites - a name clash stops the run;
-     superseding a version stays a person's copy + SS\ move (CD-7.5). Note the
-     consequence: re-running the same job after a production save routes to
-     TEST (the job now exists in production), so fixes land in the test folder
-     and a person promotes them.
+     (refreshed in place), working files to its temp\, and the job folder is
+     not touched for that document - a person promotes it (CD-7.5). --real-dir
+     defaults to the job folder so the refresh is worddiffed against the
+     completed document.
+
+  One run can do both: on a job whose folder holds the inclusions but no
+  build contract yet, the inclusions refresh lands in template-testing and
+  the build contract is saved into the job folder. A document is a test
+  document only because that document already exists in production - never
+  because some other document does.
 
 The gates that remain are data gates, not preview gates: a missing anchor
 still aborts its document, an unsourced mandatory value still refuses the
@@ -43,10 +48,14 @@ contract in the same pass when a template it may use exists (fill_hia.py,
 region-aware): an approved CANDIDATE blank in the region's CONTRACT folder is
 filled under the real deliverable name (the anchor check is the automated
 regression gate; eye-verify the first fill after a template lands); with no
-candidate, TEST runs fill from the staged UNAPPROVED template under a
-"- TEST UNAPPROVED TEMPLATE" name; PRODUCTION with no approved blank stays
-data-sheet-only. The verdict prints in the summary and ships as
-hia_status.txt with the evidence. --no-build-contract skips the stage.
+candidate, the region's STAGED INTERIM template fills under the real name
+too - in PRODUCTION as well as TEST (business rule, 8 Sep 2026: a job with no
+build contract in Z:\PROJECTS gets a real one, not a blocked data sheet). The
+run report names the template it came from so the reviewer knows an interim
+(not yet MCR-filed) template is behind the draft; issuing stays human. Only a
+region with no staged template stays data-sheet-only. The probe verdict prints
+in the summary and ships as hia_status.txt with the evidence.
+--no-build-contract skips the stage.
 
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
@@ -74,10 +83,14 @@ PRELIM_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
                     r"\NSW PRELIMINARY AGREEMENT 2024.docx")
 STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
 
-# Test-mode destination: a job whose CONTRACT DOCUMENTATION already holds any
-# of these already exists in production, so a new run is a test and lands here.
+# Test destination: a document type the job's CONTRACT DOCUMENTATION already
+# holds (SS\ included) already exists in production, so a new copy of THAT
+# document is a refresh and lands here; every other document type is a real
+# first draft and goes into the job folder (per-document routing, 8 Sep 2026).
 TEST_ROOT = Path(r"Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing")
-CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*")
+DOC_KINDS = ("INCLUSIONS", "PRELIMINARY AGREEMENT", "BUILD CONTRACT")
+CONTRACT_DOC_EXTS = {".docx", ".doc", ".pdf"}
+LEGACY_TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"  # pre-8 Sep 2026 output name, no longer produced
 
 # HIA build contract (CD-5.2a/5.2b, driver-integrated 18 Aug 2026 by explicit
 # instruction). Template resolution order, per region:
@@ -85,10 +98,13 @@ CONTRACT_DOC_GLOBS = ("INCLUSIONS*", "PRELIMINARY AGREEMENT*", "BUILD CONTRACT*"
 #      (a person + MCR put it there) -> filled under the real deliverable name.
 #      The anchor --check is the automated regression gate; the first run
 #      after a template lands must still be eye-verified.
-#   2. no candidate, TEST mode only -> the staged template below, filled under
-#      a name that says so. Never in PRODUCTION: a template MCR has not filed
-#      never produces a document that could reach a job folder.
-#   3. otherwise -> data sheet only (the pre-existing behaviour).
+#   2. no candidate -> the staged interim template below, filled under the
+#      real deliverable name in PRODUCTION and TEST alike (business rule,
+#      8 Sep 2026: a job with no build contract in Z:\PROJECTS gets a real
+#      contract document, not a blocked data sheet). The run report states
+#      the interim provenance so the reviewer reads it against the licensed
+#      PDF before issue - issuing stays a person's act regardless.
+#   3. otherwise (no staged template for the region) -> data sheet only.
 # Both staged templates are the team's own Word builds of their contracts
 # plus a sanctioned interim repair each (both built by make_*.py scripts in
 # the staging folder): NSW = the 21 Aug 2026 build + the v1.1 TABLES interim
@@ -103,7 +119,6 @@ STAGED_HIA = {
     "NSW": STAGED_HIA_DIR / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
     "QLD": STAGED_HIA_DIR / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
 }
-TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"
 
 
 COMPANY_TAILS = ("PTY LTD", "PTY LIMITED", "LTD", "LIMITED", "PTY. LTD.")
@@ -153,68 +168,70 @@ def doc_suffix(values):
     return f"LOT {lot}_{suburb}_{'&'.join(surnames)}"
 
 
-def contract_docs_present(job_dir):
-    """Contract documents already in the job's CONTRACT DOCUMENTATION, SS\\ included.
+def existing_contract_docs(job_dir):
+    """{document kind: [existing files]} in the job's CONTRACT DOCUMENTATION, SS\\ included.
 
-    Any hit means the job already exists in production, so a new run for it is
-    a TEST run and must not touch the job folder (skill rule, 17 Aug 2026).
+    A kind with hits already exists in production, so a new copy of THAT
+    document is a refresh and routes to the test folder; a kind with none is
+    a genuine first draft and saves into the job folder (per-document routing,
+    8 Sep 2026). Only the three contract document kinds are looked at - the
+    request email, plans or ID scans in the folder never make anything a test.
     """
-    hits = set()
-    for pattern in CONTRACT_DOC_GLOBS:
-        hits.update(p.relative_to(job_dir).as_posix()
-                    for p in job_dir.rglob(pattern) if p.is_file())
-    return sorted(hits)
+    found = {kind: [] for kind in DOC_KINDS}
+    for p in job_dir.rglob("*"):
+        # Windows globbing is case-insensitive, so match on the name explicitly:
+        # a contract document is a Word/PDF file whose name starts with the
+        # kind (CD-7.2 `<DOCTYPE>_LOT ...`). "Build Contract Request.msg" or a
+        # request PDF is not one.
+        if not p.is_file() or p.suffix.lower() not in CONTRACT_DOC_EXTS:
+            continue
+        stem = p.stem.upper()
+        for kind in DOC_KINDS:
+            if stem.startswith(kind) and "REQUEST" not in stem:
+                found[kind].append(p.relative_to(job_dir).as_posix())
+    return {k: sorted(v) for k, v in found.items()}
+
+
+def route_kind(kind, existing, job_dir, workdir):
+    """(mode, destination folder) for one document kind."""
+    if existing.get(kind):
+        return "TEST", TEST_ROOT / workdir.name
+    return "PRODUCTION", Path(job_dir)
 
 
 def collect_finals(workdir, values):
-    """(source, deliverable name) for every filled document in the workdir.
+    """(source, deliverable name, kind) for every filled document in the workdir.
 
     A document only ever ships as its .docx + .pdf pair (CD-7.4); the PDF is
     the workdir's PREVIEW_ export renamed to the real deliverable name.
     """
     suffix = doc_suffix(values)
     finals = []
-    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT", "BUILD CONTRACT"):
-        for tag in ("", TEST_BC_TAG):
-            docx = workdir / f"{kind}_{suffix}{tag}.docx"
-            pdf = workdir / f"PREVIEW_{kind}_{suffix}{tag}.pdf"
-            if docx.exists():
-                if not pdf.exists():
-                    sys.exit(f"ERROR: {pdf.name} missing - a document only ships as its "
-                             f"docx + PDF pair (CD-7.4). Re-run the fill without --no-pdf.")
-                finals.append((docx, docx.name))
-                finals.append((pdf, f"{kind}_{suffix}{tag}.pdf"))
+    for kind in DOC_KINDS:
+        docx = workdir / f"{kind}_{suffix}.docx"
+        pdf = workdir / f"PREVIEW_{kind}_{suffix}.pdf"
+        if docx.exists():
+            if not pdf.exists():
+                sys.exit(f"ERROR: {pdf.name} missing - a document only ships as its "
+                         f"docx + PDF pair (CD-7.4). Re-run the fill without --no-pdf.")
+            finals.append((docx, docx.name, kind))
+            finals.append((pdf, f"{kind}_{suffix}.pdf", kind))
+        legacy = workdir / f"{kind}_{suffix}{LEGACY_TEST_BC_TAG}.docx"
+        if legacy.exists():
+            print(f"  note      : {legacy.name} is a pre-8 Sep 2026 test-tagged output and is "
+                  f"not delivered any more - re-run the fill for the real-name document")
     if not finals:
         sys.exit(f"ERROR: nothing to deliver - no filled documents named *_{suffix} in {workdir}")
     return finals
 
 
-def deliver(workdir, values, dest, force):
-    """Copy the finals to an explicit destination (test or handover folders).
-
-    End users are non-technical and get exactly the deliverable pair per
-    document - the filled .docx and its .pdf under the REAL deliverable names
-    (no PREVIEW_ prefix). Every working file (diffs, worddiffs, fill reports,
-    REAL_/PREVIEW_ exports, job JSON, timings) goes to <dest>/temp/ so the
-    output folder stays clean but the evidence stays reachable.
-    """
-    dest = Path(dest)
-    if "PROJECTS" in (part.upper() for part in dest.parts):
-        sys.exit("ERROR: --deliver never writes under Z:\\PROJECTS. A production save is "
-                 "--job-dir pointing at the job's CONTRACT DOCUMENTATION folder - that "
-                 "route test-detects first and never overwrites.")
-    finals = [(src, dest / name) for src, name in collect_finals(workdir, values)]
-    clash = [b for _, b in finals if b.exists()]
-    if clash and not force:
-        sys.exit("ERROR: already delivered: " + ", ".join(c.name for c in clash)
-                 + ". --deliver-force replaces them (test-folder refreshes only).")
-    dest.mkdir(parents=True, exist_ok=True)
+def copy_working_files(workdir, finals, dest):
+    """Every non-final working file (diffs, worddiffs, fill reports, REAL_/PREVIEW_
+    exports, job JSON, timings) to <dest>/temp/ - the output folder stays clean
+    but the evidence stays reachable."""
     temp = dest / "temp"
-    temp.mkdir(exist_ok=True)
-    final_sources = {a for a, _ in finals}
-    for a, b in finals:
-        copy_final(a, b)
-        print(f"  delivered : {b}")
+    temp.mkdir(parents=True, exist_ok=True)
+    final_sources = {a for a, _, _ in finals}
     moved = 0
     for f in sorted(workdir.iterdir()):
         if f.is_file() and f not in final_sources:
@@ -223,22 +240,68 @@ def deliver(workdir, values, dest, force):
     print(f"  evidence  : {moved} working file(s) -> {temp}")
 
 
-def deliver_production(workdir, values, job_dir):
+def deliver(workdir, values, dest, force):
+    """Copy the finals to an explicit destination (test or handover folders).
+
+    End users are non-technical and get exactly the deliverable pair per
+    document - the filled .docx and its .pdf under the REAL deliverable names
+    (no PREVIEW_ prefix), plus the working files in <dest>/temp/.
+    """
+    dest = Path(dest)
+    if "PROJECTS" in (part.upper() for part in dest.parts):
+        sys.exit("ERROR: --deliver never writes under Z:\\PROJECTS. A production save is "
+                 "--job-dir pointing at the job's CONTRACT DOCUMENTATION folder - that "
+                 "route decides per document and never overwrites.")
+    finals = collect_finals(workdir, values)
+    deliver_test(workdir, finals, dest, force)
+
+
+def deliver_test(workdir, finals, dest, force):
+    """Refresh-in-place delivery to a test/handover folder."""
+    targets = [(src, dest / name) for src, name, _ in finals]
+    clash = [b for _, b in targets if b.exists()]
+    if clash and not force:
+        sys.exit("ERROR: already delivered: " + ", ".join(c.name for c in clash)
+                 + ". --deliver-force replaces them (test-folder refreshes only).")
+    dest.mkdir(parents=True, exist_ok=True)
+    for a, b in targets:
+        copy_final(a, b)
+        print(f"  delivered : {b}")
+    copy_working_files(workdir, finals, dest)
+
+
+def deliver_production(finals, job_dir):
     """First-draft save into the job's own CONTRACT DOCUMENTATION (CD-7.1).
 
     Writes the final docx + PDF pairs and nothing else - evidence stays in the
     workdir. Never overwrites: a name clash stops the run, because superseding
     a version is a person's copy + SS\\ move (CD-7.5).
     """
-    finals = [(src, job_dir / name) for src, name in collect_finals(workdir, values)]
-    clash = [b for _, b in finals if b.exists()]
+    targets = [(src, Path(job_dir) / name) for src, name, _ in finals]
+    clash = [b for _, b in targets if b.exists()]
     if clash:
         sys.exit("ERROR: already in the job folder: " + ", ".join(c.name for c in clash)
                  + ". Production never overwrites - superseding a version is a person's "
                  "copy with the old one moved to the folder's SS\\ (CD-7.5).")
-    for a, b in finals:
+    for a, b in targets:
         copy_final(a, b)
         print(f"  saved     : {b}")
+
+
+def deliver_routed(workdir, values, job_dir, existing):
+    """Per-document delivery: each kind to its own destination (8 Sep 2026).
+
+    Production kinds are checked for clashes BEFORE anything is copied, so a
+    run never ships half of itself. Test kinds refresh in place.
+    """
+    finals = collect_finals(workdir, values)
+    prod = [f for f in finals if route_kind(f[2], existing, job_dir, workdir)[0] == "PRODUCTION"]
+    test = [f for f in finals if f not in prod]
+    if prod:
+        deliver_production(prod, job_dir)
+    if test:
+        deliver_test(workdir, test, TEST_ROOT / workdir.name, force=True)
+    return prod, test
 
 
 def copy_final(src, dst):
@@ -290,9 +353,10 @@ def main():
                     help="skip PDF exports (regression/timing use only - the deliverable is "
                          "always the docx+pdf pair, so this cannot combine with a save)")
     ap.add_argument("--job-dir",
-                    help="the job's CONTRACT DOCUMENTATION folder. Decides the destination and "
-                         "saves in the same pass: existing contract docs there -> TEST (finals "
-                         "to the template-testing folder ONLY); none -> PRODUCTION (finals into "
+                    help="the job's CONTRACT DOCUMENTATION folder. Decides the destination PER "
+                         "DOCUMENT and saves in the same pass: a document type already in the "
+                         "folder (SS\\ included) -> TEST (refreshed in the template-testing "
+                         "folder); a document type not there yet -> PRODUCTION (final pair into "
                          "the job folder, never overwriting). Without --template/--prelim it "
                          "routes and delivers an already-filled workdir.")
     ap.add_argument("--deliver",
@@ -323,8 +387,10 @@ def main():
         deliver(workdir, values, args.deliver, args.deliver_force)
         return 0
 
-    # --job-dir: detect test vs production BEFORE anything runs, and say so.
-    mode = dest = None
+    # --job-dir: decide each document's destination BEFORE anything runs, and
+    # say so. `existing` is the per-kind picture of the job folder; `mode` is
+    # the run's headline (PRODUCTION if anything will land in the job folder).
+    mode = existing = None
     if args.job_dir:
         if args.no_pdf:
             sys.exit("ERROR: --job-dir saves the docx+pdf pair, so it cannot combine with "
@@ -336,18 +402,24 @@ def main():
         if not job_dir.is_dir():
             sys.exit(f"ERROR: --job-dir does not exist - verify the job folder before "
                      f"saving anything: {job_dir}")
-        existing = contract_docs_present(job_dir)
-        if existing:
-            mode, dest = "TEST", TEST_ROOT / workdir.name
-            print(f"  mode      : TEST - the job already exists in production "
-                  f"({len(existing)} contract document(s) in the job folder, e.g. "
-                  f"{existing[0]}). Nothing will be written there. Destination: {dest}")
-            if not args.real_dir:
-                args.real_dir = str(job_dir)
-        else:
-            mode, dest = "PRODUCTION", job_dir
-            print(f"  mode      : PRODUCTION - first draft, no contract documents in the "
-                  f"job folder yet. Destination: {dest}")
+        existing = existing_contract_docs(job_dir)
+        wanted = [k for k, flag in (("INCLUSIONS", args.template),
+                                    ("PRELIMINARY AGREEMENT", args.prelim),
+                                    ("BUILD CONTRACT", not args.no_build_contract)) if flag]
+        if not (args.template or args.prelim):
+            wanted = DOC_KINDS  # route-only run: whatever the workdir holds
+        routes = {k: route_kind(k, existing, job_dir, workdir) for k in wanted}
+        mode = "PRODUCTION" if any(m == "PRODUCTION" for m, _ in routes.values()) else "TEST"
+        print(f"  mode      : {mode} - routed per document (8 Sep 2026): a document the "
+              f"job folder already holds refreshes to template-testing; one it does not "
+              f"hold yet is saved into the job folder")
+        for k in wanted:
+            m, d = routes[k]
+            why = (f"already in the job folder ({existing[k][0]})" if existing[k]
+                   else "not in the job folder yet")
+            print(f"  route     : {k:<21} -> {m:<10} {d}   ({why})")
+        if any(existing.values()) and not args.real_dir:
+            args.real_dir = str(job_dir)
 
         # HIA build contract status (CD-5.2a): the licence makes the filled
         # docx+pdf pair a requirement, blocked until a fillable Word blank
@@ -363,11 +435,8 @@ def main():
                 print(f"  {line.strip()}")
 
     if not args.template and not args.prelim:
-        if mode == "TEST":
-            deliver(workdir, values, dest, force=True)
-            return 0
-        if mode == "PRODUCTION":
-            deliver_production(workdir, values, dest)
+        if mode:
+            deliver_routed(workdir, values, job_dir, existing)
             return 0
         sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim "
                  "(add --job-dir to save in the same pass)")
@@ -436,18 +505,16 @@ def main():
             elif len(approved) > 1:
                 print("  build contract: MORE THAN ONE candidate blank in "
                       f"{folder} - a person must pick; data sheet only this run")
-            elif mode == "TEST" and STAGED_HIA[state].exists():
+            elif STAGED_HIA[state].exists():
                 template = STAGED_HIA[state]
-                out_name = f"BUILD CONTRACT_{suffix}{TEST_BC_TAG}.docx"
-                provenance = (f"staged template {template.name} (CD-5.2b, not yet "
-                              f"MCR-filed) - never issuable, review against the licensed PDF")
-            elif mode == "TEST":
-                print(f"  build contract: no staged template for {state} at "
-                      f"{STAGED_HIA[state]} - data sheet only")
+                out_name = f"BUILD CONTRACT_{suffix}.docx"
+                provenance = (f"INTERIM template {template.name} (CD-5.2b, 8 Sep 2026: "
+                              f"used until MCR files an approved blank) - a person reads "
+                              f"the draft against the licensed PDF before it is issued")
             else:
-                print("  build contract: BLOCKED - no approved Word blank in the region's "
-                      "CONTRACT folder; data sheet only (CD-5.1/5.2a). TEST runs draft "
-                      "from the staged UNAPPROVED template.")
+                print(f"  build contract: no approved blank in {folder} and no staged "
+                      f"interim template for {state} at {STAGED_HIA[state]} - data sheet "
+                      f"only (CD-5.1/5.2a)")
             if template:
                 def do_bc():
                     doc = fill_doc("buildcontract", "fill_hia.py", template,
@@ -502,10 +569,9 @@ def main():
     # still blocks the save - the run fails closed, it never ships a partial.
     if mode and not failures:
         def do_deliver():
-            if mode == "TEST":
-                deliver(workdir, values, dest, force=True)
-            else:
-                deliver_production(workdir, values, dest)
+            prod, test = deliver_routed(workdir, values, job_dir, existing)
+            kinds = lambda fs: ", ".join(sorted({k.lower() for _, _, k in fs})) or "none"
+            print(f"  delivered : job folder <- {kinds(prod)}; template-testing <- {kinds(test)}")
             return True
         stage(f"deliver ({mode.lower()})", do_deliver)
 
