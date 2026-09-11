@@ -127,6 +127,24 @@ for safe write-phase testing later). The definitive membership rule is the
 Executive Reporter definition; reconcile the API-derived set against one
 real export before trusting it.
 
+## DATE SUBMITTED evidence (v0.2, PO-11a)
+
+Per outstanding item the drafter takes, in order: the officer's value from
+column M of last week's corrected report; the **oldest** order / application
+/ receipt document for the item family (`submitted_docs` in
+`ba_report_draft.py`, e.g. `… - Energy Efficiency Request.msg`, `DRIVEWAY
+APPLICATION`, `SECTION 68 APPLICATION.msg`); for activity-backed families the
+matching *Order/Request … - X* step of the pending *Receive … - X*
+activity, or the immediately preceding step when it belongs to the same
+item chain; an alert whose subject matches the family **and was raised on
+or after *Submit for BA*** (pre-lodgement alerts such as `LODGE FOR CC` are
+instructions, not handovers — observed on the pilot jobs); else the first
+report sighting, flagged "assumed". Documents and activities may
+legitimately predate lodgement (engineering, s10.7 ordered early, PO-5).
+`attachedOnUtc` is when the `.msg` was dragged into OSC, which lags the
+actual send (PO-9), so document-derived dates are verify-grade and the
+officer's typed value always wins.
+
 ## Gaps (feed these to the OSC workflow-enrichment session)
 
 Facts the report needs that are **not** OSC activities on the mapped NSW

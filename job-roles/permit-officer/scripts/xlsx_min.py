@@ -98,10 +98,11 @@ S_DEFAULT = 0
 S_HEADER = 1     # bold, grey fill, wrapped
 S_WRAP = 2       # wrapped text
 S_RED = 3        # red bold text, wrapped (pending / outstanding items)
-S_AMBER = 4      # amber fill, wrapped (age flag: near threshold)
-S_REDFILL = 5    # red fill, wrapped (age flag: over threshold)
+S_YELLOW = 4     # yellow fill, wrapped (age flag: at or under the tier threshold)
+S_REDFILL = 5    # red fill, wrapped (age flag: over the tier threshold)
 S_DATE = 6       # dd/mm/yyyy number format
-S_FLAGGED = 7    # yellow fill (low-confidence / review-me)
+S_FLAGGED = 7    # light-grey fill (low-confidence / review-me; never an age signal)
+S_AMBER = S_YELLOW  # v0.1 name kept for callers
 
 _STYLES_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -115,9 +116,9 @@ _STYLES_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <fill><patternFill patternType="none"/></fill>
   <fill><patternFill patternType="gray125"/></fill>
   <fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>
-  <fill><patternFill patternType="solid"><fgColor rgb="FFFFE699"/><bgColor indexed="64"/></patternFill></fill>
-  <fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill>
-  <fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>
+  <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill>
+  <fill><patternFill patternType="solid"><fgColor rgb="FFFF5050"/><bgColor indexed="64"/></patternFill></fill>
+  <fill><patternFill patternType="solid"><fgColor rgb="FFE7E6E6"/><bgColor indexed="64"/></patternFill></fill>
 </fills>
 <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>

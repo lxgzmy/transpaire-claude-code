@@ -2,8 +2,8 @@
 
 | Spec | Status | Build gate |
 |---|---|---|
-| [ba-weekly-report.md](ba-weekly-report.md) | Spec written | OSC access **cleared** (read-only `osc-api` MCP live); field-mapping session + report template agreement remain |
-| [pre-lodgement-checklist.md](pre-lodgement-checklist.md) | Spec written | RFI corpus collected into the AI testing folder (not yet dropped) |
+| [ba-weekly-report.md](ba-weekly-report.md) | Pipeline v0.2 built; pilot cycle ready | OSC access **cleared**; field map **done**; template **agreed** (issue #29). Mailbox evidence waits on IT delegating the permits mailbox to the AI account |
+| [pre-lodgement-checklist.md](pre-lodgement-checklist.md) | Spec written | RFI corpus: two NSW RFIs in the AI testing folder (26001, 26029); 26052 and more standard forms requested |
 
 Form pre-fill (third automation from discovery) has no spec yet — write one
 before building.

@@ -19,10 +19,11 @@ Sequencing fixed by the business owner (21 Aug 2026): **AI integration starts
 with NSW approvals** — NSW status lives in email + OSC and is reachable, while
 QLD status sits in the certifier's portal, which AI cannot touch.
 
-1. **Weekly BA report pre-population** (spec written; the OSC access gate has
-   cleared — the read-only `osc-api` MCP server is live against the vendor's
-   dev instance). Draft the Monday report from OSC + last week's report; flag
-   item age. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11`.
+1. **Weekly BA report pre-population** (pipeline v0.2 built 11 Sep 2026;
+   the pilot runs on three NSW jobs nominated on issue #29, OSC-only until
+   the permits mailbox is delegated to the AI account). Draft the Monday
+   report from OSC + last week's report; age each item in business days by
+   tier. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11a`.
 2. **Pre-lodgement checklist** (spec written, build gated on collecting the
    RFI corpus into the AI testing folder on `Z:`). Once per job, before
    lodgement. Spec: `workflows/pre-lodgement-checklist.md`; rule `PO-12`.
