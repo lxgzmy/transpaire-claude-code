@@ -147,9 +147,30 @@ def run_suite(family, root, pattern, blank):
         print(f"   FAIL - fill did not run: {r.stderr.strip()[:200]}")
         return 1
 
-    got = {l: n for l, (n, _) in read_fields(out).items()}
-    bad = [(l, convention[l], got.get(l)) for l in LABELS
-           if l in convention and got.get(l) not in convention[l]]
+    # A family on tab stops (sydney, 10 Sep 2026 - feedback sheet 9.9 row 1) has
+    # no space convention to match: every value of a column sits at ONE x. The
+    # check there is that each page-1 field carries its tab stop and its value
+    # follows a tab; gate_inclusions.py measures the resulting x in Word.
+    sys.path.insert(0, str(HERE))
+    from fill_inclusions import FAMILIES
+    tabs = FAMILIES[family].get("tabs", {}).get("page1")
+    if tabs:
+        import zipfile
+        xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
+        bad = []
+        for label in LABELS:
+            anchor = "PRICE : $" if label == "PRICE :" else label
+            pos = tabs.get(anchor)
+            m = re.search(r"<w:p\b[^>]*>(?:(?!</w:p>).)*?<w:t[^>]*>" + re.escape(label.rstrip("$ ").rstrip())
+                          + r"(?:(?!</w:p>).)*?</w:p>", xml, re.S)
+            para = m.group(0) if m else ""
+            if not m or f'w:pos="{pos}"' not in para or "<w:tab/>" not in para:
+                bad.append((label, {f"tab stop {pos}"}, "missing"))
+        got = {}
+    else:
+        got = {l: n for l, (n, _) in read_fields(out).items()}
+        bad = [(l, convention[l], got.get(l)) for l in LABELS
+               if l in convention and got.get(l) not in convention[l]]
 
     # The acknowledgements-box site address must read word-for-word like the
     # sample job's - this is where "at;Lot" (missing space, SEQ) would hide,
@@ -176,7 +197,7 @@ def run_suite(family, root, pattern, blank):
         print(f"      real  : {' '.join(site_bad[1] or ['(missing)'])[:100]}")
         return 1
     print(f"   PASS - filler matches the convention on all {len(convention)} fields"
-          " + the site address line")
+          " + the site address line" + (" (tab-stopped values; x verified by gate_inclusions.py)" if tabs else ""))
     return 0
 
 

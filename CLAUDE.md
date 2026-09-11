@@ -77,6 +77,17 @@ skills are scoped to that folder and must not leak into another role.
   template-testing) — no preview stop. Everything outward-facing — issue,
   send, sign, DocuSign, OSC/DataBuild writes — stays gated. Any further
   exception needs the same explicit instruction this one had.
+- **Sanctioned exception (10 Sep 2026):** on the Sydney inclusions the run
+  edits contract content itself — section 18 trimmed to the job's area, the
+  Bathroom 2 and air-conditioning notes actioned, the `UPGRADED INCLUSIONS`
+  items written from the request (NSW inclusions feedback sheet 9.9, issue
+  #35; `contract-docs.md` CD-9). This reversed the "spec content is a
+  person's edit" rule. Two judgments stay human by the same instruction:
+  which Standard Variation row a request maps to, and any custom wording
+  where no row exists — the run applies what the job JSON says and reports
+  each item with a confidence flag for confirmation; it never chooses
+  silently. A Word layout pass and a quality gate stand between the edit
+  and the save; a gate failure blocks the save.
 
 ## Security posture
 

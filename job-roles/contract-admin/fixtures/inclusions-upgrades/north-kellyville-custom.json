@@ -1,0 +1,33 @@
+{
+  "_fixture": "SYNTHETIC - invented names, lot and prices. North Kellyville job, storeys not stated, no upgrades block details beyond one CUSTOM item with no Standard Variation row (must be flagged for a person).",
+  "lot_no": "9003",
+  "street": "Placeholder Road",
+  "suburb": "NORTH KELLYVILLE NSW",
+  "estate": "",
+  "house_type": "Sample 200",
+  "house_size": "",
+  "facade": "Sample Façade",
+  "garage_side": "",
+  "price": "550,000.00",
+  "owner_1": "Kim PLACEHOLDER",
+  "owner_2": "",
+  "owners": "Kim PLACEHOLDER",
+  "site_address": "9003, Placeholder Road, NORTH KELLYVILLE NSW 2155",
+  "builders_rep": "Michael CRONK",
+  "upgrades": {
+    "area": "north_kellyville",
+    "storeys": null,
+    "bathroom2_ground": false,
+    "aircon": null,
+    "items": [
+      {
+        "category": "Letterbox Lighting",
+        "request": "Please add a light to the letterbox",
+        "variation_row": null,
+        "wording": "One (1) off low-voltage light fitting to the letterbox.",
+        "confidence": "low",
+        "note": "not a Standard Variation item - custom wording drafted for the reviewer"
+      }
+    ]
+  }
+}
