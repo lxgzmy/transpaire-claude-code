@@ -221,6 +221,12 @@ not allow without human sign-off. `osc_write` is gated three independent ways:
 3. **Explicit confirm** — the tool needs `confirm=true`; without it, it returns a
    dry-run preview.
 
+Multipart uploads (`form`/`files`, used for the request-email attachment) add a
+fourth: a file is read only from a directory listed in `OSC_UPLOAD_ROOTS`
+(default the checkout's git-ignored `runtime\` folder), and the dry-run preview
+runs the same route and file checks the send will, so a person approving it
+sees the same result the real call would get.
+
 The read-only tools are on `allow` so queries run without a prompt.
 
 ### Credentials

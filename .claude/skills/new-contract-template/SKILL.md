@@ -179,8 +179,9 @@ duplicates, discover runtime region/template/custom-field IDs, then prepare
 reviewed client/job, detail, activity, request-email and contact changes.
 Execute approved changes only through `osc_write`; read back every result and
 checkpoint returned IDs in server-only `osc-state.json`. DataBuild is excluded:
-no handoff email or wait, no OSC contract-value writes, and no false completion
-of activity 6. Missing API fields are reported for manual entry.
+no handoff email or wait, no OSC contract-value writes; activity 6 is completed
+only when the person confirms the DataBuild entry is done, never before.
+Missing API fields are reported for manual entry.
 
 For an established job's document-only refresh, verify the selected identity
 and use the existing folder. Do not mutate OSC just to regenerate documents.

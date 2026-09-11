@@ -56,7 +56,8 @@ confirmed it provides no API access, so no MCP server, adapter, or import
 automation can be built against it. DataBuild stays manual — a person keys its
 figures into the job JSON (CD-5.4). The legacy JD-6 handoff and wait are excluded
 from the integrated OSC intake; contacts and document drafting proceed without
-them. Activity 6 remains pending rather than falsely completed.
+them. OSC activity 6 is completed only on the person's word that the DataBuild
+entry is done, and stays pending (never N/A) until then.
 It is retiring in favour of Estimator Companion. Background on the
 tool: `docs/01-solution-architecture.md`.
 

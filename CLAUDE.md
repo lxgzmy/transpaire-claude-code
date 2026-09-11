@@ -117,8 +117,10 @@ skills are scoped to that folder and must not leak into another role.
   `/new-contract-template` includes OSC intake through the existing `osc-api`
   MCP, following issue #34's Word fields and steps. OSC writes remain approved
   per call; this is not an extension of automatic document-save permission.
-  The workflow excludes DataBuild activity 6, handoff and waiting. Other OSC
-  write workflows remain subject to their own discovery and review.
+  DataBuild itself stays a human step (no handoff email, no waiting); OSC
+  activity 6 is completed only once that person confirms the entry. Multipart
+  uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).
+  Other OSC write workflows remain subject to their own discovery and review.
   DataBuild automation is ruled out (23 Aug 2026): the vendor confirmed it has
   no API access, so no MCP server or integration is possible — DataBuild stays
   manual, kept in the docs as background only.

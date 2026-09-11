@@ -243,12 +243,19 @@ osc_write(
 ```
 
 Use the exact multipart names from the endpoint schema. Do not combine `body`
-with `form`/`files`. A preview lists fields and paths without opening files.
-Confirmed uploads require an advertised multipart route and existing regular
-files; all files are opened before the business request, streamed through httpx
-and closed afterwards. No filename is substituted for file content. Files and
-permissions are those of the MCP server, not the host app's computer.
-Transport failure can leave the outcome uncertain; inspect OSC before retrying.
+with `form`/`files`. Every file path must sit under one of the configured
+**upload roots** (`OSC_UPLOAD_ROOTS`, `;`-separated absolute directories;
+default the checkout's git-ignored `runtime\` folder) - a path anywhere else is
+refused, so a stray `.env` or key file can never be attached to a job. The
+preview (`confirm=false`) runs the same checks the send will and returns them
+under `checks`: the route exists and advertises `multipart/form-data`, each
+file is an existing regular file under a root, and its size in bytes. It
+reports problems with `ok=false` instead of promising a send that would fail,
+and it never opens a file. Confirmed uploads open the files only after every
+gate, stream them through httpx and close them afterwards. No filename is
+substituted for file content. Files and permissions are those of the MCP
+server, not the host app's computer. Transport failure can leave the outcome
+uncertain; inspect OSC before retrying.
 
 ### Existing approval gates
 
@@ -279,6 +286,7 @@ All via environment variables - see [`.env.example`](.env.example).
 | `OSC_VERIFY_TLS` | no | `false` for internal/self-signed dev; `true` for prod with a valid cert. |
 | `OSC_ENABLE_WRITES` | no | Master write switch; default `false`. |
 | `OSC_TIMEOUT` | no | Per-request timeout (seconds), default 30. |
+| `OSC_UPLOAD_ROOTS` | no | `;`-separated absolute directories a multipart upload may read from; default the checkout's git-ignored `runtime\` folder. |
 
 ## Install & register (Windows server, `pwsh`)
 

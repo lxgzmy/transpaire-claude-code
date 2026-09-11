@@ -56,6 +56,10 @@ class Config:
     verify_tls: bool
     enable_writes: bool
     timeout: float
+    # Directories an osc_write multipart upload may read from. Empty means
+    # "no uploads at all"; load_config always fills it (OSC_UPLOAD_ROOTS or
+    # the checkout's git-ignored runtime\ folder).
+    upload_roots: tuple[str, ...] = ()
 
     @property
     def token_url(self) -> str:
@@ -74,7 +78,19 @@ class Config:
             "verify_tls": self.verify_tls,
             "enable_writes": self.enable_writes,
             "timeout": self.timeout,
+            # count only: a root spelled as a UNC path would name the file server
+            "upload_roots": len(self.upload_roots),
         }
+
+
+def default_upload_root() -> str:
+    """The checkout's runtime\\ folder: shared/mcp/osc-api/osc_mcp -> <repo>/runtime.
+
+    abspath, not resolve(): on this server resolve() rewrites a mapped drive
+    into its UNC form, and the caller's path would then never compare equal.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))  # .../shared/mcp/osc-api/osc_mcp
+    return os.path.normpath(os.path.join(here, *([os.pardir] * 4), "runtime"))
 
 
 def load_config() -> Config:
@@ -82,7 +98,9 @@ def load_config() -> Config:
 
     Required: OSC_BASE_URL, OSC_CLIENT_ID, OSC_CLIENT_SECRET.
     Optional: OSC_SWAGGER_URL, OSC_SCOPES, OSC_VERIFY_TLS (default false),
-    OSC_ENABLE_WRITES (default false), OSC_TIMEOUT (default 30).
+    OSC_ENABLE_WRITES (default false), OSC_TIMEOUT (default 30),
+    OSC_UPLOAD_ROOTS (semicolon-separated absolute directories a multipart
+    upload may read from; default: the checkout's runtime\\ folder).
 
     A local .env (see _load_dotenv) is loaded first, but never overrides a
     variable already set in the real environment.
@@ -110,6 +128,11 @@ def load_config() -> Config:
 
     swagger_url = os.environ.get("OSC_SWAGGER_URL", "").strip() or None
     scopes = os.environ.get("OSC_SCOPES", "").strip() or None
+    roots_raw = os.environ.get("OSC_UPLOAD_ROOTS", "")
+    upload_roots = tuple(r.strip() for r in roots_raw.split(";") if r.strip()) or (default_upload_root(),)
+    for root in upload_roots:
+        if not os.path.isabs(root):
+            raise ConfigError(f"OSC_UPLOAD_ROOTS entries must be absolute directories: {root!r}")
 
     return Config(
         base_url=base_url,
@@ -120,4 +143,5 @@ def load_config() -> Config:
         verify_tls=_as_bool(os.environ.get("OSC_VERIFY_TLS"), default=False),
         enable_writes=_as_bool(os.environ.get("OSC_ENABLE_WRITES"), default=False),
         timeout=float(os.environ.get("OSC_TIMEOUT", "30")),
+        upload_roots=upload_roots,
     )

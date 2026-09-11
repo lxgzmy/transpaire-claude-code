@@ -7,9 +7,12 @@ client values. Never copy their example names, addresses, dates or prices.
 
 **Scope confirmed 11 September 2026:** DataBuild is excluded. Do not open it,
 send a DataBuild handoff email, wait for its entry, or write contract values to
-OSC. Continue to OSC contacts and contract drafting independently. Existing
-`CD-*` document pricing rules remain in force. Activity 6 and its DataBuild
-questions remain pending; exclusion is not evidence of completion.
+OSC (the Word document itself says the contract price is entered only in
+DataBuild). Continue to OSC contacts and contract drafting independently.
+Existing `CD-*` document pricing rules remain in force. OSC activity 6 ("Create
+Job within Databuild") is completed only on the person's confirmation that the
+DataBuild entry is done (issue #34 step 5); exclusion is not evidence of
+completion.
 
 The existing `osc-api` MCP is the only OSC transport. All changes use
 `osc_write`, with the configured write switch, host approval and `confirm=true`.
@@ -157,23 +160,28 @@ Read `/api/JobActivities` with `$filter: "jobID eq <uuid>"`. Resolve sequence
 **and description** to the returned `jobActivityID`; sequence numbers are not
 IDs and may change between templates. The expected activities are:
 
+Word item 8 (and `JD-4.1`) marks activities **1, 2 and 6** complete at intake and
+ticks activity 6's questions. The contract request email is the evidence for 1
+and 2: a marketer does not send a contract request before the initial contact
+and its follow-up have happened, so no further proof is asked for. Activity 6
+is the one exception, because its questions describe DataBuild work that a
+person does in issue #34's step 5, after this OSC stage.
+
 | Sequence | Description | Action |
 |---|---|---|
-| 1 | Initial Contact | Complete only with evidence the contact occurred. |
-| 2 | Follow Up Initial Contact | Complete only with evidence the follow-up occurred. |
-| 6 | Create Job within Databuild | Excluded. Leave pending and do not mark N/A. |
-| 11 | Receive EOI Approval to Proceed from Marketer (may carry `a)` prefix) | Attach the request email; complete only when approval to proceed is evidenced and all actual questions are satisfied. |
+| 1 | Initial Contact | Complete, `completionDate` = the day of entry (the manual's double-click sets today). |
+| 2 | Follow Up Initial Contact | Complete, same date. |
+| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5). Then answer its questions: the DataBuild ones as completed on that confirmation, "Create Job File within Z:\ Drive, Projects Folder" as completed when the folder exists (step 3). Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 11 | Receive EOI Approval to Proceed from Marketer (may carry `a)` prefix) | Attach the request email (below), then complete: the request email *is* the marketer's approval to proceed (`JD-5.2`). Answer any questions it carries the same way. |
 
 Read `/api/JobActivities/{JobActivityID}/Questions` and the completion-state
-lookup. For each applicable question with evidence, use
-`PUT /api/JobActivities/{JobActivityID}/Questions/{CompletionQuestionID}` with
-`completionAnswerStateID` and a sourced `note` when needed. Never blindly tick
-every question: the screenshot includes DataBuild, survey, soil-report and
-folder-creation questions. Do not mark unperformed work complete or N/A.
-Once all prerequisites are verified, use
-`POST /api/JobActivities/{JobActivityID}/Complete` with a sourced
-`completionDate` in the schema's date-time format. Read back completion and
-answers; do not repeat an already verified completion.
+lookup. Answer each question with
+`PUT /api/JobActivities/{JobActivityID}/Questions/{CompletionQuestionID}`
+(`completionAnswerStateID`, plus a `note` when the source has one), then
+`POST /api/JobActivities/{JobActivityID}/Complete` with `completionDate` in the
+schema's date-time format. Read back completion and answers; do not repeat an
+already verified completion. Any activity other than 1, 2, 6 and 11 is out of
+scope for this intake and is not touched.
 
 The Word document requires the email under **task 11**; `JD-5.1` also requires
 it under the job. Use the two message endpoints, preserving uppercase subject
@@ -202,9 +210,13 @@ string or email-sending operation. Describe the endpoint first. The new
 }
 ```
 
-The file must exist on the machine running the MCP server, normally the
-approved runtime area on `Z:`. A Mac path is not a Windows server path. The
-preview lists form fields and paths; it does not open or upload files. Execute
+The file must exist on the machine running the MCP server **and sit under one
+of its upload roots** (`OSC_UPLOAD_ROOTS`; default the checkout's git-ignored
+`runtime\` folder) - copy the reviewed `.msg`/`.eml` into the job's runtime
+workdir first; a path anywhere else is refused. A Mac path is not a Windows
+server path. The preview runs the send's own checks and returns them under
+`checks` (route is multipart, file found under a root, size in bytes) without
+opening the file; a preview with `ok=false` names the problem to fix. Execute
 with `confirm=true` only after approval and only when writes are enabled. The
 MCP reads the file after the gates and streams its actual bytes with a multipart
 boundary. Never use Alerts, WorkReleases or EmailWorkReleases as an attachment
@@ -278,6 +290,8 @@ key and use the verified folder as `--job-dir` (its `CONTRACT DOCUMENTATION`
 subfolder). Return to step 2 of the skill and the existing template selection,
 fill, diff, PDF and **per-document** routing. Do not replace the EOI/ID/plan
 sources for document fields with stale OSC values. Report OSC verified changes,
-manual/unverified fields, excluded DataBuild items, then document destinations
-and flags. Never describe the whole OSC setup as complete while manual fields
-or unverified writes remain.
+manual/unverified fields, then document destinations and flags. The manual list
+opens with the DataBuild entry (issue #34 step 5) and, until the person confirms
+it, OSC activity 6 - say plainly that 6 is still pending in OSC and will be
+completed on their word. Never describe the whole OSC setup as complete while
+manual fields or unverified writes remain.

@@ -9,8 +9,11 @@ rules live here. Each rule is written to be testable.
 For `/new-contract-template`, issue #34's Word items 1–9 are implemented through
 the [OSC MCP execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md).
 Its field map uses live API schemas and IDs. The user's scope excludes DataBuild:
-`JD-6` and its wait do not block this intake, activity 6 is left pending, and
-contract values are not written to OSC. `JD-7.3`'s legacy sex-based slots are
+`JD-6` and its wait do not block this intake, and contract values are not
+written to OSC. `JD-4.1` still stands: activities 1 and 2 are completed at
+intake (the request email is the evidence), activity 6 is completed only once
+the person confirms the DataBuild entry (issue #34 step 5) and stays pending
+until then. `JD-7.3`'s legacy sex-based slots are
 not used: Word item 9 makes purchasers primary contacts unless the marketer's
 sourced instruction says otherwise. Read `JD-8` as the later plan-update stage,
 not a prohibition on completing this intake's OSC contacts or contract drafts.

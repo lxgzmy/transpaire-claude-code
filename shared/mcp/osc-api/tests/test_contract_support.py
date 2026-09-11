@@ -2,6 +2,7 @@
 import copy
 import importlib
 import json
+import os
 import tempfile
 import time
 import unittest
@@ -14,7 +15,8 @@ from unittest.mock import patch
 import httpx
 
 from osc_mcp.client import OSCClient, _explain_status
-from osc_mcp.config import Config
+from osc_mcp.config import Config, ConfigError, load_config
+from osc_mcp.spec import SpecView, find_operation
 
 CONFIG = Config("https://osc.invalid", "synthetic", "synthetic", "https://osc.invalid/spec",
                 None, True, True, 5)
@@ -94,6 +96,42 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
             p.stop()
         await self.client.aclose()
 
+    @staticmethod
+    def roots(*folders, **overrides):
+        """Allow uploads from the given folders (and override other Config fields)."""
+        return patch.object(server, "_config", replace(CONFIG, upload_roots=tuple(folders), **overrides))
+
+    def test_find_operation_prefers_literal_then_fewer_parameters(self):
+        spec = {"paths": {
+            "/api/Jobs/{JobID}/Messages": {"post": {"summary": "by job"}},
+            "/api/{Kind}/{ID}/Messages": {"post": {"summary": "generic"}},
+            "/api/Jobs/literal/Messages": {"post": {"summary": "literal"}},
+        }}
+        view = SpecView(spec)
+        self.assertEqual(find_operation(spec, view, "/api/Jobs/literal/Messages", "POST"),
+                         ("/api/Jobs/literal/Messages", {"summary": "literal"}))
+        self.assertEqual(find_operation(spec, view, "/api/Jobs/abc/Messages", "POST"),
+                         ("/api/Jobs/{JobID}/Messages", {"summary": "by job"}))
+        self.assertEqual(find_operation(spec, view, "/api/Jobs/abc/Messages", "DELETE"),
+                         ("/api/Jobs/{JobID}/Messages", {}))
+        self.assertEqual(find_operation(spec, view, "/api/Jobs/abc/Messages/extra", "POST"), (None, {}))
+
+    def test_upload_roots_come_from_env_or_default_to_runtime(self):
+        base = {"OSC_BASE_URL": "https://osc.invalid", "OSC_CLIENT_ID": "x", "OSC_CLIENT_SECRET": "y",
+                "OSC_ENV_FILE": os.path.join(tempfile.gettempdir(), "no-such-osc.env")}
+        with patch.dict(os.environ, {**base, "OSC_UPLOAD_ROOTS": ""}, clear=True):
+            cfg = load_config()
+        self.assertEqual(len(cfg.upload_roots), 1)
+        self.assertTrue(os.path.isabs(cfg.upload_roots[0]))
+        self.assertEqual(os.path.basename(cfg.upload_roots[0]), "runtime")
+        self.assertEqual(cfg.redacted()["upload_roots"], 1)
+        a, b = tempfile.gettempdir(), os.path.dirname(tempfile.gettempdir())
+        with patch.dict(os.environ, {**base, "OSC_UPLOAD_ROOTS": f"{a}; {b} ;"}, clear=True):
+            self.assertEqual(load_config().upload_roots, (a, b))
+        with patch.dict(os.environ, {**base, "OSC_UPLOAD_ROOTS": "relative/dir"}, clear=True):
+            with self.assertRaises(ConfigError):
+                load_config()
+
     async def test_description_exposes_transitive_required_fields_and_cycles(self):
         original = copy.deepcopy(self.client._spec)
         result = await server.osc_describe_endpoint("/api/Jobs/{JobID}/Messages", "POST")
@@ -133,18 +171,55 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
                          {r["ref"] for r in result["unresolved_references"]})
 
     async def test_gates_never_open_files_or_send(self):
-        for enabled, confirm in [(False, False), (False, True), (True, False)]:
-            with self.subTest(enabled=enabled, confirm=confirm), patch.object(
-                server, "_config", replace(CONFIG, enable_writes=enabled)
-            ), patch.object(Path, "open", side_effect=AssertionError("File opened before approval")):
-                result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=confirm,
-                    form={"Subject": "NEW JOB"}, files={"Documents[0].file": "/synthetic/request.eml"})
-                self.assertEqual(result["would_send"]["files"], {"Documents[0].file": "/synthetic/request.eml"})
-                self.assertEqual(result["ok"], enabled)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "request.eml"
+            path.write_bytes(b"synthetic")
+            for enabled, confirm in [(False, False), (False, True), (True, False)]:
+                with self.subTest(enabled=enabled, confirm=confirm), self.roots(
+                    folder, enable_writes=enabled
+                ), patch.object(Path, "open", side_effect=AssertionError("File opened before approval")):
+                    result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=confirm,
+                        form={"Subject": "NEW JOB"}, files={"Documents[0].file": str(path)})
+                    self.assertEqual(result["would_send"]["files"], {"Documents[0].file": str(path)})
+                    self.assertEqual(result["ok"], enabled)
+                    # the preview ran the send's checks: route is multipart, file found, size known
+                    self.assertTrue(all(c["ok"] for c in result["checks"]))
+                    self.assertEqual(result["checks"][0]["route"], "/api/Jobs/{JobID}/Messages")
+                    self.assertEqual(result["checks"][1]["bytes"], 9)
+        self.assertEqual(self.requests, [])
+
+    async def test_preview_reports_problems_instead_of_promising_success(self):
+        with tempfile.TemporaryDirectory() as folder, self.roots(folder), patch.object(
+            Path, "open", side_effect=AssertionError("File opened during preview")
+        ):
+            result = await server.osc_write("POST", "/api/Jobs", confirm=False,
+                form={"Subject": "NEW JOB"}, files={"Documents[0].file": str(Path(folder) / "missing.eml")})
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["dry_run"])
+        self.assertIn("problems", result["error"])
+        problems = {c["problem"] for c in result["checks"] if not c["ok"]}
+        self.assertTrue(any("multipart/form-data" in p for p in problems))
+        self.assertTrue(any("existing regular file" in p for p in problems))
+        self.assertEqual(self.requests, [])
+
+    async def test_upload_outside_allowed_roots_is_refused(self):
+        with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as elsewhere:
+            path = Path(elsewhere) / "secret.eml"
+            path.write_bytes(b"synthetic")
+            with self.roots(allowed):
+                result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=True,
+                    files={"Documents[0].file": str(path)})
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["checks"][1]["problem"], "outside the allowed upload roots")
+            with self.roots():  # nothing configured at all
+                result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=True,
+                    files={"Documents[0].file": str(path)})
+            self.assertFalse(result["ok"])
+            self.assertIn("no upload roots", result["checks"][1]["problem"])
         self.assertEqual(self.requests, [])
 
     async def test_multipart_encodes_field_names_bytes_and_filename(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
             path = Path(folder) / "request.eml"
             path.write_bytes(b"Subject: Synthetic\r\n\r\n\x00attachment\xff")
             result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=True,
@@ -171,7 +246,7 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
                          b"Subject: Synthetic\r\n\r\n\x00attachment\xff\r\n")
 
     async def test_invalid_multipart_rejected_before_business_request(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
             cases = [
                 {"body": {}, "form": {"Subject": "x"}},
                 {"files": {"file": "relative.eml"}},
@@ -180,6 +255,7 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
                 {"path": "/api/Jobs", "form": {"Subject": "x"}},
                 {"path": "/api/Unknown", "form": {"Subject": "x"}},
                 {"method": "DELETE", "form": {"Subject": "x"}},
+                {"form": {}, "files": {}},
             ]
             for case in cases:
                 with self.subTest(case=case):
@@ -201,7 +277,7 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'name="Subject"\r\n\r\nNEW JOB', self.requests[0].content)
 
     async def test_unreadable_file_is_not_sent(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
             path = Path(folder) / "request.eml"
             path.write_bytes(b"synthetic")
             with patch.object(Path, "open", side_effect=PermissionError("sensitive path")):
@@ -226,7 +302,7 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
 
         await self.client._client.aclose()
         self.client._client = httpx.AsyncClient(transport=httpx.MockTransport(fail))
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
             path = Path(folder) / "request.eml"
             path.write_bytes(b"synthetic")
             with patch.object(Path, "open", capture):

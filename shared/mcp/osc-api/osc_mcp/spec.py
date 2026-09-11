@@ -1,9 +1,38 @@
 """Local OpenAPI references for payload discovery; never fetch external refs."""
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from typing import Any
 from urllib.parse import unquote
+
+
+def route_pattern(route: str) -> str:
+    """Regex for a spec route: literal segments escaped, `{param}` segments wildcarded."""
+    return "/".join(
+        "[^/]+" if part.startswith("{") and part.endswith("}") else re.escape(part)
+        for part in route.split("/")
+    )
+
+
+def find_operation(spec: dict[str, Any], view: "SpecView", path: str, method: str
+                   ) -> tuple[str | None, dict[str, Any]]:
+    """Match a concrete request path (IDs filled in) to its spec route and operation.
+
+    Returns (route, operation). A literal route beats a parameterised one, and
+    among parameterised routes the one with fewer parameters wins. (None, {})
+    when no route matches; (route, {}) when the route has no such method.
+    """
+    candidates = []
+    for route, operations in spec.get("paths", {}).items():
+        if re.fullmatch(route_pattern(route), path):
+            ops = view.resolve(operations) if "$ref" in operations else operations
+            candidates.append((route, ops))
+    if not candidates:
+        return None, {}
+    candidates.sort(key=lambda item: (item[0] != path, item[0].count("{")))
+    route, ops = candidates[0]
+    return route, ops.get(method.lower(), {})
 
 
 class SpecView:

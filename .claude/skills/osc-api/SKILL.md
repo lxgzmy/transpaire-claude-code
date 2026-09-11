@@ -46,6 +46,17 @@ generated with that guardrail enforced.
 4. **Writes are gated three ways** (server flag, `ask` rule, `confirm=true`)
    and stay that way. Some writes send real email (`EmailWorkReleases`) or
    are hard to undo (`Complete`, `Delete`). Draft, show the human, wait.
+5. **Attachments go through `form`/`files`, not `body`.** The message
+   endpoints (`/api/Jobs/{JobID}/Messages`, `/api/JobActivities/{id}/Messages`
+   and the Defect / ClientWorkflowActivity ones) take `multipart/form-data`:
+   `form={"Subject": "...", "Body": "...", "Documents[0].description": "..."}`
+   and `files={"Documents[0].file": "<absolute path on the MCP server>"}`.
+   The file must sit under an upload root (`OSC_UPLOAD_ROOTS`, default the
+   checkout's `runtime\` folder) - copy it there first; anything else is
+   refused. Run `confirm=false` first and read `checks`: it verifies the
+   route is multipart and the file exists (with its size) without opening it.
+   `osc_describe_endpoint` shows the field names under `request_body` and the
+   nested schemas under `referenced_definitions`.
 
 ## Query cookbook (verified against spec v7.3, Sep 2026)
 

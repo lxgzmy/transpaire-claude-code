@@ -61,7 +61,7 @@ the field-to-API map, lookup rules, example multipart call and recovery protocol
 | Word 1–4 | Read request + ID, check duplicates, resolve region/template, create or resume client/job through approved MCP writes; read back the generated contract number. |
 | Folder handoff | Resolve the existing folder or use `z-drive-ops` and the approved `new_job_folders.ps1` path. |
 | Word 5–6 | Update sourced site, job, design, authority, legal and marketer fields; verify read-back. Exclude OSC contract values. |
-| Word 7–8 | Resolve activities and questions by current IDs; complete evidenced work, attach the email to the job and task 11. Leave DataBuild activity 6 pending. |
+| Word 7–8 | Resolve activities and questions by current IDs; complete 1 and 2 (the request email is the evidence), attach the email to the job and task 11 and complete 11. Activity 6 completes only on the person's confirmation that the DataBuild entry is done; until then it stays pending and heads the manual list. |
 | Word 9 | Create/update verified person and contact links; purchaser primary contacts follow the EOI/marketer instruction. Report unsupported Client Notes for manual entry. |
 | Document handoff | Use verified job number/folder and original field sources in the existing document pipeline. |
 
