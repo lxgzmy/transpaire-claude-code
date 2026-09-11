@@ -195,12 +195,14 @@
 <div class="mast">
   <p class="eyebrow">Transpire</p>
   <h1>How to raise a build contract with Claude</h1>
-  <p>Give Claude the build contract request email and it fills in the contract
-     documents for you, using Transpire&rsquo;s own templates off the
+  <p>Give Claude the build contract request email and it sets the job up in
+     OnSite Companion, then fills in the contract documents for you, using
+     Transpire&rsquo;s own templates off the
      <code style="background:rgba(255,255,255,.18);color:#fff">Z:</code> drive, not
      something it made up. It saves the finished documents into the job folder and
-     hands you a review sheet. Nothing is ever sent, signed or issued without you.</p>
-  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 8 September 2026</span>
+     hands you a review sheet. Every OnSite Companion change waits for your Yes, and
+     nothing is ever sent, signed or issued without you.</p>
+  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 11 September 2026</span>
 </div>
 
 <p class="custom"><b>It uses the real template, every time.</b> Claude opens the same
@@ -234,10 +236,10 @@
      <code>Z:\CLAUDE CODE\transpire-claude-code</code>. Browse to it once and
      Claude remembers it.<br>
      Steps 1 to 4 are a one-off; after that you land straight on step 5 each
-     time. For the email, either save it out of Outlook as a <code>.msg</code> file
-     and give Claude the path, or just paste the subject line. It can find
-     the message itself. <b>Start a new chat for each job</b> so it picks up the
-     latest instructions.</p>
+     time. For the email, just paste its subject line from Outlook: Claude finds
+     the message and its attachments in the mailbox itself. (A saved
+     <code>.msg</code> file also works, if the email is not in the mailbox.)
+     <b>Start a new chat for each job</b> so it picks up the latest instructions.</p>
 </div>
 
 <div class="rules">
@@ -292,8 +294,35 @@
      middle names, and check the spelling on the finished document yourself.</p>
 </div>
 
+<div class="card" style="--c:var(--navy)">
+  <div class="hd"><span class="num">2</span><h3>It sets the job up in OnSite Companion</h3></div>
+  <p class="when">New from 11 September 2026. Each change is shown to you first and waits for your Yes.</p>
+  <div class="say">
+    <span class="lbl">What it does in OSC</span>
+    <ul>
+      <li>Searches the lot first, so an existing job is never created twice</li>
+      <li>Creates the client and the job: region, generated contract number, the
+          Pre Sales Investor v1 template</li>
+      <li>Fills the job details from the EOI: site address, design and fa&ccedil;ade,
+          property type, local council, legal and marketer details</li>
+      <li>Ticks activities 1 and 2, and attaches the request email to the job and
+          to task 11 with the subject NEW JOB</li>
+      <li>Adds the purchasers as contacts with mobile and email, ticks them as
+          primary, and adds the sales and marketer contacts</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> each OSC change before it is sent and a
+     read-back after it, plus the job&rsquo;s contract number, which becomes the job
+     number for the folder and the documents.</p>
+  <p class="tip"><b>DataBuild is still yours.</b> Claude never opens it, and never puts
+     the contract price into OSC (the price lives in DataBuild only). Enter the job in
+     DataBuild as you do now, then tell Claude &ldquo;DataBuild done&rdquo; and it
+     ticks activity 6, <i>Create Job within Databuild</i>. Anything OSC&rsquo;s API has
+     no field for, such as Client Notes, is listed for you to type in.</p>
+</div>
+
 <div class="card" style="--c:var(--green)">
-  <div class="hd"><span class="num">2</span><h3>It finds the job folder and picks the template</h3></div>
+  <div class="hd"><span class="num">3</span><h3>It finds the job folder and picks the template</h3></div>
   <p class="when">And tells you both, before it fills anything in.</p>
   <p class="back"><b>You get back:</b> the job folder it found on <code>Z:</code>
      (it also checks the completed and cancelled folders, and warns you if a
@@ -309,7 +338,7 @@
 </div>
 
 <div class="card" style="--c:var(--purple)">
-  <div class="hd"><span class="num">3</span><h3>It fills the documents and saves them</h3></div>
+  <div class="hd"><span class="num">4</span><h3>It fills the documents and saves them</h3></div>
   <p class="when">Inclusions, the preliminary agreement if the job needs one, and the build contract.</p>
   <div class="say">
     <span class="lbl">The fields it completes</span>
@@ -334,7 +363,7 @@
 </div>
 
 <div class="card" style="--c:var(--amber)">
-  <div class="hd"><span class="num">4</span><h3>It tells you what it could not fill</h3></div>
+  <div class="hd"><span class="num">5</span><h3>It tells you what it could not fill</h3></div>
   <p class="when">This is the part worth reading properly.</p>
   <div class="say">
     <span class="lbl">Typical flags</span>
@@ -366,6 +395,9 @@
         not read the EOI, the names came from what was typed into the chat.</li>
     <li><b>Key the money from DataBuild.</b> Contract price, GST, deposit and the
         progress payment schedule are never filled automatically.</li>
+    <li><b>Finish the OSC job.</b> Do the DataBuild entry yourself and tell Claude
+        it is done, so activity 6 gets ticked. Type in any Client Notes the report
+        lists.</li>
     <li><b>Fill what is still blank.</b> Owner address, every purchaser&rsquo;s
         mobile and email (DocuSign needs all of them), DP number, land address and
         any guarantor details stay empty until someone supplies them.</li>
@@ -422,6 +454,8 @@
         agreement fee is the standard amount unless the request names another.</li>
     <li><b>Never</b> sign, initial or date anything, and never send an email or
         issue anything to DocuSign.</li>
+    <li><b>Never</b> change OnSite Companion without showing you the change first
+        and getting your Yes, and never open DataBuild.</li>
     <li><b>Never</b> overwrite a file that is already in a job folder. A document
         the job already has is re-run into the testing folder for you to check and
         move across; only documents the job does not have yet are saved straight in.</li>
@@ -496,6 +530,16 @@
       <tr><td>&ldquo;I can&rsquo;t see the Z: drive&rdquo;</td>
           <td>The task is running in the cloud. Start again in <b>Code</b> mode on your
               computer.</td></tr>
+      <tr><td>It says OSC writes are switched off</td>
+          <td>Normal until IT turns writes on for the OSC connection. Claude shows the
+              list of changes it would have made and carries on with the documents;
+              make those OSC entries yourself in the meantime.</td></tr>
+      <tr><td>It found a job at the same lot in OSC</td>
+          <td>It stops on purpose. Tell it whether that is the same job (it then
+              continues with it) or a different one.</td></tr>
+      <tr><td>Activity 6 is still pending in OSC</td>
+          <td>Claude ticks it only after you say the DataBuild entry is done. Say so in
+              the same chat.</td></tr>
       <tr><td>It says the template has changed</td>
           <td>Take this seriously. Somebody has revised the blank template, so Claude
               stopped rather than produce a half-filled contract. Tell the team; it
@@ -544,7 +588,7 @@
 </div>
 
 <footer>
-  <b><i>Transpire, build contract guide. Updated 8 September 2026.</i></b>
+  <b><i>Transpire, build contract guide. Updated 11 September 2026.</i></b>
   <i>Questions, or something in here is wrong? Tell the team. This guide is
   maintained and gets updated as the templates and the procedure change. The field
   rules behind it are in the project repo under
