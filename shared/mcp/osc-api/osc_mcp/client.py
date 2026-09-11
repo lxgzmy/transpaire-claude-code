@@ -8,6 +8,7 @@ Authorization: Bearer <token> on every subsequent call.
 from __future__ import annotations
 
 import time
+from typing import BinaryIO
 from typing import Any
 
 import httpx
@@ -92,6 +93,8 @@ class OSCClient:
         *,
         params: dict[str, Any] | None = None,
         json_body: Any | None = None,
+        form_data: dict[str, str] | None = None,
+        files: dict[str, tuple[str, BinaryIO, str]] | None = None,
     ) -> dict[str, Any]:
         """Perform an authenticated request and return a structured result."""
         token = await self._ensure_token()
@@ -99,11 +102,22 @@ class OSCClient:
         # Several OSC "GET" collection endpoints (e.g. /api/Jobs) accept an OData
         # filter in a JSON request body. httpx will set the content-type when a
         # json body is supplied for any method.
+        if json_body is not None and (form_data is not None or files is not None):
+            raise OSCError("Use either a JSON body or multipart form/files, not both.")
+        payload: dict[str, Any] = {"json": json_body}
+        if form_data is not None or files is not None:
+            # File tuples also encode ordinary fields to force multipart even
+            # for a message with no attachment. httpx supplies the boundary.
+            parts = [(key, (None, value)) for key, value in (form_data or {}).items()]
+            parts.extend((files or {}).items())
+            if not parts:
+                raise OSCError("Multipart requests need at least one form field or file.")
+            payload = {"files": parts}
         resp = await self._client.request(
             method.upper(),
             self.config.api_url(path),
             params=params,
-            json=json_body,
+            **payload,
             headers=headers,
         )
         result: dict[str, Any] = {
@@ -150,7 +164,7 @@ def _explain_status(status: int) -> str:
         403: "Forbidden - the credential's granted scope does not cover this "
              "endpoint. Request a wider OSC_SCOPES if authorised.",
         404: "Not found - check the path against osc_list_endpoints.",
-        415: "Unsupported media type - this endpoint expects a JSON body; pass "
-             "one via the body/odata_filter argument.",
+        415: "Unsupported media type - check osc_describe_endpoint for the accepted "
+             "content type. Use body/odata_filter for JSON or form/files for multipart.",
         429: "Too many requests - rate limited; back off and retry.",
     }.get(status, f"HTTP {status}.")

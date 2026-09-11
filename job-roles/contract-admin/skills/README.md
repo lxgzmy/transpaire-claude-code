@@ -12,7 +12,10 @@ Built:
   `.claude/skills/new-contract-template/`) — invoke as
   `/new-contract-template <email-file-or-subject>`. Orchestrates
   [`../workflows/new-contract.md`](../workflows/new-contract.md): reads the build
-  contract request chain and its attachments, picks the correct **existing** blank
+  contract request chain and its attachments, performs OSC intake through
+  [the MCP execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md)
+  (issue #34's Word items 1–9, approved writes, DataBuild excluded), then
+  picks the correct **existing** blank
   template off `Z:\PROCEDURES & FORMS\CONTRACTS\`, fills it via
   `../scripts/fill_inclusions.py`, diffs filled against blank, and **saves in the
   same pass** (the preview/approval stop was removed 17 Aug 2026), **routed
@@ -65,8 +68,8 @@ Retired:
 - **`ca-new-job`** (removed 18 Aug 2026) — EOI intake → OSC draft sheets →
   DataBuild email draft, with `extract_eoi.py` and the `osc_entry.py` dry-run.
   Removed with its workflow spec, scripts and fixtures in favour of
-  `/new-contract-template`; OSC job entry stays manual pending the technical
-  session with Adam. The `JD-*` rules it transcribed remain in
+  `/new-contract-template`; OSC intake is now integrated into that existing skill
+  through MCP (11 September 2026). The `JD-*` rules it transcribed remain in
   `../rules/job-details.md` (the new-contract workflow relies on them).
 
 Planned:

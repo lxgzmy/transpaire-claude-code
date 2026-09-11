@@ -49,10 +49,33 @@ forwarded marketer → sales manager → contract admin.
 
 ## Phase 1 — Draft the documents
 
+### OSC intake before drafting (issue #34)
+
+The workflow now includes the OSC setup in Word items 1–9. Follow the
+[OSC execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md)
+after reading the request and before the document steps below. It contains
+the field-to-API map, lookup rules, example multipart call and recovery protocol.
+
+| Sequence | Action |
+|---|---|
+| Word 1–4 | Read request + ID, check duplicates, resolve region/template, create or resume client/job through approved MCP writes; read back the generated contract number. |
+| Folder handoff | Resolve the existing folder or use `z-drive-ops` and the approved `new_job_folders.ps1` path. |
+| Word 5–6 | Update sourced site, job, design, authority, legal and marketer fields; verify read-back. Exclude OSC contract values. |
+| Word 7–8 | Resolve activities and questions by current IDs; complete 1 and 2 (the request email is the evidence), attach the email to the job and task 11 and complete 11. Activity 6 completes only on the person's confirmation that the DataBuild entry is done; until then it stays pending and heads the manual list. |
+| Word 9 | Create/update verified person and contact links; purchaser primary contacts follow the EOI/marketer instruction. Report unsupported Client Notes for manual entry. |
+| Document handoff | Use verified job number/folder and original field sources in the existing document pipeline. |
+
+DataBuild is excluded by the 11 September 2026 scope instruction: no integration,
+handoff email or waiting for its completion. This does not change `CD-5.4`.
+An existing document refresh verifies identity without replaying OSC writes.
+Save OSC IDs, source references and per-operation verification separately in
+`osc-state.json` in server runtime. A timeout requires reconciliation before
+retrying; disabled writes produce a draft, never a success claim.
+
 | # | Step | Actor | Rules |
 |---|---|---|---|
 | 1 | Read the whole chain + attachments; read the EOI as an image; note missing client ID | Claude | CD-0 |
-| 2 | Locate the job folder (all lifecycle levels); check for existing contract docs — any hit means **TEST MODE** (the job already exists in production; output goes only to the template-testing folder) — and any cancelled twin; **confirm the required contract from the folder's own documents** (fingerprint vs the blank) — unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-7.7, CD-1.6 |
+| 2 | Locate the verified job folder (all lifecycle levels); route **each document separately** based on whether that document type exists, and check for any cancelled twin. Confirm the required template from the job's documents where present; unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-7.7, CD-1.6 |
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply. **Sydney:** also the `upgrades` block — area, storeys, Bathroom 2, air con, and one item per upgrade line with the Standard Variation row chosen (`variation_list.py --search`), the house wording and a confidence flag; a request with no row is a custom item at low confidence | Claude | CD-2, CD-3, CD-9 |
 | 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, **Sydney inclusions content edit + Word layout pass + quality gate** (CD-9, 10 Sep 2026 — section 18 area, notes, `UPGRADED INCLUSIONS` items, black throughout; both columns re-levelled; a gate FAIL blocks the save), blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (standard $30,000 fee unless the request names another, CD-4.3); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
@@ -73,8 +96,8 @@ scan the six executed documents separately; manila folder to the filing cabinet.
 - **Plans not received** → produce everything else, name the unfilled fields.
 - **Auxiliary / dual key** → fill fields, route for review before issue (CD-6).
 - **Anchor missing on `--check`** → template revised; stop.
-- **Contract docs already in the folder** → TEST MODE: the run saves only to the
-  template-testing folder; a genuine amendment is promoted by a person
+- **A document type already in the folder** → that document refreshes to the
+  template-testing folder; missing types save to the job folder. A genuine amendment is promoted by a person
   (CD-7.6/7.7).
 - **Prelim agreement requirement unclear** → ask (CD-4.4).
 
@@ -86,7 +109,8 @@ permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
 and bounded by CD-7.6/7.7's per-document routing (8 Sep 2026): a document the
 job already holds refreshes only to the test folder, a document it does not
 hold yet saves into the job folder, and production saves never overwrite. What stays with a person, permanently: every
-outward-facing act — email, signature, DocuSign, OSC write — plus resolving
+outward-facing act — email, signature, DocuSign — plus approval of each OSC
+write through the integrated MCP procedure, resolving
 flagged fields, aux inclusions wording, and promoting test/amendment output
 into a job folder.
 
@@ -126,9 +150,12 @@ the job already exists in production.
 ## Where this sits in the full chain
 
 ```
-EOI email ─> OSC job ─> Z: job folders ─> [wait: PLAN] ─> plan updates ─> contract docs ─> DocuSign issue
-             [human, manual]               [JD-8]         [JD-9]          [THIS WORKFLOW]   [human, always]
+EOI email -> OSC job -> Z: job folder -> OSC details/activities/contacts -> contract drafts -> human issue
+            approved MCP writes         DataBuild excluded               CD-* routing
 ```
+
+Missing plans leave plan-dependent document fields flagged. Post-plan updates
+remain governed by `JD-9`; DataBuild does not block this intake chain.
 
 ## Relies on
 
@@ -139,5 +166,6 @@ EOI email ─> OSC job ─> Z: job folders ─> [wait: PLAN] ─> plan updates �
 - [`../scripts/fill_prelim.py`](../scripts/fill_prelim.py) — preliminary agreement filler (`regress_prelim.py` guards it)
 - [`../scripts/msg_extract.py`](../scripts/msg_extract.py) — `.msg` → text + attachments, stdlib only (`msg_to_text.py` is the superseded fallback)
 - `new-contract-template` skill — orchestrates this workflow
+- [OSC execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md) — Word field map and approved MCP operations
 - `z-drive-ops` skill — locating the job folder and the template
 - `transpire-writing` skill — any drafted email

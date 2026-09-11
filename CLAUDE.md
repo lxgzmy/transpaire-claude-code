@@ -124,8 +124,14 @@ skills are scoped to that folder and must not leak into another role.
   `new-contract-template` (contract request → filled contract templates, saved
   with routed destinations per CD-7.7 — unprefixed because that name was
   requested; see the role's `skills/README.md`). The earlier `ca-new-job` EOI
-  intake skill was retired 18 Aug 2026 in its favour. Deeper OSC
-  write-automation remains blocked on the technical session with Adam.
+  intake skill was retired 18 Aug 2026 in its favour. Since 11 September 2026,
+  `/new-contract-template` includes OSC intake through the existing `osc-api`
+  MCP, following issue #34's Word fields and steps. OSC writes remain approved
+  per call; this is not an extension of automatic document-save permission.
+  DataBuild itself stays a human step (no handoff email, no waiting); OSC
+  activity 6 is completed only once that person confirms the entry. Multipart
+  uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).
+  Other OSC write workflows remain subject to their own discovery and review.
   DataBuild automation is ruled out (23 Aug 2026): the vendor confirmed it has
   no API access, so no MCP server or integration is possible — DataBuild stays
   manual, kept in the docs as background only.

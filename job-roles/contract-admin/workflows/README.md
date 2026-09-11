@@ -9,7 +9,9 @@ Built:
    inclusions + preliminary agreement + HIA build contract (docx + PDF export
    each; the build contract fills whenever a usable Word template exists,
    CD-5.2b — otherwise its data sheet is the deliverable). Rules in
-   `../rules/contract-docs.md`. Skill: `/new-contract-template`.
+   `../rules/contract-docs.md`. Includes approved OSC MCP intake (issue #34's
+   Word items 1–9, DataBuild excluded) before the document pipeline.
+   Skill: `/new-contract-template`.
 
 Retired: `new-job.md` (EOI intake → OSC job setup, skill `/ca-new-job`) was
 removed 18 Aug 2026 in favour of `/new-contract-template`; its `JD-*` rules in

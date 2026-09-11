@@ -13,8 +13,9 @@ builder). Claude assists by reading requests, applying rules, and producing
 
 1. **New Job Creation** (retired 18 Aug 2026). The `/ca-new-job` intake skill,
    its workflow spec and scripts were removed in favour of
-   `/new-contract-template`; OSC job entry stays manual pending the technical
-   session with Adam. The rules transcribed from the OSC new-job manual
+   `/new-contract-template`. OSC intake is now integrated into that skill
+   through the existing MCP (issue #34, 11 September 2026); no separate intake
+   skill is restored. The rules transcribed from the OSC new-job manual
    (`rules/job-details.md`, `JD-*`) remain — the contract-documents workflow
    relies on them.
 2. **Contract documents** (built; fills **and saves** with automatic routing —
@@ -52,13 +53,20 @@ is **not** a Contract-Admin deliverable — it is the org-level
 every other role. This role keeps only the job-specific `Z:` rules: `JD-10` in
 `rules/job-details.md` and `scripts/new_job_folders.ps1`.
 
-Deeper OSC write-automation is deferred until a technical session with the IT
-specialist (Adam) confirms the integration surface, per the discovery record.
+OSC new-contract intake follows the
+[execution reference](../../.claude/skills/new-contract-template/references/osc-new-contract.md):
+client/job creation, sourced details, evidenced activities, request-email uploads
+and contacts through approved MCP writes. Missing API mappings are manual fields,
+never guessed. Existing document-only refreshes do not replay OSC mutations.
+Other OSC write workflows remain outside this integration.
 DataBuild automation is **ruled out entirely** (23 Aug 2026): the vendor
 confirmed it provides no API access, so no MCP server, adapter, or import
 automation can be built against it. DataBuild stays manual — a person keys its
-figures into the job JSON (CD-5.4) and the new-job handoff is a drafted email
-(JD-6). It is retiring in favour of Estimator Companion. Background on the
+figures into the job JSON (CD-5.4). The legacy JD-6 handoff and wait are excluded
+from the integrated OSC intake; contacts and document drafting proceed without
+them. OSC activity 6 is completed only on the person's word that the DataBuild
+entry is done, and stays pending (never N/A) until then.
+It is retiring in favour of Estimator Companion. Background on the
 tool: `docs/01-solution-architecture.md`.
 
 ## Systems

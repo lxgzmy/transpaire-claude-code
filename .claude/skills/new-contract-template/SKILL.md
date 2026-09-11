@@ -4,7 +4,8 @@ description: >
   Turn a build contract request email into a completed contract template for a
   job. Use when the user invokes /new-contract-template with an email file or
   Outlook subject, or asks to draft/raise a build contract, inclusions, or
-  preliminary agreement from a contract request or EOI. Reads the email and its
+  preliminary agreement from a contract request or EOI, including OSC job setup
+  and updates through the osc-api MCP. Reads the email and its
   attachments, picks the correct blank template off the Z: drive, fills it, and
   saves the finished documents in one pass, routed per document - a document
   the job folder does not hold yet goes into the job folder under Z:\PROJECTS;
@@ -38,6 +39,8 @@ Source procedure: "RAISING CONTRACTS" in
 `Z:\PROCEDURES & FORMS\ADMINISTRATION\INTERNAL - System and Procedures Manual.docx`.
 Field rules: [`../../../job-roles/contract-admin/rules/contract-docs.md`](../../../job-roles/contract-admin/rules/contract-docs.md) (`CD-*`).
 Template landscape: [`references/contract-template-map.md`](references/contract-template-map.md).
+OSC intake, field mapping and recovery: [`references/osc-new-contract.md`](references/osc-new-contract.md)
+(issue #34, Word items 1–9; DataBuild excluded).
 
 ## What this produces, and what it does not
 
@@ -173,7 +176,25 @@ Call out any instruction the email gives that changes the job — a review neede
 before issue, "no prelim agreement required", a price that differs from the EOI.
 Those are decisions, not details; surface them, don't quietly act on them.
 
-### 2. Find the job on Z:, or say it isn't there
+### 1a. Set up or verify the OSC job through MCP
+
+For a new contract intake, follow [OSC setup](references/osc-new-contract.md)
+before creating a folder or filling documents. Read the request/ID, check for
+duplicates, discover runtime region/template/custom-field IDs, then prepare
+reviewed client/job, detail, activity, request-email and contact changes.
+Execute approved changes only through `osc_write`; read back every result and
+checkpoint returned IDs in server-only `osc-state.json`. DataBuild is excluded:
+no handoff email or wait, no OSC contract-value writes; activity 6 is completed
+only when the person confirms the DataBuild entry is done, never before.
+Missing API fields are reported for manual entry.
+
+For an established job's document-only refresh, verify the selected identity
+and use the existing folder. Do not mutate OSC just to regenerate documents.
+If writes are disabled, report the prepared changes as pending and continue
+document drafting only where a verified job/folder already exists. Never enable
+writes automatically. A successful preview is not a created job.
+
+### 2. Find or create the verified job's folder on Z:
 
 The job folder usually already exists:
 
@@ -184,8 +205,11 @@ python job-roles/contract-admin/scripts/probe_job.py "<lot> <street>"
 It covers `Z:\PROJECTS\<region>\`, every lifecycle subfolder, and the top-level
 `COMPLETED CONTRACTS` / `CANCELLED CONTRACTS` — about 78% of jobs are not in the
 live region folder (`z-drive-ops` carries the drive map). Exactly one hit →
-proceed. No hits → report it and stop (a first draft with no job folder needs a
-human to say where it lives). Several hits → list them and ask.
+proceed. No hits on a new intake → follow the OSC reference's folder handoff:
+verify the generated number, folder-number source and Z-drive region, then use
+the existing folder script's dry-run and approved creation. Without a verified
+identity or folder mapping, report this stage as pending. Several hits → list
+them and ask. Never rerun OSC creation to solve a missing folder.
 
 Two things to check before going further:
 
@@ -524,7 +548,9 @@ not. Anything with an outside effect — sending, issuing, signing — needs the
 user's yes in chat.
 
 **Outward acts stay human.** Never send email, never issue to DocuSign, never sign or
-initial anything, never write to OnSite Companion or DataBuild. The manual's
+initial anything, and never write to DataBuild. OSC intake changes use only
+the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md),
+with its write switch, per-call approval and explicit confirmation. The manual's
 signing steps (builder's name on page 9, the sign-here sticker, the tray for
 signing) are a person's job, described here only so the checklist is complete.
 

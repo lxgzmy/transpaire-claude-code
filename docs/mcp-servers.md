@@ -170,6 +170,13 @@ sandbox workflow has been reviewed:
 
 ## OSC API (Companion Systems)
 
+The new-contract workflow now uses this MCP for issue #34's OSC steps and
+fields. See the [execution reference](../.claude/skills/new-contract-template/references/osc-new-contract.md).
+Endpoint descriptions expose payload schemas; `osc_write` supports gated
+multipart request-email uploads. DataBuild is excluded, and OSC writes still
+require the existing per-call approval. Restart the MCP process after pulling
+these code changes so the updated tool signatures load.
+
 ### What it is
 
 A **local (stdio) MCP server** — Python, in-repo at
@@ -213,6 +220,12 @@ not allow without human sign-off. `osc_write` is gated three independent ways:
    with the exact request shown.
 3. **Explicit confirm** — the tool needs `confirm=true`; without it, it returns a
    dry-run preview.
+
+Multipart uploads (`form`/`files`, used for the request-email attachment) add a
+fourth: a file is read only from a directory listed in `OSC_UPLOAD_ROOTS`
+(default the checkout's git-ignored `runtime\` folder), and the dry-run preview
+runs the same route and file checks the send will, so a person approving it
+sees the same result the real call would get.
 
 The read-only tools are on `allow` so queries run without a prompt.
 
