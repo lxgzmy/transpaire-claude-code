@@ -82,9 +82,13 @@ job.json ───────┴─> draft_contract.py [--prelim] --job-dir "<j
 
 ## Deliberately not automated
 
-- **OSC job entry** — the `/ca-new-job` intake and its `osc_entry.py` skeleton
-  were removed 18 Aug 2026; OSC write-automation stays deferred until the
-  technical session with the IT specialist (Adam), per `../CLAUDE.md`.
+- **OSC job entry by script** — the `/ca-new-job` intake and its `osc_entry.py`
+  skeleton were removed 18 Aug 2026. Since 11 Sep 2026 the skill does the OSC
+  intake (client, job, details, activities, request email, contacts) through
+  the `osc-api` MCP tools, each write approved by a person, not through a
+  script here; the procedure is
+  `.claude/skills/new-contract-template/references/osc-new-contract.md`.
+  DataBuild stays manual.
 - **Build-contract figures and legal statements** (CD-5.4). The fill itself is
   automated (`fill_hia.py` via the driver, CD-5.2b) once a template exists, but
   no figure is ever computed or inferred: price excluding GST, GST, contract

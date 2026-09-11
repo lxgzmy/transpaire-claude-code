@@ -5,9 +5,11 @@
 > (`/new-contract-template`) — which isn't in this document at all, as it was
 > scoped after discovery. The new-job intake (`/ca-new-job`) described under
 > Workflow 1 was built draft-only and then retired (18 Aug 2026) in favour of
-> `/new-contract-template`; Workflow 1 below is kept as the design record. The
-> OSC write-automation below is deferred pending the technical session with
-> Adam. The **DataBuild integration was closed 23 Aug 2026** — DataBuild
+> `/new-contract-template`; Workflow 1 below is kept as the design record. Its
+> OSC steps (1, 3, 4, 5, 7) were integrated into `/new-contract-template` on
+> 11 Sep 2026 through the `osc-api` MCP (issue #34), each write approved by a
+> person; activity 6 is ticked only after the DataBuild entry is confirmed.
+> The **DataBuild integration was closed 23 Aug 2026** — DataBuild
 > confirmed it provides no API access, so the adapter/tier design below is
 > superseded and kept only as the record (see the Key Research Finding for
 > what DataBuild is and the closure note under Integration Tiers). Current state:
