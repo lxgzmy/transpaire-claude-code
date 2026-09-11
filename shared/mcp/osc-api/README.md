@@ -116,9 +116,9 @@ many-to-one, `}o--o{` many-to-many, `||--||` one-to-one.
 |---|---|---|
 | `osc_token_info` | read | Granted OAuth scope + token expiry for the current credential. Start here to check connectivity. |
 | `osc_list_endpoints` | read | List endpoints from the OpenAPI spec; filter by `contains` / `method`. |
-| `osc_describe_endpoint` | read | Parameters, request-body content types and responses for one path. |
+| `osc_describe_endpoint` | read | Complete parameters, request/response schemas and their transitive local references for one path. |
 | `osc_get` | read | GET any endpoint. Supports OData `query` params and body-filter GETs (e.g. `/api/Jobs`) via `odata_filter`. |
-| `osc_write` | **write** | POST/PUT/PATCH/DELETE. Gated - see below. |
+| `osc_write` | **write** | JSON or multipart POST/PUT/PATCH/DELETE. Gated - see below. |
 
 The read tools cover all 148 OSCAPI endpoints generically (the spec is loaded at
 run time), so no per-endpoint code needs maintaining when the API version moves.
@@ -211,6 +211,47 @@ Regions, locations, statutory requirements, document types, defect categories, w
 
 ## Write safety (human-in-the-loop)
 
+### Contract workflow integration
+
+`/new-contract-template` uses this MCP for issue #34's OSC intake steps before
+the existing document pipeline. The
+[execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md)
+maps the Word fields to endpoints and runtime custom-field labels, and defines
+duplicate checks, recovery and read-back. DataBuild is excluded. The workflow
+does not change the write gates or automatically enable writes.
+
+`osc_describe_endpoint` retains the existing response-code/content-type fields
+and adds `request_body`, `response_details` and full parameter metadata to each
+operation. `referenced_definitions` maps literal `$ref` strings to definitions,
+including nested addresses, required fields and enum choices. Follow these
+references when preparing payloads; cycles remain named references.
+`unresolved_references` lists missing or external references. No external
+reference is fetched, and schema discovery sends no business writes.
+
+Request-email messages require multipart uploads. Pass `form` for text fields
+and `files` for multipart field names mapped to absolute paths on the MCP
+server's machine. For a reviewed request email under task 11:
+
+```text
+osc_write(
+  method="POST",
+  path="/api/JobActivities/<verified-task-11-UUID>/Messages",
+  form={"Subject": "NEW JOB", "Documents[0].description": "NEW JOB"},
+  files={"Documents[0].file": "<absolute server-local request-email path>"},
+  confirm=false
+)
+```
+
+Use the exact multipart names from the endpoint schema. Do not combine `body`
+with `form`/`files`. A preview lists fields and paths without opening files.
+Confirmed uploads require an advertised multipart route and existing regular
+files; all files are opened before the business request, streamed through httpx
+and closed afterwards. No filename is substituted for file content. Files and
+permissions are those of the MCP server, not the host app's computer.
+Transport failure can leave the outcome uncertain; inspect OSC before retrying.
+
+### Existing approval gates
+
 Writing to OSC changes a system of record, which the org guardrails do not allow
 without human approval. `osc_write` is gated three independent ways:
 
@@ -282,6 +323,17 @@ workflow can't hit prod while someone thinks they're on dev), with the prod
 been reviewed, and add `mcp__osc-api-prod__osc_write` to `ask` before first use.
 
 ## Local smoke test (no MCP host needed)
+
+Synthetic regression tests (no network, credentials or client records):
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+These cover schema references, required fields, multipart encoding and binary
+content, rejected uploads and write gates. Live write acceptance still requires
+an approved test job on the intended environment; read-only verification does
+not prove contract-number generation or business validation on creates.
 
 `python -m osc_mcp.selftest` runs `osc_token_info` and a couple of read calls
 directly against the configured environment, using the same `OSC_*` env vars.

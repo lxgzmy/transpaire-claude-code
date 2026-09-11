@@ -170,6 +170,13 @@ sandbox workflow has been reviewed:
 
 ## OSC API (Companion Systems)
 
+The new-contract workflow now uses this MCP for issue #34's OSC steps and
+fields. See the [execution reference](../.claude/skills/new-contract-template/references/osc-new-contract.md).
+Endpoint descriptions expose payload schemas; `osc_write` supports gated
+multipart request-email uploads. DataBuild is excluded, and OSC writes still
+require the existing per-call approval. Restart the MCP process after pulling
+these code changes so the updated tool signatures load.
+
 ### What it is
 
 A **local (stdio) MCP server** — Python, in-repo at

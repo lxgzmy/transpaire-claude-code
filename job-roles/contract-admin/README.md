@@ -8,8 +8,8 @@ Proof-of-concept, read-only and draft-first. Three workflows:
 
 1. **New Job Creation** (retired 18 Aug 2026) — the `/ca-new-job` intake skill,
    `workflows/new-job.md` and its scripts were removed in favour of
-   `/new-contract-template`; OSC job entry stays manual pending the technical
-   session with Adam. The `JD-*` rules remain (used by workflow 2).
+   `/new-contract-template`. OSC intake is now integrated into workflow 2 through
+   the existing MCP (11 September 2026). The `JD-*` rules remain.
 2. **Contract documents** (built; fills and saves in one pass) — build contract
    request → filled inclusions + preliminary agreement + HIA build contract
    (`.docx` + PDF export each; the build contract fills whenever a usable Word
@@ -20,7 +20,11 @@ Proof-of-concept, read-only and draft-first. Three workflows:
    the template-testing folder for a document the job already holds
    (CD-7.6/7.7 — no preview stop; issuing stays human).
    Verified character-for-character against completed jobs in all three
-   template families. Skill: `/new-contract-template`.
+   template families. Skill: `/new-contract-template`. It now includes
+   [OSC job setup](../../.claude/skills/new-contract-template/references/osc-new-contract.md)
+   from issue #34's Word items 1–9: client/job, detail fields, activities,
+   request-email attachments and contacts. OSC writes are approved per call;
+   DataBuild is excluded and does not block this intake.
 3. **Variation Stage 1** (not started) — variation type decision → OSC variation +
    workflow templates → Z-Drive Excel variation → OSC document generation → PDF
    filing → staff alert. Blocked on transcribing `rules/variation-rules.md`.
@@ -75,9 +79,9 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 | [docs/03-automation-flow.md](docs/03-automation-flow.md) | How Claude Code and UI automation fit together at runtime. DataBuild is manual-only — no integration. |
 
 > Note: `docs/01–03` predate the read-only-first direction and describe the fuller
-> OSC automation. Treat the OSC parts as forward design; the current scope is
-> read-only and draft-first (the contract-documents save is the one sanctioned
-> automation, CD-7.7). The DataBuild integration they once proposed (SQL/MCP
+> OSC automation. Treat those OSC parts as historical design; the current
+> new-contract integration is the MCP reference linked above, with approved OSC
+> writes and automatic document saves under CD-7.7. The DataBuild integration they once proposed (SQL/MCP
 > adapter, import routines) was **dropped 23 Aug 2026** — DataBuild confirmed it
 > provides no API access — so DataBuild stays manual and appears in the docs as
 > background only. The docs will be refreshed as the workflows are built.

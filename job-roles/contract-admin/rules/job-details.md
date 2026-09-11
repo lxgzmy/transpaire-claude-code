@@ -4,6 +4,18 @@ Transcribed from `OSC new job manual.docx` (see `../reference/README.md`).
 Screenshots and client examples stay in the source manual; only the decision
 rules live here. Each rule is written to be testable.
 
+## OSC integration scope (11 September 2026)
+
+For `/new-contract-template`, issue #34's Word items 1–9 are implemented through
+the [OSC MCP execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md).
+Its field map uses live API schemas and IDs. The user's scope excludes DataBuild:
+`JD-6` and its wait do not block this intake, activity 6 is left pending, and
+contract values are not written to OSC. `JD-7.3`'s legacy sex-based slots are
+not used: Word item 9 makes purchasers primary contacts unless the marketer's
+sourced instruction says otherwise. Read `JD-8` as the later plan-update stage,
+not a prohibition on completing this intake's OSC contacts or contract drafts.
+These scoped changes leave the other field rules and document pricing rules intact.
+
 ## JD-0 Pre-creation check
 
 - **JD-0.1** Trigger is a new EOI / contract request email. If the client ID is
