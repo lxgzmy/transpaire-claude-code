@@ -1,7 +1,8 @@
 # Approval workflow rules (`PO-*`)
 
 Transcribed from the 20 Aug 2026 AI-consultation discovery meeting with the
-permit officer. **Pending business review.** Each rule is written to be
+permit officer. **Pending business review** except where a rule says
+otherwise (PO-11a was confirmed on issue #29). Each rule is written to be
 testable; open questions are marked ❓.
 
 ## Role and preconditions
@@ -82,11 +83,30 @@ testable; open questions are marked ❓.
   manually in red). Sources, in order: OSC (job activities, alerts,
   Document Manager descriptions per PO-8a) → QLD certifier portal → the
   mailbox (NSW especially). Items live outside OSC workflow activities
-  today, which is why compilation is manual. Wanted additions from the
-  meeting: per item, **who it is with, the date it was handed to them, and
-  days outstanding**, with an age flag — ❓ default from the meeting:
-  amber within 5 days, red past 5 days; confirm thresholds with the
-  business.
+  today, which is why compilation is manual.
+- **PO-11a — Per-item ageing columns (confirmed by the business owner on
+  issue #29, 10 Sep 2026).** Each outstanding item carries four columns:
+  **Assigned to** (who it currently sits with — Drafting, GM, Certifier,
+  Council, Consultant, Client…), **Date submitted**, **Date resolved**
+  (blank while open) and **Days outstanding** (a running count of NSW
+  business days while open, frozen once resolved). The colour flag depends
+  on who the item is with, so *Assigned to* maps to a threshold tier:
+
+  | Tier (Assigned to) | Yellow | Red |
+  |---|---|---|
+  | Internal actions (Drafting, GM, Contracts, Admin) | ≤ 10 business days | > 10 |
+  | Energy consultants (energy / BASIX / NatHERS assessor) | ≤ 10 | > 10 |
+  | External consultants (engineer, surveyor, other consultant) | ≤ 20 | > 20 |
+  | Council applications (council referral assessments often carry a 20-day minimum) | ≤ 30 | > 30 |
+
+  Every open item is yellow or red; there is no unflagged state. The
+  earlier single 5-day default from the discovery meeting is superseded.
+  Six defaults are **assumed until the owner confirms them** (asked on #29):
+  Certifier → External consultants; Client → Internal; water authorities
+  (Sydney Water, Altogether) → Council; business days exclude NSW public
+  holidays; a resolved item stays on the report for one cycle (the Monday
+  after it resolves) then drops; the fill colour on a job row shows the
+  worst open item, with each item's own flag written as text.
 
 ## Pre-lodgement checklist
 

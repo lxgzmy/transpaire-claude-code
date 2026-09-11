@@ -8,11 +8,12 @@ Discovery completed 20 Aug 2026 (AI-consultation session with the permit
 officer), business-owner review 21 Aug 2026 (**NSW approvals first**).
 Proof-of-concept, read-only and draft-first. Three workflows, in build order:
 
-1. **Weekly BA report pre-population** (spec written; access gate cleared —
-   the read-only `osc-api` MCP is live) — draft the Monday building-approval
-   status report by reading OSC job activities, alerts and documents, carrying
-   forward last week's report, and flagging item age. Spec:
-   `workflows/ba-weekly-report.md`.
+1. **Weekly BA report pre-population** (pipeline v0.2 built; pilot cycle
+   ready on jobs 26029, 26052, 26001 per issue #29) — draft the Monday
+   building-approval status report by reading OSC job activities, alerts and
+   documents, carrying forward last week's report, and ageing each
+   outstanding item in NSW business days with a yellow/red flag by who it is
+   with (PO-11a). Spec and runbook: `workflows/ba-weekly-report.md`.
 2. **Pre-lodgement checklist** (spec written; build gated on the RFI corpus)
    — before a job is lodged, predict the certifier's likely RFI items and the
    orders the permit officer must place (energy assessment, 10.7, utility
