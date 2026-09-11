@@ -1,0 +1,48 @@
+{
+  "_fixture": "SYNTHETIC - invented names, lot and prices. Menangle-Park-style job (area 'other'), double storey, no ground-floor Bathroom 2, no air con requested. Three upgrade items: one replaces a whole label, one replaces a single line, one inserts a new label at the Standard Variation order.",
+  "lot_no": "9001",
+  "street": "Sample Street",
+  "suburb": "MENANGLE PARK NSW",
+  "estate": "",
+  "house_type": "Sample 210",
+  "house_size": "210.00 m²",
+  "facade": "Sample Façade",
+  "garage_side": "Left Hand Side",
+  "price": "500,000.00",
+  "owner_1": "Alex Jordan SAMPLE",
+  "owner_2": "",
+  "owners": "Alex Jordan SAMPLE",
+  "site_address": "9001, Sample Street, MENANGLE PARK NSW 2563",
+  "builders_rep": "Michael CRONK",
+  "upgrades": {
+    "area": "other",
+    "storeys": 2,
+    "bathroom2_ground": false,
+    "aircon": null,
+    "items": [
+      {
+        "category": "Ceiling Height",
+        "request": "2700mm Ceiling height to ground floor",
+        "variation_row": 23,
+        "wording": "2700mm nominal ceiling height to ground floor. Excludes any corner windows/doors.",
+        "confidence": "high"
+      },
+      {
+        "category": "Benchtops",
+        "request": "40mm benchtops throughout",
+        "variation_row": 127,
+        "replaces": "20mm stone bench tops",
+        "wording": "Laminated 40mm arris edge profile to engineered stone benchtops selected from Builders standard range throughout.",
+        "confidence": "medium",
+        "note": "sheet row 127 names Kitchen only; the request says throughout"
+      },
+      {
+        "category": "Wardrobe Doors",
+        "request": "Mirror insert wardrobe door to all bedrooms",
+        "variation_row": 93,
+        "wording": "Aluminium frameless sliding doors with mirror inserts to built in wardrobes to all bedrooms.",
+        "confidence": "high"
+      }
+    ]
+  }
+}

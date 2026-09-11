@@ -1,0 +1,33 @@
+{
+  "_fixture": "SYNTHETIC - invented names, lot and prices. Box Hill job (area box_hill), single storey, ground-floor Bathroom 2 present, air conditioning specified, one item ADDED under an existing label.",
+  "lot_no": "9002",
+  "street": "Example Lane",
+  "suburb": "BOX HILL NSW",
+  "estate": "",
+  "house_type": "Sample 180",
+  "house_size": "180.00 m²",
+  "facade": "Sample Façade",
+  "garage_side": "Right Hand Side",
+  "price": "600,000.00",
+  "owner_1": "Sam EXAMPLE",
+  "owner_2": "Jo EXAMPLE",
+  "owners": "Sam EXAMPLE & Jo EXAMPLE",
+  "site_address": "9002, Example Lane, BOX HILL NSW 2765",
+  "builders_rep": "Michael CRONK",
+  "upgrades": {
+    "area": "box_hill",
+    "storeys": 1,
+    "bathroom2_ground": true,
+    "aircon": "Reverse cycle ducted air-conditioning system to the whole dwelling.\nNote: Includes four (4) zones",
+    "items": [
+      {
+        "category": "Cabinetry",
+        "request": "Add a bank of pot drawers to the kitchen",
+        "variation_row": 116,
+        "mode": "add",
+        "wording": "A single bank of three (3) pot drawers with standard drawer runners to Kitchen.",
+        "confidence": "high"
+      }
+    ]
+  }
+}

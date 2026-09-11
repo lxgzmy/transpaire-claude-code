@@ -79,6 +79,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import hia_probe  # noqa: E402  (region mapping + blank classification)
+from fill_inclusions import pick_family  # noqa: E402  (which inclusions family a blank belongs to)
+
+# Layout measurements of the blank templates (word_layout.ps1 -Mode measure),
+# one JSON per blank, refreshed when the blank changes. The Sydney inclusions
+# body is two independent columns; edit_inclusions.py needs the blank's
+# measured label/wording pairs to write the layout plan (10 Sep 2026).
+LAYOUT_STATE = HERE.parents[2] / "runtime" / "contract-admin" / "state" / "layout"
 PRELIM_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
                     r"\NSW PRELIMINARY AGREEMENT 2024.docx")
 STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
@@ -328,6 +335,26 @@ def ps_quote(s):
     return "'" + str(s).replace("'", "''") + "'"
 
 
+def run_ps(script, *args):
+    return subprocess.run(["pwsh", "-NoProfile", "-File", str(HERE / script), *map(str, args)],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+
+def blank_measure_for(template):
+    """The blank's Word measurement, made (3 min) when missing or older than the blank."""
+    template = Path(template)
+    LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
+    out = LAYOUT_STATE / f"{template.stem}.measure.json"
+    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime:
+        return out
+    print(f"  measuring : the blank's layout through Word (first run for this blank, ~3 min) -> {out.name}")
+    r = run_ps("word_layout.ps1", "-Mode", "measure", "-Docx", template, "-Out", out)
+    if r.returncode != 0 or not out.exists():
+        print(f"  MEASURE FAILED: {(r.stderr or r.stdout).strip()[:300]}")
+        return None
+    return out
+
+
 def export_pdfs(pairs, force):
     """All exports through ONE Word instance (start-up dominates the cost)."""
     docx = ",".join(ps_quote(a) for a, _ in pairs)
@@ -366,6 +393,9 @@ def main():
                          "fill-and-save in one pass use --job-dir.")
     ap.add_argument("--deliver-force", action="store_true",
                     help="allow --deliver to replace an earlier delivery (test folders only)")
+    ap.add_argument("--no-layout", action="store_true",
+                    help="skip the Sydney inclusions content edit, Word layout pass and gate "
+                         "(regression/timing use only - a routed save always runs them)")
     ap.add_argument("--no-build-contract", action="store_true",
                     help="skip the HIA build-contract fill (it otherwise runs on every "
                          "--job-dir fill: approved blank when one exists, staged UNAPPROVED "
@@ -480,6 +510,61 @@ def main():
             made.setdefault("inclusions", fill_doc(
                 "inclusions", "fill_inclusions.py", args.template,
                 f"INCLUSIONS_{suffix}.docx"))))
+    # Sydney inclusions: content edit from the job's `upgrades` block, the Word
+    # layout pass that keeps both columns level, and the quality gate (NSW
+    # inclusions feedback sheet 9.9 / issue #35, built 10 Sep 2026). Any failure
+    # blocks the save - a document with a label off its wording, a red note or
+    # an empty page never ships.
+    if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
+        if args.no_layout:
+            print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")
+            if args.job_dir:
+                sys.exit("ERROR: --no-layout cannot combine with --job-dir - a saved document is always edited, laid out and gated")
+        else:
+            doc = made["inclusions"]
+            plan = workdir / "layout_plan.json"
+
+            def do_edit():
+                bm = blank_measure_for(args.template)
+                if not bm:
+                    return False
+                r = run_py("edit_inclusions.py", "--docx", doc, "--job", job_path, "--blank", args.template,
+                           "--blank-measure", bm, "--out", doc, "--report", workdir / "edit_inclusions.txt",
+                           "--plan", plan)
+                if r.returncode != 0:
+                    (workdir / "edit_inclusions.txt").write_text(r.stdout + r.stderr, encoding="utf-8")
+                    print(f"  inclusions: CONTENT EDIT FAILED - see edit_inclusions.txt\n"
+                          + "\n".join("    " + l for l in (r.stdout + r.stderr).strip().splitlines()[-6:]))
+                    return False
+                for line in r.stdout.splitlines():
+                    if line.startswith(("item ", "section 18    : kept", "air con ", "bathroom 2    : ", "hygiene", "TO CONFIRM")):
+                        print(f"  {line.strip()}")
+                diff = run_py("docx_diff.py", args.template, doc)
+                (workdir / "diff_inclusions_vs_blank.txt").write_text(diff.stdout, encoding="utf-8")
+                return True
+
+            def do_layout():
+                r = run_ps("word_layout.ps1", "-Mode", "align", "-Docx", doc, "-Plan", plan,
+                           "-Out", workdir / "layout_align.json")
+                for line in (r.stdout or "").splitlines():
+                    if line.strip():
+                        print(f"  {line.strip()}")
+                if r.returncode != 0 or not (workdir / "layout_align.json").exists():
+                    print(f"  inclusions: LAYOUT PASS FAILED: {(r.stderr or '').strip()[:300]}")
+                    return False
+                return True
+
+            def do_gate():
+                r = run_py("gate_inclusions.py", "--docx", doc, "--measure", workdir / "layout_align.json",
+                           "--plan", plan, "--report", workdir / "gate_inclusions.txt")
+                for line in r.stdout.splitlines():
+                    if line.strip() and not line.startswith("gate_inclusions"):
+                        print(f"  {line.strip()}")
+                return r.returncode == 0
+
+            if stage("inclusions: content edit (upgrades block)", do_edit):
+                if stage("inclusions: layout pass (Word)", do_layout):
+                    stage("inclusions: quality gate", do_gate)
     if args.prelim:
         stage("prelim: check+fill+diff", lambda: bool(
             made.setdefault("prelim", fill_doc(

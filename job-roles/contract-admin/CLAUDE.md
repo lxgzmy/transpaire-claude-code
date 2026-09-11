@@ -34,7 +34,15 @@ builder). Claude assists by reading requests, applying rules, and producing
    staged templates are the team's own Word builds plus a sanctioned interim
    repair each — NSW v1.1 TABLES, QLD v2.1 LAND TABLES, 3 Sep 2026. DataBuild
    figures fill only when a person keys them into the job JSON — never
-   calculated — and legal statements are never filled, CD-5.4).
+   calculated — and legal statements are never filled, CD-5.4). **Sydney
+   inclusions content is edited by the run since 10 Sep 2026** (CD-9, from
+   the NSW inclusions feedback sheet 9.9 / issue #35): section 18 area,
+   Bathroom 2 and air-con notes, `UPGRADED INCLUSIONS` items from the job's
+   `upgrades` block, black throughout, then a Word layout pass keeps the two
+   columns level and a quality gate blocks the save on any miss. Mapping a
+   request to a Standard Variation row, and any custom wording, stay a
+   person's call — proposed in the job JSON, applied, reported with a
+   confidence flag.
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 

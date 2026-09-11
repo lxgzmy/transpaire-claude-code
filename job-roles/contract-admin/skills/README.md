@@ -31,7 +31,15 @@ Built:
   provenance flagged for the reviewer; no staged template → data sheet only
   (CD-5.1/5.2a). DataBuild figures fill only
   when a person keys them into the job JSON — never calculated — and legal
-  statements are never filled (CD-5.4). Never invents contract wording, never
+  statements are never filled (CD-5.4). **Sydney inclusions content (10 Sep
+  2026, CD-9):** the run edits section 18 to the job's area, actions the
+  Bathroom 2 / air-con notes, writes the `UPGRADED INCLUSIONS` items from the
+  job's `upgrades` block in Standard Variation wording
+  (`../scripts/edit_inclusions.py`), re-levels the two columns through Word
+  (`../scripts/word_layout.ps1`) and gates the result
+  (`../scripts/gate_inclusions.py`) before it can save; the row a request maps
+  to and any custom wording stay a person's call, reported with a confidence
+  flag. Never invents contract wording of its own, never
   signs, never sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
 
   Staff guide (HTML source + formatted PDF):

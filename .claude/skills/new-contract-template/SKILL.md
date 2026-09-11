@@ -18,9 +18,14 @@ Takes a **Build Contract Request** email and produces the contract documents for
 that job by **filling the company's existing blank template** — the same template
 a contract administrator would open, with the same fields, wording and layout.
 
-**Never invent a contract format, and never write contract wording.** If the right
-template can't be found, say so and stop. A contract that looks plausible but
-isn't the company's document is worse than no draft.
+**Never invent a contract format, and never write contract wording of your
+own.** If the right template can't be found, say so and stop. A contract that
+looks plausible but isn't the company's document is worse than no draft. The
+one place wording is written per job is the Sydney `UPGRADED INCLUSIONS`
+section (CD-9, 10 Sep 2026) — and there it comes from the company's Standard
+Variation workbook, normalised per CD-9.6, with the row you chose and the
+final line reported for a person to confirm. A request with no row is a
+custom item: still written, always flagged low confidence for approval.
 
 The run is **one pass with no preview stop** (rule change, 17 Aug 2026 — it
 replaced the earlier "permanent" preview gate): the documents are generated and
@@ -38,7 +43,7 @@ Template landscape: [`references/contract-template-map.md`](references/contract-
 
 | Document | Status |
 |---|---|
-| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`) |
+| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`). **Sydney:** also the job's content — section 18 area, Bathroom 2 / air-con notes, `UPGRADED INCLUSIONS` items from the `upgrades` block (`edit_inclusions.py`, CD-9), re-levelled through Word (`word_layout.ps1`) and gated (`gate_inclusions.py`) before it can save |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4); the standard $30,000 fee stands unless the request names another (CD-4.3, reversed 28 Aug 2026) |
 | **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → the region's **staged interim template**, filled under the real name too, in PRODUCTION and TEST alike (business rule, 8 Sep 2026: a job with no build contract in `Z:\PROJECTS` gets a real one, saved into its job folder; the old TEST-only tagged output is gone). Staged templates: NSW is the **v1.1 TABLES interim** (3 Sep 2026) — the team's own Word build (21 Aug 2026) plus the team review sheet's layout fixes; filled exports hold the licensed 45 pages. QLD is the **v2.1 LAND TABLES interim** (3 Sep 2026) — the team's v2 from issue #8 (value-cell tables, e-sign anchors at source) plus the same table fix for the land block v2 missed; filled exports hold the licensed 37 pages. Only a region with no staged template → **data sheet only** |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
@@ -260,6 +265,12 @@ If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
 Say that plainly and produce the rest — do not invent them, and do not silently
 leave them blank without saying so.
 
+**Sydney jobs also carry an `upgrades` block** — area, storeys, Bathroom 2,
+air conditioning and the upgrade items from the request, with the Standard
+Variation row you chose and a confidence flag per item. Its keys and rules
+are in step 5 below (CD-9); build it before running the fill, because the
+content edit, the layout pass and the gate all run inside the one command.
+
 ### 5. Fill, diff, export and save — one command
 
 ```
@@ -283,16 +294,36 @@ preview stop (removed 17 Aug 2026):
    **if the lot is 12.5m wide or less a person must also delete the
    accessible-entrance block it governed** (observed: 26039/26037 deleted it,
    10m sites; 26053/26008 kept it).
-3. **Blank-vs-filled diff** (`diff_*_vs_blank.txt`) — read it; the only
-   changed regions may be the fields you set.
-4. **Complete PDF exports** (named `PREVIEW_*` in the workdir, delivered under
+3. **Sydney inclusions content edit** (`edit_inclusions.py`, from the job's
+   `upgrades` block — CD-9, 10 Sep 2026): section 18 trimmed to the job's
+   area, Bathroom 2 and air-conditioning notes actioned, the upgrade items
+   written into `UPGRADED INCLUSIONS` (replace / one line / add / new label
+   at the Standard Variation order), every run black. The script refuses to
+   write if anything outside those regions would change. Report:
+   `edit_inclusions.txt` — request → row → wording → confidence per item,
+   plus a TO CONFIRM list.
+4. **Layout pass through Word** (`word_layout.ps1 -Mode align`, ~2–5 min):
+   the inclusions body is one table row with two independent columns, so
+   every content change above shifts the wording under its labels. The pass
+   measures each label against its wording and pads or trims blank
+   paragraphs (a fraction of a line as paragraph spacing) until they sit
+   level, and puts the three package headings back at the top of their
+   pages. Blank paragraphs only, body cells only, text never touched.
+5. **Quality gate** (`gate_inclusions.py`): labels level, headings at page
+   top, no empty page, all black, no highlight, no editor note left, page-1
+   values on one x per column, page-13 owner name under the builder's and
+   the Date columns on one x. **A FAIL blocks the save.**
+   `gate_inclusions.txt` says what failed and why.
+6. **Blank-vs-filled diff** (`diff_*_vs_blank.txt`) — read it; the changed
+   regions may be the fields you set and the CD-9 content regions only.
+7. **Complete PDF exports** (named `PREVIEW_*` in the workdir, delivered under
    the real names), all through a single Word launch.
-5. **Real-document comparison** — in TEST mode `--real-dir` defaults to the
+8. **Real-document comparison** — in TEST mode `--real-dir` defaults to the
    job's `CONTRACT DOCUMENTATION` automatically: REAL_ PDF exports of the
    completed documents plus a word-level diff against each
    (`worddiff_*_vs_real.txt`) — classify **every** differing block as a
    field, human spec content, or known variance before calling the run good.
-6. **The save.** `--job-dir` routes it **per document** (CD-7.6/7.7, 8 Sep
+9. **The save.** `--job-dir` routes it **per document** (CD-7.6/7.7, 8 Sep
    2026): a document type the job folder already holds → TEST, finals plus a
    `temp\` of working files to `template-testing\<job>\`, refreshed in place;
    a document type not there yet → PRODUCTION, the final `.docx` + `.pdf`
@@ -332,27 +363,67 @@ prefills a 210-day building period — the data sheet still carries the job's
 CD-5.5 period for the reviewer to check against it.
 `--no-build-contract` skips the stage.
 
-Expect ~3s of fills/diffs and ~10–20s per PDF (Word start-up dominates; the PDF
-is half the deliverable pair, never cut it): a typical run is 25–70 seconds. The
-underlying commands (`fill_inclusions.py`, `fill_prelim.py`, `fill_hia.py`,
+Expect ~3s of fills/diffs, 2–5 minutes for the Sydney layout pass (Word
+measures ~1,000 paragraphs and re-levels them), and ~10–20s per PDF (Word
+start-up dominates; the PDF is half the deliverable pair, never cut it): a
+Sydney run is 3–7 minutes, a Gunnedah/SEQ run 25–70 seconds. Say so before
+you start it. The first run against a newly revised blank adds ~3 minutes
+to measure the blank once (`runtime\contract-admin\state\layout\`). The
+underlying commands (`fill_inclusions.py`, `edit_inclusions.py`,
+`word_layout.ps1`, `gate_inclusions.py`, `fill_prelim.py`, `fill_hia.py`,
 `docx_diff.py`, `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a
-single stage; regressions are `regress_inclusions.py`, `regress_prelim.py` and
-`regress_hia.py`. A delivery that hits a **locked destination file** (a
+single stage; regressions are `regress_inclusions.py`,
+`regress_edit_inclusions.py` (add `--layout` to include the Word pass and
+gate), `regress_prelim.py` and `regress_hia.py`. `--no-layout` skips the
+content edit, layout pass and gate for timing/regression runs only — it
+cannot combine with a save. A delivery that hits a **locked destination file** (a
 reviewer has the old PDF open) stops with a clear message — close the file
 and re-run `draft_contract.py --job <job.json> --job-dir "<...>"` with no
 `--template`: it re-ships the already-filled workdir without re-filling.
 
-**Spec content the email orders is a person's edit, with a defined flag each
-time** — the draft never writes it, the summary always names it:
+**Sydney inclusions content (rule change, 10 Sep 2026 — NSW inclusions
+feedback sheet 9.9, issue #35).** Until 9 Sep 2026 every spec line the email
+ordered was "a person's edit". The reviewer's sheet reversed that for the
+Sydney inclusions: the run itself now edits the `UPGRADED INCLUSIONS`
+section, trims section 18 to the job's area, actions the Bathroom 2 and
+air-conditioning notes and turns every run black (CD-9). What stays human,
+by instruction of the same day: **choosing the Standard Variation row for a
+request, and approving any custom wording where no row exists.** You
+propose both in the job JSON; the run applies them and reports each one
+with a confidence flag for a person to confirm before issue. It never picks
+silently.
 
-| The email says | The person's edit (flag it, verbatim) |
+So, for a Sydney job, build the `upgrades` block of `job.json` (CD-9.1):
+
+| Key | Value | Where from |
+|---|---|---|
+| `area` | `"other"`, `"box_hill"` (Box Hill and Gables) or `"north_kellyville"` — decides which section-18 pair stays (CD-9.2). Omitted → derived from the suburb | Suburb |
+| `storeys` | `1` or `2`. Say `2` when the request mentions an upper/first floor or gives "ground floor" as a location; else read the design off the plans. Unknown → `null` and say so (CD-9.5) | Email, plans |
+| `bathroom2_ground` | `true` when the request puts a Bathroom 2 on the ground floor, else `false` (CD-9.3) | Email, plans |
+| `aircon` | `null` when the request does not mention air conditioning (the promotion item **stays**, only the red note goes); otherwise the description to write, lines separated by `\n` (CD-9.4) | Email |
+| `items[]` | one per upgrade line in the request: `category` (a template label or Standard Variation category, e.g. `"Ceiling Height"`, `"Wardrobe Doors"`), `request` (the email line, verbatim), `variation_row` (the sheet row you chose, or `null` for a custom item), `wording` (the final house wording — the row's text normalised per CD-9.6 and tuned to the request), `confidence` (`high`/`medium`/`low`), optional `replaces` (a fragment of the ONE existing line to swap, e.g. `"20mm stone bench tops"`), optional `mode: "add"` to append under an existing label, optional `note` | `variation_list.py` + your judgment |
+
+Find candidate rows with
+`python job-roles/contract-admin/scripts/variation_list.py --region NSW --search "<request line>"`
+(it is assistive: it scores keyword overlap and prints the normalised house
+wording; **you** choose, and the choice is what the reviewer confirms).
+`--list --category "<name>"` shows a whole category, `--categories` the
+insertion order. Wording rules (CD-9.6): no leading "Provide", no "in lieu
+of …", no price notes; one blank line between items, none inside an item.
+A request with no matching row is a **custom item**: write the wording,
+set `variation_row: null` and `confidence: "low"`, and say in `note` that
+a person approves it.
+
+What is still a person's edit, flagged verbatim in the report:
+
+| The email says | The person's edit |
 |---|---|
 | "Delete NCC" / chain answers NCC **excluded** | Remove the `NCC 2022 Livable Housing` section and renumber the following sections (observed 26039/26037/26022) |
 | "NCC included" / "Leave in NCC" | Section stays — nothing to do (26053, 26008) |
 | NCC question asked, **no answer in the chain** | FLAG the open question; do not guess either way |
-| Upgrade bullets (ceilings, doors, A/C, tiling, shelving…) | Keyed into `PROMOTIONAL UPGRADES`/upgrade sections by a person, house wording (each observed job's wording differs) |
 | "Sep promotion" / "September Promotion pack" | Promo lines are hand-curated per job — even the promo's own items vary between jobs of the same week (26050 kept Colorbond roofing, 26039 dropped it) |
 | Plan-change bullets (relocate door, add screen…) | Drafting updates the plans; the matching inclusions lines are keyed by a person (26037) |
+| Gunnedah / SEQ upgrade bullets | Those templates have no two-column content rules yet — still keyed by a person, house wording |
 
 `--prelim` is used only after this decision (CD-4.4), never by default
 (SEQ has no preliminary-agreement template at all — the analogous "custom plan
@@ -390,7 +461,12 @@ The save already happened in step 5 — this step is information, not a gate.
 Report, as a short table: **the destination per document (job folder or
 template-testing)**, the template path (naming an interim build-contract
 template when one was used), every field with its value and source, and every
-unresolved flag. Send the final PDFs with `SendUserFile` so they open inline;
+unresolved flag. **Sydney:** also the `edit_inclusions.txt` items table —
+one row per upgrade line: request → Standard Variation row (its normalised
+sheet wording) → the wording written → confidence — plus the TO CONFIRM
+list, and the gate verdict line from `gate_inclusions.txt`. Say plainly
+which items are medium/low confidence or custom: those are the lines a
+person confirms before issue (CD-9.10). Send the final PDFs with `SendUserFile` so they open inline;
 the reader checks them in their own time. A requested change is simply a new
 run — after a production save that document exists in the job folder, so its
 fixed version routes to the test folder and a person promotes it (old version

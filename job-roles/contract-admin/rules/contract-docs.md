@@ -427,6 +427,70 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   aborts, unsourced mandatory values refuse, failed stages block the save,
   price conflicts stop the run.
 
+## CD-9 Sydney inclusions content (instruction, 10 Sep 2026)
+
+Source: the NSW inclusions feedback sheet `NSW.INCLUSIONS.updated.9.9.xlsx`
+(issue #35, 15 rows, reviewed 10 Sep 2026) and the instruction of the same
+day to build it. It **reverses** the earlier rule that spec content ordered
+by the request is a person's edit (the skill's spec-content table, issue
+#28's "permanent" carve-out). Sydney INTEGRITY family only for now; Gunnedah
+and SEQ upgrades stay a person's edit until their templates are measured.
+
+- **CD-9.1** The job JSON carries an `upgrades` block: `area`, `storeys`,
+  `bathroom2_ground`, `aircon`, `items[]` (each: `category`, `request`,
+  `variation_row`, `wording`, `confidence`, optional `replaces` / `mode` /
+  `note`). `edit_inclusions.py` applies it after the field fill;
+  `word_layout.ps1` re-levels the columns; `gate_inclusions.py` must PASS
+  before the document saves.
+- **CD-9.2** Section 18 REGIONAL REGULATIONS keeps ONE label/wording pair:
+  Box Hill or Gables → `Box Hill` + Recycled Water connection (observed
+  26004); North Kellyville → `North Kellyville ONLY` + rain garden (by
+  elimination — confirm on the first North Kellyville job); every other
+  suburb → `All areas Excl. Box Hill` + Water tank (observed 26019). The
+  other two pairs and the red `DELETE NOT APPLICABLE ONE` line are deleted
+  in both columns. *(sheet row 2)*
+- **CD-9.3** Bathroom 2: no ground-floor Bathroom 2 → the three red notes
+  are deleted and the wording stays; ground-floor Bathroom 2 → `Bathroom &
+  Ensuite` becomes `Bathroom, Bathroom 2 & Ensuite` on the vanity,
+  basin-location and exhaust-fan lines (the pattern of completed 26019) and
+  the notes go. *(sheet row 6)*
+- **CD-9.4** Air conditioning: not in the request → the promotion item
+  **stays** and only the red `(remove if not included)` note goes; a type is
+  specified → the item's description is rewritten to it. *(sheet row 11 —
+  the 7 Sep 2026 run deleted the whole item, which was wrong)*
+- **CD-9.5** Storeys: 2 when the request mentions an upper/first floor or
+  gives "ground floor" as a location, else from the design/plans; unknown is
+  recorded as unknown. It selects the variation row (single/ground floor vs
+  first floor) and is checked against the wording; nothing in the document
+  changes with it. *(sheet row 5)*
+- **CD-9.6** Wording comes from `Standard Variation Costs 2025 (up to
+  220m2).xlsm` (NSW or QLD sheet by region, read live, version date
+  reported): drop the leading "Provide", drop "in lieu of …", drop any
+  price note; one blank line between items, none inside an item. An
+  existing label's wording is replaced (or one line of it, or added to);
+  a new label is inserted at the Standard Variation category order with
+  its wording level on the right. *(sheet rows 9, 10)*
+- **CD-9.7** Only section 18, the three notes and `UPGRADED INCLUSIONS` may
+  change. The editor compares every other paragraph of both columns and
+  every text outside the body table with the blank and refuses to write on
+  any difference. *(sheet row 8)*
+- **CD-9.8** Every run black; no highlight, no run shading — the blue
+  package headings included ("no exception"). *(sheet rows 3, 13)*
+- **CD-9.9** Layout: the body is one table row with two independent
+  columns. After any content change the Word pass measures each label
+  against its wording and pads/trims blank left-column paragraphs (a
+  fraction of a line as paragraph spacing) until level within 1.5 pt, and
+  puts INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS at the
+  top of their pages. Page-1 values and the page-13 signature lines sit on
+  tab stops (one x per column; the owner's name under the builder's; every
+  `Date:` on one x). The gate fails the document on any miss, on an empty
+  page, or on any colour left. *(sheet rows 1, 4, 12, 14, 15)*
+- **CD-9.10** What stays human: mapping a request line to a Standard
+  Variation row, and approving custom wording where no row exists. The run
+  reports request → row → wording → confidence per item and a TO CONFIRM
+  list; medium/low confidence and custom items are confirmed before issue.
+  *(instruction, 10 Sep 2026)*
+
 ## CD-8 What only a person does
 
 Recorded so the checklist is complete, not so Claude attempts any of it:
@@ -448,6 +512,8 @@ cabinet; and any DocuSign issue to a client.
 | Preliminary agreement requirement unclear | Ask (CD-4.4) |
 | Preliminary fee not stated in the request | Proceed; the standard $30,000 stands (CD-4.3) |
 | Client ID missing from the request | Note it; do not guess the name spelling |
+| Upgrade request matches no Standard Variation row | Write it as a custom item, `confidence: low`, `variation_row: null`; a person approves the wording (CD-9.10) |
+| `gate_inclusions.py` FAILs | The document does not save; fix the cause (template changed, content overflow) and re-run — never hand-fix the output (CD-9.9) |
 
 ## Open questions for business review
 
@@ -508,3 +574,15 @@ cabinet; and any DocuSign issue to a client.
    spec clause — flagged per run when the request names a validity date.
    Raised here in case the business wants a sanctioned template variant
    instead. (CD-5.2b)
+8. The Sydney inclusions blank itself carries the things the 9.9 feedback
+   objected to: red instruction notes, blue headings, and a layout that
+   keeps labels level with their wording only through blank-paragraph
+   padding typed by eye (the blank is up to ~7 pt off in places). The run
+   now corrects all of it per document (CD-9.8/9.9), but the durable fix is
+   the template owner's: a one-row-per-item table in the NMA master would
+   make the alignment structural, and the notes could become Word comments.
+   Three CD-9 readings also want a one-line confirmation on the first job
+   they meet: North Kellyville pairs with the rain-garden wording (by
+   elimination); the blue package headings go black too ("no exception");
+   Bathroom 2 on the ground floor writes "Bathroom 2" into the descriptions
+   as 26019 did rather than leaving the note text in the contract. (CD-9)

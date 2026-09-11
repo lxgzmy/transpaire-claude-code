@@ -148,6 +148,32 @@ FAMILIES = {
             # Negative = trailing (see the "gap" branch in fill()).
             "Name of Owner 1:": -4,
         },
+        # Tab stops instead of typed spaces (NSW inclusions feedback sheet 9.9,
+        # rows 1, 14, 15 - 10 Sep 2026). Typed spaces put every value at a
+        # slightly different x because the labels differ in width; a tab stop
+        # puts each column's values at ONE x. Positions are twips from the
+        # paragraph's left edge, measured in Word (11 Sep 2026):
+        #   page1  - the completed Menangle Park jobs 26019/26021/26028 start
+        #            left-column values ~85.5 pt and right-column values
+        #            ~404.5 pt from the page edge; the cells start at 35.25 /
+        #            318.75 pt, so 50.25 pt = 1005 twips and 85.75 pt = 1715.
+        #   sig_name - the width of "Builders Representative: " in the signature
+        #            line's font (Segoe UI Light 11 bold) is 111.75 pt = 2235
+        #            twips, so the owner's name starts exactly under the
+        #            builder's (sheet row 14).
+        #   sig_date - 378 pt: past the longest dotted line on those lines
+        #            (label + 32 ellipses = 348.75 pt) and inside the text box
+        #            (568 pt wide) with the 105.75 pt "Date: .." run to spare,
+        #            so every Date: sits at one x (sheet row 15).
+        # gate_inclusions.py checks the page-1 x in Word and the page-13 tab
+        # stops in the XML on every run (Word cannot measure inside text boxes).
+        "tabs": {
+            "page1": {"Lot No. :": 1005, "STREET :": 1005, "SUBURB :": 1005, "ESTATE :": 1005,
+                      "PRICE : $": 1005, "HOUSE TYPE :": 1715, "HOUSE SIZE :": 1715,
+                      "HOUSE FA\u00c7ADE :": 1715, "GARAGE SIDE :": 1715},
+            "sig_name": 2235,
+            "sig_date": 7560,
+        },
     },
     "seq": {
         "match": "REGION - SEQ",
@@ -307,6 +333,48 @@ def clone_run(run, text):
     )
 
 
+TAB_RUN = "<w:r><w:tab/></w:r>"
+# pPr children that come AFTER <w:tabs> in the schema - the tab stop goes before the first of them
+PPR_AFTER_TABS = ("suppressAutoHyphens", "kinsoku", "wordWrap", "overflowPunct", "topLinePunct",
+                  "autoSpaceDE", "autoSpaceDN", "bidi", "adjustRightInd", "snapToGrid", "spacing", "ind",
+                  "contextualSpacing", "mirrorIndents", "suppressOverlap", "jc", "textDirection",
+                  "textAlignment", "textboxTightWrap", "outlineLvl", "divId", "cnfStyle", "rPr", "sectPr",
+                  "pPrChange")
+
+
+def tab_stop_xml(*positions):
+    return "<w:tabs>" + "".join(f'<w:tab w:val="left" w:pos="{int(p)}"/>' for p in positions) + "</w:tabs>"
+
+
+def paragraph_at(xml, pos):
+    """(start, end) of the <w:p> element that contains offset pos."""
+    start = xml.rfind("<w:p ", 0, pos)
+    start2 = xml.rfind("<w:p>", 0, pos)
+    start = max(start, start2)
+    end = xml.find("</w:p>", pos) + len("</w:p>")
+    return start, end
+
+
+def ppr_tab_edit(xml, pos, *positions):
+    """An (start, end, replacement) edit adding tab stops to the pPr of the paragraph containing pos."""
+    ps, pe = paragraph_at(xml, pos)
+    open_end = xml.find(">", ps) + 1
+    ppr = re.compile(r"<w:pPr>.*?</w:pPr>", re.S).match(xml, open_end)
+    stops = tab_stop_xml(*positions)
+    if not ppr:
+        return (open_end, open_end, f"<w:pPr>{stops}</w:pPr>")
+    body = ppr.group(0)
+    if "<w:tabs>" in body:
+        at = ppr.start() + body.index("</w:tabs>")
+        return (at, at, stops[len("<w:tabs>"):-len("</w:tabs>")])
+    for tag in PPR_AFTER_TABS:
+        k = body.find(f"<w:{tag}")
+        if k != -1:
+            return (ppr.start() + k, ppr.start() + k, stops)
+    at = ppr.end() - len("</w:pPr>")
+    return (at, at, stops)
+
+
 def dot_line(prefix, value, dots, lead=3):
     """Type `value` into a dotted line, keeping the line roughly its original length."""
     keep = dots[:lead]
@@ -369,7 +437,13 @@ def fill(xml, values, report, family):
                 # "PRICE : $" -> "PRICE :     $606,000.00". The $ is written by
                 # us, because SEQ's label does not carry one.
                 base = anchor.rstrip("$ ")
-                edits.append((s, e, set_run_text(run, f"{base}{' ' * pad}${value}")))
+                tabs = family.get("tabs", {}).get("page1", {})
+                if anchor in tabs:
+                    # tab-stopped value (sydney): label run, tab, value run
+                    edits.append((s, e, set_run_text(run, base) + TAB_RUN + clone_run(run, f"${value}")))
+                    edits.append(ppr_tab_edit(xml, s, tabs[anchor]))
+                else:
+                    edits.append((s, e, set_run_text(run, f"{base}{' ' * pad}${value}")))
 
             elif mode == "after_lot":
                 # The standard SEQ blank has no "Lot " runs to append to, so the
@@ -455,8 +529,19 @@ def fill(xml, values, report, family):
                 # name. Every other pad in FAMILIES is a leading indent (the
                 # normal case), so a plain positive/zero value keeps its
                 # existing meaning.
-                text = value + " " * -pad if pad < 0 else " " * pad + value
-                edits.append((at[1], at[1], clone_run(at[2], text)))
+                tabs = family.get("tabs", {}).get("page1", {})
+                if anchor in tabs:
+                    # tab-stopped value (sydney): the typed gap spaces go (with
+                    # them a wide label such as "HOUSE FAÇADE :" would reach past
+                    # the stop and the tab would jump to the next default stop),
+                    # a tab takes the value to the column's one x
+                    for k in range(i + 1, j):
+                        edits.append((runs[k][0], runs[k][1], set_run_text(runs[k][2], "")))
+                    edits.append((at[1], at[1], TAB_RUN + clone_run(at[2], value)))
+                    edits.append(ppr_tab_edit(xml, s, tabs[anchor]))
+                else:
+                    text = value + " " * -pad if pad < 0 else " " * pad + value
+                    edits.append((at[1], at[1], clone_run(at[2], text)))
 
             entry["hits"] += 1
 
@@ -466,6 +551,75 @@ def fill(xml, values, report, family):
     for s, e, repl in sorted(edits, key=lambda x: -x[0]):
         xml = xml[:s] + repl + xml[e:]
     return xml
+
+
+SIG_LABELS = ("Name of Owner 1:", "Name of Owner 2:", "Builders Representative:")
+ELLIPSIS = "\u2026"
+
+
+def signature_tabs(xml, values, family):
+    """Page-13 signature lines on tab stops (sydney): name where the builder's name starts, Date: at one x.
+
+    Only the paragraph-style lines that carry their own "Date:" are rebuilt
+    (the signature-table cells on the earlier page have no Date in the cell and
+    stay as filled). The blank types these with runs of spaces and default tab
+    stops, so a typed name moves the Date: and the owner's name never starts
+    where the builder's does (feedback sheet 9.9 rows 14 and 15).
+    """
+    tabs = family.get("tabs") or {}
+    if not tabs.get("sig_name") or not tabs.get("sig_date"):
+        return xml, 0
+    rebuilt = 0
+    out, pos = [], 0
+    for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.S):
+        p = m.group(0)
+        runs = [r.group(0) for r in RUN_RE.finditer(p)]
+        text = "".join(run_text(r) for r in runs)
+        label = next((l for l in SIG_LABELS if text.startswith(l)), None)
+        if not label or "Date:" not in text:
+            continue
+        date_at = text.index("Date:")
+        middle, date_text = text[len(label):date_at], text[date_at:]
+        rprs = [re.search(r"<w:rPr>.*?</w:rPr>", r, re.S) for r in runs]
+        rpr_label = rprs[0].group(0) if rprs and rprs[0] else ""
+        rpr_value = next((x.group(0) for r, x in zip(runs[1:], rprs[1:]) if x and run_text(r).strip()), rpr_label)
+        rpr_date = next((x.group(0) for r, x in zip(runs, rprs) if x and "Date:" in run_text(r)), rpr_label)
+        # the blank types the builder's dotted line as ellipses ending in a
+        # full stop ("……….") - both are line, not name
+        name = middle.strip(" " + ELLIPSIS + ".")
+        dots = middle.count(ELLIPSIS)
+        stop = "." if middle.rstrip().endswith(".") else ""
+        parts = [f'<w:r>{rpr_label}<w:t xml:space="preserve">{xml_escape(label)}</w:t></w:r>']
+        if label == "Builders Representative:":
+            # the name sits straight after the label; the dotted line fills out
+            # to (about) its original length, the owner's tab stop points here
+            tail = ELLIPSIS * max(0, dots - len(name)) if name else ELLIPSIS * dots
+            parts.append(f'<w:r>{rpr_value}<w:t xml:space="preserve"> {xml_escape(name)}{tail}{stop}</w:t></w:r>')
+        elif name:
+            parts.append(TAB_RUN + f'<w:r>{rpr_value}<w:t xml:space="preserve">{xml_escape(name)}</w:t></w:r>')
+        elif dots:
+            parts.append(f'<w:r>{rpr_value}<w:t xml:space="preserve"> {ELLIPSIS * min(dots, 32)}</w:t></w:r>')
+        parts.append(TAB_RUN + f'<w:r>{rpr_date}<w:t xml:space="preserve">{xml_escape(date_text)}</w:t></w:r>')
+        open_tag = re.match(r"<w:p\b[^>]*>", p).group(0)
+        ppr = re.search(r"<w:pPr>.*?</w:pPr>", p, re.S)
+        ppr_xml = ppr.group(0) if ppr else "<w:pPr></w:pPr>"
+        ppr_xml = re.sub(r"<w:tabs>.*?</w:tabs>", "", ppr_xml, flags=re.S)
+        stops = tab_stop_xml(tabs["sig_name"], tabs["sig_date"])
+        placed = False
+        for tag in PPR_AFTER_TABS:
+            k = ppr_xml.find(f"<w:{tag}")
+            if k != -1:
+                ppr_xml = ppr_xml[:k] + stops + ppr_xml[k:]
+                placed = True
+                break
+        if not placed:
+            ppr_xml = ppr_xml[:-len("</w:pPr>")] + stops + "</w:pPr>"
+        out.append(xml[pos:m.start()])
+        out.append(open_tag + ppr_xml + "".join(parts) + "</w:p>")
+        pos = m.end()
+        rebuilt += 1
+    out.append(xml[pos:])
+    return "".join(out), rebuilt
 
 
 def write_docx(template, out, xml):
@@ -511,6 +665,7 @@ def main():
     report = []
     new_xml = fill(xml, values, report, family)
     new_xml, dropped_notes = drop_instruction_paras(new_xml, fam_name)
+    new_xml, sig_lines = signature_tabs(new_xml, values, family)
 
     print(f"template : {Path(args.template).name}")
     print(f"family   : {fam_name} - {family['label']}")
@@ -537,6 +692,10 @@ def main():
     if problems:
         print(f"WARNING: no anchor found for: {', '.join(problems)}")
         print("The template may have changed. Do not issue this document - check it.")
+
+    if family.get("tabs"):
+        print(f"tabs     : page-1 values and {sig_lines} signature line(s) on tab stops "
+              f"(sheet 9.9 rows 1, 14, 15) - gate_inclusions.py verifies the x positions")
 
     if dropped_notes:
         for n in dropped_notes:
