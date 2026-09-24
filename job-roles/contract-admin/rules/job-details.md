@@ -21,8 +21,11 @@ These scoped changes leave the other field rules and document pricing rules inta
 
 ## JD-0 Pre-creation check
 
-- **JD-0.1** Trigger is a new EOI / contract request email. If the client ID is
-  not attached, request it before proceeding.
+- **JD-0.1** Trigger is a new EOI / contract request email. The client ID is
+  **optional** (business instruction, 24 Sep 2026 — the manual's "request it
+  before proceeding" no longer gates creation): with an ID attached, names
+  follow the ID; without one, names follow the EOI and the run flags them for
+  a spelling check before issue. Never request or record an ID *number*.
 - **JD-0.2** Before creating a job, **search OSC by lot number** to confirm no
   existing job. Only create if the search returns nothing.
 
@@ -46,7 +49,8 @@ These scoped changes leave the other field rules and document pricing rules inta
 - **JD-1.1** Region: `SEQ1` or `SYDNEY01` (pencil icon; choose per the EOI).
 - **JD-1.2** Contract No: always use **Generate Contract No** — never typed manually.
 - **JD-1.3** Initial Template: always **Pre Sales Investor v1**.
-- **JD-1.4** Create New Client using the **name exactly as on ID**.
+- **JD-1.4** Create New Client using the **name exactly as on ID** when an ID
+  is attached; otherwise exactly as typed on the EOI (JD-0.1), flagged.
 
 ## JD-2 Site address
 
@@ -159,7 +163,7 @@ These scoped changes leave the other field rules and document pricing rules inta
 
 | Situation | Action |
 |---|---|
-| Client ID missing from EOI | Ask the sender (JD-0.1) |
+| Client ID missing from EOI | Not a stop (JD-0.1, 24 Sep 2026): create from the EOI names, flag "no ID — check spelling" in the report |
 | Existing job found for lot number | Stop; flag duplicate (JD-0.2) |
 | Council lookup ambiguous | Check Estimate folder (JD-3.7) |
 | DataBuild price ≠ request-email price | Flag; do not proceed (JD-6.2) |

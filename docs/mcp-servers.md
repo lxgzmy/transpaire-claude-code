@@ -270,9 +270,10 @@ python -m venv .venv        # or `uv venv` where uv is installed
 .\.venv\Scripts\python.exe -m pip install -e .
 ```
 
-The one env var `.mcp.json` does set is `OSC_TIMEOUT=120`: the dev API's first
+`.mcp.json` sets two env vars. `OSC_TIMEOUT=120`: the dev API's first
 response after idling can exceed the 30-second default (cold app pool), which
 surfaces as a `ReadTimeout` on the token call and then succeeds on retry.
+`OSC_ENABLE_WRITES=true` (PR #44, 24 Sep 2026): the write switch, see above.
 
 Note: the `mcp` Python SDK is pinned to `<2` in `pyproject.toml` — mcp 2.x
 negotiates the 2026-07-28 MCP protocol, which the Claude Code CLI rejects at

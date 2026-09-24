@@ -40,7 +40,7 @@ forwarded marketer → sales manager → contract admin.
 |---|---|---|
 | Contract request email (full chain) | Shared mailbox | Instruction, design, façade, price (CD-0.1) |
 | Signed EOI | Attachment — the marketers' online form (values in PDF form fields → `pdf_fields.py`) or a photo with no text layer (→ `pdf_images.py`, read as image) | Client names, contacts, house/price, dual-key flag (CD-0.2) |
-| Client ID documents | Attachment | Name spelling (CD-0.3) |
+| Client ID documents | Attachment — optional (24 Sep 2026) | Name spelling when present (CD-0.3); absent → EOI names, flagged |
 | Inclusions document | Attachment or `Z:` | Which template the sender intends (CD-0.4) |
 | Blank template | `Z:\PROCEDURES & FORMS\CONTRACTS\` | The document itself (CD-1) |
 | PLANS | Job folder / drafting | House size, garage side (CD-2.7, CD-2.9) |
@@ -58,7 +58,7 @@ the field-to-API map, lookup rules, example multipart call and recovery protocol
 
 | Sequence | Action |
 |---|---|
-| Word 1–4 | Read request + ID, check duplicates, resolve region/template, create or resume client/job through approved MCP writes; read back the generated contract number. |
+| Word 1–4 | Read request + EOI (+ ID when attached — optional since 24 Sep 2026), check duplicates, resolve region/template, create or resume client/job through approved MCP writes; read back the generated contract number. |
 | Folder handoff | Resolve the existing folder or use `z-drive-ops` and the approved `new_job_folders.ps1` path. |
 | Word 5–6 | Update sourced site, job, design, authority, legal and marketer fields; verify read-back. Exclude OSC contract values. |
 | Word 7–8 | Resolve activities and questions by current IDs; complete 1 and 2 (the request email is the evidence), attach the email to the job and task 11 and complete 11. Activity 6 completes only on the person's confirmation that the DataBuild entry is done; until then it stays pending and heads the manual list. |
@@ -74,7 +74,7 @@ retrying; disabled writes produce a draft, never a success claim.
 
 | # | Step | Actor | Rules |
 |---|---|---|---|
-| 1 | Read the whole chain + attachments; read the EOI as an image; note missing client ID | Claude | CD-0 |
+| 1 | Read the whole chain + attachments; read the EOI (form fields or image); a missing client ID is flagged, not a stop | Claude | CD-0 |
 | 2 | Locate the verified job folder (all lifecycle levels); route **each document separately** based on whether that document type exists, and check for any cancelled twin. Confirm the required template from the job's documents where present; unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-7.7, CD-1.6 |
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply. **Sydney:** also the `upgrades` block — area, storeys, Bathroom 2, air con, and one item per upgrade line with the Standard Variation row chosen (`variation_list.py --search`), the house wording and a confidence flag; a request with no row is a custom item at low confidence | Claude | CD-2, CD-3, CD-9 |

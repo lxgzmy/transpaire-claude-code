@@ -279,7 +279,9 @@
 
 <div class="card" style="--c:var(--blue)">
   <div class="hd"><span class="num">1</span><h3>It reads the whole email chain, and the attachments</h3></div>
-  <p class="when">Including the EOI and the ID, when Claude can read them.</p>
+  <p class="when">Including the EOI and, if the marketer sent one, the ID. The ID is
+     optional: without it the names come off the EOI form and the report flags them
+     for a spelling check.</p>
   <div class="say">
     <span class="lbl">What it pulls out</span>
     <ul>
@@ -400,9 +402,10 @@
         template is the team&rsquo;s own build and is still waiting on the
         manager&rsquo;s formal sign-off, so this read-through is your safety
         check on layout and wording.</li>
-    <li><b>Check the owner names and spelling against the ID.</b> The run report
-        says where each name came from; if it says the EOI was typed into the
-        chat rather than read, check those names twice.</li>
+    <li><b>Check the owner names and spelling.</b> Against the ID when there is
+        one; against the EOI form when there is not (the report flags &ldquo;no ID
+        in the request&rdquo;). If it says the EOI was typed into the chat rather
+        than read, check those names twice.</li>
     <li><b>Key the money from DataBuild.</b> Contract price, GST, deposit and the
         progress payment schedule are never filled automatically.</li>
     <li><b>Finish the OSC job.</b> Do the DataBuild entry yourself and tell Claude

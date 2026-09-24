@@ -199,7 +199,13 @@ the facts are in the oldest** (CD-0). Read all of it. Then read the attachments:
   marketers' **online EOI form** (a PDF whose typed values sit in form fields —
   `pdf_fields.py`, ladder step 2) and a **phone photo of a signed form** with
   no text layer (`pdf_images.py` then read the image, ladder step 3) (CD-0.2).
-- **Client ID** (licence, passport) — confirms name spelling. Note if missing.
+- **Client ID** (licence, passport) — **optional** (24 Sep 2026). When attached
+  it is the spelling authority (middle names too, CD-3.1); when not, the EOI's
+  typed names are used as they are and the report carries one flag: *names
+  from the EOI, no ID in the request — check spelling before issue*. A missing
+  ID never blocks the OSC client/job or the documents, and you never ask for a
+  licence or passport **number** in chat — only the document itself, if the
+  person has it.
 - **An attached inclusions document** — the sender is telling you which template
   to use. Confirm it against the map before trusting it (CD-1.3).
 - Skip signature images. **Never record bank or deposit details anywhere.**

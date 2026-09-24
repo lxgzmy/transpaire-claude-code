@@ -33,9 +33,15 @@ documentation file nothing reads — and every run until 24 Sep saw writes off.
 
 ## 1. Read, identify and discover (Word items 1–3)
 
-1. Read the entire request chain, EOI and client ID. Resolve names against ID,
-   with purchaser surnames in capitals; an EOI/ID conflict needs confirmation.
-   Missing ID blocks new client/job creation. Keep a source per field. Never
+1. Read the entire request chain, the EOI and — when one is attached — the
+   client ID. Purchaser surnames in capitals. **The ID is optional (business
+   instruction, 24 Sep 2026; it reversed "missing ID blocks creation").** When
+   an ID is present it is the spelling authority and an EOI/ID conflict needs
+   confirmation; when none is attached, the EOI's names are used as typed on
+   the form, the client and job are created from them, and the report carries
+   one flag — *names taken from the EOI, no ID in the request* — so the
+   person checks spelling before issue. Never ask for a licence or passport
+   number in chat; an ID means the document itself. Keep a source per field. Never
    retain bank details. Apply existing price-conflict and document rules.
 2. Call `osc_token_info`. Check `Basic`; completing activities/questions also
    needs `WorkReleasingAndCompletion`. If disconnected, keep a draft and report
@@ -87,7 +93,7 @@ contact details. Reuse only a verified match. Multiple matches require a choice.
 | Region | NSW example: resolve description `SYDNEY01`. For another region, use the EOI and live lookup, not this NSW screenshot. The checked dev lookup uses `SEQ01`; old `SEQ1` prose is not a UUID or an instruction to invent a region. |
 | Generate Contract No | Omit `contractNumber` on new-job creation; never calculate, allocate or type a number from a neighbouring job. The schema permits omission but does not document generation behaviour. Read back the created job and require a non-empty generated number. If absent, retain the created job ID and have a person use OSC's Generate Contract No on that job; do not create again. |
 | Initial Template | Match `Pre Sales Investor v1`; the verified dev lookup calls it `1.1 - Pre Sales Investor v1`. Accept that exact numbered label, not any template containing “Pre Sales”. If absent or ambiguous, stop before creating a client/job. |
-| Create New Client | `POST /api/Clients`: `name` is the ID-verified purchaser/entity name; use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. Populate sourced values only; empty objects are permitted by the schema where they contain no required fields. Never copy a residential address into a work address without evidence. Read nested required fields before submitting. |
+| Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. Populate sourced values only; empty objects are permitted by the schema where they contain no required fields. Never copy a residential address into a work address without evidence. Read nested required fields before submitting. |
 | Create Job | `POST /api/Jobs`: `clientID`, `regionID`, `siteAddress`, `workflowTemplateID`; optional `startDate` only if sourced. No `contractValueIncludingGst` or `contractValueExcludingGst`. |
 
 Describe both POST endpoints before use. Present the sourced client and job
@@ -249,7 +255,7 @@ Person only when no identity match exists; patch only reviewed changed values.
 
 | Word field | Mapping / rule |
 |---|---|
-| Client name | Client `name`, verified against ID; do not overwrite a shared client solely to match an email abbreviation. |
+| Client name | Client `name`, verified against ID when one is attached, otherwise as typed on the EOI (flagged); do not overwrite a shared client solely to match an email abbreviation. |
 | Client address | Client `postalAddress` and purchaser Person `personalAddress`, using sourced current residence: `line1`, blank `line2` for new records, uppercase `suburb`, `state`, `postcode`. Existing nonblank line2 is not automatically cleared. |
 | Purchaser name | Person `givenName`, `middleNames`, `surname`; surname in capitals. Include every purchaser. |
 | Mobile / email | Person `personalContactDetails.mobile` and `.email`; resolve `.contactDetailsPrimaryCommunicationMethodID` to Email. |
