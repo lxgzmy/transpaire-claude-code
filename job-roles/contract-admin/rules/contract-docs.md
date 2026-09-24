@@ -34,8 +34,10 @@ unchanged.
   no text layer — lift the JPEG with `scripts/pdf_images.py` and read it as an
   image. A person types the names only when both fail. *(observed; 26057 —
   the form was called unreadable and typed in, 24 Sep 2026)*
-- **CD-0.3** Client ID attachments confirm name spelling. If absent, note it;
-  do not settle a spelling from an email signature. *(observed)*
+- **CD-0.3** Client ID attachments confirm name spelling when present. They
+  are **optional** (24 Sep 2026): if absent, the EOI's typed names stand,
+  flagged once in the report for a spelling check; never settle a spelling
+  from an email signature, and never ask for an ID number. *(observed)*
 - **CD-0.4** An inclusions document attached to the request is the sender's
   instruction on which template to use. Verify it is current before using it —
   a sender can attach a superseded copy. *(observed)*
