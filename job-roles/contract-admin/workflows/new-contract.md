@@ -39,7 +39,7 @@ forwarded marketer → sales manager → contract admin.
 | Input | Source | Needed for |
 |---|---|---|
 | Contract request email (full chain) | Shared mailbox | Instruction, design, façade, price (CD-0.1) |
-| Signed EOI | Attachment — often a photo, no text layer | Client names, dual-key flag (CD-0.2) |
+| Signed EOI | Attachment — the marketers' online form (values in PDF form fields → `pdf_fields.py`) or a photo with no text layer (→ `pdf_images.py`, read as image) | Client names, contacts, house/price, dual-key flag (CD-0.2) |
 | Client ID documents | Attachment | Name spelling (CD-0.3) |
 | Inclusions document | Attachment or `Z:` | Which template the sender intends (CD-0.4) |
 | Blank template | `Z:\PROCEDURES & FORMS\CONTRACTS\` | The document itself (CD-1) |

@@ -34,6 +34,22 @@ def _load_dotenv() -> None:
         value = value.strip().strip('"').strip("'")
         if key and key not in os.environ:
             os.environ[key] = value
+            _FROM_DOTENV.add(key)
+
+
+# Keys that load_config took from the .env file rather than the real
+# environment. Lets osc_token_info say WHERE a setting came from - the write
+# switch in particular, which a person otherwise chases through three files.
+_FROM_DOTENV: set[str] = set()
+
+
+def setting_source(key: str) -> str:
+    """'env' (MCP server env / real environment), 'dotenv' (.env file) or 'default' (unset)."""
+    if key in _FROM_DOTENV:
+        return "dotenv"
+    if key in os.environ:
+        return "env"
+    return "default"
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -60,6 +76,11 @@ class Config:
     # "no uploads at all"; load_config always fills it (OSC_UPLOAD_ROOTS or
     # the checkout's git-ignored runtime\ folder).
     upload_roots: tuple[str, ...] = ()
+    # Where the write switch came from: "env" (the MCP server's env block in
+    # .mcp.json, or a real environment variable), "dotenv" (.env beside the
+    # package) or "default" (unset -> false). Reported by osc_token_info so a
+    # disabled switch can be traced to the file that set it.
+    enable_writes_source: str = "default"
 
     @property
     def token_url(self) -> str:
@@ -77,6 +98,7 @@ class Config:
             "scopes": self.scopes,
             "verify_tls": self.verify_tls,
             "enable_writes": self.enable_writes,
+            "enable_writes_source": self.enable_writes_source,
             "timeout": self.timeout,
             # count only: a root spelled as a UNC path would name the file server
             "upload_roots": len(self.upload_roots),
@@ -144,4 +166,5 @@ def load_config() -> Config:
         enable_writes=_as_bool(os.environ.get("OSC_ENABLE_WRITES"), default=False),
         timeout=float(os.environ.get("OSC_TIMEOUT", "30")),
         upload_roots=upload_roots,
+        enable_writes_source=setting_source("OSC_ENABLE_WRITES"),
     )

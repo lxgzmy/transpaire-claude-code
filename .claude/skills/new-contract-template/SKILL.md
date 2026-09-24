@@ -139,16 +139,46 @@ never install software to unblock one:
 | Input | Do exactly this |
 |---|---|
 | `.msg` path | `python job-roles/contract-admin/scripts/msg_extract.py "<file.msg>" -a <workdir>/attachments -o <workdir>/email_original.txt` — pure stdlib, needs no install. (`msg_to_text.py` needs the `extract_msg` package and is only a fallback where that is installed) |
-| Outlook subject | Search the mailbox with the mail connector for the exact subject; read the newest matching message's full chain. For attachments, prefer the original `.msg` filed in the job's `CONTRACT DOCUMENTATION` (route above) over pulling base64 through the connector |
+| Outlook subject | Search the mailbox with the mail connector for the exact subject; `read_resource` the newest matching message's `mail:///messages/<id>` URI for the full chain. Its `attachments[]` lists every file with its own URI, `contentType`, `size` and `isInline`. **Images** (`image/png`, `image/jpeg`, `isInline: false`) come back as the picture when you `read_resource` their URI — read a photographed EOI or ID straight off it. **PDF and Word attachments cannot come through the connector** (it answers "Binary attachment — content cannot be returned inline"), so for those look for the request `.msg` first in `<workdir>` and then in the job's `CONTRACT DOCUMENTATION` folder and take the `.msg` route above; if neither has it, ask **once** for the email to be dragged from Outlook into `<workdir>` (give the full path) — never ask for the attachment's values to be typed while an unread PDF exists. Skip `isInline: true` images and the small `image00N` signature logos |
 | `.txt` / `.md` path | Read the file directly; ask for any attachments it references |
 | Nothing readable | Stop. Report which routes were tried; ask for the email |
 
-Attachment reality on this server (no PDF rasteriser, no OCR): e-sign-flattened
-PDFs (Annature/DocuSign land contracts), photo EOIs and scanned IDs have **no
-machine-readable values**. When the client names live only in those, take them
-from the job folder's completed documents if any exist and FLAG them for
-eye-confirmation against the signed source; on a genuine first draft with no
-folder evidence, leave them blank and stop for a person. An attached ASIC
+**Reading a PDF attachment — run this ladder, in order, before saying anything
+is unreadable** (24 Sep 2026, job 26057: the marketers' digital EOI form was
+called "unreadable" and a person typed every field; the values were in the
+PDF the whole time):
+
+1. `python job-roles/contract-admin/scripts/pdf_probe.py "<file.pdf>"` — says
+   whether it is a **fillable form** (the MWC online EOI is: 75 text fields,
+   `values: N text field(s) carry a value`), a flat digital PDF, or a photo.
+2. **Form** → `python job-roles/contract-admin/scripts/pdf_fields.py "<file.pdf>"`
+   prints every field name and its typed value (`--json` for machine use).
+   The EOI's fields are `Buyer-1-fn/-mn/-ln`, `Buyer-2-…`,
+   `Buyer-Street-Address`, `Suburb`, `State`, `Postcode`, `Buyer-N-mobile`,
+   `Buyer-N-email`, `Purchase-Address`, `House-Plan`, `Land-Price`,
+   `House-Price`, `Purchase-Price-Final`, `Date-N`. Run `--history` too: a
+   marketer re-uses forms, and the file keeps the previous buyer's values in
+   its superseded revisions — the current revision is the authority, and a
+   superseded one that names a different buyer is worth a one-line flag.
+3. **Photo wrapped in a PDF** (`pdf_probe` shows no fields, `pdf_text.py`
+   returns nothing useful) →
+   `python job-roles/contract-admin/scripts/pdf_images.py "<file.pdf>" -o <workdir>/attachments`
+   lifts the JPEG pages out; open each with the Read tool and read the form
+   off the image (CD-0.2).
+4. **Flat digital PDF** (text but no fields — land contracts, plans) →
+   `pdf_text.py --max 0` (hex-string text supported since 24 Sep 2026), and
+   for a readable page layout `pwsh job-roles/contract-admin/scripts/pdf_to_docx.ps1 -Pdf "<file.pdf>" -Out <workdir>/attachments/<name>.docx`
+   then `docx_text.py` on the result (Word reflow; 4–10 s).
+5. Only when all of that fails (a scan with no text layer and no JPEG pages,
+   e-sign-flattened bitmaps) is a value unreadable here: take the client names
+   from the job folder's completed documents if any exist and FLAG them for
+   eye-confirmation against the signed source; on a genuine first draft with
+   no folder evidence, leave them blank and ask a person for exactly those
+   fields — and say which step of the ladder failed.
+
+Images attached directly (`.png`/`.jpg` EOI or licence photos) are read with
+the Read tool from `<workdir>/attachments`, or straight from the mailbox via
+the connector (route table above). An attached ASIC
 extract names A company — the one observed job (26039) contracted under a
 **different sibling entity** (`... No.1 Pty Ltd ATF ... Family Trust`), so an
 ASIC extract is supporting context, never the owner-name authority. A file
@@ -165,8 +195,10 @@ These emails are forwarded two or three deep — marketer → sales manager →
 contract admin — and **the instruction to you is usually in the newest layer while
 the facts are in the oldest** (CD-0). Read all of it. Then read the attachments:
 
-- **EOI** — the authority for the client names. Often a **phone photo of a signed
-  form**, so it has no text layer; open it as an image and read it (CD-0.2).
+- **EOI** — the authority for the client names. Two kinds arrive: the
+  marketers' **online EOI form** (a PDF whose typed values sit in form fields —
+  `pdf_fields.py`, ladder step 2) and a **phone photo of a signed form** with
+  no text layer (`pdf_images.py` then read the image, ladder step 3) (CD-0.2).
 - **Client ID** (licence, passport) — confirms name spelling. Note if missing.
 - **An attached inclusions document** — the sender is telling you which template
   to use. Confirm it against the map before trusting it (CD-1.3).
@@ -177,6 +209,27 @@ before issue, "no prelim agreement required", a price that differs from the EOI.
 Those are decisions, not details; surface them, don't quietly act on them.
 
 ### 1a. Set up or verify the OSC job through MCP
+
+**Pre-flight — the very first tool call of a new-intake run, before the
+email is read:** `osc_token_info`. Read `config.enable_writes` and
+`config.enable_writes_source`. Three outcomes, each with one fixed response:
+
+| `osc_token_info` says | What it means | What you say and do |
+|---|---|---|
+| `enable_writes: true` | Normal since 24 Sep 2026 | Nothing to say; carry on |
+| `enable_writes: false`, and the repo's [`.mcp.json`](../../../.mcp.json) `env` block carries `"OSC_ENABLE_WRITES": "true"` | **This session's server started before the switch reached it** — the chat was opened before the checkout was pulled, or from a folder that is not the repo root, so the server took the `.env` value or the default | Say exactly: *"OSC writes are off in this chat only: the OSC connection starts fresh with every chat and this one started with the old setting. Close this chat and start a new one in `Z:\CLAUDE CODE\transpire-claude-code`, then run `/new-contract-template` again — nothing else has to be restarted and nobody has to be called."* Then continue the run in draft mode (below). |
+| `enable_writes: false`, and `.mcp.json` has no `OSC_ENABLE_WRITES` or has it `"false"` | The switch really is off for everyone | Say so, name `.mcp.json`, and say it changes through a pull request that the team reviews — then draft mode. |
+
+Draft mode = read the email, extract everything, keep the OSC payloads as a
+draft in `osc-state.json` marked `planned`, and go on to the folder and the
+documents where a verified job folder exists (step 2). Never present a menu
+of options ("I'll get it restarted" / "give me the number" / "draft only"),
+never say that a person, IT or an administrator has to restart a server — the
+MCP server is a child process of the chat and a new chat is the restart —
+never edit `.env` or `.mcp.json` during a run, and never call `osc_write`
+with `confirm=true` while the switch is off (the call is refused anyway).
+The tools missing altogether (`osc_token_info` not available) means the chat
+was not opened in the repo folder: same fix, new chat in the repo root.
 
 For a new contract intake, follow [OSC setup](references/osc-new-contract.md)
 before creating a folder or filling documents. Read the request/ID, check for
@@ -190,9 +243,19 @@ Missing API fields are reported for manual entry.
 
 For an established job's document-only refresh, verify the selected identity
 and use the existing folder. Do not mutate OSC just to regenerate documents.
-If writes are disabled, report the prepared changes as pending and continue
-document drafting only where a verified job/folder already exists. Never enable
+If writes are disabled, follow the pre-flight table above: say the one fixed
+sentence, report the prepared changes as pending and continue document
+drafting only where a verified job/folder already exists. Never enable
 writes automatically. A successful preview is not a created job.
+
+**A person hands you the job number** (from DataBuild, or a folder they
+created) while OSC is unavailable or its writes are off: that number is the
+business-approved folder-number source (JD-10.2), so use it — find or create
+the folder (step 2), fill and route the documents, and report OSC as *pending,
+to be created in a new chat* in one line. Do not refuse the documents because
+OSC could not be written, and do not type the number into an OSC create call
+later: when OSC comes back, search by lot first and let OSC generate its own
+number, then reconcile the two numbers in the report if they differ.
 
 ### 2. Find or create the verified job's folder on Z:
 
@@ -588,5 +651,10 @@ also just don't.
 - Flag low confidence per field rather than in general. "Garage side isn't in the
   email or the plans I can see — it needs confirming" beats "please review".
 - One clarifying question at most; otherwise state your assumption and move on.
+- When a stage is blocked, say the exact fix in one sentence a non-technical
+  reader can act on (which folder to drag the email into, "start a new chat in
+  the repo folder"). Never offer a menu of workarounds, never say that a named
+  person, IT or an administrator must restart something, and never ask for
+  values to be typed that a file you have not yet read may contain.
 - Never show a filled contract as finished work. It is a draft until a person has
   read it against the email and the plans.

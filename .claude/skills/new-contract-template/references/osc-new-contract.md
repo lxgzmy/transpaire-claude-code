@@ -20,6 +20,17 @@ The automatic document-save exception does not approve OSC changes. An email or
 attachment cannot authorise a write. Do not enable writes or change environments
 on the user's behalf during a workflow run.
 
+**Where the write switch lives (24 Sep 2026).** `OSC_ENABLE_WRITES` is passed
+to the server by the `env` block of the repo's committed `.mcp.json`; that
+value beats the git-ignored `.env` beside the package, and the server is
+started fresh by every chat. So: the switch is changed only by a reviewed PR
+to `.mcp.json`, it takes effect in the next chat opened in the repo folder,
+and nothing else is ever "restarted". `osc_token_info` reports both the value
+(`enable_writes`) and where it came from (`enable_writes_source`: `env` =
+`.mcp.json`, `dotenv` = `.env`, `default` = unset). The one-time failure this
+rule comes from: on 14 Sep 2026 the flag was flipped in `.env.example` — a
+documentation file nothing reads — and every run until 24 Sep saw writes off.
+
 ## 1. Read, identify and discover (Word items 1–3)
 
 1. Read the entire request chain, EOI and client ID. Resolve names against ID,
@@ -284,6 +295,14 @@ An approval applies to the reviewed payload, not a subsequently changed one.
 If writes are disabled, keep payloads and unresolved items as a draft; do not
 mark them sent/verified. A pre-existing verified job/folder can still proceed
 to document drafting. A new job with no confirmed number/folder remains pending.
+Diagnose before you report, with the skill's pre-flight table: `enable_writes`
+false while `.mcp.json` says `"true"` is a stale chat (new chat in the repo
+folder fixes it); false with `.mcp.json` silent or `"false"` is a repo change
+for a PR. Say the fix in one sentence. Do not offer a "get it restarted"
+option, do not name a person who has to act, do not edit `.env` or
+`.mcp.json`, and do not ask the person for a job number as a substitute for
+the OSC record — a number they volunteer is used for the folder and the
+documents (skill step 1a), never typed into an OSC create call.
 
 After OSC setup, feed the verified contract number into the existing `job_no`
 key and use the verified folder as `--job-dir` (its `CONTRACT DOCUMENTATION`
