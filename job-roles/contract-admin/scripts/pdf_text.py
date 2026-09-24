@@ -17,8 +17,10 @@ import re
 import zlib
 from pathlib import Path
 
-# ( ... ) Tj   |   [ (a) (b) ] TJ
-SHOW = re.compile(rb"\((?:[^()\\]|\\.)*\)")
+# ( ... ) Tj   |   [ (a) (b) ] TJ   |   <hex> Tj   |   [ <hex> <hex> ] TJ
+# Hex strings added 24 Sep 2026: form-field appearance streams (the marketers'
+# online EOI form) write every value as <hex> and were invisible before.
+SHOW = re.compile(rb"\((?:[^()\\]|\\.)*\)|<[0-9A-Fa-f\s]+>")
 
 
 def streams(data):
@@ -60,7 +62,14 @@ def text_of(pdf_path):
         if b"Tj" not in s and b"TJ" not in s:
             continue
         for m in SHOW.finditer(s):
-            piece = decode(unescape(m.group(0)[1:-1]))
+            tok = m.group(0)
+            if tok[:1] == b"<":
+                h = re.sub(rb"\s", b"", tok[1:-1])
+                if len(h) % 2:
+                    h += b"0"
+                piece = decode(bytes.fromhex(h.decode("ascii")))
+            else:
+                piece = decode(unescape(tok[1:-1]))
             if piece and printable_ratio(piece) > 0.8:
                 out.append(piece)
     return out

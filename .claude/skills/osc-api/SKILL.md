@@ -23,11 +23,21 @@ generated with that guardrail enforced.
 
 ## Prerequisites
 
-- The `osc-api` MCP server is registered at **user scope**, so every new
-  session has the tools: `osc_token_info`, `osc_list_endpoints`,
-  `osc_describe_endpoint`, `osc_get` (all read, allowed without prompts) and
-  `osc_write` (gated). If the tools are missing, the session predates the
-  registration — ask the user to start a new session / reload the window.
+- The `osc-api` MCP server is registered at **project scope** by the repo's
+  committed `.mcp.json` (moved from user scope 2 Sep 2026), so every session
+  opened in the repo folder has the tools: `osc_token_info`,
+  `osc_list_endpoints`, `osc_describe_endpoint`, `osc_get` (all read, allowed
+  without prompts) and `osc_write` (gated). If the tools are missing, the
+  session was opened outside the repo folder or predates a pull — ask the
+  user to start a new session in `Z:\CLAUDE CODE\transpire-claude-code`.
+- The **write switch** `OSC_ENABLE_WRITES` is set in that `.mcp.json` `env`
+  block (`"true"` since 24 Sep 2026) and beats the `.env` beside the package.
+  The server is a child of the session, started fresh each time, so a session
+  showing `enable_writes: false` while `.mcp.json` says true simply predates
+  the change — a new session is the whole fix; nobody restarts anything and
+  no `.env` is edited. `osc_token_info` shows `enable_writes_source` (`env`
+  = `.mcp.json`, `dotenv` = `.env`, `default` = unset) so you can say which.
+  Changing the switch itself is a PR to `.mcp.json`, never a run-time edit.
 - The nominal *dev* environment serves **real production client data**.
   Treat every response as live client data under the org guardrails: fine to
   show the user, never written to the repo, `C:`, or Dropbox.

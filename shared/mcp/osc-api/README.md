@@ -264,7 +264,9 @@ without human approval. `osc_write` is gated three independent ways:
 
 1. **Disabled by default.** It refuses unless the server is started with
    `OSC_ENABLE_WRITES=true`. With the flag off it returns a preview and sends
-   nothing - even if someone approves a prompt.
+   nothing - even if someone approves a prompt. The switch is set for the
+   whole checkout by the `env` block of the committed [`.mcp.json`](../../../.mcp.json)
+   (`"true"` since 24 Sep 2026) — see [Turning writes on or off](#turning-writes-on-or-off).
 2. **Approved per call.** The host keeps `mcp__osc-api__osc_write` on `ask` in
    [`.claude/settings.json`](../../../.claude/settings.json), so every write
    prompts and shows exactly what will be sent.
@@ -272,6 +274,36 @@ without human approval. `osc_write` is gated three independent ways:
    (the default) returns a dry-run preview of the request.
 
 Read tools are allow-listed so queries flow without prompts.
+
+### Turning writes on or off
+
+`OSC_ENABLE_WRITES` reaches the server from two places, and the order matters:
+
+1. the `env` block of the committed `.mcp.json` at the repo root — the MCP
+   host passes it to the server process as a real environment variable;
+2. the git-ignored `.env` beside this package — read by `osc_mcp.config` only
+   for variables the real environment does **not** already set.
+
+So the `.mcp.json` value always wins, and `.env.example` is documentation that
+nothing reads. On 14 Sep 2026 the flag was flipped in `.env.example` alone;
+every session until 24 Sep 2026 kept reporting `enable_writes: false` and the
+contract intake could not create OSC jobs. Since 24 Sep 2026 `.mcp.json`
+carries `"OSC_ENABLE_WRITES": "true"`.
+
+To change it: edit `.mcp.json` on a branch, land it through a PR, pull on the
+server, then **open a new Claude Code session in the repo folder**. The server
+is started per session, so the new session is the restart — there is no
+service, machine or account to restart and no `.env` to touch. A session that
+still shows `false` after the change simply predates it (or was opened outside
+the repo root, where `.mcp.json` is not loaded).
+
+`osc_token_info` reports the effective value and its origin:
+
+```
+"enable_writes": true, "enable_writes_source": "env"     # from .mcp.json / real env
+"enable_writes": false, "enable_writes_source": "dotenv" # from .env - .mcp.json not applied
+"enable_writes": false, "enable_writes_source": "default" # nowhere set
+```
 
 ## Configuration
 
@@ -284,7 +316,7 @@ All via environment variables - see [`.env.example`](.env.example).
 | `OSC_SWAGGER_URL` | no | OpenAPI spec URL for introspection; must match the API version. |
 | `OSC_SCOPES` | no | Space-separated scopes to request (e.g. `Basic Orders`). |
 | `OSC_VERIFY_TLS` | no | `false` for internal/self-signed dev; `true` for prod with a valid cert. |
-| `OSC_ENABLE_WRITES` | no | Master write switch; default `false`. |
+| `OSC_ENABLE_WRITES` | no | Master write switch; default `false`. Set in the committed `.mcp.json` `env` block (`"true"` since 24 Sep 2026), which overrides `.env`. |
 | `OSC_TIMEOUT` | no | Per-request timeout (seconds), default 30. |
 | `OSC_UPLOAD_ROOTS` | no | `;`-separated absolute directories a multipart upload may read from; default the checkout's git-ignored `runtime\` folder. |
 

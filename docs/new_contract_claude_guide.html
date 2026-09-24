@@ -236,9 +236,14 @@
      <code>Z:\CLAUDE CODE\transpire-claude-code</code>. Browse to it once and
      Claude remembers it.<br>
      Steps 1 to 4 are a one-off; after that you land straight on step 5 each
-     time. For the email, just paste its subject line from Outlook: Claude finds
-     the message and its attachments in the mailbox itself. (A saved
-     <code>.msg</code> file also works, if the email is not in the mailbox.)
+     time. For the email, the surest way is to <b>drag the email out of Outlook
+     into the chat</b> (or save it into the job&rsquo;s CONTRACT DOCUMENTATION
+     folder and say so): Claude then opens every attachment itself &mdash; the
+     EOI form, the ID, the inclusions, the plans. Pasting the subject line also
+     works: Claude finds the message and reads the chain and any picture
+     attachments from the mailbox, but the mail connection cannot hand over PDF
+     or Word attachments, so for those it will ask you, once, to drag the email
+     in. It never needs you to type what is already in an attachment.
      <b>Start a new chat for each job</b> so it picks up the latest instructions.</p>
 </div>
 
@@ -288,10 +293,14 @@
   <p class="back"><b>Why this matters:</b> these emails get forwarded two or three
      times. The instruction to you is in the newest part, the job facts are in the
      oldest part from the marketer. It reads all of it.</p>
-  <p class="tip"><b>Scanned EOIs and IDs.</b> This server has no OCR, so a scanned or
-     photographed EOI or ID often cannot be read. When Claude cannot read it, it
-     asks you for the names. Type them exactly as they appear on the ID, including
-     middle names, and check the spelling on the finished document yourself.</p>
+  <p class="tip"><b>EOIs and IDs.</b> The marketers&rsquo; online EOI form is read
+     in full &mdash; first, middle and last names, address, mobiles, emails, house
+     plan and price come straight out of the form&rsquo;s typed fields (since
+     24 September 2026; before that the form looked blank to Claude and people typed
+     it in). A photographed EOI or ID is read as a picture. Only a scan with no text
+     and no picture in it cannot be read on this server, which has no OCR; then
+     Claude names the exact fields it needs. Type them exactly as on the ID, and
+     check the spelling on the finished document yourself.</p>
 </div>
 
 <div class="card" style="--c:var(--navy)">
@@ -391,8 +400,9 @@
         template is the team&rsquo;s own build and is still waiting on the
         manager&rsquo;s formal sign-off, so this read-through is your safety
         check on layout and wording.</li>
-    <li><b>Check the owner names and spelling against the ID.</b> If Claude could
-        not read the EOI, the names came from what was typed into the chat.</li>
+    <li><b>Check the owner names and spelling against the ID.</b> The run report
+        says where each name came from; if it says the EOI was typed into the
+        chat rather than read, check those names twice.</li>
     <li><b>Key the money from DataBuild.</b> Contract price, GST, deposit and the
         progress payment schedule are never filled automatically.</li>
     <li><b>Finish the OSC job.</b> Do the DataBuild entry yourself and tell Claude
@@ -512,7 +522,7 @@
     <caption>Getting a good draft</caption>
     <thead><tr><th>Do this</th><th>Why it helps</th></tr></thead>
     <tbody>
-      <tr><td>Include the EOI and the ID, as readable files if you can</td><td>The buyer&rsquo;s name comes off the EOI. If Claude cannot read a scan, it asks you to type the names</td></tr>
+      <tr><td>Give Claude the email itself: drag it from Outlook into the chat, or into the job folder</td><td>The EOI form&rsquo;s typed values, the ID and the plans all come out of the attachments. The mail connection alone can pass on the text and pictures, not PDFs</td></tr>
       <tr><td>Give the owner contacts and land details up front</td><td>Address, mobiles, emails, DP number and land address go straight onto the build contract instead of being blanks to fill later</td></tr>
       <tr><td>Wait for the plans if you can</td><td>House size and garage side come off the plans and nowhere else</td></tr>
       <tr><td>Say if it is a dual key or auxiliary dwelling</td><td>The standard inclusions do not cover the second dwelling. It flags this, but confirming saves a round trip</td></tr>
@@ -531,9 +541,16 @@
           <td>The task is running in the cloud. Start again in <b>Code</b> mode on your
               computer.</td></tr>
       <tr><td>It says OSC writes are switched off</td>
-          <td>Normal until IT turns writes on for the OSC connection. Claude shows the
-              list of changes it would have made and carries on with the documents;
-              make those OSC entries yourself in the meantime.</td></tr>
+          <td>The OSC connection starts fresh with every chat, so a chat opened before
+              the switch reached it (or opened outside the
+              <code>transpire-claude-code</code> folder) still sees it off. Close the
+              chat, start a new one in that folder and run again &mdash; that is the
+              whole fix; nobody has to restart a server or a computer. Writes have
+              been on since 24 September 2026. If a brand-new chat still says off,
+              tell the team: the switch lives in the project&rsquo;s settings file
+              and is changed through a reviewed change, not from a chat. Meanwhile
+              Claude keeps the OSC changes as a draft and still produces the
+              documents.</td></tr>
       <tr><td>It found a job at the same lot in OSC</td>
           <td>It stops on purpose. Tell it whether that is the same job (it then
               continues with it) or a different one.</td></tr>
@@ -549,9 +566,12 @@
               (rule 3). Check the new one, move the old pair into <code>SS</code>, and
               copy the new pair across.</td></tr>
       <tr><td>Claude asked me for the owner names</td>
-          <td>Claude could not read the EOI or ID (a scan or photo with no text layer;
-              this server has no OCR). Type the names exactly as on the ID and check
-              the spelling on the finished document.</td></tr>
+          <td>For the marketers&rsquo; online EOI form or a photographed EOI this
+              should not happen any more. First check Claude actually has the email
+              file &mdash; drag it from Outlook into the chat &mdash; and ask it to read
+              the EOI&rsquo;s form fields. Only a scan with no text and no picture is
+              unreadable here (no OCR on this server); then type the names exactly as
+              on the ID and check the spelling on the finished document.</td></tr>
       <tr><td>It left garage side blank</td>
           <td>Working as intended. It is read off the site plan drawing and Claude will
               not guess it. Fill it in yourself, or ask Michael.</td></tr>

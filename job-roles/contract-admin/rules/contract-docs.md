@@ -26,8 +26,14 @@ unchanged.
 - **CD-0.1** Read the entire forwarded chain. The instruction to contract admin
   is in the **newest** layer; the job facts (design, façade, price, buyer) are in
   the **oldest**, from the marketer. *(observed)*
-- **CD-0.2** The EOI is the authority for client names. It is frequently a phone
-  photo of a signed form with no text layer — read it as an image. *(observed)*
+- **CD-0.2** The EOI is the authority for client names. Two forms arrive. The
+  marketers' **online EOI** is a PDF form whose typed values live in its form
+  fields, not in the page text — every plain text route misses them; read them
+  with `scripts/pdf_fields.py` (current revision; `--history` shows a re-used
+  form's earlier buyer). The other is a **phone photo** of a signed form with
+  no text layer — lift the JPEG with `scripts/pdf_images.py` and read it as an
+  image. A person types the names only when both fail. *(observed; 26057 —
+  the form was called unreadable and typed in, 24 Sep 2026)*
 - **CD-0.3** Client ID attachments confirm name spelling. If absent, note it;
   do not settle a spelling from an email signature. *(observed)*
 - **CD-0.4** An inclusions document attached to the request is the sender's

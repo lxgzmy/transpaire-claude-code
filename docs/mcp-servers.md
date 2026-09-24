@@ -13,7 +13,7 @@ server without approval, and no credentials in the repo.
 | Server | Scope | Environment | State |
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
-| `osc-api` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **dev** | Registered, connected — loads in every session started in this repo; needs the per-checkout venv + `.env` (see below) |
+| `osc-api` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **dev** | Registered, connected — loads in every session started in this repo; needs the per-checkout venv + `.env` (see below). Writes on via `.mcp.json` since 24 Sep 2026, still `ask` + `confirm=true` per call |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -214,6 +214,14 @@ not allow without human sign-off. `osc_write` is gated three independent ways:
 
 1. **Off by default** — refuses unless the server is started with
    `OSC_ENABLE_WRITES=true`; returns a preview and sends nothing otherwise.
+   The switch is set in the `env` block of the committed `.mcp.json` (`"true"`
+   since 24 Sep 2026, for the contract intake) and that value overrides the
+   git-ignored `.env`. It changes only by PR, and takes effect in the next
+   session opened in the repo folder — the server is started per session, so
+   nothing is ever "restarted". (A 14 Sep 2026 attempt flipped `.env.example`,
+   which nothing reads; sessions kept reporting writes off until 24 Sep.)
+   `osc_token_info` reports `enable_writes_source` so a stale session can be
+   told apart from a switch that is really off.
 2. **Approved per call** — `mcp__osc-api__osc_write` (and the future
    `mcp__osc-api-prod__osc_write`) are on `ask` in
    [`.claude/settings.json`](../.claude/settings.json), so every write prompts
