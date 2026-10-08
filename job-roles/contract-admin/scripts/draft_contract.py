@@ -355,25 +355,6 @@ def blank_measure_for(template):
     return out
 
 
-def split_upgrades_headings(template):
-    """The blank's `UPGRADED INCLUSIONS - ...` headings when it splits the section.
-
-    The Sydney AUXILIARY blanks (3 and 4) carry `UPGRADED INCLUSIONS – MAIN
-    DWELLING` and `– AUX DWELLING` instead of the one `UPGRADED INCLUSIONS`
-    heading edit_inclusions.py anchors on, so the content edit cannot run on
-    them yet. Empty list = the single-section layout the edit supports.
-    """
-    import zipfile
-    import xml.etree.ElementTree as ET
-    w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-    with zipfile.ZipFile(template) as z:
-        root = ET.fromstring(z.read("word/document.xml"))
-    texts = [" ".join("".join(t.text or "" for t in p.iter(w + "t")).split()) for p in root.iter(w + "p")]
-    if "UPGRADED INCLUSIONS" in texts:
-        return []
-    return [t for t in texts if t.startswith("UPGRADED INCLUSIONS")]
-
-
 def export_pdfs(pairs, force):
     """All exports through ONE Word instance (start-up dominates the cost)."""
     docx = ",".join(ps_quote(a) for a, _ in pairs)
@@ -534,34 +515,9 @@ def main():
     # inclusions feedback sheet 9.9 / issue #35, built 10 Sep 2026). Any failure
     # blocks the save - a document with a label off its wording, a red note or
     # an empty page never ships.
-    split = (split_upgrades_headings(args.template)
-             if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney"
-             else [])
-    if split:
-        # Auxiliary blank: the content edit, layout pass and gate do not support
-        # the split MAIN/AUX upgrades section yet, so the fields-only fill ships
-        # (as every auxiliary job did before 10 Sep 2026) and a person writes
-        # the upgrades. Any `upgrades` block is listed as NOT APPLIED, never
-        # silently dropped.
-        items = (values.get("upgrades") or {}).get("items") or []
-        lines = ["edit_inclusions: NOT RUN - auxiliary template",
-                 f"template : {Path(args.template).name}",
-                 "headings : " + " | ".join(split),
-                 "The content edit supports one UPGRADED INCLUSIONS section only. Fields are",
-                 "filled; section 18, the Bathroom 2 and air-con notes and every upgrade line",
-                 "are a person's edit for this document (CD-6.3). No layout pass, no gate.",
-                 ""]
-        if items:
-            lines.append(f"TO CONFIRM - {len(items)} upgrades item(s) in the job JSON NOT APPLIED, key them by hand:")
-            lines += [f"  - [{it.get('category', '?')}] {str(it.get('wording', '')).splitlines()[0] if it.get('wording') else it.get('request', '')}"
-                      for it in items]
-        (workdir / "edit_inclusions.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-        print("  inclusions: auxiliary template - content edit not supported yet; fields filled, "
-              "a person writes the upgrades (section 18, notes, MAIN/AUX upgrade lines). "
-              "Layout pass and gate not run. See edit_inclusions.txt")
-        if items:
-            print(f"  TO CONFIRM: {len(items)} upgrades item(s) in the job JSON were NOT applied - listed in edit_inclusions.txt")
-    elif args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
+    # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
+    # path since 8 Oct 2026 (CD-9.11): each upgrades item names its dwelling.
+    if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")
             if args.job_dir:
