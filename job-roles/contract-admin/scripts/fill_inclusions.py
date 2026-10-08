@@ -208,6 +208,7 @@ EDITOR_NOTES = [
     "DONT USE",
     "TO BE AMENDED",
     "DELETE NOT APPLICABLE",
+    "DELETE AS REQUIRED",   # the AUXILIARY blanks' section-18 instruction
     "remove if not included",
     "Vanity Added",
     "Note: Add Bathroom",

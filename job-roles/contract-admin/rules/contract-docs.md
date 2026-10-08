@@ -363,21 +363,23 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   dwelling, means the standard range inclusions **do not cover the second
   dwelling**. *(observed — the sales manager's email said so explicitly)*
 - **CD-6.2** House type reads `<design> + Auxiliary Unit`. *(observed)*
-- **CD-6.3** The aux inclusions text itself is a **pricing and specification
-  decision**. Claude does not write it. Fill the fields, then route for review
-  before issue. On the observed job a whole `UPGRADED INCLUSIONS – AUX DWELLING`
-  section was added and the existing upgrades relabelled `– Main Dwelling`.
+- **CD-6.3** ~~The aux inclusions text itself is a pricing and specification
+  decision. Claude does not write it.~~ **Reversed 8 Oct 2026** (instruction in
+  chat, option B, job 26032): on the Sydney AUXILIARY blanks the run writes the
+  aux dwelling's upgrade lines too, under the same CD-9 rules as the main
+  dwelling — each `upgrades` item names its `dwelling`, the row choice and any
+  custom wording stay a person's call, and every item is reported with its
+  confidence for confirmation before issue (CD-9.11). On the observed job a
+  whole `UPGRADED INCLUSIONS – AUX DWELLING` section was added and the existing
+  upgrades relabelled `– Main Dwelling`; the 19.08.2026 AUXILIARY blanks now
+  carry both headings.
 - **CD-6.4** A Sydney-region auxiliary job has its own template variant — use it
   rather than amending the standard one. *(observed)*
-- **CD-6.5** The CD-9 content edit does not support the Sydney auxiliary
-  blanks yet: they split the upgrades into `UPGRADED INCLUSIONS – MAIN
-  DWELLING` and `– AUX DWELLING`, and the edit anchors on the single
-  `UPGRADED INCLUSIONS` heading. `draft_contract.py` detects the split, fills
-  the fields, skips the content edit, layout pass and gate, and saves per
-  CD-7.7. `edit_inclusions.txt` says so and lists any `upgrades` items as NOT
-  APPLIED for a person to key. Section 18, the notes and every upgrade line
-  stay a person's edit on these jobs until the auxiliary edit lands.
-  *(8 Oct 2026, job 26032)*
+- **CD-6.5** The Sydney AUXILIARY blanks go through the full CD-9 edit,
+  layout pass and gate like the STANDARD ones (CD-9.11). (Superseded the
+  interim fields-only skip of PR #47, 8 Oct 2026.) A hand-added section that
+  is in neither blank — 26032's `SPECIAL CONDITIONS` — stays a person's edit:
+  decided 8 Oct 2026 (option C declined).
 
 ## CD-7 Output naming and location
 
@@ -507,6 +509,28 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   reports request → row → wording → confidence per item and a TO CONFIRM
   list; medium/low confidence and custom items are confirmed before issue.
   *(instruction, 10 Sep 2026)*
+- **CD-9.11** AUXILIARY blanks *(instruction, 8 Oct 2026, option B)*: the
+  upgrades are two sections, `UPGRADED INCLUSIONS – MAIN DWELLING` then
+  `– AUX DWELLING`, each with its own labels and wording. Every `upgrades`
+  item carries `dwelling: "main"` or `"aux"`; an item with none on an
+  AUXILIARY blank goes under MAIN and is flagged, and an `aux` item on a
+  STANDARD blank is refused. Labels are matched, and new ones placed in
+  Standard Variation order, within the item's own section; a new label at
+  both body columns always end on a blank line (the AUXILIARY blank ends
+  them on text, and Word cannot measure a cell's last paragraph for the
+  layout pass). Two item keys added
+  the same day for any Sydney blank: `mode: "remove"` drops a label with its
+  wording (26032 has no alfresco), and `before: "<label>"` puts a new label
+  in front of an existing one when the agreed document's order differs from
+  the Standard Variation order (labels like Architrave or Trim have no
+  category to rank by). Section 18 (whose
+  red instruction reads `(DELETE AS REQUIRED)` on these blanks), the Bathroom
+  2 notes and lines (the AUXILIARY exhaust fan names its rooms on a
+  `Location:` line) and the main dwelling's air conditioning follow CD-9.2–
+  9.4. A granny-flat air conditioner is an `aux` item, never a change to the
+  main dwelling's ducted system. Both headings stay where the blank puts them
+  (each starts a page) and the gate checks them. CD-9.7's scope check covers
+  both sections and refuses any change to the headings themselves.
 
 ## CD-8 What only a person does
 

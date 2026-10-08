@@ -1,0 +1,34 @@
+{
+  "_fixture": "SYNTHETIC - invented names, lot and prices. AUXILIARY blank, item with no 'dwelling' key: written under MAIN DWELLING and flagged for confirmation. No Bathroom 2, air con not requested.",
+  "_blank": "auxiliary",
+  "lot_no": "9005",
+  "street": "Example Way",
+  "suburb": "MENANGLE PARK NSW",
+  "estate": "",
+  "house_type": "Sample 200 + Auxiliary Unit",
+  "house_size": "200.00 m²",
+  "facade": "Sample Façade",
+  "garage_side": "Right Hand Side",
+  "price": "700,000.00",
+  "owner_1": "Jo EXAMPLE",
+  "owner_2": "",
+  "owners": "Jo EXAMPLE",
+  "site_address": "9005, Example Way, MENANGLE PARK NSW 2563",
+  "builders_rep": "Michael CRONK",
+  "upgrades": {
+    "area": "other",
+    "storeys": 1,
+    "bathroom2_ground": false,
+    "aircon": null,
+    "items": [
+      {
+        "category": "Benchtops",
+        "request": "40mm stone to the kitchen",
+        "variation_row": null,
+        "replaces": "20mm stone bench tops",
+        "wording": "40mm stone bench tops to Kitchen",
+        "confidence": "low"
+      }
+    ]
+  }
+}

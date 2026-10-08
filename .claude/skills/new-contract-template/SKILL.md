@@ -46,7 +46,7 @@ OSC intake, field mapping and recovery: [`references/osc-new-contract.md`](refer
 
 | Document | Status |
 |---|---|
-| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`). **Sydney:** also the job's content — section 18 area, Bathroom 2 / air-con notes, `UPGRADED INCLUSIONS` items from the `upgrades` block (`edit_inclusions.py`, CD-9), re-levelled through Word (`word_layout.ps1`) and gated (`gate_inclusions.py`) before it can save. **Sydney auxiliary blanks** (split MAIN/AUX upgrades): fields only, content edit skipped and reported, upgrades keyed by a person (CD-6.5) |
+| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`). **Sydney:** also the job's content — section 18 area, Bathroom 2 / air-con notes, `UPGRADED INCLUSIONS` items from the `upgrades` block (`edit_inclusions.py`, CD-9), re-levelled through Word (`word_layout.ps1`) and gated (`gate_inclusions.py`) before it can save. **Sydney auxiliary blanks** (split MAIN / AUX DWELLING upgrades): the same edit, layout pass and gate, each upgrade item tagged with its `dwelling` (CD-9.11, 8 Oct 2026) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4); the standard $30,000 fee stands unless the request names another (CD-4.3, reversed 28 Aug 2026) |
 | **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → the region's **staged interim template**, filled under the real name too, in PRODUCTION and TEST alike (business rule, 8 Sep 2026: a job with no build contract in `Z:\PROJECTS` gets a real one, saved into its job folder; the old TEST-only tagged output is gone). Staged templates: NSW is the **v1.1 TABLES interim** (3 Sep 2026) — the team's own Word build (21 Aug 2026) plus the team review sheet's layout fixes; filled exports hold the licensed 45 pages. QLD is the **v2.1 LAND TABLES interim** (3 Sep 2026) — the team's v2 from issue #8 (value-cell tables, e-sign anchors at source) plus the same table fix for the land block v2 missed; filled exports hold the licensed 37 pages. Only a region with no staged template → **data sheet only** |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
@@ -494,7 +494,7 @@ So, for a Sydney job, build the `upgrades` block of `job.json` (CD-9.1):
 | `storeys` | `1` or `2`. Say `2` when the request mentions an upper/first floor or gives "ground floor" as a location; else read the design off the plans. Unknown → `null` and say so (CD-9.5) | Email, plans |
 | `bathroom2_ground` | `true` when the request puts a Bathroom 2 on the ground floor, else `false` (CD-9.3) | Email, plans |
 | `aircon` | `null` when the request does not mention air conditioning (the promotion item **stays**, only the red note goes); otherwise the description to write, lines separated by `\n` (CD-9.4) | Email |
-| `items[]` | one per upgrade line in the request: `category` (a template label or Standard Variation category, e.g. `"Ceiling Height"`, `"Wardrobe Doors"`), `request` (the email line, verbatim), `variation_row` (the sheet row you chose, or `null` for a custom item), `wording` (the final house wording — the row's text normalised per CD-9.6 and tuned to the request), `confidence` (`high`/`medium`/`low`), optional `replaces` (a fragment of the ONE existing line to swap, e.g. `"20mm stone bench tops"`), optional `mode: "add"` to append under an existing label, optional `note` | `variation_list.py` + your judgment |
+| `items[]` | one per upgrade line in the request: `category` (a template label or Standard Variation category, e.g. `"Ceiling Height"`, `"Wardrobe Doors"`), `request` (the email line, verbatim), `variation_row` (the sheet row you chose, or `null` for a custom item), `wording` (the final house wording — the row's text normalised per CD-9.6 and tuned to the request), `confidence` (`high`/`medium`/`low`), optional `replaces` (a fragment of the ONE existing line to swap, e.g. `"20mm stone bench tops"`), optional `mode: "add"` to append under an existing label or `mode: "remove"` to drop a label with its wording, optional `before` (an existing label a NEW label goes in front of, when the agreed order is not the Standard Variation order), optional `note`; on an **AUXILIARY** blank also `dwelling: "main"` or `"aux"` — which `UPGRADED INCLUSIONS – … DWELLING` section it belongs to (CD-9.11; a granny-flat item is `aux`) | `variation_list.py` + your judgment |
 
 Find candidate rows with
 `python job-roles/contract-admin/scripts/variation_list.py --region NSW --search "<request line>"`
@@ -602,10 +602,16 @@ job checked in detail, the person producing it added a whole
 `– Main Dwelling`. The sales manager's own email said the attached inclusions
 "are not suitable for that" and asked for a review first.
 
-So: fill the fields, use `+ Auxiliary Unit` in the house type, save per the
-normal routing, and **flag the job loudly for review before it is issued** —
-the aux inclusions text is missing until a person writes it. Do not write it
-yourself — that is a pricing and specification decision (CD-6).
+So: use the Sydney **AUXILIARY** blank (it carries `UPGRADED INCLUSIONS – MAIN
+DWELLING` and `– AUX DWELLING`), `+ Auxiliary Unit` in the house type, and tag
+every `upgrades` item with its `dwelling`. Since 8 Oct 2026 the run writes the
+aux dwelling's lines as well as the main ones (CD-6.3 reversed, CD-9.11): same
+Standard Variation rows, same confidence flags, same gate. Choosing the row
+and approving custom wording stay a person's call, so **flag the job for
+review before it is issued** and list every aux item in the report. A section
+neither blank carries (26032's hand-added `SPECIAL CONDITIONS`) stays a
+person's edit. Outside Sydney there is no AUXILIARY two-column template yet:
+fill the fields and flag that the aux text is missing until a person writes it.
 
 ## Safety rules
 

@@ -147,7 +147,7 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
             if ($delta -gt 0) {
                 $n = [math]::Floor($delta / $lineH)
                 if ($n -ge 1) {
-                    for ($k = 0; $k -lt $n; $k++) { $first.Range.InsertParagraphBefore() }
+                    for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $first }
                     $actions += "left +$n"
                 } else { $first.SpaceBefore = [double]$first.SpaceBefore + $delta; $actions += ("left space +{0:n1}" -f $delta) }
             } else {
@@ -155,7 +155,7 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 $prev = $first.Previous(1)
                 if ($sb -gt 0.05) { $cut = [math]::Min($sb, -$delta); $first.SpaceBefore = $sb - $cut; $actions += ("left space -{0:n1}" -f $cut) }
                 elseif ($prev -ne $null -and (Is-Blank $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
-                else { $rp.Paragraphs.Item(1).Range.InsertParagraphBefore(); $actions += 'right +1' }
+                else { Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1' }
             }
             # InsertParagraphBefore grows the range to include the new blank: re-point at the text paragraph
             $lp = $lp.Paragraphs.Last.Range
@@ -177,7 +177,7 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 $prev.Range.Delete() | Out-Null; $actions += 'right -1'
             } else {
                 # content shares the heading's page: push the heading to the next page
-                $rp.Paragraphs.Item(1).Range.InsertParagraphBefore(); $actions += 'right +1'; $rp = $rp.Paragraphs.Last.Range
+                Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1'; $rp = $rp.Paragraphs.Last.Range
             }
         }
     }
@@ -210,6 +210,15 @@ function Prev-Paragraph($rng) {
     $p = $rng.Paragraphs.Item(1).Previous(1)
     if ($p -eq $null) { return $null }
     return $p
+}
+
+function Insert-Blank-Before($para) {
+    # a blank paragraph before $para, inserted at a collapsed point: the last
+    # paragraph of a cell (the AUXILIARY blank's 'Provisions' label) carries the
+    # end-of-cell mark, and Word refuses InsertParagraphBefore on such a range
+    $r = $para.Range.Duplicate
+    $r.Collapse(1)   # wdCollapseStart
+    $r.InsertParagraphBefore()
 }
 
 function Is-Blank($para) { return ((Clean $para.Range.Text).Trim().Length -eq 0) }
