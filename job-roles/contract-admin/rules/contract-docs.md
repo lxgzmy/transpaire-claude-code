@@ -369,6 +369,15 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   section was added and the existing upgrades relabelled `– Main Dwelling`.
 - **CD-6.4** A Sydney-region auxiliary job has its own template variant — use it
   rather than amending the standard one. *(observed)*
+- **CD-6.5** The CD-9 content edit does not support the Sydney auxiliary
+  blanks yet: they split the upgrades into `UPGRADED INCLUSIONS – MAIN
+  DWELLING` and `– AUX DWELLING`, and the edit anchors on the single
+  `UPGRADED INCLUSIONS` heading. `draft_contract.py` detects the split, fills
+  the fields, skips the content edit, layout pass and gate, and saves per
+  CD-7.7. `edit_inclusions.txt` says so and lists any `upgrades` items as NOT
+  APPLIED for a person to key. Section 18, the notes and every upgrade line
+  stay a person's edit on these jobs until the auxiliary edit lands.
+  *(8 Oct 2026, job 26032)*
 
 ## CD-7 Output naming and location
 
