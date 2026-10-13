@@ -60,6 +60,20 @@ class PdfCheckTests(unittest.TestCase):
                 with self.assertRaisesRegex(PdfCheckError, needle):
                     check_pdf(path, self.roots)
 
+    def test_env_and_key_files_are_refused_even_inside_a_root(self):
+        # as osc-api promises for its uploads: a stray .env or key file can never go up
+        key_text = b"-----BEGIN SYNTHETIC TEST KEY-----\nnot a real key\n"
+        cases = {
+            self.write(".env", b"DOCUSIGN_INTEGRATION_KEY=synthetic\n"): r"not a \.pdf",
+            self.write("docusign-sandbox.pem", key_text): r"not a \.pdf",
+            self.write("docusign-sandbox.key", key_text): r"not a \.pdf",
+            self.write("renamed-key.pdf", key_text): "does not start with %PDF-",
+        }
+        for path, needle in cases.items():
+            with self.subTest(file=os.path.basename(path)):
+                with self.assertRaisesRegex(PdfCheckError, needle):
+                    check_pdf(path, self.roots)
+
     def test_no_roots_means_no_documents(self):
         p = make_pdf(self.path("a.pdf"), 1)
         with self.assertRaisesRegex(PdfCheckError, "outside"):
