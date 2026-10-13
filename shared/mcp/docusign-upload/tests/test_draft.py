@@ -81,7 +81,8 @@ class ArgumentTests(unittest.TestCase):
     def test_text_args(self):
         draft.check_text_args("26045", "Complete with DocuSign: BUILD CONTRACT - LOT 1, TESTVILLE",
                               "Dear Alex,")
-        for job_no in ("", "00001&status=any", "26045 ", "x" * 21):
+        # "00001\n" matters: a trailing newline slipped past the duplicate search (final review)
+        for job_no in ("", "00001&status=any", "26045 ", "x" * 21, "00001\n"):
             with self.subTest(job_no=job_no), self.assertRaisesRegex(Stop, "job_no"):
                 draft.check_text_args(job_no, "s", "b")
         with self.assertRaisesRegex(Stop, "email_subject is empty"):
@@ -229,8 +230,14 @@ class ReadBackTests(unittest.TestCase):
         self.rb = readback_for(draft.build_body(self.plan), qld_single_template_tabs())
         self.template_tabs = draft.tab_counts(qld_single_template_tabs())
 
+    def sent_envelope(self, **changes):
+        envelope = {"status": "created", "emailSubject": self.plan.email_subject,
+                    "emailBlurb": self.plan.email_blurb}
+        envelope.update(changes)
+        return envelope
+
     def check(self, **overrides):
-        parts = {"envelope": {"status": "created"}, "documents": self.rb["documents"],
+        parts = {"envelope": self.sent_envelope(), "documents": self.rb["documents"],
                  "recipients": self.rb["recipients"], "custom_fields": self.rb["custom_fields"]}
         parts.update(overrides)
         return draft.read_back(self.plan, template_tabs=self.template_tabs, **parts)
@@ -258,7 +265,12 @@ class ReadBackTests(unittest.TestCase):
         tagged_plans["signers"][0]["tabs"].setdefault("signHereTabs", []).append(
             {"documentId": "3", "pageNumber": "1"})
         cases = [
-            ({"envelope": {"status": "sent"}}, "status is 'sent'"),
+            ({"envelope": self.sent_envelope(status="sent")}, "status is 'sent'"),
+            # the template's own subject names a past job: flag it, never echo it
+            ({"envelope": self.sent_envelope(emailSubject="BUILD CONTRACT_ Lot 116, PAST JOB")},
+             "email subject in the draft is not the one sent"),
+            ({"envelope": self.sent_envelope(emailBlurb="Dear PAST JOB,")},
+             "email message in the draft is not the one sent"),
             ({"documents": {"envelopeDocuments": docs + [
                 {"documentId": "9", "name": "PLANS_PAST JOB.pdf", "type": "content"}]}},
              "not one of the job's files (id 9)"),

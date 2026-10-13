@@ -193,7 +193,8 @@ class FakeDocuSign:
             if method == "GET" and self.readback is not None:
                 if path == env:
                     return httpx.Response(200, json={"envelopeId": self.ENVELOPE_ID, "status": "created",
-                                                     "emailSubject": self.created["emailSubject"]})
+                                                     "emailSubject": self.created["emailSubject"],
+                                                     "emailBlurb": self.created["emailBlurb"]})
                 if path == f"{env}/documents":
                     return httpx.Response(200, json=self.readback["documents"])
                 if path == f"{env}/recipients":

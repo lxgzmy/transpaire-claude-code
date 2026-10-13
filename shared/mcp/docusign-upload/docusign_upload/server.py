@@ -187,22 +187,26 @@ async def docusign_create_draft(template_name: str, recipients: list[dict[str, s
     except OSError:
         return _err("A document could not be read on the server; nothing was created.")
     client = _get_client()
+    uncertain = ("so whether a draft exists is uncertain. Run docusign_draft_preview with the same "
+                 "arguments (it repeats the duplicate check) before trying again.")
     try:
         created = await client.create_draft(body)
     except DocuSignError as exc:
+        if exc.status is None or exc.status >= 500:  # a server or gateway error can follow a create
+            return _err(f"The create call failed on DocuSign's side ({exc.status}), {uncertain}",
+                        status=exc.status, errorCode=exc.error_code, message=exc.detail)
         return _err("DocuSign refused the draft. Reported as returned; not retried.",
                     status=exc.status, errorCode=exc.error_code, message=exc.detail)
     except httpx.HTTPError:
-        return _err("The create call failed in transit, so whether a draft exists is uncertain. "
-                    "Run docusign_draft_preview with the same arguments (it repeats the duplicate "
-                    "check) before trying again.")
+        return _err(f"The create call failed in transit, {uncertain}")
     envelope_id = str(created.get("envelopeId", ""))
     result: dict[str, Any] = {"ok": True, "environment": _config.label, "envelopeId": envelope_id,
                               "status": created.get("status"), "plan": draft.plan_view(plan)}
     try:
         result.update(await _read_back(client, envelope_id, plan))
-    except (DocuSignError, httpx.HTTPError):
-        result["read_back"] = "failed; the draft exists, so check it in DocuSign before sending"
+    except Exception as exc:  # the draft exists: never lose its id to a read-back failure
+        result["read_back"] = (f"failed ({type(exc).__name__}); the draft exists, so check it in "
+                               "DocuSign before sending")
     return result
 
 

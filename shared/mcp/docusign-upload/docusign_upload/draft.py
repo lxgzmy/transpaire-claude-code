@@ -80,7 +80,7 @@ class Plan:
 
 
 def check_text_args(job_no: str, email_subject: str, email_blurb: str) -> None:
-    if not JOB_NO_RE.match(str(job_no)):
+    if not JOB_NO_RE.fullmatch(str(job_no)):  # fullmatch: "$" alone lets a trailing newline through
         raise Stop("job_no must be 1 to 20 letters, digits or hyphens; it is used in the "
                    "duplicate search")
     if not str(email_subject).strip():
@@ -314,6 +314,11 @@ def _pages_by_role(counts: dict[tuple[str, int], int]) -> dict[str, list[int]]:
     return out
 
 
+def _words(text: Any) -> str:
+    """Whitespace-normalised text, so a CRLF or a trailing space DocuSign adds is not a mismatch."""
+    return " ".join(str(text or "").split())
+
+
 def _has_tabs(recipient: dict[str, Any]) -> bool:
     return any(isinstance(tabs, list) and tabs for tabs in (recipient.get("tabs") or {}).values())
 
@@ -326,6 +331,12 @@ def read_back(plan: Plan, *, envelope: dict[str, Any], documents: dict[str, Any]
     findings: list[str] = []
     if envelope.get("status") != DRAFT_STATUS:
         findings.append(f"status is {envelope.get('status')!r}, expected {DRAFT_STATUS!r}")
+    # A kept template subject or message would name a past job, so check both (never echo them).
+    for key, sent, label in (("emailSubject", plan.email_subject, "subject"),
+                             ("emailBlurb", plan.email_blurb, "message")):
+        if _words(envelope.get(key)) != _words(sent):
+            findings.append(f"the email {label} in the draft is not the one sent "
+                            "(the template's own may have been kept)")
     content = [d for d in documents.get("envelopeDocuments", []) if d.get("type", "content") == "content"]
     by_name = {str(d.get("name", "")).lower(): str(d.get("documentId")) for d in content}
     planned_names = {d.file.name.lower() for d in plan.documents}

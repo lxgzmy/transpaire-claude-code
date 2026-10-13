@@ -12,6 +12,7 @@ import httpx
 
 from docusign_upload.client import DocuSignClient, DocuSignError
 from support import FakeDocuSign, keypair, make_config, make_pdf, write_key
+from support import readback_for as real_readback_for
 
 with patch("docusign_upload.config.load_config", return_value=make_config("/nonexistent/key.pem")):
     server = importlib.import_module("docusign_upload.server")
@@ -137,6 +138,29 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(out["ok"])
         self.assertEqual((out["errorCode"], out["message"]),
                          ("RECIPIENT_LIMIT_EXCEEDED", "Synthetic limit message."))
+        self.assertEqual(len(self.posts()), 1)
+
+    async def test_a_gateway_error_on_create_says_the_outcome_is_uncertain(self):
+        # a 5xx (or a proxy's HTML page) can arrive after DocuSign created the draft
+        self.fake.create_error = (502, "<html><body>Bad gateway</body></html>")
+        out = await server.docusign_create_draft(**self.args)
+        self.assertFalse(out["ok"])
+        self.assertIn("uncertain", out["error"])
+        self.assertIn("docusign_draft_preview", out["error"])
+        self.assertNotIn("refused", out["error"])
+        self.assertEqual(out["status"], 502)
+        self.assertEqual(len(self.posts()), 1)
+
+    async def test_a_read_back_it_cannot_parse_still_returns_the_envelope_id(self):
+        def malformed(body, template_tabs):
+            readback = real_readback_for(body, template_tabs)
+            readback["custom_fields"] = {"textCustomFields": None}  # a shape the fake never sends
+            return readback
+        with patch("support.readback_for", side_effect=malformed):
+            out = await server.docusign_create_draft(**self.args)
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["envelopeId"], "env-synthetic")
+        self.assertIn("the draft exists", out["read_back"])
         self.assertEqual(len(self.posts()), 1)
 
     async def test_a_transport_failure_says_the_outcome_is_uncertain(self):
