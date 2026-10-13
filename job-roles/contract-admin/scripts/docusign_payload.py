@@ -1,17 +1,24 @@
-r"""Build the DocuSign draft-envelope payload for a job (CD-10, 13 Oct 2026).
+r"""Build the DocuSign draft payload for a job (CD-10, 13 Oct 2026).
 
     python docusign_payload.py --job <workdir>/job.json --job-dir "<CONTRACT DOCUMENTATION>"
-                               [--region NSW|QLD] [--server docusign-demo]
+                               [--region NSW|QLD] [--server docusign-upload|docusign-upload-prod]
 
 Reads the job JSON and the driver's routes.txt, picks the DocuSign template by
 region x buyer type, maps the buyer-side roles, writes the subject, message and
-JobNo custom field, and leaves two files in the workdir:
+JobNo, lists the job's PDFs under their CD-7.2 names, and leaves two files in
+the workdir:
 
-  docusign_envelope.json  - what Claude passes to createEnvelope (templateId
-                            left empty: resolved by name through getTemplates)
+  docusign_envelope.json  - draftArgs: the exact arguments for the docusign-upload
+                            server's docusign_draft_preview and docusign_create_draft
+                            (the server resolves the template by name)
   docusign_payload.txt    - the mapping with a source per recipient, the roles
-                            left as template defaults, flags, and the list of
-                            what staff do in DocuSign before sending
+                            left as template defaults, the documents, flags, and
+                            the list of what staff do in DocuSign before sending
+
+The server comes from where the job folder is: a synthetic job under the
+checkout's runtime\docusign-sandbox goes to the sandbox server (docusign-upload),
+and every other job folder, a real job's, to the production server
+(docusign-upload-prod).
 
 This script never calls DocuSign. The MCP calls are Claude's, per the skill's
 references/docusign-draft.md, and the create call is gated by the approval
@@ -20,6 +27,7 @@ prompt. Exit codes: 0 payload written (call or no-call stated in the files),
 """
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,6 +64,29 @@ OWNER_KEYS = ("owner_1", "owner_2", "owner_3")
 
 # The kinds the docusign-upload server takes, in envelope order (CD-7.2 names).
 UPLOAD_KINDS = ("BUILD CONTRACT", "INCLUSIONS", "PRELIMINARY AGREEMENT", "PLANS")
+
+# The two docusign-upload servers (CD-10.1). The sandbox one reads documents only from
+# the checkout's runtime/docusign-sandbox, so it only ever gets synthetic jobs; a real
+# job's folder needs the production one, registered at Go-Live.
+SANDBOX_SERVER = "docusign-upload"
+PRODUCTION_SERVER = "docusign-upload-prod"
+SANDBOX_DIR = HERE.parents[2] / "runtime" / "docusign-sandbox"
+
+
+def _inside(path, root):
+    """True when path is root or sits under it, both fully resolved (a link out counts as out)."""
+    try:
+        p, r = (os.path.normcase(os.path.realpath(x)) for x in (path, root))
+    except OSError:
+        return False
+    return p == r or p.startswith(r.rstrip("\\/") + os.sep)
+
+
+def server_for(job_dir):
+    """The docusign-upload server this job's PDFs can go to."""
+    if job_dir and _inside(job_dir, SANDBOX_DIR):
+        return SANDBOX_SERVER
+    return PRODUCTION_SERVER
 
 
 def documents_for(job_dir, values):
@@ -106,7 +137,7 @@ def pick_template(state, values):
 
 
 def recipients_for(template, values):
-    """templateRoles for the buyer-side roles, each with its source field."""
+    """The buyer-side roles as the docusign-upload tools take them, each with its source field."""
     roles, sources = [], []
     if template["buyer_roles"] == ["Buyer - Company Guarantor"]:
         name, email = _s(values, "guarantor_name"), _s(values, "guarantor_email")
@@ -114,7 +145,7 @@ def recipients_for(template, values):
             raise PayloadStop("guarantor_name missing - the Company template signs through the guarantor")
         if not email:
             raise PayloadStop("guarantor_email missing - no address to send the Company template to")
-        roles.append({"roleName": "Buyer - Company Guarantor", "name": name, "email": email})
+        roles.append({"role": "Buyer - Company Guarantor", "name": name, "email": email})
         sources.append("Buyer - Company Guarantor: guarantor_name + guarantor_email")
         return roles, sources
     pairs = (("owner_1", "owner_email"), ("owner_2", "owner_2_email"))
@@ -124,7 +155,7 @@ def recipients_for(template, values):
             continue  # single-buyer template has one role; a second owner never reaches here
         if not email:
             raise PayloadStop(f"{ekey} missing for {role} ({name}) - every buyer needs an email")
-        roles.append({"roleName": role, "name": name, "email": email})
+        roles.append({"role": role, "name": name, "email": email})
         sources.append(f"{role}: {nkey} + {ekey}")
     if not roles:
         raise PayloadStop("no buyer could be mapped")
@@ -165,13 +196,24 @@ def message_for(values, template):
     return f"Dear {' & '.join(first_names(values, template))},\n\n{MESSAGE_BODY}\n\n{MESSAGE_SIGNOFF}"
 
 
-def staff_list(template, flags):
-    items = ["Replace the template's placeholder PDFs with the job's PDFs from the job folder "
-             "(build contract, inclusions, preliminary agreement where one exists, plans)."]
+def staff_list(template, flags, missing=()):
+    """What staff do in DocuSign before sending. The draft holds the job's own PDFs, so there
+    is nothing to replace; `missing` is the kinds the template has a place for that the job
+    folder does not hold under the CD-7.2 name."""
+    items = []
     if "Buyer Witness" in template["default_roles"]:
         items.append("The Buyer Witness role holds the template's default person - change or remove it.")
-    items.append("Check every field and signature tab landed on the job's documents, then send.")
+    if missing:
+        items.append(f"Not in the draft, because the job folder has no PDF under its CD-7.2 name: "
+                     f"{', '.join(missing)}. Add any the job needs and place their tabs.")
+    items.append("Place the tabs on any document the draft report flags (it went in without tabs), "
+                 "check every tab sits on its line, then send.")
     return items + flags
+
+
+def missing_for_template(state, missing):
+    """The missing kinds the region's templates have a place for (QLD has no preliminary agreement)."""
+    return [k for k in missing if not (state == "QLD" and k == "PRELIMINARY AGREEMENT")]
 
 
 def build_envelope(state, values, server):
@@ -179,20 +221,21 @@ def build_envelope(state, values, server):
     if not job_no:
         raise PayloadStop("job_no missing - the JobNo custom field is how a draft is found again")
     template, flags = pick_template(state, values)
-    roles, sources = recipients_for(template, values)
-    definition = {
-        "status": "created",
-        "templateId": "",
-        "emailSubject": subject_for(values),
-        "emailBlurb": message_for(values, template),
-        "templateRoles": roles,
-        "customFields": {"textCustomFields": [
-            {"name": "JobNo", "value": job_no, "show": "false", "required": "false"}]},
+    recipients, sources = recipients_for(template, values)
+    # Exactly the docusign-upload tools' arguments, so the preview and the create get the same
+    # values. The status is not here: "created" is a constant in the server.
+    draft_args = {
+        "template_name": template["name"],
+        "recipients": recipients,
+        "email_subject": subject_for(values),
+        "email_blurb": message_for(values, template),
+        "job_no": job_no,
+        "documents": [],
     }
     return {
         "server": server,
         "templateName": template["name"],
-        "envelopeDefinition": definition,
+        "draftArgs": draft_args,
         "defaultRoles": list(template["default_roles"]),
         "sources": sources,
         "flags": flags,
@@ -236,18 +279,20 @@ def write_payload(workdir, env, call, stop=None):
     env = dict(env, call=call, generated=stamp)
     jpath = workdir / "docusign_envelope.json"
     jpath.write_text(json.dumps(env, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    d = env["envelopeDefinition"]
+    a = env["draftArgs"]
+    where = ("SANDBOX, synthetic jobs only" if env["server"] == SANDBOX_SERVER
+             else "PRODUCTION, connected at Go-Live")
     lines = [f"DOCUSIGN DRAFT PAYLOAD ({stamp})",
              f"CALL: {'yes' if call else 'no'}"
              + ("" if call else "  (build contract routed TEST - payload for inspection only)"),
-             f"server        : {env['server']}",
-             f"template      : {env['templateName']}  (resolve id by exact trimmed name)",
-             f"status        : {d['status']}",
-             f"subject       : {d['emailSubject']}",
-             "message       :", *("    " + l for l in d["emailBlurb"].splitlines()),
+             f"server        : {env['server']}  ({where})",
+             f"template      : {env['templateName']}  (resolved by exact trimmed name on the server)",
+             "status        : created  (fixed in the server, which cannot send)",
+             f"subject       : {a['email_subject']}",
+             "message       :", *("    " + l for l in a["email_blurb"].splitlines()),
              "recipients set:", *(f"    {s}" for s in env["sources"]),
              "template defaults left as they are: " + ", ".join(env["defaultRoles"]),
-             f"custom field  : JobNo={d['customFields']['textCustomFields'][0]['value']}"]
+             f"custom field  : JobNo={a['job_no']}"]
     if "documents" in env:
         found = [f"    {d['kind']}: {Path(d['path']).name}" for d in env["documents"]]
         lines += ["documents     :", *(found or ["    none listed (no --job-dir)"])]
@@ -267,8 +312,9 @@ def main(argv=None):
     ap.add_argument("--job", required=True, help="job JSON (its folder is the workdir)")
     ap.add_argument("--job-dir", help="the job's CONTRACT DOCUMENTATION folder (region comes from it)")
     ap.add_argument("--region", help="NSW or QLD, when --job-dir is not given")
-    ap.add_argument("--server", default="docusign-demo",
-                    help="MCP server name the draft will be created on (docusign-demo = sandbox)")
+    ap.add_argument("--server", choices=(SANDBOX_SERVER, PRODUCTION_SERVER),
+                    help="docusign-upload server for the draft (default: from --job-dir, "
+                         "the sandbox one only for a job under runtime/docusign-sandbox)")
     args = ap.parse_args(argv)
     job = Path(args.job)
     workdir = job.parent
@@ -282,7 +328,7 @@ def main(argv=None):
             raise PayloadStop(f"job JSON not readable: {job} - {e}")
         route = read_build_contract_route(workdir)
         state = state_for(args.job_dir, args.region)
-        env = build_envelope(state, values, args.server)
+        env = build_envelope(state, values, args.server or server_for(args.job_dir))
         if args.job_dir:
             pdf = f"BUILD CONTRACT_{dc.doc_suffix(values)}.pdf"
             if not (Path(args.job_dir) / pdf).is_file():
@@ -291,6 +337,10 @@ def main(argv=None):
             env["documents"], env["documentsMissing"] = documents_for(args.job_dir, values)
         else:
             env["documents"], env["documentsMissing"] = [], []
+        env["draftArgs"]["documents"] = [dict(d) for d in env["documents"]]
+        template, _ = pick_template(state, values)
+        env["staffBeforeSending"] = staff_list(
+            template, env["flags"], missing_for_template(state, env["documentsMissing"]))
     except PayloadStop as e:
         write_payload(workdir, None, False, stop=str(e))
         print(f"DOCUSIGN DRAFT STOPPED: {e}", file=sys.stderr)

@@ -89,16 +89,20 @@ skills are scoped to that folder and must not leak into another role.
   silently. A Word layout pass and a quality gate stand between the edit
   and the save; a gate failure blocks the save.
 - **Gated write, not an exception (13 Oct 2026):** `/new-contract-template`
-  step 8 creates a DocuSign **draft** envelope (`status: created`) after a
-  real build-contract save. Every DocuSign write tool is listed under `ask` per
-  tool in `.claude/settings.json`, so the create call prompts and that prompt is
-  the human approval, per call; `createEnvelopeFromTemplate` (it sends and
-  cannot be held at draft) is under `deny`. Sending stays human. Read-only DocuSign calls the step needs (`getUserInfo`,
-  `getTemplates`, `getEnvelopes`, `getEnvelopeVsAgreementSkill`) are on
-  `allow`.
-  The local `docusign-upload` server's `docusign_create_draft` (a draft with
-  the job's own PDFs, design 13 Oct 2026) is the same kind of gated write, on
-  `ask` per call; while it points at the sandbox it takes synthetic jobs only.
+  step 8 creates a DocuSign **draft** envelope (`status: created`) with the
+  job's own PDFs after a real build-contract save, through the local
+  `docusign-upload` server's `docusign_create_draft`. That tool is under `ask`
+  per server in `.claude/settings.json`, so the create call prompts and that
+  prompt is the human approval, per call; its read-only `docusign_token_info`
+  and `docusign_draft_preview` are on `allow`. Sending stays human. A real job
+  goes only to `docusign-upload-prod`, registered at production Go-Live; until
+  then step 8 creates no draft and reports why (any fallback is an open owner
+  decision, CD-10.8). The sandbox `docusign-upload` takes synthetic jobs only.
+  Step 8 no longer calls the hosted `docusign-demo` server: every write tool
+  there stays under `ask` per tool, `createEnvelopeFromTemplate` (it sends and
+  cannot be held at draft) under `deny`, and its read-only calls
+  (`getUserInfo`, `getTemplates`, `getEnvelopes`,
+  `getEnvelopeVsAgreementSkill`) on `allow` for checks.
 
 ## Security posture
 

@@ -76,10 +76,13 @@ OnSite Companion (OSC), DataBuild (manual only — no API access, confirmed
 Contract-Admin mailbox), DocuSign. The **authoritative record varies per field** and
 must be confirmed — the canonical job record is not tied to any single system.
 
-DocuSign is reached through the org-wide `docusign-demo` MCP server (sandbox only so
-far, sign-in required, every call gated by an approval prompt). Connection details and
-the production-promotion steps live in [`docs/mcp-servers.md`](../../docs/mcp-servers.md)
-— not restated here, since the server is shared with every other role.
+Contract drafts reach DocuSign through the local `docusign-upload` MCP server, which
+puts the job's own PDFs in the draft: `docusign-upload-prod` for real jobs (registered
+at production Go-Live) and `docusign-upload` (sandbox) for synthetic jobs only. The
+hosted `docusign-demo` server (sandbox, sign-in required) stays connected for read-only
+checks; its writes are gated per call. Connection details and the production steps
+live in [`docs/mcp-servers.md`](../../docs/mcp-servers.md), not restated here, since
+the servers are shared with every other role.
 
 ## Rules & knowledge
 
@@ -116,11 +119,14 @@ writes, and promoting test output into a job folder stay human.
 
 **DocuSign draft (13 Oct 2026):** after a build contract saves into the job
 folder, `/new-contract-template` creates a DocuSign envelope with
-`status: created` — a draft, never sent — through the gated `createEnvelope`
-call; the approval prompt on that call is the person's yes, per call. This is
-a gated external write, not an extension of the automatic save. Replacing the
-template's placeholder PDFs, fixing witness/date roles and sending stay human
-(CD-10).
+`status: created`, a draft that is never sent, with the job's own PDFs in it,
+through the gated `docusign_create_draft` call on the `docusign-upload`
+server. The approval prompt on that call is the person's yes, per call. This
+is a gated external write, not an extension of the automatic save. Until
+`docusign-upload-prod` is connected at production Go-Live, a real run creates
+no draft and reports why; any fallback is an open owner decision (CD-10.8).
+Tagging any document the report flags, fixing witness/date roles and sending
+stay human (CD-10).
 
 **Where the contract documents go (four rules, 8 Sep 2026)**
 

@@ -19,8 +19,11 @@ identifies an account or a server is in the repo.
 
 Both preview and create take `template_name`, `recipients` (buyer roles:
 `role`, `name`, `email`), `email_subject`, `email_blurb`, `job_no` and
-`documents` (`kind`, `path`), taken from the `docusign_envelope.json` that
-`job-roles/contract-admin/scripts/docusign_payload.py` writes.
+`documents` (`kind`, `path`), taken unchanged from `draftArgs` in the
+`docusign_envelope.json` that
+`job-roles/contract-admin/scripts/docusign_payload.py` writes. Step 8 of
+`/new-contract-template` calls this server (`docusign-upload-prod` for a real
+job, this sandbox server for a synthetic one; CD-10).
 
 ## How the draft is built
 

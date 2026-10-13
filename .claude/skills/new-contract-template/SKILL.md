@@ -566,8 +566,10 @@ which items are medium/low confidence or custom: those are the lines a
 person confirms before issue (CD-9.10). Send the final PDFs with `SendUserFile` so they open inline;
 the reader checks them in their own time.
 When the build contract routed PRODUCTION, the report also carries the step 8
-lines (server, template, recipients and sources, template-default roles,
-envelope id, and the "Before sending, in DocuSign" list) once step 8 has run.
+lines (server and environment, template, recipients and sources,
+template-default roles, each document carried or flagged, envelope id,
+read-back findings, and the "Before sending, in DocuSign" list) once step 8
+has run, or the reason no draft was created.
 A requested change is simply a new
 run — after a production save that document exists in the job folder, so its
 fixed version routes to the test folder and a person promotes it (old version
@@ -600,16 +602,24 @@ routing, which test-detects first) and refuses to overwrite unless
 
 ### 8. DocuSign draft — only after a PRODUCTION build-contract save
 
-Follow [DocuSign draft](references/docusign-draft.md). In one line: build the
-payload with `docusign_payload.py` (it reads the driver's `routes.txt`; a
-TEST-routed build contract yields the files and no call), resolve the
-template by exact name, check no envelope already carries this `JobNo`, then
-`createEnvelope` with `status: created` — the approval prompt on that call is
-the person's yes, and a decline ends the step as a normal outcome. The draft
-holds the template's placeholder PDFs until staff replace them with the job's
-PDFs in DocuSign; the report says so every time, with the staff list the
-script produced. Sandbox (`docusign-demo`) drafts have no legal effect — name
-the server in the report. Rules: CD-10.
+Follow [DocuSign draft](references/docusign-draft.md). In short:
+`docusign_payload.py` writes the tool arguments and lists the job's PDFs under
+their CD-7.2 names (it reads the driver's `routes.txt`; a TEST-routed build
+contract yields the files and no call). The local `docusign-upload` server
+then checks the connection, previews the draft (template by exact name, page
+counts, the `JobNo` duplicate check) and creates it with
+`docusign_create_draft`: status `created`, the job's own PDFs inside. The
+approval prompt on that call is the person's yes, and a decline ends the step
+as a normal outcome. The template's tabs carry onto a job document with the
+template's page count; any other document goes in untagged and the report
+flags it for staff.
+
+A real job goes only to `docusign-upload-prod` (PRODUCTION), connected at
+production Go-Live. Until then, and on any stop, no draft is created and the
+report says why. Any fallback beyond that is an open owner decision (CD-10.8);
+none is built. `docusign-upload` (SANDBOX, no legal effect) takes synthetic
+jobs under `runtime\docusign-sandbox\` only. Name the environment in the
+report every time. Rules: CD-10.
 
 ## Auxiliary and dual-key dwellings
 
@@ -639,9 +649,10 @@ user's yes in chat.
 
 **Outward acts stay human.** Never send email, never send or issue a DocuSign envelope, never sign or
 initial anything, and never write to DataBuild. The one DocuSign write the
-run makes is a `created` draft through the gated `createEnvelope` call
-(step 8, CD-10) — approved at the prompt, per call; it is not an issue and
-not covered by the automatic document-save exception. OSC intake changes use only
+run makes is a `created` draft through the gated `docusign_create_draft` call
+on the `docusign-upload` server (step 8, CD-10), approved at the prompt, per
+call. It is not an issue and not covered by the automatic document-save
+exception. OSC intake changes use only
 the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md),
 with its write switch, per-call approval and explicit confirmation. The manual's
 signing steps (builder's name on page 9, the sign-here sticker, the tray for
