@@ -106,48 +106,40 @@ templates (a DocuSign admin's job) and is out of scope here.
 ## Check procedure (sandbox, synthetic jobs only)
 
 Runs on the Windows server, where `Z:`, Word, the interim templates and the
-`docusign-upload` venv are. Every job value is invented (`@example.com`
-addresses, `TEST` surnames, lot 901, a `99991` job number).
+`docusign-upload` venv are (owner's choice, 13 October 2026). The commands are
+in the run kit,
+[`job-roles/contract-admin/fixtures/docusign-sandbox/`](../../../job-roles/contract-admin/fixtures/docusign-sandbox/README.md):
+six synthetic job JSONs (one per template), `synthetic_plans_pdf.py` and
+`docusign_tab_overlay.py`. In outline:
 
 1. **Prerequisites.** The DocuSign admin steps in the
    [upload design](2026-10-13-docusign-upload-mcp.md#prerequisites-for-the-docusign-admin)
    are done and `python -m docusign_upload.selftest` passes. A
-   verification-only venv holds `pypdfium2` and `Pillow` (approved
-   separately; never a server dependency).
-2. **Synthetic job.** A QLD Single Buyer job JSON in
-   `runtime\docusign-sandbox\work\99991\job.json`, and its job folder at
-   `runtime\docusign-sandbox\PROJECTS\SEQ\99991 - LOT 901 SAMPLEVILLE\CONTRACT\CONTRACT DOCUMENTATION\`
-   (the `PROJECTS\SEQ` segments let the driver and the payload read the
-   region; the folder stays inside the sandbox root).
-3. **Fill.** `draft_contract.py --job ... --template <the QLD inclusions blank
-   step 3 picks> --job-dir <that folder>`. Both documents route PRODUCTION
-   into the sandbox folder and export through Word, as on a real run. Add a
-   synthetic five-page `PLANS_<suffix>.pdf`, so the flag path runs too.
-4. **Step 8 as written.** `docusign_payload.py --job ... --job-dir ...` picks
-   `docusign-upload` (SANDBOX). Then `docusign_token_info`,
-   `docusign_draft_preview` and `docusign_create_draft` per
-   `references/docusign-draft.md`, approved at the prompt. Expected: status
+   verification-only venv (`runtime\.venv-verify`) holds pypdfium2 and
+   Pillow, approved 13 October 2026 and never a server dependency.
+2. **Fill each fixture** through the driver into a job folder inside
+   `runtime\docusign-sandbox\PROJECTS\<region>\...`, so the documents route
+   PRODUCTION and export through Word as on a real run, then add a synthetic
+   five-page plans PDF so the flag path runs too.
+3. **One draft** (`qld-single`, the template inside the sandbox recipient
+   cap): step 8 as written, approved at the prompt. Expected: status
    `created`, the contract and inclusions carried, the plans flagged, two
    recipients, `JobNo`, subject and message as sent.
-5. **Positions.** Read the draft back with the hosted server's
-   `listRecipients` (`include_tabs=true`) and `listEnvelopeDocuments`, both
-   read-only, into `runtime\docusign-sandbox\evidence\<date>\`. Each carried
-   tab's page and x/y must equal the template's.
-6. **Images.** `docusign_tab_overlay.py --recipients <draft recipients>
-   --documents <draft documents> --pdf "BUILD CONTRACT=..." --pdf
-   "INCLUSIONS=..." --pdf "PLANS=..." --out
-   runtime\docusign-sandbox\evidence\<date>\qld-single`.
-7. **The other five templates.** Fill a synthetic job for each (NSW Single
-   Buyer, 2 Buyers and Company with a preliminary agreement; QLD 2 Buyer and
-   Company), and draw each template's own tabs over its PDFs with the same
-   tool, from a read-only template read. No envelope is created for these.
-8. **Verdict.** Look at every page image. Per document: **OK** (every tab on
-   its line), **misplaced** (any tab off its line, with the page), or
-   **missing** (tabs past the last page, from the summary).
-9. **Duplicate check.** A second `docusign_draft_preview` for job 99991 must
-   stop on the existing draft.
-10. **The draft.** The owner decides whether it stays or is deleted in the
-    DocuSign web UI. It is never voided or deleted without that decision.
+4. **Positions.** The hosted `listRecipients` (`include_tabs=true`) and
+   `listEnvelopeDocuments`, read-only, saved as returned. Each carried tab's
+   page and x/y must equal the template's.
+5. **Images.** The overlay draws the draft's tabs on its documents, and each
+   template's own tabs on the other five fixtures' PDFs (no envelopes).
+6. **Verdict** per document: **OK**, **misplaced** (page and tab), or
+   **missing** (tabs past the last page).
+7. **Duplicate check.** A second preview for job 99981 stops on the draft.
+8. **The draft** stays until the owner decides; it is never voided or
+   deleted without that decision.
+
+The overlay was tried on this clone with synthetic plans and the QLD Single
+Buyer template's own tabs (13 October 2026): the tabs drew beside the plans'
+"CLIENT SIGNATURE" line where the geometry puts them, and a three-page plans
+PDF reported the fourth page's tab as missing.
 
 ## Verdicts
 

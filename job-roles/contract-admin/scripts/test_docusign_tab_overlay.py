@@ -4,9 +4,10 @@ r"""Self-test for docusign_tab_overlay.py's pure functions. Stdlib only, no PDF 
 
 Synthetic DocuSign JSON only: no names, emails or ids from any account.
 Checks the kind match by name, the geometry extract (and that nothing naming
-a person comes through), tabs past a document's last page, and the refusal to
-write anywhere but the checkout's runtime folder. Drawing the pages needs
-pypdfium2 and is not covered here.
+a person comes through, nested or several-template files), tabs past a
+document's last page, the refusal to write anywhere but the checkout's
+runtime folder, and synthetic_plans_pdf.py's PDF and its destination rule.
+Drawing the pages needs pypdfium2 and is not covered here.
 """
 import json
 import sys
@@ -61,8 +62,24 @@ def check_geometry():
     dumped = json.dumps(tabs)
     for secret in ("Alex", "alex@", "Pat BUILDER", "Signature 1", "01/01/2026"):
         assert secret not in dumped, secret
-    # the bare recipients object works too
+    # the bare recipients object (a draft's listRecipients) and a bare documents list work too
     assert ov.geometry(RECIPIENTS["recipients"], DOCUMENTS["documents"]) == tabs
+    # saved as the hosted read tools return them: nested, and several templates in one file
+    other = dict(DOCUMENTS, name="NSW Build _ Company")
+    nested_docs = {"mcpSessionId": "x", "envelopeTemplates": [
+        dict(DOCUMENTS, name="QLD Build _ Single Buyer "), other]}
+    nested_recips = {"result": {"assessedTemplates": {
+        "a": dict(RECIPIENTS, name="QLD Build _ Single Buyer"), "b": dict(RECIPIENTS, name="NSW Build _ Company")}}}
+    assert ov.geometry(nested_recips, nested_docs, "QLD Build _ Single Buyer") == tabs
+    # the same template repeated in one file (as assessTemplatesForDV returns it) counts once
+    one = dict(RECIPIENTS, name="QLD Build _ Single Buyer", templateId="t1")
+    assert ov.geometry({"result": {"a": {"t1": one}, "summary": [dict(one)]}}, DOCUMENTS) == tabs
+    try:
+        ov.geometry(nested_recips, nested_docs)
+    except ov.Refusal as e:
+        assert "--template" in str(e)
+    else:
+        raise AssertionError("two templates in one file were not refused without --template")
     print("  geometry: ok")
 
 
@@ -107,9 +124,35 @@ def check_refusals():
     print("  refusals: ok")
 
 
+def check_synthetic_plans():
+    """The synthetic plans PDF is a valid PDF the sandbox server would take, and lands only there."""
+    import re
+    import synthetic_plans_pdf as sp
+    data = sp.build_pdf(5)
+    assert data.startswith(b"%PDF-") and data.rstrip().endswith(b"%%EOF")
+    assert len(re.findall(rb"/Type /Page ", data)) == 5 and b"/Count 5" in data
+    xref = int(data.rsplit(b"startxref", 1)[1].split()[0])
+    assert data[xref:xref + 4] == b"xref"
+    offsets = re.findall(rb"(\d{10}) 00000 n ", data[xref:])
+    for n, off in enumerate(offsets, start=1):  # every xref entry points at its own object
+        assert data[int(off):].startswith(b"%d 0 obj" % n), n
+    assert sp.check_out(sp.SANDBOX / "job" / "PLANS_LOT 1_X.pdf").name == "PLANS_LOT 1_X.pdf"
+    for bad in (sp.SANDBOX.parent / "contract-admin" / "PLANS_X.pdf",   # real jobs' working files
+                sp.SANDBOX / "job" / "BUILD CONTRACT_X.pdf",
+                sp.SANDBOX / ".." / "docusign-sandbox-x" / "PLANS_X.pdf"):
+        try:
+            sp.check_out(bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"accepted {bad}")
+    print("  synthetic plans: ok")
+
+
 if __name__ == "__main__":
     check_kinds()
     check_geometry()
     check_past_end()
     check_refusals()
+    check_synthetic_plans()
     print("docusign_tab_overlay self-test: all ok")

@@ -12,13 +12,15 @@ tab that falls past the document's last page (it would be missing in the
 draft). Whether each tab sits on its line is a person's call from the images;
 the summary only adds the text found under and beside each tab as a hint.
 
-Inputs are DocuSign's own JSON, saved from a read-only call:
-  --recipients  a recipients object with tabs (a template's, or a draft's from
-                listRecipients with include_tabs=true); either the object
-                itself or any JSON that holds it under "recipients"
-  --documents   the matching documents list ("documents" of a template, or
-                "envelopeDocuments" of a draft), used to tell each document's
-                kind by name (never by id or order)
+Inputs are DocuSign's own JSON, saved as returned by a read-only call:
+  --recipients  recipients with tabs: a draft's (listRecipients with
+                include_tabs=true) or a template's (assessTemplatesForDV,
+                which holds them under "recipients")
+  --documents   the matching documents: a draft's (listEnvelopeDocuments,
+                "envelopeDocuments") or a template's (getTemplates with
+                include=documents, "documents"), used to tell each
+                document's kind by name (never by id or order)
+  --template    the template name, when a saved file holds several templates
 Only geometry leaves this tool: kind, page, tab type, role, x and y. Names,
 emails, labels and values are never written.
 
@@ -72,25 +74,55 @@ def kinds_by_document_id(documents):
     return out
 
 
-def _recipients(obj):
-    if isinstance(obj, dict) and isinstance(obj.get("recipients"), dict):
-        return obj["recipients"]
-    return obj
+def _holders(obj, keys, kind):
+    """Every dict in obj (at any depth) holding one of keys with a value of type kind."""
+    found, stack = [], [obj]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, dict):
+            if any(isinstance(cur.get(k), kind) for k in keys):
+                found.append(cur)
+            stack.extend(cur.values())
+        elif isinstance(cur, list):
+            stack.extend(cur)
+    return found
 
 
-def _documents(obj):
-    if isinstance(obj, dict):
-        for key in ("envelopeDocuments", "documents"):
-            if isinstance(obj.get(key), list):
-                return obj[key]
-    return obj if isinstance(obj, list) else []
+def _one(holders, template, what):
+    if template is not None:
+        holders = [h for h in holders if str(h.get("name", "")).strip() == template.strip()]
+    seen, unique = set(), []
+    for h in holders:  # the hosted reads can repeat a template in their own summary sections
+        key = h.get("templateId") or h.get("envelopeId") or id(h)
+        if key not in seen:
+            seen.add(key)
+            unique.append(h)
+    holders = unique
+    if len(holders) != 1:
+        raise Refusal(f"the {what} file holds {len(holders)} matching sets of {what}; save one "
+                      "template's or one draft's, or name the template with --template")
+    return holders[0]
 
 
-def geometry(recipients, documents):
+def _recipients(obj, template=None):
+    holders = _holders(obj, ("recipients",), dict)
+    if not holders and isinstance(obj, dict):  # a draft's listRecipients is the object itself
+        return obj
+    return _one(holders, template, "recipients")["recipients"]
+
+
+def _documents(obj, template=None):
+    if isinstance(obj, list):
+        return obj
+    holder = _one(_holders(obj, ("envelopeDocuments", "documents"), list), template, "documents")
+    return holder.get("envelopeDocuments") or holder.get("documents")
+
+
+def geometry(recipients, documents, template=None):
     """Every tab as {kind, page, type, role, x, y}: geometry only, nothing that names a person."""
-    kinds = kinds_by_document_id(_documents(documents))
+    kinds = kinds_by_document_id(_documents(documents, template))
     tabs = []
-    for items in (_recipients(recipients) or {}).values():
+    for items in (_recipients(recipients, template) or {}).values():
         if not isinstance(items, list):
             continue
         for r in items:
@@ -171,8 +203,12 @@ def summary_lines(docs, hints):
 
 def render(pdfs, docs, out, scale):  # pragma: no cover - needs pypdfium2 and Pillow
     import pypdfium2 as pdfium
-    from PIL import Image, ImageDraw
+    from PIL import ImageDraw, ImageFont
 
+    try:
+        font = ImageFont.load_default(size=int(9 * scale))
+    except TypeError:  # Pillow before 10.1 has one fixed-size default font
+        font = ImageFont.load_default()
     hints = {}
     for kind, path in pdfs.items():
         doc = docs.get(kind)
@@ -185,11 +221,11 @@ def render(pdfs, docs, out, scale):  # pragma: no cover - needs pypdfium2 and Pi
             text = page.get_textpage()
             for t in tabs:
                 left, top, right, bottom = box(t)
-                # beside and under the tab, in PDF space (origin bottom-left)
-                found = text.get_text_bounded(left=max(0, left - 60), right=min(width, right + 120),
-                                              bottom=max(0, height - bottom - 14),
-                                              top=min(height, height - top + 6))
-                hints[id(t)] = "text near: " + (" ".join(found.split())[:70] or "(none)")
+                # around the tab, in PDF space (origin bottom-left); words cut at the edge are a hint only
+                found = text.get_text_bounded(left=max(0, left - 120), right=min(width, right + 160),
+                                              bottom=max(0, height - bottom - 18),
+                                              top=min(height, height - top + 18))
+                hints[id(t)] = "text near: " + (" ".join(found.split())[:90] or "(none)")
             image = page.render(scale=scale).to_pil().convert("RGB")
             draw = ImageDraw.Draw(image)
             for t in tabs:
@@ -197,9 +233,9 @@ def render(pdfs, docs, out, scale):  # pragma: no cover - needs pypdfium2 and Pi
                 colour = COLOUR.get(t["type"], DEFAULT_COLOUR)
                 draw.rectangle([left, top, right, bottom], outline=colour, width=3)
                 draw.ellipse([left - 4, top - 4, left + 4, top + 4], fill=colour)
-                draw.text((left + 3, max(0, top - 14)), f"{SHORT.get(t['type'], t['type'])} {t['role']}",
-                          fill=colour)
-            draw.text((8, 8), f"{kind} page {page_no} of {len(pdf)}", fill=(0, 0, 0))
+                draw.text((left + 3, max(0, top - 11 * scale)), f"{SHORT.get(t['type'], t['type'])} {t['role']}",
+                          fill=colour, font=font)
+            draw.text((8, 8), f"{kind} page {page_no} of {len(pdf)}", fill=(0, 0, 0), font=font)
             name = f"{kind.replace(' ', '_')}_p{page_no:02d}.png"
             image.save(out / name)
             text.close()
@@ -214,6 +250,7 @@ def main(argv=None):
     ap.add_argument("--documents", required=True)
     ap.add_argument("--pdf", action="append", default=[], help='KIND=path, e.g. "INCLUSIONS=C:/x.pdf"')
     ap.add_argument("--out", required=True, help="folder under the checkout's runtime\\ folder")
+    ap.add_argument("--template", help="template name, when the saved JSON holds several templates")
     ap.add_argument("--scale", type=float, default=2.0, help="render scale (2 = 144 dpi)")
     args = ap.parse_args(argv)
     try:
@@ -236,7 +273,11 @@ def main(argv=None):
         print("REFUSED: pypdfium2 and Pillow are needed to draw the pages "
               "(a verification-only install, never a server dependency)", file=sys.stderr)
         return 2
-    tabs = geometry(recipients, documents)
+    try:
+        tabs = geometry(recipients, documents, args.template)
+    except Refusal as e:
+        print(f"REFUSED: {e}", file=sys.stderr)
+        return 2
     page_counts = {}
     for kind, path in pdfs.items():
         pdf = pdfium.PdfDocument(str(path))
