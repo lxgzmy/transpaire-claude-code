@@ -5,7 +5,8 @@ description: >
   job. Use when the user invokes /new-contract-template with an email file or
   Outlook subject, or asks to draft/raise a build contract, inclusions, or
   preliminary agreement from a contract request or EOI, including OSC job setup
-  and updates through the osc-api MCP. Reads the email and its
+  and updates in the production OnSite Companion through the osc-api-prod MCP,
+  each change confirmed by the person first. Reads the email and its
   attachments, picks the correct blank template off the Z: drive, fills it, and
   saves the finished documents in one pass, routed per document - a document
   the job folder does not hold yet goes into the job folder under Z:\PROJECTS;
@@ -216,14 +217,23 @@ Those are decisions, not details; surface them, don't quietly act on them.
 
 ### 1a. Set up or verify the OSC job through MCP
 
+OSC here is the **production** OnSite Companion, the one staff use (owner
+approval, 13 Oct 2026), through the `osc-api-prod` MCP. Until then the
+connection pointed at a dev copy frozen on 21 Aug 2026, so nothing written
+before 13 Oct 2026 reached staff (job 26032, 8 Oct 2026).
+
 **Pre-flight — the very first tool call of a new-intake run, before the
-email is read:** `osc_token_info`. Read `config.enable_writes` and
-`config.enable_writes_source`. Three outcomes, each with one fixed response:
+email is read:** `osc_token_info`. First check `config.environment` is
+`production` and `live_check.live` is true. If `live_check.live` is false,
+say in one line that OSC is answering from an out-of-date copy so nothing
+will be written, and continue in draft mode (below). Then read
+`config.enable_writes` and `config.enable_writes_source`. Three outcomes,
+each with one fixed response:
 
 | `osc_token_info` says | What it means | What you say and do |
 |---|---|---|
-| `enable_writes: true` | Normal since 24 Sep 2026 | Nothing to say; carry on |
-| `enable_writes: false`, and the repo's [`.mcp.json`](../../../.mcp.json) `env` block carries `"OSC_ENABLE_WRITES": "true"` | **This session's server started before the switch reached it** — the chat was opened before the checkout was pulled, or from a folder that is not the repo root, so the server took the `.env` value or the default | Say exactly: *"OSC writes are off in this chat only: the OSC connection starts fresh with every chat and this one started with the old setting. Close this chat and start a new one in `Z:\CLAUDE CODE\transpire-claude-code`, then run `/new-contract-template` again — nothing else has to be restarted and nobody has to be called."* Then continue the run in draft mode (below). |
+| `enable_writes: true` | Normal | Nothing to say; carry on |
+| `enable_writes: false`, and the repo's [`.mcp.json`](../../../.mcp.json) `env` block carries `"OSC_ENABLE_WRITES": "true"` | **This session's server started before the switch reached it** — the chat was opened before the checkout was pulled, or from a folder that is not the repo root, so the server took the `production.env` value or the default | Say exactly: *"OSC writes are off in this chat only: the OSC connection starts fresh with every chat and this one started with the old setting. Close this chat and start a new one in `Z:\CLAUDE CODE\transpire-claude-code`, then run `/new-contract-template` again — nothing else has to be restarted and nobody has to be called."* Then continue the run in draft mode (below). |
 | `enable_writes: false`, and `.mcp.json` has no `OSC_ENABLE_WRITES` or has it `"false"` | The switch really is off for everyone | Say so, name `.mcp.json`, and say it changes through a pull request that the team reviews — then draft mode. |
 
 Draft mode = read the email, extract everything, keep the OSC payloads as a
@@ -232,8 +242,10 @@ documents where a verified job folder exists (step 2). Never present a menu
 of options ("I'll get it restarted" / "give me the number" / "draft only"),
 never say that a person, IT or an administrator has to restart a server — the
 MCP server is a child process of the chat and a new chat is the restart —
-never edit `.env` or `.mcp.json` during a run, and never call `osc_write`
-with `confirm=true` while the switch is off (the call is refused anyway).
+never edit `.env`, `production.env` or `.mcp.json` during a run, and never
+call `osc_confirm_write` while the switch is off (the call is refused anyway).
+`osc_prepare_write` still works in draft mode: it reads OSC and shows exactly
+what would change, so the person sees a real preview.
 The tools missing altogether (`osc_token_info` not available) means the chat
 was not opened in the repo folder: same fix, new chat in the repo root.
 
@@ -241,8 +253,26 @@ For a new contract intake, follow [OSC setup](references/osc-new-contract.md)
 before creating a folder or filling documents. Read the request/ID, check for
 duplicates, discover runtime region/template/custom-field IDs, then prepare
 reviewed client/job, detail, activity, request-email and contact changes.
-Execute approved changes only through `osc_write`; read back every result and
-checkpoint returned IDs in server-only `osc-state.json`. DataBuild is excluded:
+
+**Every OSC change is confirmed by the person, one at a time:**
+
+1. `osc_prepare_write` with the job's `job_id` and only the fields that
+   change. It sends nothing.
+2. Show its `confirmation_text` exactly as written (the job, each field as
+   *now X, will be Y*, notes and warnings) and ask nothing else in the same
+   message. A refusal (`ok: false`) is reported in its own words; do not
+   work around it.
+3. Only after the person replies, call `osc_confirm_write` with the code and
+   their reply verbatim. A plain yes sends; "no", silence or anything else
+   sends nothing. If they ask for a different value, prepare that change and
+   show its new confirmation. If the gate says OSC changed since they
+   confirmed, show the new confirmation it returns and ask again.
+4. Relay `result_text`. Only `state: verified` counts as done.
+
+The confirmation the person approved is the record of their approval: note
+the code and their reply against the operation in `osc-state.json`. Read back
+every result and checkpoint returned IDs in server-only `osc-state.json`.
+DataBuild is excluded:
 no handoff email or wait, no OSC contract-value writes; activity 6 is completed
 only when the person confirms the DataBuild entry is done, never before.
 Missing API fields are reported for manual entry.
@@ -618,8 +648,10 @@ user's yes in chat.
 
 **Outward acts stay human.** Never send email, never issue to DocuSign, never sign or
 initial anything, and never write to DataBuild. OSC intake changes use only
-the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md),
-with its write switch, per-call approval and explicit confirmation. The manual's
+the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md):
+the production OnSite Companion, one change at a time, each shown to the
+person in plain words with the values it overwrites and sent only on their
+plain yes (`osc_prepare_write` then `osc_confirm_write`). The manual's
 signing steps (builder's name on page 9, the sign-here sticker, the tray for
 signing) are a person's job, described here only so the checklist is complete.
 

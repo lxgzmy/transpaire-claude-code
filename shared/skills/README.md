@@ -55,11 +55,12 @@ by explicit request — see the role's README).
   [job-roles/contract-admin/skills/README.md](../../job-roles/contract-admin/skills/README.md).
 
 - **osc-api** (project, in `.claude/skills/`) — preloaded knowledge for the
-  `osc-api` MCP server (see `docs/mcp-servers.md`): endpoint + field reference
+  `osc-api-prod` MCP server, the production OnSite Companion (see
+  `docs/mcp-servers.md`): endpoint + field reference
   generated from the OSCAPI OpenAPI spec (`references/endpoints.md`, no
   hostnames — the generator enforces that), the query cookbook (always page,
-  body-filter GETs, contract number → `jobID` GUID), and the write-gating
-  rules. Saves the 6–10 discovery calls a fresh session otherwise spends on
+  body-filter GETs, contract number → `jobID` GUID), and the prepare →
+  confirm → read-back flow every change goes through. Saves the 6–10 discovery calls a fresh session otherwise spends on
   `osc_list_endpoints` / `osc_describe_endpoint`. Regenerate the reference
   with `scripts/generate_endpoints.py` when the API version moves.
 

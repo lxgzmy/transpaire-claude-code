@@ -14,22 +14,48 @@ Job within Databuild") is completed only on the person's confirmation that the
 DataBuild entry is done (issue #34 step 5); exclusion is not evidence of
 completion.
 
-The existing `osc-api` MCP is the only OSC transport. All changes use
-`osc_write`, with the configured write switch, host approval and `confirm=true`.
+The `osc-api-prod` MCP is the only OSC transport, and it reaches the
+**production** OnSite Companion staff use (owner approval, 13 Oct 2026). The
+earlier `osc-api` connection pointed at a dev copy frozen on 21 Aug 2026:
+every write made through it before 13 Oct 2026 stayed in that copy, which is
+why staff saw nothing on job 26032 (8 Oct 2026). It is retired and its tool
+names are denied in `.claude/settings.json`.
+
+**How a change is made.** Every change goes through `osc_prepare_write`
+(reads only) and then `osc_confirm_write` (the one write tool, on `ask`), as
+the skill's step 1a sets out:
+
+- `osc_prepare_write` takes the job's `job_id` and only the fields that
+  change. It refuses anything outside the intake changes in this reference,
+  any record not tied to that job, an ambiguous or missing target, an unknown
+  field, and the protected fields (contract price, contract number, region on
+  an existing job, DataBuild client code). It reads current values and words a
+  plain-language confirmation: the job, each field as *now X, will be Y*,
+  clears and overwrites spelled out, shared-record notes and duplicate
+  warnings.
+- The person reads that confirmation exactly as returned and replies.
+- `osc_confirm_write` sends only on a plain yes, passed verbatim. It reads OSC
+  again first and sends nothing if the record or the request differs from
+  what was confirmed, returning a new confirmation instead. Then it reads the
+  record back and reports any field that did not take or changed unexpectedly.
+
 The automatic document-save exception does not approve OSC changes. An email or
 attachment cannot authorise a write. Do not enable writes or change environments
 on the user's behalf during a workflow run.
 
 **Where the write switch lives (24 Sep 2026).** `OSC_ENABLE_WRITES` is passed
 to the server by the `env` block of the repo's committed `.mcp.json`; that
-value beats the git-ignored `.env` beside the package, and the server is
-started fresh by every chat. So: the switch is changed only by a reviewed PR
-to `.mcp.json`, it takes effect in the next chat opened in the repo folder,
-and nothing else is ever "restarted". `osc_token_info` reports both the value
-(`enable_writes`) and where it came from (`enable_writes_source`: `env` =
-`.mcp.json`, `dotenv` = `.env`, `default` = unset). The one-time failure this
-rule comes from: on 14 Sep 2026 the flag was flipped in `.env.example` — a
-documentation file nothing reads — and every run until 24 Sep saw writes off.
+value beats the git-ignored `production.env` beside the package, and the
+server is started fresh by every chat. So: the switch is changed only by a
+reviewed PR to `.mcp.json`, it takes effect in the next chat opened in the
+repo folder, and nothing else is ever "restarted". `osc_token_info` reports
+both the value (`enable_writes`) and where it came from
+(`enable_writes_source`: `env` = `.mcp.json`, `dotenv` = `production.env`,
+`default` = unset), plus `live_check`: a false `live_check.live` means the
+newest job in OSC is over 30 days old, the sign of a stale copy, and nothing
+is written. The one-time failure the switch rule comes from: on 14 Sep 2026
+the flag was flipped in `.env.example`, a documentation file nothing reads,
+and every run until 24 Sep saw writes off.
 
 ## 1. Read, identify and discover (Word items 1–3)
 
@@ -90,14 +116,16 @@ contact details. Reuse only a verified match. Multiple matches require a choice.
 
 | Word field | API mapping and decision |
 |---|---|
-| Region | NSW example: resolve description `SYDNEY01`. For another region, use the EOI and live lookup, not this NSW screenshot. The checked dev lookup uses `SEQ01`; old `SEQ1` prose is not a UUID or an instruction to invent a region. |
+| Region | NSW example: resolve description `SYDNEY01`. For another region, use the EOI and live lookup, not this NSW screenshot. The lookup checked in Sep 2026 (on the frozen copy of production) uses `SEQ01`; old `SEQ1` prose is not a UUID or an instruction to invent a region. |
 | Generate Contract No | Omit `contractNumber` on new-job creation; never calculate, allocate or type a number from a neighbouring job. The schema permits omission but does not document generation behaviour. Read back the created job and require a non-empty generated number. If absent, retain the created job ID and have a person use OSC's Generate Contract No on that job; do not create again. |
-| Initial Template | Match `Pre Sales Investor v1`; the verified dev lookup calls it `1.1 - Pre Sales Investor v1`. Accept that exact numbered label, not any template containing “Pre Sales”. If absent or ambiguous, stop before creating a client/job. |
+| Initial Template | Match `Pre Sales Investor v1`; the lookup verified in Sep 2026 calls it `1.1 - Pre Sales Investor v1` (re-check it live; the gate refuses a template ID OSC does not list). Accept that exact numbered label, not any template containing “Pre Sales”. If absent or ambiguous, stop before creating a client/job. |
 | Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. Populate sourced values only; empty objects are permitted by the schema where they contain no required fields. Never copy a residential address into a work address without evidence. Read nested required fields before submitting. |
 | Create Job | `POST /api/Jobs`: `clientID`, `regionID`, `siteAddress`, `workflowTemplateID`; optional `startDate` only if sourced. No `contractValueIncludingGst` or `contractValueExcludingGst`. |
 
 Describe both POST endpoints before use. Present the sourced client and job
-payloads for review; make each approved call through `osc_write`. Check success,
+payloads for review; make each one through `osc_prepare_write` and, on the
+person's plain yes, `osc_confirm_write`. A new client, person or job has no
+`job_id` yet; every later change passes the job's. Check success,
 persist the returned ID immediately, then GET the collection filtered by that
 ID to verify it. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
 GET route: read jobs via `/api/Jobs` and `$filter: "jobID eq <uuid>"` with the GET
@@ -140,7 +168,7 @@ sourced diff. Blank/missing EOI values mean “leave existing value alone”, no
 
 All labels below were verified against `/api/Jobs/CustomFieldSchemas`. Resolve
 IDs anew for the selected environment; never commit or reuse another
-environment's IDs. They are `Text` in the checked dev environment. A missing,
+environment's IDs. They were `Text` when checked in Sep 2026. A missing,
 duplicate or changed-type label is a field-level blocker, not permission to
 invent a key. Use each source value exactly after the applicable `JD-*`
 formatting. Dropdown-looking controls are not licence to invent an enum.
@@ -160,16 +188,18 @@ status fields merely because they are visible in the screenshot. In particular,
 the example “contract sent” note is not an intake default.
 
 Custom values use `customFieldValues: [{"customFieldID": "<resolved UUID>",
-"value": "<sourced text>"}]`. The generic OpenAPI `value` object is not a useful
-type definition; use the runtime field's `valueType`. Compare the current job's
-custom values and preserve unrelated fields when assembling the update. Do not
-send response metadata back. Verify changed labels and retained values after
-PATCH; unknown collection replacement semantics require preserving the complete
-existing value set or deferring the update, not risking data loss.
+"value": "<sourced text>"}]`, listing only the fields that change. The generic
+OpenAPI `value` object is not a useful type definition; use the runtime
+field's `valueType`. The gate merges them into the job's current set and sends
+the whole set, so no unrelated custom field is dropped whether OSC merges or
+replaces the list, and it refuses a custom-field ID OSC does not list. Do not
+send response metadata back.
 
-After each approved mutation, GET the job/custom fields and compare actual
-values. This is the API equivalent of the manual's **Save and Refresh**. An HTTP
-success without a matching read-back is unverified, not complete.
+`osc_confirm_write` reads the record back after each change and compares it
+with what the person confirmed: the API equivalent of the manual's **Save and
+Refresh**. It reports `state: verified` only when every confirmed field took
+and nothing else on the record changed; anything else is unverified, not
+complete.
 
 ## 5. Activities and request email (Word items 7–8)
 
@@ -208,13 +238,13 @@ it under the job. Use the two message endpoints, preserving uppercase subject
 - `POST /api/JobActivities/{JobActivityID}/Messages` for task 11
 
 These endpoints accept **multipart/form-data**, not a JSON filename, base64
-string or email-sending operation. Describe the endpoint first. The new
-`osc_write` arguments are:
+string or email-sending operation. The `osc_prepare_write` arguments are:
 
 ```json
 {
   "method": "POST",
   "path": "/api/JobActivities/<verified-task-11-UUID>/Messages",
+  "job_id": "<the job's UUID>",
   "form": {
     "Subject": "NEW JOB",
     "Body": "Contract request email attached.",
@@ -222,8 +252,7 @@ string or email-sending operation. Describe the endpoint first. The new
   },
   "files": {
     "Documents[0].file": "<absolute server-local path to reviewed request .msg or .eml>"
-  },
-  "confirm": false
+  }
 }
 ```
 
@@ -231,12 +260,12 @@ The file must exist on the machine running the MCP server **and sit under one
 of its upload roots** (`OSC_UPLOAD_ROOTS`; default the checkout's git-ignored
 `runtime\` folder) - copy the reviewed `.msg`/`.eml` into the job's runtime
 workdir first; a path anywhere else is refused. A Mac path is not a Windows
-server path. The preview runs the send's own checks and returns them under
-`checks` (route is multipart, file found under a root, size in bytes) without
-opening the file; a preview with `ok=false` names the problem to fix. Execute
-with `confirm=true` only after approval and only when writes are enabled. The
-MCP reads the file after the gates and streams its actual bytes with a multipart
-boundary. Never use Alerts, WorkReleases or EmailWorkReleases as an attachment
+server path. The preview checks the file (under a root, size in bytes) without
+opening it and lists it in the confirmation by name and size, with a warning
+when the job or activity already has a message of the same subject; a preview
+with `ok=false` names the problem to fix. It is sent only through
+`osc_confirm_write` on the person's plain yes. The MCP reads the file after
+the gates and streams its actual bytes with a multipart boundary. Never use Alerts, WorkReleases or EmailWorkReleases as an attachment
 shortcut, and never send the request email externally.
 
 Review the request email for excluded bank details before upload. If present,
@@ -283,20 +312,25 @@ mobile/email and primary selection; report manual notes separately.
 ## 7. Checkpoint, recovery and handoff
 
 Keep `osc-state.json` beside the existing job JSON in the approved server-only
-runtime workdir. Record the chosen MCP environment alias (not hosts/secrets),
+runtime workdir. Record the environment (`production`, never hosts/secrets),
 source email digest, verified `jobID`, `clientID`, `contractNumber`, region and
 template IDs, person/link IDs, message/document IDs, job-folder path, per-field
-source references, manual items, and each operation's approval and read-back
-status. Suggested operation states: `planned`, `approved`, `sent_unverified`,
-`verified`, `failed`, `manual`, `excluded`. Persist a returned ID before the next
-operation. Keep this separate from the fillers' `job.json` format.
+source references, manual items, and each operation's confirmation code, the
+person's reply and the read-back state. Suggested operation states: `planned`,
+`confirmed`, `sent_unverified`, `verified`, `declined`, `failed`, `manual`,
+`excluded`. Persist a returned ID before the next operation. Keep this
+separate from the fillers' `job.json` format. A state file written before
+13 Oct 2026 says `osc-api = DEV`: its "verified" operations exist only in the
+retired dev copy and are **not** in production; treat them as `planned`.
 
 On resume, match the environment, source and current OSC identity before acting.
 A timeout after a write is `sent_unverified`: inspect current records and
 messages before any retry. Never blindly repeat a client/job/person/message
 POST, template append or activity completion. If the result cannot be
 reconciled, stop that operation for a person; do not delete records to roll back.
-An approval applies to the reviewed payload, not a subsequently changed one.
+An approval applies to the reviewed confirmation, not a subsequently changed
+one: the gate enforces this, and a person's "no" or silence is final for that
+change.
 
 If writes are disabled, keep payloads and unresolved items as a draft; do not
 mark them sent/verified. A pre-existing verified job/folder can still proceed
@@ -305,7 +339,7 @@ Diagnose before you report, with the skill's pre-flight table: `enable_writes`
 false while `.mcp.json` says `"true"` is a stale chat (new chat in the repo
 folder fixes it); false with `.mcp.json` silent or `"false"` is a repo change
 for a PR. Say the fix in one sentence. Do not offer a "get it restarted"
-option, do not name a person who has to act, do not edit `.env` or
+option, do not name a person who has to act, do not edit `production.env` or
 `.mcp.json`, and do not ask the person for a job number as a substitute for
 the OSC record — a number they volunteer is used for the folder and the
 documents (skill step 1a), never typed into an OSC create call.

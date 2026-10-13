@@ -1,10 +1,11 @@
 {
   "mcpServers": {
-    "osc-api": {
+    "osc-api-prod": {
       "type": "stdio",
       "command": "Z:/CLAUDE CODE/transpire-claude-code/shared/mcp/osc-api/.venv/Scripts/python.exe",
       "args": ["-m", "osc_mcp.server"],
       "env": {
+        "OSC_ENVIRONMENT": "production",
         "OSC_TIMEOUT": "120",
         "OSC_ENABLE_WRITES": "true"
       }

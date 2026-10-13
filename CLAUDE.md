@@ -125,9 +125,15 @@ skills are scoped to that folder and must not leak into another role.
   with routed destinations per CD-7.7 — unprefixed because that name was
   requested; see the role's `skills/README.md`). The earlier `ca-new-job` EOI
   intake skill was retired 18 Aug 2026 in its favour. Since 11 September 2026,
-  `/new-contract-template` includes OSC intake through the existing `osc-api`
-  MCP, following issue #34's Word fields and steps. OSC writes remain approved
-  per call; this is not an extension of automatic document-save permission.
+  `/new-contract-template` includes OSC intake, following issue #34's Word
+  fields and steps. Since 13 October 2026 (owner approval) it writes to the
+  **production** OnSite Companion through the `osc-api-prod` MCP; the earlier
+  `osc-api` connection reached only a dev copy frozen on 21 Aug 2026 and is
+  retired. Every OSC change is prepared, shown to the person in plain words with
+  the values it overwrites, and sent only on their plain yes, then read back
+  (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes are possible,
+  each tied to the named job. This is not an extension of automatic
+  document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
   activity 6 is completed only once that person confirms the entry. Multipart
   uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).

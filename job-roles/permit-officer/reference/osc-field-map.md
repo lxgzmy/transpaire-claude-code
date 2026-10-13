@@ -1,10 +1,13 @@
 # OSC field map — weekly BA report
 
 How each part of the weekly BA report is read from OnSite Companion through
-the read-only `osc-api` MCP. Mapped live against the dev instance on
-**4 Sep 2026** (spec v7.3) using one NSW job in the report and cross-checked
-against that week's report row; the dev instance serves live client data, so
-no row content appears here. Query patterns follow the `osc-api` skill's
+the `osc-api-prod` MCP (production since 13 Oct 2026; this role only reads).
+Mapped on **4 Sep 2026** (spec v7.3) against what was then the `osc-api`
+connection, a dev copy of production frozen on 21 Aug 2026, using one NSW job
+in the report and cross-checked against that week's report row. The field
+names hold; re-check the values against production before relying on them.
+OSC data is live client data, so no row content appears here. Query patterns
+follow the `osc-api` skill's
 golden rules (always `$top`, body-filter GETs need `odata_filter={}`,
 resolve contract number → `jobID` GUID first).
 

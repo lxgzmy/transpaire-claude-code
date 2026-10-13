@@ -90,7 +90,8 @@ job.json ───────┴─> draft_contract.py [--prelim] --job-dir "<j
 - **OSC job entry by script** — the `/ca-new-job` intake and its `osc_entry.py`
   skeleton were removed 18 Aug 2026. Since 11 Sep 2026 the skill does the OSC
   intake (client, job, details, activities, request email, contacts) through
-  the `osc-api` MCP tools, each write approved by a person, not through a
+  the `osc-api-prod` MCP tools (production OnSite Companion since 13 Oct
+  2026), each change confirmed by a person before it is sent, not through a
   script here; the procedure is
   `.claude/skills/new-contract-template/references/osc-new-contract.md`.
   DataBuild stays manual.

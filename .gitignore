@@ -149,6 +149,8 @@ activemq-data/
 
 # Environments
 .env
+# OSC MCP settings (production.env holds the production host and credentials)
+*.env
 .envrc
 .venv
 env/

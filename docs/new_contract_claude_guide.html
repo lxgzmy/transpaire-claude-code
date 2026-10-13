@@ -202,7 +202,7 @@
      something it made up. It saves the finished documents into the job folder and
      hands you a review sheet. Every OnSite Companion change waits for your Yes, and
      nothing is ever sent, signed or issued without you.</p>
-  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 11 September 2026</span>
+  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 13 October 2026</span>
 </div>
 
 <p class="custom"><b>It uses the real template, every time.</b> Claude opens the same
@@ -307,7 +307,9 @@
 
 <div class="card" style="--c:var(--navy)">
   <div class="hd"><span class="num">2</span><h3>It sets the job up in OnSite Companion</h3></div>
-  <p class="when">New from 11 September 2026. Each change is shown to you first and waits for your Yes.</p>
+  <p class="when">Since 13 October 2026 these changes go into the OnSite Companion you
+     use every day. Before that date they went to a test copy you could not see, so
+     anything Claude said it had entered in OSC before 13 October is not there.</p>
   <div class="say">
     <span class="lbl">What it does in OSC</span>
     <ul>
@@ -322,9 +324,29 @@
           primary, and adds the sales and marketer contacts</li>
     </ul>
   </div>
-  <p class="back"><b>You get back:</b> each OSC change before it is sent and a
-     read-back after it, plus the job&rsquo;s contract number, which becomes the job
-     number for the folder and the documents.</p>
+  <div class="say">
+    <span class="lbl">Before each change, Claude shows you a check like this</span>
+    <p style="font-family:Consolas,monospace;font-size:.9em;margin:.4em 0">
+      Job: 26999 - LOT 12 SAMPLE STREET, TESTVILLE NSW 2000<br>
+      Change: job details<br>
+      - Site address, suburb: now &ldquo;TESTVILLE&rdquo;, will be &ldquo;BOX HILL&rdquo;<br>
+      Nothing else on this job changes.<br>
+      Reply &ldquo;yes&rdquo; to make this change, or &ldquo;no&rdquo; to leave OnSite Companion as it is.</p>
+    <ul>
+      <li>Check the job number and address first. If it is the wrong job, say no.</li>
+      <li>&ldquo;now&rdquo; is what OSC holds today; &ldquo;will be&rdquo; is what it changes to.
+          &ldquo;will be cleared&rdquo; means the value is removed.</li>
+      <li>Reply <b>yes</b> to make the change, or <b>no</b> to leave OSC alone. If you
+          want something different, say what; Claude shows you a new check, and
+          nothing changes until you say yes to that one.</li>
+      <li>Then click <b>Allow</b> on the approval box. It shows the same
+          confirmation code as the check.</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> after each yes, Claude reads the record back
+     from OSC and tells you it is done, or exactly what did not take. You also get the
+     job&rsquo;s contract number, which becomes the job number for the folder and the
+     documents.</p>
   <p class="tip"><b>DataBuild is still yours.</b> Claude never opens it, and never puts
      the contract price into OSC (the price lives in DataBuild only). Enter the job in
      DataBuild as you do now, then tell Claude &ldquo;DataBuild done&rdquo; and it
@@ -468,7 +490,8 @@
     <li><b>Never</b> sign, initial or date anything, and never send an email or
         issue anything to DocuSign.</li>
     <li><b>Never</b> change OnSite Companion without showing you the change first
-        and getting your Yes, and never open DataBuild.</li>
+        and getting your yes, and never change anything outside the new-job set-up
+        (no deleting, no emails from OSC, no contract price). Never open DataBuild.</li>
     <li><b>Never</b> overwrite a file that is already in a job folder. A document
         the job already has is re-run into the testing folder for you to check and
         move across; only documents the job does not have yet are saved straight in.</li>
@@ -548,12 +571,20 @@
               the switch reached it (or opened outside the
               <code>transpire-claude-code</code> folder) still sees it off. Close the
               chat, start a new one in that folder and run again &mdash; that is the
-              whole fix; nobody has to restart a server or a computer. Writes have
-              been on since 24 September 2026. If a brand-new chat still says off,
+              whole fix; nobody has to restart a server or a computer. If a brand-new
+              chat still says off,
               tell the team: the switch lives in the project&rsquo;s settings file
               and is changed through a reviewed change, not from a chat. Meanwhile
               Claude keeps the OSC changes as a draft and still produces the
               documents.</td></tr>
+      <tr><td>It shows the check again and asks once more</td>
+          <td>Someone changed that record in OSC after you said yes, or the change
+              itself is different now. Nothing was sent. Read the new check and
+              answer it.</td></tr>
+      <tr><td>It says OSC looks like an out-of-date copy</td>
+          <td>Claude will not write to an OSC whose newest job is over a month old,
+              because that means it is not connected to the system you use. Nothing
+              was changed. Tell the team.</td></tr>
       <tr><td>It found a job at the same lot in OSC</td>
           <td>It stops on purpose. Tell it whether that is the same job (it then
               continues with it) or a different one.</td></tr>
