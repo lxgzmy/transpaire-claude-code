@@ -110,9 +110,46 @@ def check_build_envelope():
     print("  build_envelope: ok")
 
 
+def check_cli_files():
+    with tempfile.TemporaryDirectory() as tmp:
+        wd = Path(tmp)
+        (wd / "job.json").write_text(json.dumps(TWO), encoding="utf-8")
+        (wd / "routes.txt").write_text("INCLUSIONS\tTEST\tZ:\\t\nBUILD CONTRACT\tPRODUCTION\tZ:\\p\n",
+                                       encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW", "--server", "docusign-demo"])
+        assert rc == 0, rc
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert env["call"] is True and env["templateName"] == "NSW Build _ 2 Buyers"
+        txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        assert "CALL: yes" in txt and "Buyer 1: owner_1 + owner_email" in txt and "Signer 1" in txt
+        # TEST route -> files written, no call
+        (wd / "routes.txt").write_text("BUILD CONTRACT\tTEST\tZ:\\t\n", encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "QLD"])
+        assert rc == 0
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert env["call"] is False and env["server"] == "docusign-demo"
+        assert "CALL: no" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        # no routes.txt -> stop
+        (wd / "routes.txt").unlink()
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "QLD"])
+        assert rc == 2
+        assert "routes.txt" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        # region from a job dir path
+        assert dp.state_for(r"Z:\PROJECTS\SEQ\26098 LOT 4\CONTRACT\CONTRACT DOCUMENTATION", None) == "QLD"
+        assert dp.state_for(r"Z:\PROJECTS\SYDNEY\26099\CONTRACT\CONTRACT DOCUMENTATION", None) == "NSW"
+        try:
+            dp.state_for(r"Z:\PROJECTS\NOWHERE\x", None)
+        except dp.PayloadStop:
+            pass
+        else:
+            raise AssertionError("unknown region did not stop")
+    print("  cli + files: ok")
+
+
 if __name__ == "__main__":
     check_template_pick()
     check_recipients()
     check_subject_and_message()
     check_build_envelope()
+    check_cli_files()
     print("docusign_payload self-test: all ok")

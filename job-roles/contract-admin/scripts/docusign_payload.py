@@ -176,3 +176,88 @@ def build_envelope(state, values, server):
         "flags": flags,
         "staffBeforeSending": staff_list(template, flags),
     }
+
+
+def state_for(job_dir, region):
+    """'NSW' or 'QLD' from --region, else from the job folder's region segment."""
+    if region:
+        return region.upper()
+    parts = [p.upper() for p in str(job_dir or "").replace("\\", "/").split("/") if p]
+    if "PROJECTS" in parts:
+        idx = parts.index("PROJECTS")
+        if idx + 1 < len(parts) and parts[idx + 1] in hia_probe.REGION_TO_FOLDER:
+            return hia_probe.REGION_TO_FOLDER[parts[idx + 1]][0]
+    raise PayloadStop(f"region not recognised from {job_dir!r} - pass --region NSW|QLD")
+
+
+def read_build_contract_route(workdir):
+    path = Path(workdir) / "routes.txt"
+    if not path.is_file():
+        raise PayloadStop("routes.txt not in the workdir - run draft_contract.py --job-dir first "
+                          "(the route decides whether a draft is created)")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        kind, _, rest = line.partition("\t")
+        if kind == "BUILD CONTRACT":
+            return rest.split("\t")[0]
+    raise PayloadStop("routes.txt has no BUILD CONTRACT line - no build contract was routed, "
+                      "so there is nothing to put in DocuSign")
+
+
+def write_payload(workdir, env, call, stop=None):
+    workdir = Path(workdir)
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if stop:
+        txt = f"DOCUSIGN DRAFT - STOPPED ({stamp})\nCALL: no\nREASON: {stop}\n"
+        (workdir / "docusign_payload.txt").write_text(txt, encoding="utf-8")
+        return None, workdir / "docusign_payload.txt"
+    env = dict(env, call=call, generated=stamp)
+    jpath = workdir / "docusign_envelope.json"
+    jpath.write_text(json.dumps(env, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    d = env["envelopeDefinition"]
+    lines = [f"DOCUSIGN DRAFT PAYLOAD ({stamp})",
+             f"CALL: {'yes' if call else 'no'}"
+             + ("" if call else "  (build contract routed TEST - payload for inspection only)"),
+             f"server        : {env['server']}",
+             f"template      : {env['templateName']}  (resolve id by exact trimmed name)",
+             f"status        : {d['status']}",
+             f"subject       : {d['emailSubject']}",
+             "message       :", *("    " + l for l in d["emailBlurb"].splitlines()),
+             "recipients set:", *(f"    {s}" for s in env["sources"]),
+             "template defaults left as they are: " + ", ".join(env["defaultRoles"]),
+             f"custom field  : JobNo={d['customFields']['textCustomFields'][0]['value']}"]
+    if env["flags"]:
+        lines += ["flags:", *(f"    {f}" for f in env["flags"])]
+    lines += ["staff before sending:", *(f"    - {s}" for s in env["staffBeforeSending"])]
+    tpath = workdir / "docusign_payload.txt"
+    tpath.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return jpath, tpath
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--job", required=True, help="job JSON (its folder is the workdir)")
+    ap.add_argument("--job-dir", help="the job's CONTRACT DOCUMENTATION folder (region comes from it)")
+    ap.add_argument("--region", help="NSW or QLD, when --job-dir is not given")
+    ap.add_argument("--server", default="docusign-demo",
+                    help="MCP server name the draft will be created on (docusign-demo = sandbox)")
+    args = ap.parse_args(argv)
+    job = Path(args.job)
+    workdir = job.parent
+    try:
+        values = json.loads(job.read_text(encoding="utf-8"))
+        route = read_build_contract_route(workdir)
+        state = state_for(args.job_dir, args.region)
+        env = build_envelope(state, values, args.server)
+    except PayloadStop as e:
+        write_payload(workdir, None, False, stop=str(e))
+        print(f"DOCUSIGN DRAFT STOPPED: {e}", file=sys.stderr)
+        return 2
+    call = route == "PRODUCTION"
+    jpath, tpath = write_payload(workdir, env, call)
+    print(tpath.read_text(encoding="utf-8"))
+    print(f"written: {jpath.name}, {tpath.name}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
