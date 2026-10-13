@@ -1,8 +1,10 @@
 """Synthetic fixtures for the docusign-upload tests. No real data, no network, no credentials."""
 from __future__ import annotations
 
+import json
 import os
 
+import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pypdf import PdfWriter
@@ -129,3 +131,73 @@ def readback_for(body: dict, template_tabs: dict) -> dict:
     return {"documents": {"envelopeDocuments": documents},
             "recipients": {"signers": list(roles.values()), "recipientCount": str(len(roles))},
             "custom_fields": custom}
+
+
+class FakeDocuSign:
+    """httpx.MockTransport handler standing in for DocuSign: auth, templates, envelopes.
+    Anything it does not know answers 404 NOT_IN_FAKE, so a stray call shows up in a test."""
+
+    ENVELOPE_ID = "env-synthetic"
+
+    def __init__(self, template: dict | None = None, template_tabs: dict | None = None):
+        self.template = template or qld_single_template()
+        self.template_tabs = template_tabs or qld_single_template_tabs()
+        self.existing: list[dict] = []
+        self.token_error: str | None = None
+        self.create_error: tuple[int, dict | str] | None = None
+        self.create_transport_error = False
+        self.requests: list[httpx.Request] = []
+        self.created: dict | None = None
+        self.readback: dict | None = None
+
+    def transport(self) -> httpx.MockTransport:
+        return httpx.MockTransport(self.handle)
+
+    def calls(self) -> list[tuple[str, str]]:
+        return [(r.method, r.url.path) for r in self.requests]
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        method, path, host = request.method, request.url.path, request.url.host
+        if host == "account-d.docusign.com":
+            if (method, path) == ("POST", "/oauth/token"):
+                if self.token_error:
+                    return httpx.Response(400, json={"error": self.token_error})
+                return httpx.Response(200, json={"access_token": "synthetic-token",
+                                                 "token_type": "Bearer", "expires_in": 3600})
+            if (method, path) == ("GET", "/oauth/userinfo"):
+                return httpx.Response(200, json={"name": "Synthetic User", "accounts": [
+                    {"account_id": ACCOUNT, "account_name": "synthetic", "base_uri": BASE,
+                     "is_default": True}]})
+        if host == "demo.invalid":
+            api = f"/restapi/v2.1/accounts/{ACCOUNT}"
+            env = f"{api}/envelopes/{self.ENVELOPE_ID}"
+            if (method, path) == ("GET", f"{api}/templates"):
+                return httpx.Response(200, json={"envelopeTemplates": [self.template]})
+            if (method, path) == ("GET", f"{api}/templates/{self.template['templateId']}/recipients"):
+                return httpx.Response(200, json=self.template_tabs)
+            if (method, path) == ("GET", f"{api}/envelopes"):
+                return httpx.Response(200, json={"envelopes": self.existing})
+            if (method, path) == ("POST", f"{api}/envelopes"):
+                if self.create_transport_error:
+                    raise httpx.ConnectError("synthetic transport failure", request=request)
+                if self.create_error:
+                    status, payload = self.create_error
+                    if isinstance(payload, dict):
+                        return httpx.Response(status, json=payload)
+                    return httpx.Response(status, text=payload)
+                self.created = json.loads(request.content)
+                self.readback = readback_for(self.created, self.template_tabs)
+                return httpx.Response(201, json={"envelopeId": self.ENVELOPE_ID, "status": "created",
+                                                 "uri": f"/envelopes/{self.ENVELOPE_ID}"})
+            if method == "GET" and self.readback is not None:
+                if path == env:
+                    return httpx.Response(200, json={"envelopeId": self.ENVELOPE_ID, "status": "created",
+                                                     "emailSubject": self.created["emailSubject"]})
+                if path == f"{env}/documents":
+                    return httpx.Response(200, json=self.readback["documents"])
+                if path == f"{env}/recipients":
+                    return httpx.Response(200, json=self.readback["recipients"])
+                if path == f"{env}/custom_fields":
+                    return httpx.Response(200, json=self.readback["custom_fields"])
+        return httpx.Response(404, json={"errorCode": "NOT_IN_FAKE", "message": f"{method} {path}"})
