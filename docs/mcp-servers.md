@@ -131,12 +131,11 @@ signature, or legal / financial change") is enforced in
 "ask": ["mcp__docusign-demo"]
 ```
 
-Every DocuSign tool call therefore prompts for approval, including read-only ones.
-That is the intended starting posture. Once the tool list has been enumerated after
-first sign-in, the genuinely read-only tools (envelope status, template list) can be
-moved to `allow` and the sending and voiding tools left on `ask`. Do not widen this
-before that list is confirmed — the tool names are not documented publicly and are
-not guessed here.
+Every DocuSign write prompts for approval. Since 13 Oct 2026 four read-only
+tools are on `allow` so the contract workflow's draft step prompts once, on
+the create call: `getUserInfo`, `getTemplates`, `getEnvelopes`,
+`getEnvelopeVsAgreementSkill`. Everything else on the server, `createEnvelope`
+included, stays on `ask`. Do not widen this further without the same review.
 
 On top of the prompt, the role rules still apply: Claude drafts the envelope, the
 recipients, and the document set as an **evidence bundle** for review. A person
@@ -148,7 +147,8 @@ Roles do not configure anything. The server is present in every session, so a ro
 workflow just references it.
 
 - **Contract Administration** — signature requests for variation authorities and
-  contract correspondence. See
+  contract correspondence and, since 13 Oct 2026, the draft envelope step 8 of
+  /new-contract-template (status created, never sent; CD-10). See
   [`job-roles/contract-admin/CLAUDE.md`](../job-roles/contract-admin/CLAUDE.md).
   DocuSign is listed there as a role system; the connection details stay here so
   the next role inherits them rather than re-documenting them.

@@ -114,6 +114,14 @@ folder for a document it already holds — with the full report following the
 save. Issuing, sending, signing, OSC/DataBuild
 writes, and promoting test output into a job folder stay human.
 
+**DocuSign draft (13 Oct 2026):** after a build contract saves into the job
+folder, `/new-contract-template` creates a DocuSign envelope with
+`status: created` — a draft, never sent — through the gated `createEnvelope`
+call; the approval prompt on that call is the person's yes, per call. This is
+a gated external write, not an extension of the automatic save. Replacing the
+template's placeholder PDFs, fixing witness/date roles and sending stay human
+(CD-10).
+
 **Where the contract documents go (four rules, 8 Sep 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's

@@ -81,6 +81,7 @@ retrying; disabled writes produce a draft, never a success claim.
 | 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, **Sydney inclusions content edit + Word layout pass + quality gate** (CD-9, 10 Sep 2026 — section 18 area, notes, `UPGRADED INCLUSIONS` items, black throughout; both columns re-levelled; a gate FAIL blocks the save), blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (standard $30,000 fee unless the request names another, CD-4.3); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
 | 6 | Draft the build contract **data sheet** (the person-keyed values: price split and Part B as `FROM DATABUILD` placeholders — never computed — guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
 | 7 | Report destination + mode, field table, flags, and — Sydney — the `edit_inclusions.txt` items table (request → row → wording → confidence) and the gate verdict; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill/edit/gate reports, layout plan + align report, diffs, timings) | Claude | CD-9.10 |
+| 8 | **DocuSign draft** — only when the build contract routed PRODUCTION: `docusign_payload.py` builds the envelope (template by region × buyer type, buyers from the job, subject/message, `JobNo` custom field), Claude resolves the template by name, checks for an existing `JobNo` envelope, and calls `createEnvelope` with `status: created`; the approval prompt is the gate. Draft holds placeholder PDFs until staff replace them in DocuSign | Claude (via `docusign-demo` MCP) | CD-10 |
 
 ## Phase 2 — Issue and execute (human)
 
@@ -109,7 +110,7 @@ permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
 and bounded by CD-7.6/7.7's per-document routing (8 Sep 2026): a document the
 job already holds refreshes only to the test folder, a document it does not
 hold yet saves into the job folder, and production saves never overwrite. What stays with a person, permanently: every
-outward-facing act — email, signature, DocuSign — plus approval of each OSC
+outward-facing act — email, signature, sending a DocuSign envelope (the run creates only a draft, behind the approval prompt on the create call, CD-10) — plus approval of each OSC
 write through the integrated MCP procedure, resolving
 flagged fields, aux inclusions wording, and promoting test/amendment output
 into a job folder.
@@ -146,6 +147,7 @@ the job already exists in production.
 - Build contract data sheet (CD-5)
 - Pack checklist: general conditions, concept plan, consumer guide, colour options
 - Fill report + blank-vs-filled diff as the evidence bundle
+- DocuSign draft envelope (sandbox while `docusign-demo` is the server), with `docusign_envelope.json` / `docusign_payload.txt` / `docusign_result.json` in the evidence bundle (CD-10)
 
 ## Where this sits in the full chain
 
@@ -165,7 +167,9 @@ remain governed by `JD-9`; DataBuild does not block this intake chain.
 - [`../scripts/fill_inclusions.py`](../scripts/fill_inclusions.py) — inclusions filler (`regress_inclusions.py` guards it)
 - [`../scripts/fill_prelim.py`](../scripts/fill_prelim.py) — preliminary agreement filler (`regress_prelim.py` guards it)
 - [`../scripts/msg_extract.py`](../scripts/msg_extract.py) — `.msg` → text + attachments, stdlib only (`msg_to_text.py` is the superseded fallback)
+- [`../scripts/docusign_payload.py`](../scripts/docusign_payload.py) — envelope payload (`test_docusign_payload.py` guards it)
 - `new-contract-template` skill — orchestrates this workflow
 - [OSC execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md) — Word field map and approved MCP operations
+- [DocuSign draft reference](../../../.claude/skills/new-contract-template/references/docusign-draft.md) — the MCP procedure
 - `z-drive-ops` skill — locating the job folder and the template
 - `transpire-writing` skill — any drafted email

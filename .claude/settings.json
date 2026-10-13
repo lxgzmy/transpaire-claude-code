@@ -11,7 +11,11 @@
       "mcp__osc-api__osc_token_info",
       "mcp__osc-api__osc_list_endpoints",
       "mcp__osc-api__osc_describe_endpoint",
-      "mcp__osc-api__osc_get"
+      "mcp__osc-api__osc_get",
+      "mcp__docusign-demo__getUserInfo",
+      "mcp__docusign-demo__getTemplates",
+      "mcp__docusign-demo__getEnvelopes",
+      "mcp__docusign-demo__getEnvelopeVsAgreementSkill"
     ],
     "ask": [
       "mcp__docusign-demo",
