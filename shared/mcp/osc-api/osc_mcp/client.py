@@ -35,6 +35,9 @@ class OSCClient:
         self._client = httpx.AsyncClient(
             verify=config.verify_tls,
             timeout=config.timeout,
+            # The production API answers HTTP 400 to any request, the token
+            # call included, that does not name the API version it expects.
+            headers={"api-version": config.api_version},
         )
         self._access_token: str | None = None
         self._token_expiry: float = 0.0  # monotonic seconds

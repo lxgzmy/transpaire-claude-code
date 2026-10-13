@@ -39,8 +39,9 @@ class GateTestCase(unittest.IsolatedAsyncioTestCase):
         self.folder = tempfile.TemporaryDirectory()
         self.config = replace(CONFIG, upload_roots=(self.folder.name,))
         self.client = OSCClient(self.config)
+        self.headers = dict(self.client._client.headers)  # carries api-version, as production requires
         await self.client._client.aclose()
-        self.client._client = httpx.AsyncClient(transport=transport(self.fake))
+        self.client._client = httpx.AsyncClient(transport=transport(self.fake), headers=self.headers)
         self.client._access_token = "synthetic"
         self.client._token_expiry = time.monotonic() + 3600
         self.patches = [patch.object(server, "_client", self.client), patch.object(server, "_config", self.config),
@@ -389,7 +390,7 @@ class SendFailureTests(GateTestCase):
             return stream
 
         await self.client._client.aclose()
-        self.client._client = httpx.AsyncClient(transport=httpx.MockTransport(drop_writes))
+        self.client._client = httpx.AsyncClient(transport=httpx.MockTransport(drop_writes), headers=self.headers)
         with patch.object(Path, "open", capture):
             result = await server.osc_confirm_write(code, "yes")
         self.assertEqual(result["state"], "sent_unverified")
@@ -421,6 +422,23 @@ class StaleCopyTests(GateTestCase):
         self.assertEqual(self.fake.writes, [])
 
 
+class ApiVersionTests(GateTestCase):
+    async def test_a_call_without_the_api_version_header_is_refused(self):
+        bare = httpx.AsyncClient(transport=transport(self.fake))
+        try:
+            r = await bare.get("https://osc.invalid/api/Jobs")
+        finally:
+            await bare.aclose()
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("api-version", r.text)
+
+    async def test_the_client_sends_it_on_every_call(self):
+        info = await server.osc_token_info()
+        self.assertTrue(info["ok"], info)
+        self.assertEqual(info["config"]["api_version"], "7.3")
+        self.assertTrue(info["live_check"]["live"])
+
+
 class ReplyAndConfigTests(unittest.TestCase):
     def test_reply_kinds(self):
         for text in ("yes", "Yes.", "YES!", "yes please", "ok", "Yes, go ahead", "是", "确认", "yes ABC123"):
@@ -438,6 +456,8 @@ class ReplyAndConfigTests(unittest.TestCase):
             with patch.dict(os.environ, {"OSC_ENV_FILE": str(env)}, clear=True):
                 cfg = load_config()
             self.assertEqual(cfg.environment, "production")
+            self.assertEqual(cfg.api_version, "7.3")
+            self.assertEqual(OSCClient(cfg)._client.headers["api-version"], "7.3")
             self.assertTrue(cfg.verify_tls, "TLS is verified unless the env file says otherwise")
             self.assertFalse(cfg.enable_writes)
             self.assertNotIn("prod.invalid", str(cfg.redacted()), "no host name in what the tool shows")
