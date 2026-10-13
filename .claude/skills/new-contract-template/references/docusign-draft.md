@@ -19,7 +19,8 @@ Call that server's tools and no other. The sandbox server reads documents only
 from `runtime\docusign-sandbox\`, so a real job's PDFs never reach it, and a
 synthetic job never goes to production. `docusign-upload-prod` is registered
 at production Go-Live (`docs/mcp-servers.md`); until then a real run ends at
-stop 1 with no draft, and the report says so.
+stop 1 with no draft, and the report says so. What happens beyond that stop is
+an open decision (CD-10.8).
 
 **The approval prompt on `docusign_create_draft` is the human yes.** Do not ask
 a second time in chat; do not proceed past a decline. `docusign_token_info`
@@ -108,10 +109,10 @@ Report lines (added to the step 7 table):
   per read-back finding.
 
 When no draft was created (a stop, a decline, or `CALL: no`), say
-"No DocuSign draft was created" with the reason, and that the payload in the
-workdir holds the template, buyers, subject, message and documents for staff
-to create the envelope by hand in DocuSign. Nothing else is tried: no other
-server, no hosted `docusign-demo` call, no retry.
+"No DocuSign draft was created" with the reason and finish, as for any stop.
+What the step does beyond that (a hand-made envelope from the payload, or
+another route) is the owner's open decision, CD-10.8: build nothing for it
+until the owner decides.
 
 ## Stops
 
@@ -139,7 +140,8 @@ Every stop is listed once here. Report the reason in the step 7 table, write
 ## Never
 
 Any `docusign-demo` write in this step (`createEnvelope` put the template's
-placeholder PDFs in the draft and is no longer part of it);
+placeholder PDFs in the draft and is no longer part of it; whether it comes
+back as a fallback is the open CD-10.8 decision);
 `createEnvelopeFromTemplate` (it sends and cannot be held at draft); a real
 job's documents on the sandbox server, or a synthetic job's on production;
 changing `draftArgs` between the preview and the create; a document that is

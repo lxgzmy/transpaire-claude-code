@@ -96,9 +96,9 @@ skills are scoped to that folder and must not leak into another role.
   prompt is the human approval, per call; its read-only `docusign_token_info`
   and `docusign_draft_preview` are on `allow`. Sending stays human. A real job
   goes only to `docusign-upload-prod`, registered at production Go-Live; until
-  then step 8 creates no draft and reports the payload. The sandbox
-  `docusign-upload` takes synthetic jobs only. Step 8 no longer calls the
-  hosted `docusign-demo` server and never falls back to it: every write tool
+  then step 8 creates no draft and reports why (any fallback is an open owner
+  decision, CD-10.8). The sandbox `docusign-upload` takes synthetic jobs only.
+  Step 8 no longer calls the hosted `docusign-demo` server: every write tool
   there stays under `ask` per tool, `createEnvelopeFromTemplate` (it sends and
   cannot be held at draft) under `deny`, and its read-only calls
   (`getUserInfo`, `getTemplates`, `getEnvelopes`,

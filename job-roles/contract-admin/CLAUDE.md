@@ -124,9 +124,9 @@ through the gated `docusign_create_draft` call on the `docusign-upload`
 server. The approval prompt on that call is the person's yes, per call. This
 is a gated external write, not an extension of the automatic save. Until
 `docusign-upload-prod` is connected at production Go-Live, a real run creates
-no draft and reports the payload; it never falls back to the hosted
-`docusign-demo` placeholder draft. Tagging any document the report flags,
-fixing witness/date roles and sending stay human (CD-10).
+no draft and reports why; any fallback is an open owner decision (CD-10.8).
+Tagging any document the report flags, fixing witness/date roles and sending
+stay human (CD-10).
 
 **Where the contract documents go (four rules, 8 Sep 2026)**
 

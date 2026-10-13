@@ -168,8 +168,9 @@ workflow just references it.
 
 - **Contract Administration** — signature requests for variation authorities and
   contract correspondence. The draft envelope in step 8 of
-  /new-contract-template goes through `docusign-upload` instead (below; CD-10),
-  and never falls back to this server. See
+  /new-contract-template goes through `docusign-upload` instead (below; CD-10);
+  whether this server returns as a fallback is an open owner decision
+  (CD-10.8). See
   [`job-roles/contract-admin/CLAUDE.md`](../job-roles/contract-admin/CLAUDE.md).
   DocuSign is listed there as a role system; the connection details stay here so
   the next role inherits them rather than re-documenting them.
@@ -221,7 +222,7 @@ as the user who owns the six templates. Design:
   the job folder: a real job's goes only to `docusign-upload-prod`, a
   synthetic job under `runtime\docusign-sandbox` to `docusign-upload`. With
   no production server registered, a real run creates no draft and reports
-  the payload for staff; it never falls back to `docusign-demo`.
+  why; any fallback is an open owner decision (CD-10.8).
 - **Tabs.** The six templates' tabs are fixed to a page and an x/y position,
   not anchored. They carry onto a job document with the template's page
   count; any other document goes in untagged and is flagged for staff.

@@ -547,11 +547,12 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   (`docusign-upload-prod`) or SANDBOX (`docusign-upload`, no legal effect).
   Production needs its own registration and DocuSign's Go-Live review first
   (`docs/mcp-servers.md`).
-- **CD-10.8** No draft (a stop, a decline, or production not connected yet):
-  the report says so with the reason, and staff create the envelope by hand
-  from the payload in the workdir. The step never falls back to another
-  server or tool; the hosted `docusign-demo` path, which carried the
-  template's placeholder PDFs, is not used.
+- **CD-10.8** *Open, owner's decision pending (13 Oct 2026).* What step 8
+  does when no draft can be created: production not connected yet, a stop,
+  or a decline. The step reports the reason and creates nothing, as for any
+  stop. Whether staff then create the envelope by hand from the payload, or
+  the hosted `docusign-demo` placeholder draft returns as a fallback, is not
+  decided; neither is built until it is.
 
 ## CD-8 What only a person does
 
@@ -649,3 +650,12 @@ draft, and sending it (CD-10).
    elimination); the blue package headings go black too ("no exception");
    Bathroom 2 on the ground floor writes "Bathroom 2" into the descriptions
    as 26019 did rather than leaving the note text in the contract. (CD-9)
+9. When step 8 cannot create a DocuSign draft (production upload server not
+   connected yet, a stop, or a decline), should staff create the envelope by
+   hand from the payload, or should the hosted `docusign-demo` placeholder
+   draft come back as a fallback? Proposed: by hand from the payload, since
+   the placeholder draft carries a past job's PDFs and would put real buyers
+   into the sandbox. Nothing is built either way until the owner decides.
+   Also open: whether inclusions whose page count differs from the
+   template's get their tabs re-based (see the tab placement write-up,
+   13 Oct 2026). (CD-10.5, CD-10.8)

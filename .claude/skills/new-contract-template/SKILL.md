@@ -615,11 +615,11 @@ template's page count; any other document goes in untagged and the report
 flags it for staff.
 
 A real job goes only to `docusign-upload-prod` (PRODUCTION), connected at
-production Go-Live. Until then, and on any stop, no draft is created: the
-report says why, and the payload is there for staff to create the envelope by
-hand. Never fall back to the hosted `docusign-demo` server. `docusign-upload`
-(SANDBOX, no legal effect) takes synthetic jobs under `runtime\docusign-sandbox\`
-only. Name the environment in the report every time. Rules: CD-10.
+production Go-Live. Until then, and on any stop, no draft is created and the
+report says why. Any fallback beyond that is an open owner decision (CD-10.8);
+none is built. `docusign-upload` (SANDBOX, no legal effect) takes synthetic
+jobs under `runtime\docusign-sandbox\` only. Name the environment in the
+report every time. Rules: CD-10.
 
 ## Auxiliary and dual-key dwellings
 
