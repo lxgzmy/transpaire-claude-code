@@ -107,3 +107,72 @@ def recipients_for(template, values):
     if not roles:
         raise PayloadStop("no buyer could be mapped")
     return roles, sources
+
+
+MESSAGE_BODY = "Please find the building contract for review and signing."
+MESSAGE_SIGNOFF = "Thank you\nSales Admin"
+
+
+def suburb_caps(values):
+    """Suburb in capitals without the trailing state word (doc_suffix's rule)."""
+    words = _s(values, "suburb").split()
+    if words and words[-1].upper() in dc.STATES:
+        words = words[:-1]
+    return " ".join(words).upper()
+
+
+def subject_for(values):
+    lot, suburb = _s(values, "lot_no"), suburb_caps(values)
+    if not (lot and suburb):
+        raise PayloadStop(f"lot_no/suburb needed for the subject (got lot={lot!r}, suburb={suburb!r})")
+    return f"Complete with DocuSign: BUILD CONTRACT - LOT {lot}, {suburb}"
+
+
+def first_names(values, template):
+    if template["buyer_roles"] == ["Buyer - Company Guarantor"]:
+        return [_s(values, "guarantor_name").split()[0]]
+    names = []
+    for key in OWNER_KEYS[:len(template["buyer_roles"])]:
+        n = _s(values, key)
+        if n:
+            names.append(n.split()[0])
+    return names
+
+
+def message_for(values, template):
+    return f"Dear {' & '.join(first_names(values, template))},\n\n{MESSAGE_BODY}\n\n{MESSAGE_SIGNOFF}"
+
+
+def staff_list(template, flags):
+    items = ["Replace the template's placeholder PDFs with the job's PDFs from the job folder "
+             "(build contract, inclusions, preliminary agreement where one exists, plans)."]
+    if "Buyer Witness" in template["default_roles"]:
+        items.append("The Buyer Witness role holds the template's default person - change or remove it.")
+    items.append("Check every field and signature tab landed on the job's documents, then send.")
+    return items + flags
+
+
+def build_envelope(state, values, server):
+    job_no = _s(values, "job_no")
+    if not job_no:
+        raise PayloadStop("job_no missing - the JobNo custom field is how a draft is found again")
+    template, flags = pick_template(state, values)
+    roles, sources = recipients_for(template, values)
+    definition = {
+        "status": "created",
+        "templateId": "",
+        "emailSubject": subject_for(values),
+        "emailBlurb": message_for(values, template),
+        "templateRoles": roles,
+        "customFields": {"textCustomFields": [
+            {"name": "JobNo", "value": job_no, "show": "false", "required": "false"}]},
+    }
+    return {
+        "server": server,
+        "templateName": template["name"],
+        "envelopeDefinition": definition,
+        "defaultRoles": list(template["default_roles"]),
+        "sources": sources,
+        "flags": flags,
+        "staffBeforeSending": staff_list(template, flags),
+    }

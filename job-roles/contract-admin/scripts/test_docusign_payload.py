@@ -72,7 +72,47 @@ def check_recipients():
     print("  recipients: ok")
 
 
+def check_subject_and_message():
+    assert dp.subject_for(TWO) == "Complete with DocuSign: BUILD CONTRACT - LOT 12, TESTVILLE"
+    assert dp.subject_for(dict(SINGLE, suburb="North Kellyville")) == \
+        "Complete with DocuSign: BUILD CONTRACT - LOT 12, NORTH KELLYVILLE"
+    t, _ = dp.pick_template("NSW", TWO)
+    assert dp.message_for(TWO, t) == ("Dear Alex & Sam,\n\n"
+                                      "Please find the building contract for review and signing.\n\n"
+                                      "Thank you\nSales Admin")
+    t, _ = dp.pick_template("QLD", COMPANY)
+    assert dp.message_for(COMPANY, t).startswith("Dear Casey,\n")
+    print("  subject + message: ok")
+
+
+def check_build_envelope():
+    env = dp.build_envelope("NSW", TWO, "docusign-demo")
+    d = env["envelopeDefinition"]
+    assert d["status"] == "created"
+    assert d["templateId"] == ""
+    assert d["emailSubject"] == dp.subject_for(TWO)
+    assert d["customFields"] == {"textCustomFields": [
+        {"name": "JobNo", "value": "26099", "show": "false", "required": "false"}]}
+    assert [r["roleName"] for r in d["templateRoles"]] == ["Buyer 1", "Buyer 2"]
+    assert env["templateName"] == "NSW Build _ 2 Buyers"
+    assert env["defaultRoles"] == ["Builder", "Builder Witness", "Signer 1"]
+    assert env["server"] == "docusign-demo"
+    assert any("placeholder" in s for s in env["staffBeforeSending"]), env["staffBeforeSending"]
+    assert "remoteUrl" not in json.dumps(d) and '"sent"' not in json.dumps(d)
+    env = dp.build_envelope("NSW", SINGLE, "docusign-demo")
+    assert any("Buyer Witness" in s for s in env["staffBeforeSending"])
+    try:
+        dp.build_envelope("NSW", dict(TWO, job_no=""), "docusign-demo")
+    except dp.PayloadStop as e:
+        assert "job_no" in str(e)
+    else:
+        raise AssertionError("no stop for missing job_no")
+    print("  build_envelope: ok")
+
+
 if __name__ == "__main__":
     check_template_pick()
     check_recipients()
+    check_subject_and_message()
+    check_build_envelope()
     print("docusign_payload self-test: all ok")
