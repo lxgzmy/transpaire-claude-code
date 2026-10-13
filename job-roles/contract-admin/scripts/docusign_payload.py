@@ -54,6 +54,25 @@ TEMPLATES = {
 
 OWNER_KEYS = ("owner_1", "owner_2", "owner_3")
 
+# The kinds the docusign-upload server takes, in envelope order (CD-7.2 names).
+UPLOAD_KINDS = ("BUILD CONTRACT", "INCLUSIONS", "PRELIMINARY AGREEMENT", "PLANS")
+
+
+def documents_for(job_dir, values):
+    """([{kind, path}], [missing kinds]) for the job's PDFs under their CD-7.2 names.
+
+    Only the exact `<KIND>_<suffix>.pdf` counts, so plans saved under any other
+    name stay out and are reported as missing rather than guessed at."""
+    suffix = dc.doc_suffix(values)
+    found, missing = [], []
+    for kind in UPLOAD_KINDS:
+        path = Path(job_dir) / f"{kind}_{suffix}.pdf"
+        if path.is_file():
+            found.append({"kind": kind, "path": str(path)})
+        else:
+            missing.append(kind)
+    return found, missing
+
 
 def _s(values, key):
     return str(values.get(key) or "").strip()
@@ -229,6 +248,12 @@ def write_payload(workdir, env, call, stop=None):
              "recipients set:", *(f"    {s}" for s in env["sources"]),
              "template defaults left as they are: " + ", ".join(env["defaultRoles"]),
              f"custom field  : JobNo={d['customFields']['textCustomFields'][0]['value']}"]
+    if "documents" in env:
+        found = [f"    {d['kind']}: {Path(d['path']).name}" for d in env["documents"]]
+        lines += ["documents     :", *(found or ["    none listed (no --job-dir)"])]
+        if env.get("documentsMissing"):
+            lines.append("not in the job folder under the CD-7.2 name: "
+                         + ", ".join(env["documentsMissing"]))
     if env["flags"]:
         lines += ["flags:", *(f"    {f}" for f in env["flags"])]
     lines += ["staff before sending:", *(f"    - {s}" for s in env["staffBeforeSending"])]
@@ -263,6 +288,9 @@ def main(argv=None):
             if not (Path(args.job_dir) / pdf).is_file():
                 raise PayloadStop(f"build contract PDF not found in the job folder ({pdf}) "
                                   f"- the draft needs a saved contract")
+            env["documents"], env["documentsMissing"] = documents_for(args.job_dir, values)
+        else:
+            env["documents"], env["documentsMissing"] = [], []
     except PayloadStop as e:
         write_payload(workdir, None, False, stop=str(e))
         print(f"DOCUSIGN DRAFT STOPPED: {e}", file=sys.stderr)
