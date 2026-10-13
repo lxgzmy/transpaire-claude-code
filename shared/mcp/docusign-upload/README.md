@@ -39,7 +39,9 @@ tab is fixed to a page position, which is why page counts decide.
    send, void, correct or delete an envelope.
 
 With `DOCUSIGN_ENVIRONMENT=demo` the server reads documents only from this
-checkout's `runtime` folder: the sandbox gets synthetic jobs only.
+checkout's `runtime\docusign-sandbox` folder: the sandbox gets synthetic jobs
+only. The rest of `runtime` is refused, because contract runs keep real jobs'
+working files there.
 
 ## Install (Windows server, `pwsh`)
 

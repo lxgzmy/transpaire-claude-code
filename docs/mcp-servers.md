@@ -201,8 +201,9 @@ as the user who owns the six templates. Design:
   It creates drafts only (status `created`); nothing in the code can send, void
   or delete an envelope.
 - **Sandbox data rule.** With `DOCUSIGN_ENVIRONMENT=demo` (set in `.mcp.json`)
-  the server reads documents only from the checkout's `runtime` folder. Real job
-  folders need a production server, `docusign-upload-prod`, whose `ask` entry is
+  the server reads documents only from the checkout's `runtime\docusign-sandbox`
+  folder, not the rest of `runtime`, where contract runs keep real jobs' working
+  files (owner's ruling, 13 Oct 2026). Real job folders need a production server, `docusign-upload-prod`, whose `ask` entry is
   already in place.
 - **Key custody.** The RSA private key lives on `Z:` outside the checkout, in a
   folder only the accounts running Claude Code can read, named `*.pem` so the

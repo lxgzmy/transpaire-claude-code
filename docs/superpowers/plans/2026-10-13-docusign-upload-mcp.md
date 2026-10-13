@@ -15,7 +15,7 @@
 - Branch `docusign-upload-mcp`, stacked on PR #49 (`docusign-integration`). Every change lands through a PR whose base is `docusign-integration`; never commit to `main`, never merge, never force-push. Commit messages and PR bodies carry no AI attribution (no `Co-Authored-By`, no "Generated with").
 - The only envelope status ever sent is `"created"`, a constant in `draft.py`. No code path may send, void, correct or delete an envelope: `client.py` has no PUT, PATCH, DELETE or generic request method.
 - Dependencies, exactly: `mcp>=1.2.0,<2`, `httpx>=0.27`, `PyJWT[crypto]>=2.8`, `pypdf>=4.0`; `requires-python = ">=3.11"`.
-- `DOCUSIGN_ENVIRONMENT=demo` locks the upload root to the checkout's `runtime` folder (any other `DOCUSIGN_UPLOAD_ROOTS` entry is a config error); `production` requires `DOCUSIGN_UPLOAD_ROOTS`.
+- `DOCUSIGN_ENVIRONMENT=demo` locks the upload root to the checkout's `runtime/docusign-sandbox` folder (narrowed from `runtime` by the owner after the final review, because `runtime/contract-admin/outputs` holds real jobs' working files; any entry outside it is a config error); `production` requires `DOCUSIGN_UPLOAD_ROOTS`.
 - The private key is never in the repo, never on `C:`, never logged, returned or printed. `DOCUSIGN_PRIVATE_KEY_PATH` is refused when relative, on `C:` or inside the checkout. Config errors never echo a path.
 - Document kinds: `BUILD CONTRACT`, `INCLUSIONS`, `PRELIMINARY AGREEMENT`, `PLANS`, matched in template document names by containment, never by id or order. The build contract must carry (page counts equal); otherwise the run stops.
 - Limits: 25 MB per document; estimated request body 30 MiB; duplicate window 180 days; `email_subject` at most 100 characters; `email_blurb` at most 10,000; `job_no` matches `^[A-Za-z0-9-]{1,20}$`.
@@ -3081,7 +3081,7 @@ Expected: the PR URL. Then load and call `mcp__ccd_pr__get_status`; if it does n
 
 ### Task 11: Sandbox prototype (needs the DocuSign admin prerequisites and a person's yes)
 
-**Files:** none committed. Working files go to `runtime/contract-admin/outputs/_docusign-upload-proto/` (git-ignored) and the session scratchpad; the key and `.env` go to `~/.config/transpire/docusign-sandbox/` (outside the repo).
+**Files:** none committed. Working files go to `runtime/docusign-sandbox/_docusign-upload-proto/` (git-ignored) and the session scratchpad; the key and `.env` go to `~/.config/transpire/docusign-sandbox/` (outside the repo).
 
 Every step that touches DocuSign or a credential is either a person's act or needs their explicit yes in chat first. Never type a password, never read the private key back, never print the token.
 
@@ -3109,7 +3109,7 @@ Expected: `Signed in (SANDBOX)`, and `Templates matching 'Build _': 6` with the 
 - [ ] **Step 4: Build the synthetic job**
 
 ```bash
-WD="runtime/contract-admin/outputs/_docusign-upload-proto"
+WD="runtime/docusign-sandbox/_docusign-upload-proto"
 mkdir -p "$WD/CONTRACT DOCUMENTATION"
 printf '%s\n' '{"job_no": "00001", "lot_no": "1", "suburb": "Testville QLD", "owner_1": "Alex EXAMPLE", "owner_email": "alex.example@example.com"}' > "$WD/job.json"
 printf 'BUILD CONTRACT\tPRODUCTION\t%s\n' "$WD/CONTRACT DOCUMENTATION" > "$WD/routes.txt"
@@ -3163,8 +3163,8 @@ async def main(mode: str, envelope_json: str) -> None:
 asyncio.run(main(sys.argv[1], sys.argv[2]))
 ```
 
-Run: `cd shared/mcp/docusign-upload && .venv/bin/python <scratchpad>/proto.py preview "../../../runtime/contract-admin/outputs/_docusign-upload-proto/docusign_envelope.json"`
-Expected: `"ok": true`, `"environment": "SANDBOX"`, documents `carried from the template` (contract, inclusions) and `none, flagged: 5 pages, the template's has 4` (plans), `roles_left_as_template_defaults: ["Builder"]`.
+Run: `cd shared/mcp/docusign-upload && .venv/bin/python <scratchpad>/proto.py preview "../../../runtime/docusign-sandbox/_docusign-upload-proto/docusign_envelope.json"`
+Expected: `"ok": true`, `"environment": "SANDBOX"`, documents `carried from the template` (contract, inclusions) and `none, flagged: 5 pages, the template's has 4` (plans), `roles_left_as_template_defaults: ["Builder"]`. This also confirms the template list returns each document's page count (`documents[].pages` with `include=documents`): without it every preview would stop on the contract.
 
 - [ ] **Step 6: Ask the person for an explicit yes**
 
@@ -3172,17 +3172,18 @@ Show the preview's plan and ask with `AskUserQuestion` whether to create this on
 
 - [ ] **Step 7: Create and read back (only after the yes)**
 
-Run: `cd shared/mcp/docusign-upload && .venv/bin/python <scratchpad>/proto.py create "../../../runtime/contract-admin/outputs/_docusign-upload-proto/docusign_envelope.json"`
+Run: `cd shared/mcp/docusign-upload && .venv/bin/python <scratchpad>/proto.py create "../../../runtime/docusign-sandbox/_docusign-upload-proto/docusign_envelope.json"`
 Expected: `"ok": true`, `"status": "created"`, `"findings": []`, contract and inclusions with `tab_pages_by_role` matching the template (Buyer initials and signatures, Builder on page 13), plans with none, `roles_without_tabs: []`. If DocuSign returns `RECIPIENT_LIMIT_EXCEEDED` or any other error, report it verbatim and stop: the prototype then needs an unrestricted sandbox account. Any finding is reported as found, with no fix-and-retry.
 
 - [ ] **Step 8: Second preview proves the duplicate check sees drafts**
 
-Run the Step 5 command again.
+Run the Step 5 command again, and note how long after the create the draft first shows in the JobNo search (the "uncertain" advice relies on it).
 Expected: `"stop": true` and `an envelope for JobNo 00001 already exists`.
 
 - [ ] **Step 9: The person deletes the draft**
 
-Ask the person to delete the draft in the DocuSign web UI (Drafts folder). Deleting is their act, not the server's.
+Ask the person to delete the draft in the DocuSign web UI (Drafts folder). Deleting is their act, not the server's. Then run the Step 5 command once more.
+Expected: `"ok": true`: a deleted draft must not block the job for the 180-day duplicate window.
 
 - [ ] **Step 10: Record the result on the PR**
 

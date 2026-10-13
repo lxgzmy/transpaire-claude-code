@@ -34,7 +34,8 @@ class ConfigTests(unittest.TestCase):
             c = load_config()
         self.assertEqual((c.environment, c.label, c.auth_host),
                          ("demo", "SANDBOX", "account-d.docusign.com"))
-        self.assertEqual(c.upload_roots, (config.runtime_root(),))
+        self.assertEqual(c.upload_roots, (config.sandbox_root(),))
+        self.assertEqual(c.upload_roots, (os.path.join(config.runtime_root(), "docusign-sandbox"),))
         self.assertEqual((c.enable_writes, c.enable_writes_source, c.timeout), (False, "default", 60.0))
 
     def test_missing_settings_are_named(self):
@@ -79,8 +80,15 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ConfigError, "synthetic jobs"):
                 load_config()
 
-    def test_demo_accepts_a_folder_inside_runtime(self):
-        sub = os.path.join(config.runtime_root(), "contract-admin", "outputs")
+    def test_demo_refuses_the_real_job_workdirs_under_runtime(self):
+        # runtime\contract-admin\outputs holds real jobs' working files (owner's ruling 13 Oct 2026)
+        for root in (config.runtime_root(), os.path.join(config.runtime_root(), "contract-admin", "outputs")):
+            with self.subTest(root=root), self.env(DOCUSIGN_UPLOAD_ROOTS=root):
+                with self.assertRaisesRegex(ConfigError, "synthetic jobs"):
+                    load_config()
+
+    def test_demo_accepts_a_folder_inside_the_sandbox_folder(self):
+        sub = os.path.join(config.sandbox_root(), "job-00001")
         with self.env(DOCUSIGN_UPLOAD_ROOTS=sub):
             self.assertEqual(load_config().upload_roots, (sub,))
 

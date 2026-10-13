@@ -329,8 +329,11 @@ material.
 ### Sandbox data rule
 
 With `DOCUSIGN_ENVIRONMENT=demo` the upload root is always the checkout's
-`runtime\` folder, and any other entry in `DOCUSIGN_UPLOAD_ROOTS` is a config
-error. The sandbox only ever receives synthetic jobs; real job folders under
+`runtime\docusign-sandbox\` folder, and any entry in `DOCUSIGN_UPLOAD_ROOTS`
+outside it is a config error. Not the whole of `runtime\`: on the server,
+`runtime\contract-admin\outputs\` holds real jobs' working files (exports,
+copies from the job folder, EOIs, IDs), so the final review found the wider
+root would let a real job's PDFs through (owner's ruling, 13 October 2026). The sandbox only ever receives synthetic jobs; real job folders under
 `Z:\PROJECTS` are read only by a production server. This follows the org rule
 of synthetic samples first and no real client data in prototypes.
 
@@ -387,7 +390,7 @@ rewrites CD-10.5 and the staff list.
 written by the tests.
 
 - Config: key-path rules (relative, inside the checkout, on `C:`), demo
-  locked to `runtime\`, production roots required, missing variables, the
+  locked to `runtime\docusign-sandbox\` (the contract workdirs refused), production roots required, missing variables, the
   write switch and its source.
 - Auth: the assertion's claims and RS256 signature checked against a
   throwaway key pair made in the test; `consent_required` returns the consent
@@ -408,7 +411,7 @@ written by the tests.
 After the implementation plan is approved and the admin prerequisites are
 done:
 
-1. A synthetic `QLD Build _ Single Buyer` job in `runtime\`: the buyer at an
+1. A synthetic `QLD Build _ Single Buyer` job in `runtime\docusign-sandbox\`: the buyer at an
    `@example.com` address, and the template's own builder, which makes two
    recipients. Its synthetic PDFs are a 37-page contract (carries), 15-page
    inclusions (carries) and 5-page plans (the template's has 4, so they are
@@ -459,7 +462,7 @@ prototype needs an unrestricted sandbox account, which a person sets up.
 | Whose DocuSign identity creates the drafts? | The user who owns the six templates | Drafts land in the folder staff already use, nothing to share, recipients see the same sender; the key is guarded closely because it can act as that user |
 | Which approach? | One compositeTemplates call from a local server | One approval prompt, nothing half-made on failure, no past job's PDF in the draft |
 | Preview and approval | Read-only preview on `allow`; the create on `ask` | One prompt per draft, as PR #49 intended |
-| Real client PDFs in the sandbox? | No: demo is locked to `runtime\` | Org rule: synthetic samples first, no client data in prototypes |
+| Real client PDFs in the sandbox? | No: demo is locked to `runtime\docusign-sandbox\` (narrowed from `runtime\` after the final review) | Org rule: synthetic samples first, no client data in prototypes; the rest of `runtime\` holds real jobs' working files |
 | Build contract page count differs? | Stop | A fixed form whose layout changed needs a person, and it carries the template's internal roles |
 | Does the server import contract-admin code? | No; Claude passes the payload's values as arguments | `shared/` stays role-agnostic, and the prompt shows what will be created |
 | Dependencies | `mcp<2`, `httpx`, `PyJWT[crypto]`, `pypdf` | The osc-api pair plus JWT signing and page counts |

@@ -42,8 +42,16 @@ def checkout_root() -> str:
 
 
 def runtime_root() -> str:
-    """The checkout's git-ignored runtime folder, the only upload root in demo."""
+    """The checkout's git-ignored runtime folder."""
     return os.path.join(checkout_root(), "runtime")
+
+
+def sandbox_root() -> str:
+    """runtime\\docusign-sandbox, the only upload root in demo (owner's ruling, 13 Oct 2026).
+
+    Not the whole runtime folder: runtime\\contract-admin\\outputs holds real jobs' working
+    files (exports, copies, EOIs, IDs), and the sandbox only ever gets synthetic jobs."""
+    return os.path.join(runtime_root(), "docusign-sandbox")
 
 
 def _real(p: str) -> str:
@@ -128,7 +136,7 @@ def check_key_path(raw: str) -> str:
 
 
 def upload_roots_for(environment: str, raw: str) -> tuple[str, ...]:
-    """The folders documents may be read from. Demo: runtime only. Production: required."""
+    """The folders documents may be read from. Demo: the sandbox folder only. Production: required."""
     entries = tuple(r.strip() for r in raw.split(";") if r.strip())
     for root in entries:
         if windows_drive(root) == "c:":
@@ -136,13 +144,14 @@ def upload_roots_for(environment: str, raw: str) -> tuple[str, ...]:
         if not os.path.isabs(root):
             raise ConfigError("DOCUSIGN_UPLOAD_ROOTS entries must be absolute folders.")
     if environment == "demo":
-        runtime = runtime_root()
+        sandbox = sandbox_root()
         for root in entries:
-            if not (same_path(root, runtime) or is_inside(root, runtime)):
+            if not (same_path(root, sandbox) or is_inside(root, sandbox)):
                 raise ConfigError(
-                    "In demo the upload root is the checkout's runtime folder: the sandbox only "
-                    "takes synthetic jobs. Real job folders need DOCUSIGN_ENVIRONMENT=production.")
-        return entries or (runtime,)
+                    "In demo the upload root is the checkout's runtime\\docusign-sandbox folder: "
+                    "the sandbox only takes synthetic jobs. Real job folders need "
+                    "DOCUSIGN_ENVIRONMENT=production.")
+        return entries or (sandbox,)
     if not entries:
         raise ConfigError("DOCUSIGN_UPLOAD_ROOTS is required in production (the job folders' root).")
     return entries
