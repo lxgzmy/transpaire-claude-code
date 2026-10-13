@@ -504,12 +504,14 @@ and SEQ upgrades stay a person's edit until their templates are measured.
 - **CD-10.1** After a run whose build contract routed PRODUCTION (CD-7.7),
   the skill creates a DocuSign envelope with `status: created` — a draft. It
   never sends. The approval prompt on the `createEnvelope` call is the
-  person's yes, per call; a decline ends the step. A template-testing refresh
-  produces the payload files only.
+  person's yes, per call; a decline ends the step, and an error from the
+  create call is a stop, reported verbatim, never retried. A template-testing
+  refresh produces the payload files only.
 - **CD-10.2** Template by region × buyer type, matched by exact name after
   trimming whitespace, never by a stored id: NSW/QLD × Single Buyer (one
   owner), 2 Buyers (two or more; owner 3+ flagged, as CD-3.8), Company (a
-  company or trust owner, the CD-3.9 condition). Zero or several matches
+  company or trust owner, the CD-3.9 condition, or a sourced
+  `company_signatory`). Zero or several matches
   stop the step.
 - **CD-10.3** Only buyer-side roles are set: owner 1/2 names with
   `owner_email`/`owner_2_email`; on the Company template the guarantor

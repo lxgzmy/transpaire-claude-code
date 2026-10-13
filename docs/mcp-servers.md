@@ -125,8 +125,8 @@ claude mcp get docusign-demo
 DocuSign actions are external, legally significant, and mostly irreversible once an
 envelope goes out. The org HITL rule ("human approval before external email,
 signature, or legal / financial change") is enforced in
-[`.claude/settings.json`](../.claude/settings.json) by the absence of any allow rule
-for write tools; only these read-only tools are allowed:
+[`.claude/settings.json`](../.claude/settings.json): only these read-only tools are
+allowed:
 
 ```json
 "allow": [
@@ -140,10 +140,19 @@ for write tools; only these read-only tools are allowed:
 Every DocuSign write prompts for approval. Since 13 Oct 2026 four read-only
 tools are on `allow` so the contract workflow's draft step prompts once, on
 the create call: `getUserInfo`, `getTemplates`, `getEnvelopes`,
-`getEnvelopeVsAgreementSkill`. Everything else on the server, `createEnvelope`
-included, has no rule and prompts by default (Claude Code evaluates deny, then ask,
-then allow, first match wins, so a server-wide ask entry would have silenced the
-allows; it was removed 13 Oct 2026). Do not widen this further without the same review.
+`getEnvelopeVsAgreementSkill`. Every write tool on the server (`createEnvelope`,
+`updateEnvelope`, `updateEnvelopeRecipients`, `updateEnvelopeTabs`,
+`sendReminder`, the workflow tools, `cloneDVEnabledTemplates`, `installDVApps`)
+is listed under `ask` per tool, and `createEnvelopeFromTemplate` is under `deny`
+because it sends and cannot be held at draft. Do not reintroduce a server-wide
+`ask` entry: Claude Code evaluates deny, then ask, then allow, so an `ask` entry
+beats an `allow` regardless of specificity and would silence the allows (removed
+13 Oct 2026). Do not widen this further without the same review.
+
+A template's own default recipients count toward the plan's recipient cap: the
+restricted developer plan rejected a five-recipient template with
+`RECIPIENT_LIMIT_EXCEEDED` on 13 Oct 2026, so sandbox tests should use a
+two-recipient template or an unrestricted account.
 
 On top of the prompt, the role rules still apply: Claude drafts the envelope, the
 recipients, and the document set as an **evidence bundle** for review. A person

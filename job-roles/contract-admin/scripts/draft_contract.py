@@ -225,6 +225,12 @@ def write_routes(workdir, routes):
     return out
 
 
+def clear_routes(workdir):
+    """Remove a stale routes.txt at the start of a --job-dir run, so step 8
+    never reads the route of an earlier run that did not deliver."""
+    (Path(workdir) / "routes.txt").unlink(missing_ok=True)
+
+
 def collect_finals(workdir, values):
     """(source, deliverable name, kind) for every filled document in the workdir.
 
@@ -428,6 +434,8 @@ def main():
         sys.exit("ERROR: workdir is inside Z:\\PROJECTS - the workdir is scratch space. The only "
                  "write into a job folder is the final pair, via --job-dir routing.")
     workdir.mkdir(parents=True, exist_ok=True)
+    if args.job_dir:
+        clear_routes(workdir)
 
     if args.deliver:
         if args.template or args.prelim or args.real_dir or args.job_dir:
@@ -467,7 +475,6 @@ def main():
             why = (f"already in the job folder ({existing[k][0]})" if existing[k]
                    else "not in the job folder yet")
             print(f"  route     : {k:<21} -> {m:<10} {d}   ({why})")
-        write_routes(workdir, routes)
         if any(existing.values()) and not args.real_dir:
             args.real_dir = str(job_dir)
 
@@ -487,6 +494,7 @@ def main():
     if not args.template and not args.prelim:
         if mode:
             deliver_routed(workdir, values, job_dir, existing)
+            write_routes(workdir, routes)  # only after a delivery that did not stop
             return 0
         sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim "
                  "(add --job-dir to save in the same pass)")
@@ -675,6 +683,7 @@ def main():
     if mode and not failures:
         def do_deliver():
             prod, test = deliver_routed(workdir, values, job_dir, existing)
+            write_routes(workdir, routes)  # only after a delivery that did not stop
             kinds = lambda fs: ", ".join(sorted({k.lower() for _, _, k in fs})) or "none"
             print(f"  delivered : job folder <- {kinds(prod)}; template-testing <- {kinds(test)}")
             return True

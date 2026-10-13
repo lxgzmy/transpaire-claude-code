@@ -355,6 +355,9 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
 | `prelim_fee` | prelim only: plain figure `"5,000"` — **only when the request names a fee**; left empty, the template's standard $30,000 stands (CD-4.3, reversed 28 Aug 2026 — do not stop or ask for a missing fee) | Request email, else standard |
 
+On a company/trust buyer, collect the guarantor's email as `guarantor_email`:
+the DocuSign Company template signs through the guarantor (CD-10.3).
+
 If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
 Say that plainly and produce the rest — do not invent them, and do not silently
 leave them blank without saying so.
@@ -445,8 +448,8 @@ team builds the fill also types the owner signature name and accepts
 `deposit`; QC2 has no schedule deposit item — its deposit is a Schedule 2
 progress row, never filled) typed only when a person keys the DataBuild
 figures into the JSON (never computed, CD-5.4), and `guarantor_name`/
-`guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
-only when a signed source names them (these also complete the deed's
+`guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`/
+`guarantor_email` only when a signed source names them (these also complete the deed's
 BUILDER IS / OWNER IS lines; the deed date is never filled). Region
 specifics: NSW types `builders_rep` on the Builder NAME line (executed
 contracts all key Michael CRONK there) and the Attachment A checklist owner

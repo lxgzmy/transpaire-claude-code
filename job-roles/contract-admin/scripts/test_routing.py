@@ -78,7 +78,11 @@ def check_write_routes_and_company():
     assert dc.is_company_owner("Sample Nominees Pty. Ltd.")
     assert dc.is_company_owner("THE EXAMPLE FAMILY TRUST")
     assert not dc.is_company_owner("Alex EXAMPLE")
-    print("  write_routes + is_company_owner: ok")
+    (wd / "routes.txt").write_text("stale\n", encoding="utf-8")
+    dc.clear_routes(wd)
+    assert not (wd / "routes.txt").exists(), "stale routes.txt survived clear_routes"
+    dc.clear_routes(wd)  # absent file is fine
+    print("  write_routes + clear_routes + is_company_owner: ok")
 
 
 def main():

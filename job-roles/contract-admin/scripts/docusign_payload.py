@@ -60,12 +60,15 @@ def _s(values, key):
 
 
 def variant_for(values):
-    """('single'|'two'|'company', flags). Company wins; three or more owners
+    """('single'|'two'|'company', flags). Company (a company/trust owner or a
+    sourced company_signatory) wins; three or more owners
     use the 2 Buyers template with the rest flagged (as CD-3.8 fills them)."""
     owners = [_s(values, k) for k in OWNER_KEYS if _s(values, k)]
-    if not owners:
+    if not _s(values, "owner_1"):
         raise PayloadStop("owner_1 is empty - no buyer to address the envelope to")
-    if any(dc.is_company_owner(o) for o in owners):
+    if not _s(values, "owner_2") and _s(values, "owner_3"):
+        raise PayloadStop("owner_2 is blank but owner_3 is set - fix the job JSON before the draft")
+    if any(dc.is_company_owner(o) for o in owners) or _s(values, "company_signatory"):
         return "company", []
     if len(owners) == 1:
         return "single", []
@@ -255,6 +258,11 @@ def main(argv=None):
         route = read_build_contract_route(workdir)
         state = state_for(args.job_dir, args.region)
         env = build_envelope(state, values, args.server)
+        if args.job_dir:
+            pdf = f"BUILD CONTRACT_{dc.doc_suffix(values)}.pdf"
+            if not (Path(args.job_dir) / pdf).is_file():
+                raise PayloadStop(f"build contract PDF not found in the job folder ({pdf}) "
+                                  f"- the draft needs a saved contract")
     except PayloadStop as e:
         write_payload(workdir, None, False, stop=str(e))
         print(f"DOCUSIGN DRAFT STOPPED: {e}", file=sys.stderr)

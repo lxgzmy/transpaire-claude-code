@@ -40,6 +40,20 @@ def check_template_pick():
     t, flags = dp.pick_template("NSW", THREE)
     assert t["name"] == "NSW Build _ 2 Buyers"
     assert flags and "owner_3" in flags[0], flags
+    # I3: a company_signatory alone selects the Company template
+    t, _ = dp.pick_template("NSW", dict(SINGLE, company_signatory="Casey SIGNER"))
+    assert t["name"] == "NSW Build _ Company", t
+    # I5: owner_3 without owner_2 is a stop
+    # deferred minors: unknown state, no owner_1
+    for state, vals, needle in (("NSW", dict(SINGLE, owner_3="Jo THIRD"), "owner_2 is blank"),
+                                ("VIC", SINGLE, "VIC"),
+                                ("NSW", dict(SINGLE, owner_1=""), "owner_1")):
+        try:
+            dp.pick_template(state, vals)
+        except dp.PayloadStop as e:
+            assert needle in str(e), (needle, e)
+        else:
+            raise AssertionError(f"no stop for {state} {needle}")
     print("  template pick: ok")
 
 
@@ -140,6 +154,17 @@ def check_cli_files():
         rc = dp.main(["--job", str(wd / "missing.json"), "--region", "NSW"])
         assert rc == 2, rc
         assert "job JSON not readable" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        # --job-dir: the saved build contract PDF must be in the job folder
+        jd = wd / "CONTRACT DOCUMENTATION"
+        jd.mkdir()
+        (wd / "routes.txt").write_text("BUILD CONTRACT\tPRODUCTION\tZ:\\p\n", encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "job.json"), "--job-dir", str(jd), "--region", "NSW"])
+        assert rc == 2, rc
+        txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        assert "build contract PDF not found in the job folder" in txt, txt
+        (jd / "BUILD CONTRACT_LOT 12_TESTVILLE_EXAMPLE&SAMPLE.pdf").write_bytes(b"")
+        rc = dp.main(["--job", str(wd / "job.json"), "--job-dir", str(jd), "--region", "NSW"])
+        assert rc == 0, rc
         # region from a job dir path
         assert dp.state_for(r"Z:\PROJECTS\SEQ\26098 LOT 4\CONTRACT\CONTRACT DOCUMENTATION", None) == "QLD"
         assert dp.state_for(r"Z:\PROJECTS\SYDNEY\26099\CONTRACT\CONTRACT DOCUMENTATION", None) == "NSW"
