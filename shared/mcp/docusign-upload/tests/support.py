@@ -5,6 +5,7 @@ import os
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from pypdf import PdfWriter
 
 from docusign_upload.config import Config
 
@@ -42,3 +43,15 @@ def make_config(key_path: str, roots: tuple[str, ...] = (), **overrides) -> Conf
                   consent_redirect_uri="https://example.com/consent", timeout=5.0)
     values.update(overrides)
     return Config(**values)
+
+
+def make_pdf(path: str, pages: int, *, password: str | None = None) -> str:
+    """A blank A4 PDF with the given page count (optionally password-protected)."""
+    writer = PdfWriter()
+    for _ in range(pages):
+        writer.add_blank_page(width=595, height=842)
+    if password:
+        writer.encrypt(password, algorithm="AES-256")
+    with open(path, "wb") as fh:
+        writer.write(fh)
+    return path
