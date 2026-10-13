@@ -207,6 +207,7 @@ def write_payload(workdir, env, call, stop=None):
     workdir = Path(workdir)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     if stop:
+        (workdir / "docusign_envelope.json").unlink(missing_ok=True)  # never leave a stale envelope
         txt = f"DOCUSIGN DRAFT - STOPPED ({stamp})\nCALL: no\nREASON: {stop}\n"
         (workdir / "docusign_payload.txt").write_text(txt, encoding="utf-8")
         return None, workdir / "docusign_payload.txt"
@@ -243,8 +244,14 @@ def main(argv=None):
     args = ap.parse_args(argv)
     job = Path(args.job)
     workdir = job.parent
+    if not workdir.is_dir():
+        print(f"DOCUSIGN DRAFT STOPPED: workdir not found: {workdir}", file=sys.stderr)
+        return 2
     try:
-        values = json.loads(job.read_text(encoding="utf-8"))
+        try:
+            values = json.loads(job.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise PayloadStop(f"job JSON not readable: {job} - {e}")
         route = read_build_contract_route(workdir)
         state = state_for(args.job_dir, args.region)
         env = build_envelope(state, values, args.server)

@@ -129,11 +129,17 @@ def check_cli_files():
         env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
         assert env["call"] is False and env["server"] == "docusign-demo"
         assert "CALL: no" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
-        # no routes.txt -> stop
+        # no routes.txt -> stop, and the envelope from the run before is removed
+        assert (wd / "docusign_envelope.json").exists()
         (wd / "routes.txt").unlink()
         rc = dp.main(["--job", str(wd / "job.json"), "--region", "QLD"])
         assert rc == 2
         assert "routes.txt" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        assert not (wd / "docusign_envelope.json").exists(), "stale envelope left after a stop"
+        # unreadable job JSON -> stop, written to the payload file
+        rc = dp.main(["--job", str(wd / "missing.json"), "--region", "NSW"])
+        assert rc == 2, rc
+        assert "job JSON not readable" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
         # region from a job dir path
         assert dp.state_for(r"Z:\PROJECTS\SEQ\26098 LOT 4\CONTRACT\CONTRACT DOCUMENTATION", None) == "QLD"
         assert dp.state_for(r"Z:\PROJECTS\SYDNEY\26099\CONTRACT\CONTRACT DOCUMENTATION", None) == "NSW"
