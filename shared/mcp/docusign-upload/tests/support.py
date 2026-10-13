@@ -55,3 +55,32 @@ def make_pdf(path: str, pages: int, *, password: str | None = None) -> str:
     with open(path, "wb") as fh:
         writer.write(fh)
     return path
+
+
+def qld_single_template() -> dict:
+    """Shaped like the sandbox's QLD Single Buyer template: three documents (a mix of small
+    and eight-digit ids, as in the account) and two signer roles. Synthetic names and ids."""
+    return {"templateId": "tmpl-qld-single", "name": "QLD Build _ Single Buyer ",
+            "documents": [
+                {"documentId": "1", "name": "BUILD CONTRACT _LOT 0_SYNTHETIC.pdf", "pages": "37"},
+                {"documentId": "86092972", "name": "INCLUSIONS_LOT 0_SYNTHETIC.pdf", "pages": "15"},
+                {"documentId": "3", "name": "PLANS_LOT 0_SYNTHETIC.pdf", "pages": "4"}],
+            "recipients": {"signers": [
+                {"roleName": "Buyer", "recipientId": "1", "routingOrder": "1"},
+                {"roleName": "Builder", "recipientId": "3", "routingOrder": "2"}],
+                "carbonCopies": [], "recipientCount": "2"}}
+
+
+def nsw_company_template() -> dict:
+    """Shaped like NSW Build _ Company: four documents, the prelim named EXECUTED-..."""
+    return {"templateId": "tmpl-nsw-company", "name": "NSW Build _ Company",
+            "documents": [
+                {"documentId": "1", "name": "BUILD CONTRACT_LOT 0_SYNTHETIC.pdf", "pages": "45"},
+                {"documentId": "2", "name": "INCLUSIONS_LOT 0_SYNTHETIC.pdf", "pages": "18"},
+                {"documentId": "4", "name": "EXECUTED-PRELIMINARY AGREEMENT_LOT 0.pdf", "pages": "3"},
+                {"documentId": "3", "name": "PLANS_LOT 0_SYNTHETIC.pdf", "pages": "5"}],
+            "recipients": {"signers": [
+                {"roleName": "Buyer - Company Guarantor", "recipientId": "1", "routingOrder": "1"},
+                {"roleName": "Builder", "recipientId": "2", "routingOrder": "2"},
+                {"roleName": "Builder Witness", "recipientId": "3", "routingOrder": "3"},
+                {"roleName": "Date Contract", "recipientId": "4", "routingOrder": "4"}]}}
