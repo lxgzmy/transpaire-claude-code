@@ -285,9 +285,12 @@ is no `claude mcp add` to run and nothing to redo per Windows account.
 What the committed registration does **not** carry is per-checkout state. Each
 checkout needs, under `shared/mcp/osc-api/`:
 
-1. `production.env`, copied from
+1. `production.env`, created by a person with
+   [`new-production-env.ps1`](../shared/mcp/osc-api/new-production-env.ps1)
+   (it asks for the values, the secret typed hidden, fills
    [`production.env.example`](../shared/mcp/osc-api/production.env.example)
-   and filled from the company password store by a person; and
+   and runs the read-only self-test); the values come from the company
+   password store; and
 2. the venv the committed command points at:
 
 ```powershell

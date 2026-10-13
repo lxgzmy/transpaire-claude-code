@@ -377,11 +377,13 @@ Set-Location "Z:\CLAUDE CODE\transpire-claude-code\shared\mcp\osc-api"
 python -m venv .venv          # or `uv venv` where uv is installed
 .\.venv\Scripts\python.exe -m pip install -e .
 
-# 2. Copy production.env.example to production.env and fill it in from the
-#    company password store - never a doc, commit, issue or chat.
+# 2. Create production.env: the script asks for the address, spec URL, client ID
+#    and secret (typed hidden), writes the file from production.env.example and
+#    runs the read-only selftest. Values come from the company password store -
+#    never a doc, commit, issue or chat.
+.\new-production-env.ps1 -CheckJob <contract number>
 
-# 3. Confirm - read-only selftest (no writes), then the registration itself
-.\.venv\Scripts\python.exe -m osc_mcp.selftest <contract number>
+# 3. The registration itself
 claude mcp list   # "Pending approval" only means this account hasn't accepted
                   # the workspace trust dialog yet; sessions still load it
 ```
