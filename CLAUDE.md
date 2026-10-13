@@ -90,8 +90,9 @@ skills are scoped to that folder and must not leak into another role.
   and the save; a gate failure blocks the save.
 - **Gated write, not an exception (13 Oct 2026):** `/new-contract-template`
   step 8 creates a DocuSign **draft** envelope (`status: created`) after a
-  real build-contract save. The create call sits under `ask` in
-  `.claude/settings.json`, so the prompt is the human approval, per call.
+  real build-contract save. The create call has no allow rule in
+  `.claude/settings.json`, so it prompts by default and that prompt is the human
+  approval, per call.
   Sending stays human. Read-only DocuSign calls the step needs (`getUserInfo`,
   `getTemplates`, `getEnvelopes`, `getEnvelopeVsAgreementSkill`) are on
   `allow`.

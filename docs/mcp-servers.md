@@ -125,17 +125,25 @@ claude mcp get docusign-demo
 DocuSign actions are external, legally significant, and mostly irreversible once an
 envelope goes out. The org HITL rule ("human approval before external email,
 signature, or legal / financial change") is enforced in
-[`.claude/settings.json`](../.claude/settings.json):
+[`.claude/settings.json`](../.claude/settings.json) by the absence of any allow rule
+for write tools; only these read-only tools are allowed:
 
 ```json
-"ask": ["mcp__docusign-demo"]
+"allow": [
+  "mcp__docusign-demo__getUserInfo",
+  "mcp__docusign-demo__getTemplates",
+  "mcp__docusign-demo__getEnvelopes",
+  "mcp__docusign-demo__getEnvelopeVsAgreementSkill"
+]
 ```
 
 Every DocuSign write prompts for approval. Since 13 Oct 2026 four read-only
 tools are on `allow` so the contract workflow's draft step prompts once, on
 the create call: `getUserInfo`, `getTemplates`, `getEnvelopes`,
 `getEnvelopeVsAgreementSkill`. Everything else on the server, `createEnvelope`
-included, stays on `ask`. Do not widen this further without the same review.
+included, has no rule and prompts by default (Claude Code evaluates deny, then ask,
+then allow, first match wins, so a server-wide ask entry would have silenced the
+allows; it was removed 13 Oct 2026). Do not widen this further without the same review.
 
 On top of the prompt, the role rules still apply: Claude drafts the envelope, the
 recipients, and the document set as an **evidence bundle** for review. A person

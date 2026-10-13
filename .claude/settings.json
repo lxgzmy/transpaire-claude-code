@@ -18,7 +18,6 @@
       "mcp__docusign-demo__getEnvelopeVsAgreementSkill"
     ],
     "ask": [
-      "mcp__docusign-demo",
       "mcp__osc-api__osc_write",
       "mcp__osc-api-prod__osc_write",
       "Edit(C:/**)",
