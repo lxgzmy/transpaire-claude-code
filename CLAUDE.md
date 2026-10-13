@@ -96,6 +96,9 @@ skills are scoped to that folder and must not leak into another role.
   cannot be held at draft) is under `deny`. Sending stays human. Read-only DocuSign calls the step needs (`getUserInfo`,
   `getTemplates`, `getEnvelopes`, `getEnvelopeVsAgreementSkill`) are on
   `allow`.
+  The local `docusign-upload` server's `docusign_create_draft` (a draft with
+  the job's own PDFs, design 13 Oct 2026) is the same kind of gated write, on
+  `ask` per call; while it points at the sandbox it takes synthetic jobs only.
 
 ## Security posture
 

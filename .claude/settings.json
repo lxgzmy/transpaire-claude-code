@@ -4,7 +4,8 @@
     "pr": ""
   },
   "enabledMcpjsonServers": [
-    "osc-api"
+    "osc-api",
+    "docusign-upload"
   ],
   "permissions": {
     "allow": [
@@ -15,7 +16,9 @@
       "mcp__docusign-demo__getUserInfo",
       "mcp__docusign-demo__getTemplates",
       "mcp__docusign-demo__getEnvelopes",
-      "mcp__docusign-demo__getEnvelopeVsAgreementSkill"
+      "mcp__docusign-demo__getEnvelopeVsAgreementSkill",
+      "mcp__docusign-upload__docusign_token_info",
+      "mcp__docusign-upload__docusign_draft_preview"
     ],
     "ask": [
       "mcp__osc-api__osc_write",
@@ -33,6 +36,8 @@
       "mcp__docusign-demo__cancelWorkflowInstance",
       "mcp__docusign-demo__cloneDVEnabledTemplates",
       "mcp__docusign-demo__installDVApps",
+      "mcp__docusign-upload__docusign_create_draft",
+      "mcp__docusign-upload-prod__docusign_create_draft",
       "Edit(C:/**)",
       "Edit(C:\\**)"
     ],

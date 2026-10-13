@@ -177,10 +177,44 @@ def check_cli_files():
     print("  cli + files: ok")
 
 
+def check_documents_list():
+    with tempfile.TemporaryDirectory() as tmp:
+        wd = Path(tmp)
+        (wd / "job.json").write_text(json.dumps(TWO), encoding="utf-8")
+        (wd / "routes.txt").write_text("BUILD CONTRACT\tPRODUCTION\tZ:\\p\n", encoding="utf-8")
+        jd = wd / "CONTRACT DOCUMENTATION"
+        jd.mkdir()
+        suffix = "LOT 12_TESTVILLE_EXAMPLE&SAMPLE"
+        for kind in ("BUILD CONTRACT", "INCLUSIONS"):
+            (jd / f"{kind}_{suffix}.pdf").write_bytes(b"%PDF-1.7 synthetic")
+        (jd / "PLANS - house design.pdf").write_bytes(b"%PDF-1.7 synthetic")  # not the CD-7.2 name
+        rc = dp.main(["--job", str(wd / "job.json"), "--job-dir", str(jd), "--region", "NSW"])
+        assert rc == 0, rc
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert [d["kind"] for d in env["documents"]] == ["BUILD CONTRACT", "INCLUSIONS"], env["documents"]
+        assert env["documents"][0]["path"] == str(jd / f"BUILD CONTRACT_{suffix}.pdf")
+        assert env["documentsMissing"] == ["PRELIMINARY AGREEMENT", "PLANS"], env["documentsMissing"]
+        assert "documents" not in env["envelopeDefinition"]
+        txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        assert f"    INCLUSIONS: INCLUSIONS_{suffix}.pdf" in txt, txt
+        assert "not in the job folder under the CD-7.2 name: PRELIMINARY AGREEMENT, PLANS" in txt, txt
+        (jd / f"PLANS_{suffix}.pdf").write_bytes(b"%PDF-1.7 synthetic")
+        assert dp.main(["--job", str(wd / "job.json"), "--job-dir", str(jd), "--region", "NSW"]) == 0
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert [d["kind"] for d in env["documents"]] == ["BUILD CONTRACT", "INCLUSIONS", "PLANS"]
+        # no --job-dir: nothing listed, and the report says why
+        assert dp.main(["--job", str(wd / "job.json"), "--region", "NSW"]) == 0
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert env["documents"] == [] and env["documentsMissing"] == []
+        assert "none listed (no --job-dir)" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+    print("  documents list: ok")
+
+
 if __name__ == "__main__":
     check_template_pick()
     check_recipients()
     check_subject_and_message()
     check_build_envelope()
     check_cli_files()
+    check_documents_list()
     print("docusign_payload self-test: all ok")
