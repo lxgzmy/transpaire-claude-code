@@ -65,6 +65,22 @@ def check(cond, msg):
     print(f"  ok  {msg}")
 
 
+def check_write_routes_and_company():
+    wd = SCRATCH / "routes-wd"
+    wd.mkdir(parents=True, exist_ok=True)
+    routes = {"BUILD CONTRACT": ("PRODUCTION", Path(r"Z:\PROJECTS\X\CONTRACT DOCUMENTATION")),
+              "INCLUSIONS": ("TEST", Path(r"Z:\T\template-testing\job"))}
+    out = dc.write_routes(wd, routes)
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines == ["BUILD CONTRACT\tPRODUCTION\tZ:\\PROJECTS\\X\\CONTRACT DOCUMENTATION",
+                     "INCLUSIONS\tTEST\tZ:\\T\\template-testing\\job"], lines
+    assert dc.is_company_owner("EXAMPLE HOLDINGS PTY LTD ATF EXAMPLE FAMILY TRUST")
+    assert dc.is_company_owner("Sample Nominees Pty. Ltd.")
+    assert dc.is_company_owner("THE EXAMPLE FAMILY TRUST")
+    assert not dc.is_company_owner("Alex EXAMPLE")
+    print("  write_routes + is_company_owner: ok")
+
+
 def main():
     suffix = dc.doc_suffix(VALUES)
     check(suffix == "LOT 1_TESTVILLE_EXAMPLE&SAMPLE", f"suffix {suffix}")
@@ -122,6 +138,8 @@ def main():
     touch(workdir / f"PREVIEW_BUILD CONTRACT_{suffix}{dc.LEGACY_TEST_BC_TAG}.pdf")
     finals = dc.collect_finals(workdir, VALUES)
     check({k for _, _, k in finals} == {"INCLUSIONS"}, "legacy tagged build contract not delivered")
+
+    check_write_routes_and_company()
 
     shutil.rmtree(SCRATCH)
     print("PASS: per-document routing")
