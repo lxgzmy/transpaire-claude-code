@@ -4,23 +4,29 @@
     "pr": ""
   },
   "enabledMcpjsonServers": [
-    "osc-api"
+    "osc-api-prod"
   ],
   "permissions": {
     "allow": [
-      "mcp__osc-api__osc_token_info",
-      "mcp__osc-api__osc_list_endpoints",
-      "mcp__osc-api__osc_describe_endpoint",
-      "mcp__osc-api__osc_get"
+      "mcp__osc-api-prod__osc_token_info",
+      "mcp__osc-api-prod__osc_list_endpoints",
+      "mcp__osc-api-prod__osc_describe_endpoint",
+      "mcp__osc-api-prod__osc_get",
+      "mcp__osc-api-prod__osc_prepare_write",
+      "mcp__osc-api-prod__osc_cancel_write"
     ],
     "ask": [
       "mcp__docusign-demo",
-      "mcp__osc-api__osc_write",
-      "mcp__osc-api-prod__osc_write",
+      "mcp__osc-api-prod__osc_confirm_write",
       "Edit(C:/**)",
       "Edit(C:\\**)"
     ],
     "deny": [
+      "mcp__osc-api__osc_token_info",
+      "mcp__osc-api__osc_list_endpoints",
+      "mcp__osc-api__osc_describe_endpoint",
+      "mcp__osc-api__osc_get",
+      "mcp__osc-api__osc_write",
       "Read(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",
       "Read(Z:\\COMPANY GENERAL INFORMATION\\TRANSPIRE PASSWORDS & SET UP WORKFLOW\\**)",
       "Edit(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",

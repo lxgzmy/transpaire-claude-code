@@ -34,10 +34,12 @@ QLD status sits in the certifier's portal, which AI cannot touch.
 
 OnSite Companion (OSC) is the primary record: job activities/milestones,
 alerts (the internal communication channel), and the per-job Document
-Manager. Claude reads OSC through the **`osc-api` MCP server** (project-scoped,
-read-only, writes disabled — see `.claude/skills/osc-api/` and
-`docs/mcp-servers.md`); the nominal dev instance serves **live client data**,
-so treat every read accordingly. Microsoft 365 / Outlook carries all external
+Manager. Claude reads OSC through the **`osc-api-prod` MCP server**
+(project-scoped, the production OnSite Companion since 13 Oct 2026 — see
+`.claude/skills/osc-api/` and `docs/mcp-servers.md`). This role only reads;
+its workflows make no OSC change. Every read is **live client data**, so treat
+it accordingly. Reads before 13 Oct 2026 came from a dev copy frozen on
+21 Aug 2026 and were out of date. Microsoft 365 / Outlook carries all external
 correspondence. QLD jobs: the certifier's online portal holds lodgement + all
 certifier communication (notifications land in the mailbox). NSW jobs: no
 certifier portal — everything is email — plus the NSW Planning Portal for

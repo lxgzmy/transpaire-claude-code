@@ -2,7 +2,7 @@
 
 Register of MCP servers connected to Claude Code for Transpire. Scope is per
 server (see the table): `docusign-demo` is at **user scope** (all projects, per
-Windows account), while `osc-api` is at **project scope** via the committed
+Windows account), while `osc-api-prod` is at **project scope** via the committed
 [`.mcp.json`](../.mcp.json), so every session started in this repo gets it, for
 **every job-role**, with nothing to redo per account. A role never installs its
 own copy of a server.
@@ -13,7 +13,8 @@ server without approval, and no credentials in the repo.
 | Server | Scope | Environment | State |
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
-| `osc-api` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **dev** | Registered, connected — loads in every session started in this repo; needs the per-checkout venv + `.env` (see below). Writes on via `.mcp.json` since 24 Sep 2026, still `ask` + `confirm=true` per call |
+| `osc-api-prod` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **production** (since 13 Oct 2026) | Loads in every session started in this repo; needs the per-checkout venv + `production.env` (see below). Every write is prepared, confirmed by the person in plain words, re-checked and read back |
+| ~~`osc-api`~~ | — | OSC API — dev copy frozen 21 Aug 2026 | **Retired 13 Oct 2026.** Writes through it never reached staff. Its tool names are denied in `.claude/settings.json` |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -170,12 +171,22 @@ sandbox workflow has been reviewed:
 
 ## OSC API (Companion Systems)
 
-The new-contract workflow now uses this MCP for issue #34's OSC steps and
-fields. See the [execution reference](../.claude/skills/new-contract-template/references/osc-new-contract.md).
-Endpoint descriptions expose payload schemas; `osc_write` supports gated
-multipart request-email uploads. DataBuild is excluded, and OSC writes still
-require the existing per-call approval. Restart the MCP process after pulling
-these code changes so the updated tool signatures load.
+The new-contract workflow uses this MCP for issue #34's OSC steps and fields.
+See the [execution reference](../.claude/skills/new-contract-template/references/osc-new-contract.md).
+DataBuild is excluded.
+
+### Production since 13 October 2026
+
+The connection is the **production** OnSite Companion, the system staff use
+(Transpire owner's approval, 13 Oct 2026; issues #34 and #46).
+
+Until then the only registration was `osc-api`, which pointed at the "OSC API -
+Dev" install. Its database is a copy of production frozen on 21 Aug 2026.
+Writes switched on 24 Sep 2026 (PR #44) landed in that copy and were read back
+from it, so they looked verified while staff saw nothing (job 26032,
+8 Oct 2026). `osc-api` is retired: it is gone from `.mcp.json`, its tool names
+are on `deny` in `.claude/settings.json`, and the server no longer reads the
+old `.env`. A per-checkout `.env` left behind is inert and can be deleted.
 
 ### What it is
 
@@ -183,85 +194,103 @@ A **local (stdio) MCP server** — Python, in-repo at
 [`shared/mcp/osc-api/`](../shared/mcp/osc-api/) — bridging Claude Code to the
 Companion Systems **OSC API** (OSCAPI). Unlike DocuSign (a remote HTTP server we
 only register), this one is **our code**, so it lives in the repo and is
-installed from there. It is the read/write counterpart to the manual OSC work in
-Contract Admin, and the intended integration point now that DataBuild is ruled
-out (see the table below).
+installed from there.
 
 ```
-Server name   osc-api            (dev)   /  osc-api-prod (production, later)
+Server name   osc-api-prod   (production OnSite Companion)
 Transport     stdio (local Python process)
-Code          shared/mcp/osc-api/  (osc_mcp package)
+Code          shared/mcp/osc-api/  (osc_mcp package; the write gate is osc_mcp/gate.py)
 Auth          OAuth client-credentials -> Bearer token (RFC6750/7617)
-Config        OSC_* environment variables only — no creds in the repo
+Config        OSC_* settings in the git-ignored production.env; nothing in the repo
 ```
 
 ### Tools
 
-Five generic, spec-driven tools cover all 148 OSCAPI endpoints (the OpenAPI spec
-is loaded at run time, so no per-endpoint code to maintain across versions):
+- `osc_token_info` *(read)* — environment, granted scope, write switch, and a
+  live-data check (`live_check`: the newest job's date; over 30 days old means
+  a stale copy, and no write goes ahead).
+- `osc_list_endpoints`, `osc_describe_endpoint` *(read)* — the OpenAPI spec.
+- `osc_get` *(read)* — GET any endpoint; OData query params and body-filter GETs.
+- `osc_prepare_write` *(read)* — checks a change and words its confirmation;
+  sends nothing.
+- `osc_cancel_write` *(read)* — discards a prepared change.
+- `osc_confirm_write` *(write)* — the only tool that changes OSC.
 
-- `osc_token_info` *(read)* — granted scope + token expiry; use to check access.
-- `osc_list_endpoints` *(read)* — list endpoints, filter by substring/method.
-- `osc_describe_endpoint` *(read)* — params/body/responses for one path.
-- `osc_get` *(read)* — GET any endpoint; supports OData query params and the
-  body-filter GETs (e.g. `/api/Jobs`).
-- `osc_write` *(write — gated)* — POST/PUT/PATCH/DELETE.
+### Human-in-the-loop: the write gate
 
-### Human-in-the-loop
+Writing changes the system of record staff work from, so every change passes
+these checks, enforced in code (`osc_mcp/gate.py`), not just in the skills:
 
-Reading OSC is safe; writing changes a system of record, which the org rules do
-not allow without human sign-off. `osc_write` is gated three independent ways:
+1. **Approved changes only.** The 14 contract-intake changes of issue #34
+   (create or update client, person, client and job contact links, job;
+   complete an activity; answer an activity question; job or activity message).
+   Anything else, including every DELETE and every endpoint that emails or
+   re-templates, is refused. Widening the list is a reviewed code change.
+2. **Tied to the job.** Each change names the job it is for (`job_id`), and the
+   gate checks the record belongs to it: the job itself, its client, a contact
+   on it, or one of its activities. A missing, unknown or ambiguous target
+   (no match, or more than one) is refused.
+3. **Protected fields.** Contract price (DataBuild only), contract number
+   (OSC generates it), region of an existing job, and the DataBuild client code
+   are refused. So are field names the record does not have.
+4. **Only real changes are sent.** The gate reads the current record, drops
+   values OSC already holds, and sends only the changed fields. Custom fields
+   go as the job's full set with the changes merged in, so none is dropped
+   whether OSC merges or replaces that list. (Checked on the 8 Oct 2026 writes:
+   PATCH keeps fields left out and clears a field sent as null.)
+5. **Plain-language confirmation.** The person sees the job, each change as
+   *now X, will be Y* (overwrites and clears spelled out), when a client or
+   person is shared with other jobs, and duplicate warnings, and replies.
+6. **Explicit yes, re-checked.** `osc_confirm_write` needs the confirmation
+   code and the person's reply: a plain yes sends, "no" cancels, anything else
+   sends nothing. The gate reads OSC again first; if the record or the request
+   differs from what was confirmed, nothing is sent and a new confirmation
+   comes back. A code works once, is replaced by a newer check of the same
+   target, and expires after 30 minutes.
+7. **Host approval.** `mcp__osc-api-prod__osc_confirm_write` is on `ask` in
+   [`.claude/settings.json`](../.claude/settings.json), so the person also
+   approves the call itself.
+8. **Read-back.** After sending, the record is read again: `verified` only when
+   every confirmed field took and nothing else on the record changed.
+9. **Master switch.** `OSC_ENABLE_WRITES` in the `env` block of `.mcp.json`
+   (beats `production.env`). It changes only by PR and takes effect in the next
+   session opened in the repo folder; the server is started per session, so
+   nothing is ever "restarted". `osc_token_info` reports
+   `enable_writes_source`. With the switch off, `osc_prepare_write` still shows
+   the confirmation, but no code is issued.
 
-1. **Off by default** — refuses unless the server is started with
-   `OSC_ENABLE_WRITES=true`; returns a preview and sends nothing otherwise.
-   The switch is set in the `env` block of the committed `.mcp.json` (`"true"`
-   since 24 Sep 2026, for the contract intake) and that value overrides the
-   git-ignored `.env`. It changes only by PR, and takes effect in the next
-   session opened in the repo folder — the server is started per session, so
-   nothing is ever "restarted". (A 14 Sep 2026 attempt flipped `.env.example`,
-   which nothing reads; sessions kept reporting writes off until 24 Sep.)
-   `osc_token_info` reports `enable_writes_source` so a stale session can be
-   told apart from a switch that is really off.
-2. **Approved per call** — `mcp__osc-api__osc_write` (and the future
-   `mcp__osc-api-prod__osc_write`) are on `ask` in
-   [`.claude/settings.json`](../.claude/settings.json), so every write prompts
-   with the exact request shown.
-3. **Explicit confirm** — the tool needs `confirm=true`; without it, it returns a
-   dry-run preview.
-
-Multipart uploads (`form`/`files`, used for the request-email attachment) add a
-fourth: a file is read only from a directory listed in `OSC_UPLOAD_ROOTS`
-(default the checkout's git-ignored `runtime\` folder), and the dry-run preview
-runs the same route and file checks the send will, so a person approving it
-sees the same result the real call would get.
-
-The read-only tools are on `allow` so queries run without a prompt.
+Message attachments add a tenth: a file is read only from a directory listed in
+`OSC_UPLOAD_ROOTS` (default the checkout's git-ignored `runtime\` folder), and
+only when the change is sent.
 
 ### Credentials
 
-The OAuth **client id / secret** are issued per environment by Companion Systems
-and belong in the company password store. They are passed to the server through
-`OSC_CLIENT_ID` / `OSC_CLIENT_SECRET` at registration time and are **never** in
-the repo, a commit, a log, or a prompt. Server host names live only in the env
-too (`OSC_BASE_URL`, `OSC_SWAGGER_URL`) — not in the repo — per the guardrail
-against committing server names.
+The production OAuth **client id / secret** come from Companion Systems and
+belong in the company password store. They go into
+`shared/mcp/osc-api/production.env` on the server checkout (git-ignored;
+Claude is blocked from reading or editing `*.env` files), never into the repo,
+a commit, a log, an issue, or a chat. The host names (`OSC_BASE_URL`,
+`OSC_SWAGGER_URL`) live there too, per the guardrail against committing
+server names. The tools show a short hash of the base URL (`target`), never
+the host.
 
 ### Install / register (Windows server, `pwsh`, project scope)
 
 Registration is **committed**: [`.mcp.json`](../.mcp.json) at the repo root
-registers `osc-api` at project scope, and `enabledMcpjsonServers` in
+registers `osc-api-prod` at project scope with `OSC_ENVIRONMENT=production`,
+and `enabledMcpjsonServers` in
 [`.claude/settings.json`](../.claude/settings.json) pre-approves it, so there
-is no `claude mcp add` to run and nothing to redo per Windows account. (It was
-first registered at user scope, which is per-account — a new account or a
-re-clone silently lost it. Project scope travels with the checkout; moved
-2 Sep 2026.)
+is no `claude mcp add` to run and nothing to redo per Windows account.
 
 What the committed registration does **not** carry is per-checkout state. Each
 checkout needs, under `shared/mcp/osc-api/`:
 
-1. the git-ignored `.env` with the `OSC_*` values (hosts and credentials come
-   from the company password store, never the repo), loaded by `osc_mcp.config`
-   so nothing sensitive lands in `.mcp.json`; and
+1. `production.env`, created by a person with
+   [`new-production-env.ps1`](../shared/mcp/osc-api/new-production-env.ps1)
+   (it asks for the values, the secret typed hidden, fills
+   [`production.env.example`](../shared/mcp/osc-api/production.env.example)
+   and runs the read-only self-test); the values come from the company
+   password store; and
 2. the venv the committed command points at:
 
 ```powershell
@@ -270,38 +299,36 @@ python -m venv .venv        # or `uv venv` where uv is installed
 .\.venv\Scripts\python.exe -m pip install -e .
 ```
 
-`.mcp.json` sets two env vars. `OSC_TIMEOUT=120`: the dev API's first
-response after idling can exceed the 30-second default (cold app pool), which
-surfaces as a `ReadTimeout` on the token call and then succeeds on retry.
-`OSC_ENABLE_WRITES=true` (PR #44, 24 Sep 2026): the write switch, see above.
+`.mcp.json` sets three env vars: `OSC_ENVIRONMENT=production` (the only
+environment the server accepts), `OSC_TIMEOUT=120` (the API's first response
+after idling can exceed 30 seconds), and `OSC_ENABLE_WRITES=true`, the write
+switch above.
 
 Note: the `mcp` Python SDK is pinned to `<2` in `pyproject.toml` — mcp 2.x
 negotiates the 2026-07-28 MCP protocol, which the Claude Code CLI rejects at
 the initialize handshake (`-32022`), and the server then never connects.
 
-Verify a fresh checkout with the read-only check
-`.\.venv\Scripts\python.exe -m osc_mcp.selftest`. One display quirk:
-`claude mcp list` shows the server as *Pending approval* until the account has
-accepted the one-time workspace trust dialog (first interactive `claude` run in
-the repo) — sessions themselves still load it through the settings
-pre-approval, which is what counts; verified with a headless `claude -p` call
-of `osc_token_info` on an untrusted account. Already-open sessions pick the
-server up on restart, not live.
+Verify a checkout with the read-only check, which sends no write:
 
-### Note on the dev environment
+```powershell
+.\.venv\Scripts\python.exe -m osc_mcp.selftest <contract number>
+```
 
-The nominal *dev* instance serves **real production client data** (real names,
-ABNs, contact details) and its host resolves to a **public IP** with the API port
-open. Treat its output as live client data under the org guardrails, and keep the
-credential out of shared logs. Flag the public exposure to the integration owner.
+It prints the environment, granted scope, the live-data check, the lookups the
+intake depends on and, given a contract number, that job's identity. One
+display quirk: `claude mcp list` shows the server as *Pending approval* until
+the account has accepted the one-time workspace trust dialog (first
+interactive `claude` run in the repo); sessions still load it through the
+settings pre-approval. Already-open sessions pick the server up on restart,
+not live.
 
-### Promoting to production
+### Client data
 
-Register a **second** server, `osc-api-prod`, with the prod `OSC_BASE_URL`, prod
-credentials, prod `OSC_SWAGGER_URL`, and `OSC_VERIFY_TLS=true`. Keep the names
-distinct so a workflow cannot hit prod while someone believes they are on dev.
-Leave `OSC_ENABLE_WRITES=false` until a write workflow has been reviewed, and the
-`mcp__osc-api-prod__osc_write` `ask` rule is already in place.
+Everything the server returns is live client data (names, addresses, contact
+details). Treat it under the org guardrails: fine to show the user, never in
+the repo, on `C:`, or in Dropbox. Keep the credential out of shared logs: the
+server keeps HTTP request logging at warning level so the host does not appear
+in the MCP log.
 
 ## Evaluated — cannot be connected
 
@@ -319,7 +346,7 @@ the work is not redone.
 2. Prefer read-only access before any write access.
 3. Pick the scope deliberately: commit it to [`.mcp.json`](../.mcp.json)
    (project scope) when it should travel with this repo for every account,
-   like `osc-api`; `--scope user` when it must also be available outside this
+   like `osc-api-prod`; `--scope user` when it must also be available outside this
    repo (per-account, like `docusign-demo`); `--scope local` only for a
    personal experiment.
 4. Put the secret in an environment variable at install time, never in the JSON that

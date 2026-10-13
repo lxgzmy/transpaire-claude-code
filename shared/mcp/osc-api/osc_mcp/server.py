@@ -1,31 +1,26 @@
-"""FastMCP server exposing the OSC API to Claude Code.
+"""FastMCP server exposing the production OnSite Companion (OSC) API to Claude Code.
 
 Tool surface
 ------------
 Read (safe to allow-list):
-  osc_token_info       - granted scope + expiry for the current credential
+  osc_token_info       - environment, granted scope, write switch, live-data check
   osc_list_endpoints   - list endpoints from the OpenAPI spec (filterable)
   osc_describe_endpoint- parameters / request body / responses for one endpoint
   osc_get              - GET any endpoint (supports OData query + body-filter GETs)
+  osc_prepare_write    - check a change and word its confirmation; sends nothing
+  osc_cancel_write     - discard a prepared change
 
-Write (gated - see osc_write docstring):
-  osc_write            - POST/PUT/PATCH/DELETE, refused unless OSC_ENABLE_WRITES=true
+Write (the only tool that changes OSC; the host keeps it on `ask`):
+  osc_confirm_write    - send a prepared change, given its confirmation code and
+                         the person's own "yes"; then read it back
 
-Writes are gated in two independent ways: this tool refuses at the code level
-unless OSC_ENABLE_WRITES is true, and the host is expected to keep
-mcp__osc-api__osc_write on `ask` so a human approves every call. That satisfies
-the org rule that nothing is written to a system of record without human sign-off.
+The gate itself (approved changes, job check, current values, smallest safe
+request, re-check before sending, read-back) is in gate.py.
 """
 from __future__ import annotations
 
-import json
-import mimetypes
-import os
-from contextlib import ExitStack
-from pathlib import Path
+import logging
 from typing import Any
-
-import httpx
 
 try:
     from mcp.server.fastmcp import FastMCP  # mcp 1.x
@@ -34,11 +29,17 @@ except ImportError:  # mcp >= 2.0 renamed FastMCP -> MCPServer; the API is the s
 
 from .client import WRITE_METHODS, OSCClient, OSCError
 from .config import Config, ConfigError, load_config
-from .spec import SpecView, find_operation
+from .gate import Gate, GateError, render
+from .spec import SpecView
 
-mcp = FastMCP("osc-api")
+mcp = FastMCP("osc-api-prod")
+
+# httpx logs every request with its full URL at INFO, which would put the
+# production host name in the MCP log. Keep it to warnings.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 _client: OSCClient | None = None
+_gate: Gate | None = None
 _config: Config | None = None
 _config_error: str | None = None
 
@@ -57,51 +58,18 @@ def _get_client() -> OSCClient:
     return _client
 
 
+def _get_gate() -> Gate:
+    global _gate
+    client = _get_client()
+    if _gate is None or _gate.client is not client or _gate.config is not _config:
+        _gate = Gate(client, _config)
+    return _gate
+
+
 def _err(message: str, **extra: Any) -> dict[str, Any]:
     out = {"ok": False, "error": message}
     out.update(extra)
     return out
-
-
-def _forms(p: str) -> set[str]:
-    """Comparable spellings of a path: as given and with drive mappings resolved."""
-    out = {os.path.normcase(os.path.abspath(p))}
-    try:
-        out.add(os.path.normcase(os.path.realpath(p)))
-    except OSError:
-        pass
-    return out
-
-
-def _inside(candidate: str, roots: tuple[str, ...]) -> bool:
-    """True when candidate sits under one of roots (any spelling, mapped or UNC)."""
-    for root in roots:
-        for r in _forms(root):
-            r = r.rstrip("\\/") + os.sep
-            if any(c.startswith(r) for c in _forms(candidate)):
-                return True
-    return False
-
-
-def _check_uploads(files: dict[str, str], roots: tuple[str, ...]) -> list[dict[str, Any]]:
-    """Per-file checks for a multipart write. Reads metadata only; never opens a file."""
-    checks = []
-    for field, value in files.items():
-        p = Path(value)
-        entry: dict[str, Any] = {"field": field, "path": value, "ok": False}
-        if not p.is_absolute():
-            entry["problem"] = "not an absolute path"
-        elif not roots:
-            entry["problem"] = "no upload roots configured (OSC_UPLOAD_ROOTS)"
-        elif not _inside(value, roots):
-            entry["problem"] = "outside the allowed upload roots"
-        elif not p.is_file():
-            entry["problem"] = "not an existing regular file on the MCP server machine"
-        else:
-            entry["ok"] = True
-            entry["bytes"] = p.stat().st_size
-        checks.append(entry)
-    return checks
 
 
 # ---------------------------------------------------------------------------
@@ -109,18 +77,24 @@ def _check_uploads(files: dict[str, str], roots: tuple[str, ...]) -> list[dict[s
 # ---------------------------------------------------------------------------
 @mcp.tool()
 async def osc_token_info() -> dict[str, Any]:
-    """Return the current credential's granted OAuth scope and token expiry.
+    """Pre-flight: environment, write switch, granted scope and a live-data check.
 
-    Use this first to confirm connectivity and to see which scopes you have
-    (e.g. Basic, Orders, Inspections). A 403 from another tool usually means the
-    endpoint needs a scope not listed here.
+    Call this first in any OSC task. `config.environment` must be
+    "production" and `live_check.live` must be true; when it is false the
+    connection is answering from a stale copy and no change will be written.
     """
     try:
         client = _get_client()
         info = await client.token_info()
-        return {"ok": True, "config": _config.redacted() if _config else None, "token": info}
+        try:
+            live = await _get_gate().live_check(force=True)
+        except GateError as exc:
+            live = {"live": False, "reason": str(exc)}
+        return {"ok": True, "config": _config.redacted() if _config else None, "token": info,
+                "live_check": live}
     except OSCError as exc:
-        return _err(str(exc), status=exc.status, body=exc.body)
+        return _err(str(exc), status=exc.status, body=exc.body,
+                    config=_config.redacted() if _config else None)
 
 
 @mcp.tool()
@@ -240,132 +214,113 @@ async def osc_get(path: str, query: dict | None = None, odata_filter: dict | Non
 
 
 # ---------------------------------------------------------------------------
-# Write tool (gated)
+# Changes: prepare (read-only) -> person replies -> confirm (writes)
 # ---------------------------------------------------------------------------
 @mcp.tool()
-async def osc_write(
+async def osc_prepare_write(
     method: str,
     path: str,
+    job_id: str = "",
     body: dict | None = None,
-    query: dict | None = None,
-    confirm: bool = False,
     form: dict[str, str] | None = None,
     files: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Create/update/delete via the OSC API. WRITE - guarded.
+    """Check an OnSite Companion change and word its confirmation. SENDS NOTHING.
 
-    This changes a system of record, so it is gated:
-      1. It refuses unless the server was started with OSC_ENABLE_WRITES=true.
-      2. The host keeps this tool on `ask`, so a human approves each call.
-      3. You must pass confirm=true, after showing the caller exactly what will
-         be sent (method, path, body). With confirm=false it returns a dry-run
-         preview and sends nothing.
+    Reads the target from OSC, refuses anything that is not an approved
+    contract-intake change, not tied to the named job, ambiguous, or touching a
+    protected field (contract price, contract number, region, DataBuild code).
+    Works out exactly which fields change, with their current values, and the
+    smallest request that changes only those (custom fields are sent as the full
+    set so none is dropped).
+
+    Show `confirmation_text` to the person exactly as written and wait for
+    their reply. Only after a plain yes, call osc_confirm_write with
+    `confirmation_code` and their reply. If they ask for anything different,
+    prepare the changed request again: a new check replaces the old code.
 
     Args:
-        method: POST | PUT | PATCH | DELETE.
-        path:   endpoint path, e.g. "/api/Clients/{ClientID}".
-        body:   JSON request body per osc_describe_endpoint.
-        query:  optional query-string params.
-        confirm: must be true to actually send; false returns a preview.
-        form: multipart text fields, e.g. Subject and Documents[0].description.
-        files: multipart field to absolute file path on the MCP server machine,
-            e.g. Documents[0].file. Each path must sit under one of the
-            configured upload roots (OSC_UPLOAD_ROOTS; default the checkout's
-            runtime folder). Files are opened only after all write gates.
-            Use form/files only for endpoints advertising multipart/form-data.
-            Do not combine them with body. The preview runs the same route and
-            file checks the send will (route is multipart, file exists under a
-            root, size) and reports them under `checks`, without opening a file.
+        method: POST | PATCH | PUT.
+        path:   endpoint path with real IDs, e.g. "/api/Jobs/<jobID>".
+        job_id: the ID of the job this change is for. Required except when
+            creating a new client, person or job.
+        body:   JSON fields to change (only the fields being changed).
+        form:   message fields: Subject, Body, Documents[0].description.
+        files:  message attachments: {"Documents[0].file": "<absolute path under runtime\\>"}.
     """
-    method_u = method.upper()
-    if method_u not in WRITE_METHODS:
-        return _err(f"osc_write only handles {sorted(WRITE_METHODS)}; use osc_get for GET.")
-
     if _config is None:
         return _err(_config_error or "OSC MCP is not configured.")
-
-    preview = {"method": method_u, "path": path, "query": query, "body": body}
-    multipart = form is not None or files is not None
-    checks: list[dict[str, Any]] = []
-    if multipart:
-        preview.update(form=form, files=files)
-        if body is not None:
-            return _err("Use either body or multipart form/files, not both.", would_send=preview)
-        if not form and not files:
-            return _err("Multipart requests need at least one form field or file.", would_send=preview)
-        # The same checks run for the preview and for the send, so a person
-        # approving a dry run sees what the real call will hit. Nothing here
-        # opens a file: route lookup reads the cached spec, files are stat'ed.
-        checks = await _multipart_checks(method_u, path, files or {})
-    problems = [c for c in checks if not c["ok"]]
-
-    if not _config.enable_writes:
-        return _err(
-            "Writes are disabled. Start the server with OSC_ENABLE_WRITES=true to "
-            "allow write calls (and only against the intended environment).",
-            would_send=preview, checks=checks,
-        )
-
-    if not confirm:
-        out: dict[str, Any] = {"ok": not problems, "dry_run": True, "would_send": preview,
-                               "note": "Nothing was sent. Re-call with confirm=true to execute."}
-        if checks:
-            out["checks"] = checks
-        if problems:
-            out["error"] = "Preview found problems; fix them before confirm=true."
+    try:
+        gate = _get_gate()
+    except OSCError as exc:
+        return _err(str(exc))
+    plan = await gate.build_plan(method, path, job_id, body, form, files)
+    out: dict[str, Any] = {
+        "environment": _config.environment,
+        "job": plan.job_label or None,
+        "change": plan.headline or None,
+        "changes": [{k: v for k, v in c.items() if not k.endswith("_shown")} for c in plan.changes],
+        "notes": plan.notes,
+        "warnings": plan.warnings,
+        "blocked": plan.blocked,
+        "would_send": {"method": plan.method, "path": plan.path, **plan.request} if plan.request else None,
+    }
+    if plan.checks:
+        out["checks"] = plan.checks
+    if plan.blocked:
+        out.update(ok=False, confirmation_code=None, confirmation_text=render(plan, _config.environment))
         return out
+    text = render(plan, _config.environment)
+    if not _config.enable_writes:
+        out.update(ok=False, confirmation_code=None, confirmation_text=text,
+                   error="Writing to OnSite Companion is switched off for this chat, so this change can be "
+                         "shown but not sent.")
+        return out
+    code = gate.register(plan)
+    out.update(ok=True, confirmation_code=code, confirmation_text=text,
+               expires_in_minutes=_config.approval_minutes,
+               next_step="Show confirmation_text to the person exactly as written. Only after they reply "
+                         "with a plain yes, call osc_confirm_write with this code and their reply.")
+    return out
 
-    if problems:
-        return _err("Multipart checks failed; nothing was sent.", would_send=preview, checks=checks)
 
+@mcp.tool()
+async def osc_confirm_write(confirmation_code: str, user_reply: str) -> dict[str, Any]:
+    """Send a prepared OnSite Companion change. WRITE - on `ask` in the host.
+
+    Only after the person has read the confirmation from osc_prepare_write
+    and answered it. Pass their reply exactly as they typed it. Anything other
+    than a plain yes sends nothing ("no" cancels). The target is read again
+    first; if anything differs from what they confirmed, nothing is sent and a
+    new confirmation comes back to show them. The request sent is the one
+    that was prepared, then the record is read back and checked.
+
+    Args:
+        confirmation_code: the code osc_prepare_write returned.
+        user_reply: the person's own reply to the confirmation, verbatim.
+    """
+    if _config is None:
+        return _err(_config_error or "OSC MCP is not configured.")
     try:
-        client = _get_client()
-        if multipart:
-            paths = {field: Path(value) for field, value in (files or {}).items()}
-            with ExitStack() as stack:
-                uploads = {field: (p.name, stack.enter_context(p.open("rb")),
-                                   mimetypes.guess_type(p.name)[0] or "application/octet-stream")
-                           for field, p in paths.items()}
-                result = await client.request(method_u, path, params=query,
-                                              form_data=form, files=uploads)
-        else:
-            result = await client.request(method_u, path, params=query, json_body=body)
-        result["dry_run"] = False
-        return result
+        gate = _get_gate()
     except OSCError as exc:
-        return _err(str(exc), status=exc.status, body=exc.body)
-    except OSError:
-        return _err("Could not read an upload file; check server-local access. No automatic retry was made.")
-    except httpx.HTTPError:
-        return _err("OSC transport failed; outcome may be uncertain. Read current state before retrying.")
+        return _err(str(exc))
+    return await gate.confirm(confirmation_code, user_reply)
 
 
-async def _multipart_checks(method_u: str, path: str, files: dict[str, str]) -> list[dict[str, Any]]:
-    """Route and file checks for a multipart write (shared by preview and send)."""
-    checks: list[dict[str, Any]] = []
-    route_check: dict[str, Any] = {"field": None, "path": path, "ok": False}
+@mcp.tool()
+async def osc_cancel_write(confirmation_code: str) -> dict[str, Any]:
+    """Discard a prepared change (the person said no, or the request is being redone). Sends nothing."""
+    if _config is None:
+        return _err(_config_error or "OSC MCP is not configured.")
     try:
-        spec = await _get_client().get_spec()
+        gate = _get_gate()
     except OSCError as exc:
-        route_check["problem"] = f"cannot load the OSC spec to verify the route: {exc}"
-        checks.append(route_check)
-    else:
-        view = SpecView(spec)
-        route, operation = find_operation(spec, view, path, method_u)
-        rb = view.resolve(operation.get("requestBody", {})) if operation else {}
-        if route is None:
-            route_check["problem"] = "no OSC route matches this path"
-        elif not operation:
-            route_check["problem"] = f"route {route} has no {method_u} operation"
-        elif "multipart/form-data" not in rb.get("content", {}):
-            route_check["problem"] = f"{method_u} {route} does not advertise multipart/form-data"
-        elif view.unresolved:
-            route_check["problem"] = "unresolved schema references; inspect the endpoint before writing"
-        else:
-            route_check.update(ok=True, route=route)
-        checks.append(route_check)
-    checks.extend(_check_uploads(files, _config.upload_roots if _config else ()))
-    return checks
+        return _err(str(exc))
+    found = gate.cancel(confirmation_code)
+    return {"ok": True, "cancelled": found,
+            "result_text": "Cancelled. Nothing was changed in OnSite Companion." if found else
+                           "There was no pending change under that code. Nothing was changed."}
 
 
 def main() -> None:

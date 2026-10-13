@@ -21,7 +21,7 @@ testing folder (see `../reference/README.md`).
 1. **Carry forward.** Read last week's report from the runtime reports
    folder (`runtime\permit-officer\reports\`); parse rows (job number,
    client, site, dates, outstanding items).
-2. **Read OSC per job** (via the read-only `osc-api` MCP): job activities
+2. **Read OSC per job** (via the `osc-api-prod` MCP, reads only): job activities
    and their completion state, alerts raised/acknowledged during the week,
    Document Manager entries — including the energy application → energy
    report rename that encodes energy status (PO-8a).
@@ -54,7 +54,7 @@ testing folder (see `../reference/README.md`).
 Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**. Each Monday
 for 3–4 weeks:
 
-1. **Snapshot step (Claude + `osc-api` MCP, read-only).** For each pilot
+1. **Snapshot step (Claude + `osc-api-prod` MCP, read-only).** For each pilot
    job: resolve the contract number to its `jobID`, read activities (add
    `jobActivityID` to the `$select`), alerts and documents (queries in
    `../reference/osc-field-map.md`), and save one JSON per job to
@@ -111,8 +111,10 @@ Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
 
 ## Build gates
 
-1. **OSC access — CLEARED.** The read-only `osc-api` MCP server is live
-   (project-scoped, writes disabled; see `.claude/skills/osc-api/`). Still
+1. **OSC access — CLEARED.** The `osc-api-prod` MCP server reads the
+   production OnSite Companion (since 13 Oct 2026; before that the reads came
+   from a dev copy frozen on 21 Aug 2026; see `.claude/skills/osc-api/`). This
+   workflow makes no OSC change. Still
    required before code: a **field-mapping pass** against real jobs —
    how to enumerate BA-stage jobs (the Executive Reporter filter's
    equivalent), activity completion semantics, alert recipients and

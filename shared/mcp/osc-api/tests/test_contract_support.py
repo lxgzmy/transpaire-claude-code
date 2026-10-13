@@ -1,4 +1,7 @@
-"""Synthetic contract-workflow coverage; never load local configuration."""
+"""Synthetic coverage for the read-side helpers; never loads local configuration.
+
+The write path (prepare, confirm, read-back) is covered in test_write_gate.py.
+"""
 import copy
 import importlib
 import json
@@ -6,10 +9,6 @@ import os
 import tempfile
 import time
 import unittest
-from dataclasses import replace
-from email.parser import BytesParser
-from email.policy import default
-from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -96,11 +95,6 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
             p.stop()
         await self.client.aclose()
 
-    @staticmethod
-    def roots(*folders, **overrides):
-        """Allow uploads from the given folders (and override other Config fields)."""
-        return patch.object(server, "_config", replace(CONFIG, upload_roots=tuple(folders), **overrides))
-
     def test_find_operation_prefers_literal_then_fewer_parameters(self):
         spec = {"paths": {
             "/api/Jobs/{JobID}/Messages": {"post": {"summary": "by job"}},
@@ -170,150 +164,9 @@ class ContractSupportTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("#/components/responses/UnrelatedMissing",
                          {r["ref"] for r in result["unresolved_references"]})
 
-    async def test_gates_never_open_files_or_send(self):
-        with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "request.eml"
-            path.write_bytes(b"synthetic")
-            for enabled, confirm in [(False, False), (False, True), (True, False)]:
-                with self.subTest(enabled=enabled, confirm=confirm), self.roots(
-                    folder, enable_writes=enabled
-                ), patch.object(Path, "open", side_effect=AssertionError("File opened before approval")):
-                    result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=confirm,
-                        form={"Subject": "NEW JOB"}, files={"Documents[0].file": str(path)})
-                    self.assertEqual(result["would_send"]["files"], {"Documents[0].file": str(path)})
-                    self.assertEqual(result["ok"], enabled)
-                    # the preview ran the send's checks: route is multipart, file found, size known
-                    self.assertTrue(all(c["ok"] for c in result["checks"]))
-                    self.assertEqual(result["checks"][0]["route"], "/api/Jobs/{JobID}/Messages")
-                    self.assertEqual(result["checks"][1]["bytes"], 9)
-        self.assertEqual(self.requests, [])
-
-    async def test_preview_reports_problems_instead_of_promising_success(self):
-        with tempfile.TemporaryDirectory() as folder, self.roots(folder), patch.object(
-            Path, "open", side_effect=AssertionError("File opened during preview")
-        ):
-            result = await server.osc_write("POST", "/api/Jobs", confirm=False,
-                form={"Subject": "NEW JOB"}, files={"Documents[0].file": str(Path(folder) / "missing.eml")})
-        self.assertFalse(result["ok"])
-        self.assertTrue(result["dry_run"])
-        self.assertIn("problems", result["error"])
-        problems = {c["problem"] for c in result["checks"] if not c["ok"]}
-        self.assertTrue(any("multipart/form-data" in p for p in problems))
-        self.assertTrue(any("existing regular file" in p for p in problems))
-        self.assertEqual(self.requests, [])
-
-    async def test_upload_outside_allowed_roots_is_refused(self):
-        with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as elsewhere:
-            path = Path(elsewhere) / "secret.eml"
-            path.write_bytes(b"synthetic")
-            with self.roots(allowed):
-                result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=True,
-                    files={"Documents[0].file": str(path)})
-            self.assertFalse(result["ok"])
-            self.assertEqual(result["checks"][1]["problem"], "outside the allowed upload roots")
-            with self.roots():  # nothing configured at all
-                result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=True,
-                    files={"Documents[0].file": str(path)})
-            self.assertFalse(result["ok"])
-            self.assertIn("no upload roots", result["checks"][1]["problem"])
-        self.assertEqual(self.requests, [])
-
-    async def test_multipart_encodes_field_names_bytes_and_filename(self):
-        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
-            path = Path(folder) / "request.eml"
-            path.write_bytes(b"Subject: Synthetic\r\n\r\n\x00attachment\xff")
-            result = await server.osc_write("POST", "/api/Jobs/id/Messages", confirm=True,
-                form={"Subject": "NEW JOB", "Documents[0].description": "NEW JOB"},
-                files={"Documents[0].file": str(path)}, query={"sample": "1"})
-        self.assertTrue(result["ok"])
-        self.assertFalse(result["dry_run"])
-        self.assertEqual(len(self.requests), 1)
-        request = self.requests[0]
-        self.assertEqual(request.url.params["sample"], "1")
-        self.assertTrue(request.headers["content-type"].startswith("multipart/form-data; boundary="))
-        message = BytesParser(policy=default).parsebytes(
-            b"Content-Type: " + request.headers["content-type"].encode() + b"\r\n\r\n" + request.content)
-        parts = {part.get_param("name", header="content-disposition"): part for part in message.iter_parts()}
-        self.assertEqual(parts["Subject"].get_payload(decode=True), b"NEW JOB")
-        self.assertEqual(parts["Documents[0].description"].get_payload(decode=True), b"NEW JOB")
-        self.assertEqual(parts["Documents[0].file"].get_filename(), "request.eml")
-        # message/rfc822 is parsed as a nested Message, so decoded payload is
-        # None for .eml. Inspect the raw MIME part to prove binary preservation.
-        boundary = message.get_boundary().encode()
-        file_part = next(part for part in request.content.split(b"--" + boundary)
-                         if b'name="Documents[0].file"' in part)
-        self.assertEqual(file_part.split(b"\r\n\r\n", 1)[1],
-                         b"Subject: Synthetic\r\n\r\n\x00attachment\xff\r\n")
-
-    async def test_invalid_multipart_rejected_before_business_request(self):
-        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
-            cases = [
-                {"body": {}, "form": {"Subject": "x"}},
-                {"files": {"file": "relative.eml"}},
-                {"files": {"file": str(Path(folder) / "missing.eml")}},
-                {"files": {"file": folder}},
-                {"path": "/api/Jobs", "form": {"Subject": "x"}},
-                {"path": "/api/Unknown", "form": {"Subject": "x"}},
-                {"method": "DELETE", "form": {"Subject": "x"}},
-                {"form": {}, "files": {}},
-            ]
-            for case in cases:
-                with self.subTest(case=case):
-                    args = {"method": "POST", "path": "/api/Jobs/id/Messages", "confirm": True, **case}
-                    result = await server.osc_write(**args)
-                    self.assertFalse(result["ok"])
-                    self.assertEqual(self.requests, [])
-
-    async def test_json_write_keeps_existing_behaviour(self):
-        result = await server.osc_write("POST", "/api/Jobs", body={"name": "Synthetic"}, confirm=True)
-        self.assertTrue(result["ok"])
-        self.assertEqual(json.loads(self.requests[0].content), {"name": "Synthetic"})
-
-    async def test_form_only_is_still_multipart(self):
-        result = await server.osc_write("POST", "/api/Jobs/id/Messages",
-                                        form={"Subject": "NEW JOB"}, confirm=True)
-        self.assertTrue(result["ok"])
-        self.assertTrue(self.requests[0].headers["content-type"].startswith("multipart/form-data;"))
-        self.assertIn(b'name="Subject"\r\n\r\nNEW JOB', self.requests[0].content)
-
-    async def test_unreadable_file_is_not_sent(self):
-        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
-            path = Path(folder) / "request.eml"
-            path.write_bytes(b"synthetic")
-            with patch.object(Path, "open", side_effect=PermissionError("sensitive path")):
-                result = await server.osc_write("POST", "/api/Jobs/id/Messages",
-                    files={"Documents[0].file": str(path)}, confirm=True)
-        self.assertFalse(result["ok"])
-        self.assertNotIn("sensitive path", result["error"])
-        self.assertEqual(self.requests, [])
-
-    async def test_transport_failure_requires_reconciliation_and_closes_files(self):
-        opened = []
-        actual_open = Path.open
-
-        def capture(path, *args, **kwargs):
-            stream = actual_open(path, *args, **kwargs)
-            opened.append(stream)
-            return stream
-
-        async def fail(request):
-            self.requests.append(request)
-            raise httpx.ReadTimeout("sensitive host", request=request)
-
-        await self.client._client.aclose()
-        self.client._client = httpx.AsyncClient(transport=httpx.MockTransport(fail))
-        with tempfile.TemporaryDirectory() as folder, self.roots(folder):
-            path = Path(folder) / "request.eml"
-            path.write_bytes(b"synthetic")
-            with patch.object(Path, "open", capture):
-                result = await server.osc_write("POST", "/api/Jobs/id/Messages",
-                    files={"Documents[0].file": str(path)}, confirm=True)
-        self.assertFalse(result["ok"])
-        self.assertIn("uncertain", result["error"])
-        self.assertNotIn("sensitive host", result["error"])
-        self.assertEqual(len(self.requests), 1)
-        self.assertEqual(len(opened), 1)
-        self.assertTrue(opened[0].closed)
+    def test_the_old_direct_write_tool_is_gone(self):
+        self.assertFalse(hasattr(server, "osc_write"),
+                         "every write must go through osc_prepare_write and osc_confirm_write")
 
 
 if __name__ == "__main__":
