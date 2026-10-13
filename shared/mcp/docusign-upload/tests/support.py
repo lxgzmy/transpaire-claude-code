@@ -84,3 +84,48 @@ def nsw_company_template() -> dict:
                 {"roleName": "Builder", "recipientId": "2", "routingOrder": "2"},
                 {"roleName": "Builder Witness", "recipientId": "3", "routingOrder": "3"},
                 {"roleName": "Date Contract", "recipientId": "4", "routingOrder": "4"}]}}
+
+
+def qld_single_template_tabs() -> dict:
+    """The template's tabs, shaped like GET /templates/{id}/recipients?include_tabs=true.
+    Same pattern as the real template: contract initials and signatures, inclusions initials
+    on all but the last three pages, a plans signature on every page."""
+    def tabs(doc, pages):
+        return [{"documentId": doc, "pageNumber": str(p)} for p in pages]
+    return {"signers": [
+        {"roleName": "Buyer", "recipientId": "1", "routingOrder": "1", "tabs": {
+            "signHereTabs": tabs("1", [3, 13]) + tabs("86092972", [13, 14, 15]) + tabs("3", [1, 2, 3, 4]),
+            "initialHereTabs": tabs("1", range(6, 13)) + tabs("86092972", range(1, 13))}},
+        {"roleName": "Builder", "recipientId": "3", "routingOrder": "2", "tabs": {
+            "signHereTabs": tabs("1", [13]) + tabs("86092972", [13])}}],
+        "recipientCount": "2"}
+
+
+def readback_for(body: dict, template_tabs: dict) -> dict:
+    """What DocuSign is expected to hold after the create: one document per composite (ids
+    renumbered), the template's tabs on each carried document, each role once. The sandbox
+    prototype checks the real service against the same expectation."""
+    by_template_doc: dict[str, list[tuple[str, str, str]]] = {}
+    for signer in template_tabs.get("signers", []):
+        for tab_type, tabs in (signer.get("tabs") or {}).items():
+            for tab in tabs:
+                by_template_doc.setdefault(str(tab["documentId"]), []).append(
+                    (signer["roleName"], tab_type, str(tab["pageNumber"])))
+    roles = {s["roleName"]: {"roleName": s["roleName"], "recipientId": s["recipientId"],
+                             "email": "builder@example.com", "tabs": {}}
+             for s in template_tabs.get("signers", [])}
+    documents = []
+    for n, comp in enumerate(body["compositeTemplates"], start=1):
+        doc = comp["document"]
+        new_id = str(n)
+        documents.append({"documentId": new_id, "name": doc["name"], "type": "content"})
+        for signer in comp["inlineTemplates"][0]["recipients"]["signers"]:
+            roles[signer["roleName"]]["email"] = signer["email"]
+        if comp.get("serverTemplates"):
+            for role, tab_type, page in by_template_doc.get(doc["documentId"], []):
+                roles[role]["tabs"].setdefault(tab_type, []).append(
+                    {"documentId": new_id, "pageNumber": page})
+    custom = body["compositeTemplates"][0]["inlineTemplates"][0].get("customFields", {})
+    return {"documents": {"envelopeDocuments": documents},
+            "recipients": {"signers": list(roles.values()), "recipientCount": str(len(roles))},
+            "custom_fields": custom}

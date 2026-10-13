@@ -1,5 +1,6 @@
 """Request building: kinds, template, recipients, carry or flag, size, duplicates, body."""
 import base64
+import copy
 import os
 import tempfile
 import unittest
@@ -8,7 +9,7 @@ from unittest.mock import patch
 from docusign_upload import draft
 from docusign_upload.draft import Stop
 from docusign_upload.pdfcheck import PdfFile
-from support import make_pdf, nsw_company_template, qld_single_template
+from support import make_pdf, nsw_company_template, qld_single_template, qld_single_template_tabs, readback_for
 
 
 def pdf(name, pages, size=1000):
@@ -218,3 +219,61 @@ class BodyTests(unittest.TestCase):
                          ["carried from the template", "carried from the template",
                           "none, flagged: 5 pages, the template's has 4"])
         self.assertEqual((view["template_documents_left_out"], view["status"]), ([], "created"))
+
+
+class ReadBackTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.plan = build_plan(self.tmp.name)
+        self.rb = readback_for(draft.build_body(self.plan), qld_single_template_tabs())
+        self.template_tabs = draft.tab_counts(qld_single_template_tabs())
+
+    def check(self, **overrides):
+        parts = {"envelope": {"status": "created"}, "documents": self.rb["documents"],
+                 "recipients": self.rb["recipients"], "custom_fields": self.rb["custom_fields"]}
+        parts.update(overrides)
+        return draft.read_back(self.plan, template_tabs=self.template_tabs, **parts)
+
+    def test_tab_counts(self):
+        counts = draft.tab_counts({"signers": [{"roleName": "Buyer", "tabs": {
+            "signHereTabs": [{"documentId": "1", "pageNumber": "3"}, {"documentId": "1", "pageNumber": "3"}],
+            "initialHereTabs": [{"documentId": "2", "pageNumber": "1"}]}}], "recipientCount": "1"})
+        self.assertEqual(counts, {"1": {("Buyer", 3): 2}, "2": {("Buyer", 1): 1}})
+
+    def test_a_draft_that_matches_the_plan_has_no_findings(self):
+        out = self.check()
+        self.assertEqual(out["findings"], [])
+        self.assertEqual(out["check"], "the draft matches the plan")
+        self.assertEqual([(d["kind"], d["tabs"]) for d in out["documents"]],
+                         [("BUILD CONTRACT", "carried"), ("INCLUSIONS", "carried"),
+                          ("PLANS", "none, flagged")])
+        self.assertEqual(out["documents"][1]["tab_pages_by_role"]["Builder"], [13])
+        self.assertEqual(out["roles_without_tabs"], [])
+
+    def test_findings(self):
+        docs = self.rb["documents"]["envelopeDocuments"]
+        signers = self.rb["recipients"]["signers"]
+        tagged_plans = copy.deepcopy(self.rb["recipients"])
+        tagged_plans["signers"][0]["tabs"].setdefault("signHereTabs", []).append(
+            {"documentId": "3", "pageNumber": "1"})
+        cases = [
+            ({"envelope": {"status": "sent"}}, "status is 'sent'"),
+            ({"documents": {"envelopeDocuments": docs + [
+                {"documentId": "9", "name": "PLANS_PAST JOB.pdf", "type": "content"}]}},
+             "not one of the job's files (id 9)"),
+            ({"documents": {"envelopeDocuments": docs[:2]}}, "PLANS: not in the draft"),
+            ({"recipients": {"signers": signers + [
+                {"roleName": "Buyer", "email": "alex@example.com", "tabs": {}}]}},
+             "role 'Buyer' appears 2 times"),
+            ({"recipients": {"signers": [dict(s, email="someone@example.com") if s["roleName"] == "Buyer"
+                                         else s for s in signers]}}, "different email"),
+            ({"recipients": tagged_plans}, "PLANS: 1 tabs in the draft, expected 0"),
+            ({"custom_fields": {"textCustomFields": []}}, "JobNo"),
+        ]
+        for overrides, needle in cases:
+            with self.subTest(needle=needle):
+                out = self.check(**overrides)
+                self.assertTrue(any(needle in f for f in out["findings"]), out["findings"])
+                self.assertNotIn("PAST JOB", " ".join(out["findings"]))
+                self.assertEqual(out["check"], "a person should look at the findings before sending")

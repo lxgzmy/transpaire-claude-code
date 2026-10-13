@@ -285,3 +285,87 @@ def plan_view(plan: Plan) -> dict[str, Any]:
                                         if d.kind not in given_kinds],
         "estimated_request_mib": round(estimated_body_bytes(plan.documents) / 1048576, 1),
     }
+
+
+def tab_counts(recipients: dict[str, Any]) -> dict[str, dict[tuple[str, int], int]]:
+    """{documentId: {(roleName, page): number of tabs}} across every recipient and tab type."""
+    out: dict[str, dict[tuple[str, int], int]] = {}
+    for items in (recipients or {}).values():
+        if not isinstance(items, list):
+            continue
+        for r in items:
+            role = str(r.get("roleName") or "(no role)")
+            for tabs in (r.get("tabs") or {}).values():
+                if not isinstance(tabs, list):
+                    continue
+                for tab in tabs:
+                    doc = out.setdefault(str(tab.get("documentId", "")), {})
+                    key = (role, int(tab.get("pageNumber") or 0))
+                    doc[key] = doc.get(key, 0) + 1
+    return out
+
+
+def _pages_by_role(counts: dict[tuple[str, int], int]) -> dict[str, list[int]]:
+    out: dict[str, list[int]] = {}
+    for role, page in sorted(counts):
+        pages = out.setdefault(role, [])
+        if page not in pages:
+            pages.append(page)
+    return out
+
+
+def _has_tabs(recipient: dict[str, Any]) -> bool:
+    return any(isinstance(tabs, list) and tabs for tabs in (recipient.get("tabs") or {}).values())
+
+
+def read_back(plan: Plan, *, envelope: dict[str, Any], documents: dict[str, Any],
+              recipients: dict[str, Any], custom_fields: dict[str, Any],
+              template_tabs: dict[str, dict[tuple[str, int], int]]) -> dict[str, Any]:
+    """Compare the created draft with the plan. Findings are reported, never acted on: the draft
+    exists and a person decides. Documents are matched by name because DocuSign renumbers ids."""
+    findings: list[str] = []
+    if envelope.get("status") != DRAFT_STATUS:
+        findings.append(f"status is {envelope.get('status')!r}, expected {DRAFT_STATUS!r}")
+    content = [d for d in documents.get("envelopeDocuments", []) if d.get("type", "content") == "content"]
+    by_name = {str(d.get("name", "")).lower(): str(d.get("documentId")) for d in content}
+    planned_names = {d.file.name.lower() for d in plan.documents}
+    for d in content:
+        if str(d.get("name", "")).lower() not in planned_names:
+            findings.append("the draft holds a document that is not one of the job's files "
+                            f"(id {d.get('documentId')})")
+    counts = tab_counts(recipients)
+    summary = []
+    for d in plan.documents:
+        doc_id = by_name.get(d.file.name.lower())
+        if doc_id is None:
+            findings.append(f"{d.kind}: not in the draft")
+            continue
+        got = counts.get(doc_id, {})
+        expected = template_tabs.get(d.template_document_id or "", {}) if d.carry else {}
+        if got != expected:
+            findings.append(f"{d.kind}: {sum(got.values())} tabs in the draft, expected "
+                            f"{sum(expected.values())}"
+                            + (" from the template" if d.carry else " (flagged, so none)"))
+        summary.append({"kind": d.kind, "file": d.file.name, "pages": d.file.pages,
+                        "tabs": "carried" if d.carry else "none, flagged",
+                        "flag": d.reason or None, "tab_count": sum(got.values()),
+                        "tab_pages_by_role": _pages_by_role(got)})
+    job = [f for f in custom_fields.get("textCustomFields", []) if f.get("name") == "JobNo"]
+    if len(job) != 1 or str(job[0].get("value", "")) != plan.job_no:
+        findings.append("the JobNo custom field is missing or wrong")
+    by_role: dict[str, list[dict[str, Any]]] = {}
+    for items in recipients.values():
+        if isinstance(items, list):
+            for r in items:
+                by_role.setdefault(str(r.get("roleName") or "(no role)"), []).append(r)
+    for r, _ in plan.recipients:
+        found = by_role.get(r.role, [])
+        if len(found) != 1:
+            findings.append(f"role {r.role!r} appears {len(found)} times in the draft")
+        elif str(found[0].get("email", "")).lower() != r.email.lower():
+            findings.append(f"role {r.role!r} has a different email in the draft")
+    without_tabs = sorted(role for role, items in by_role.items()
+                          if not any(_has_tabs(x) for x in items))
+    return {"documents": summary, "roles_without_tabs": without_tabs, "findings": findings,
+            "check": ("the draft matches the plan" if not findings
+                      else "a person should look at the findings before sending")}
