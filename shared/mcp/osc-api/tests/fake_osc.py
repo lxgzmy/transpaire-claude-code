@@ -157,8 +157,11 @@ class FakeOSC:
             {"messageID": _id(), "subject": subject, "body": "", "createdOnUtc": _now(days_ago)})
 
     # ---- request handling -----------------------------------------------
-    def handle(self, method: str, path: str, params: dict, body, form=None, files=None):
+    def handle(self, method: str, path: str, params: dict, body, form=None, files=None, headers=None):
         method = method.upper()
+        if headers is not None and not headers.get("api-version"):
+            # what the production API answers when the header is missing (seen 13 Oct 2026)
+            return 400, {"Title": "The 'api-version' header must be included with your request.", "Status": 400}
         parts = [p for p in path.split("/") if p]
         if path == "/api/Token":
             return 200, {"accessToken": "synthetic", "expiresIn": 3600, "tokenType": "Bearer",
@@ -339,20 +342,22 @@ def _parse_multipart(content_type: str, content: bytes):
     return form, files
 
 
-def _dispatch(fake: FakeOSC, method: str, path: str, params: dict, content_type: str, content: bytes):
+def _dispatch(fake: FakeOSC, method: str, path: str, params: dict, content_type: str, content: bytes,
+              headers: dict | None = None):
     body = form = files = None
     if content and content_type.startswith("multipart/form-data"):
         form, files = _parse_multipart(content_type, content)
     elif content and "json" in content_type:
         body = json.loads(content)  # the token request is form-encoded and needs no body here
-    return fake.handle(method, path, params, body, form, files)
+    return fake.handle(method, path, params, body, form, files, headers)
 
 
 def transport(fake: FakeOSC) -> httpx.MockTransport:
     async def handler(request: httpx.Request) -> httpx.Response:
         content = await request.aread()
         status, data = _dispatch(fake, request.method, request.url.path, dict(request.url.params),
-                                 request.headers.get("content-type", ""), content)
+                                 request.headers.get("content-type", ""), content,
+                                 {k.lower(): v for k, v in request.headers.items()})
         return httpx.Response(status, json=data)
     return httpx.MockTransport(handler)
 
@@ -365,7 +370,8 @@ def serve(fake: FakeOSC) -> tuple[ThreadingHTTPServer, str]:
             length = int(self.headers.get("content-length") or 0)
             content = self.rfile.read(length) if length else b""
             status, data = _dispatch(fake, self.command, url.path, dict(parse_qsl(url.query)),
-                                     self.headers.get("content-type", ""), content)
+                                     self.headers.get("content-type", ""), content,
+                                     {k.lower(): v for k, v in self.headers.items()})
             out = json.dumps(data).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")

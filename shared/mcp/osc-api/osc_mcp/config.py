@@ -101,6 +101,10 @@ class Config:
     stale_after_days: int = 30
     # A confirmation code stays valid this many minutes.
     approval_minutes: int = 30
+    # Sent as the `api-version` header on every call. The production API
+    # refuses any request without it (HTTP 400); the retired dev install did not
+    # ask for one, which is why the header was missing until 13 Oct 2026.
+    api_version: str = "7.3"
 
     @property
     def token_url(self) -> str:
@@ -126,6 +130,7 @@ class Config:
             "enable_writes_source": self.enable_writes_source,
             "timeout": self.timeout,
             "stale_after_days": self.stale_after_days,
+            "api_version": self.api_version,
             # count only: a root spelled as a UNC path would name the file server
             "upload_roots": len(self.upload_roots),
         }
@@ -154,7 +159,8 @@ def load_config() -> Config:
     OSC_ENABLE_WRITES (default false), OSC_TIMEOUT (default 30),
     OSC_UPLOAD_ROOTS (semicolon-separated absolute directories a multipart
     upload may read from; default: the checkout's runtime\\ folder),
-    OSC_STALE_AFTER_DAYS (default 30), OSC_APPROVAL_MINUTES (default 30).
+    OSC_STALE_AFTER_DAYS (default 30), OSC_APPROVAL_MINUTES (default 30),
+    OSC_API_VERSION (the api-version header, default 7.3).
     """
     environment = os.environ.get("OSC_ENVIRONMENT", "production").strip().lower() or "production"
     if environment not in ENVIRONMENTS:
@@ -206,4 +212,5 @@ def load_config() -> Config:
         environment=environment,
         stale_after_days=int(os.environ.get("OSC_STALE_AFTER_DAYS", "30")),
         approval_minutes=int(os.environ.get("OSC_APPROVAL_MINUTES", "30")),
+        api_version=os.environ.get("OSC_API_VERSION", "").strip() or "7.3",
     )

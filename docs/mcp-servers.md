@@ -299,6 +299,10 @@ python -m venv .venv        # or `uv venv` where uv is installed
 .\.venv\Scripts\python.exe -m pip install -e .
 ```
 
+The production API refuses any request without an `api-version` header
+(HTTP 400, found 13 Oct 2026; the dev install never asked for one). The client
+sends `OSC_API_VERSION`, default `7.3`, on every call.
+
 `.mcp.json` sets three env vars: `OSC_ENVIRONMENT=production` (the only
 environment the server accepts), `OSC_TIMEOUT=120` (the API's first response
 after idling can exceed 30 seconds), and `OSC_ENABLE_WRITES=true`, the write

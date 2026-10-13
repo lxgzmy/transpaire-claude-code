@@ -356,6 +356,7 @@ or from `OSC_ENV_FILE` if set. The old `.env` is never read.
 | `OSC_UPLOAD_ROOTS` | no | `;`-separated absolute directories an attachment may be read from; default the checkout's git-ignored `runtime\` folder. |
 | `OSC_STALE_AFTER_DAYS` | no | Writes refused when the newest job is older than this; default 30. |
 | `OSC_APPROVAL_MINUTES` | no | Life of a confirmation code; default 30. |
+| `OSC_API_VERSION` | no | Sent as the `api-version` header on every call, the token request included; default `7.3`. The production API answers HTTP 400 ("The 'api-version' header must be included") without it. The retired dev install never asked for it. |
 
 The tools never show the host: `osc_token_info` reports `target`, a short hash
 of the base URL, and httpx request logging is kept at warning level.
