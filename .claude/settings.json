@@ -18,7 +18,9 @@
       "mcp__docusign-demo__getEnvelopes",
       "mcp__docusign-demo__getEnvelopeVsAgreementSkill",
       "mcp__docusign-upload__docusign_token_info",
-      "mcp__docusign-upload__docusign_draft_preview"
+      "mcp__docusign-upload__docusign_draft_preview",
+      "mcp__docusign-upload-prod__docusign_token_info",
+      "mcp__docusign-upload-prod__docusign_draft_preview"
     ],
     "ask": [
       "mcp__osc-api__osc_write",

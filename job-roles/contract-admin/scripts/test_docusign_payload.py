@@ -1,10 +1,11 @@
-r"""Self-test for docusign_payload.py (CD-10, 13 Oct 2026).
+r"""Self-test for docusign_payload.py (CD-10, 13 Oct 2026; docusign-upload switch the same day).
 
     python test_docusign_payload.py
 
 Synthetic values only. No DocuSign call is ever made by the module under
 test; this checks the template pick, recipient mapping, subject and message,
-the custom field, the stop conditions and the files written.
+the JobNo, the tool arguments, the server pick, the stop conditions and the
+files written.
 """
 import json
 import sys
@@ -60,15 +61,16 @@ def check_template_pick():
 def check_recipients():
     t, _ = dp.pick_template("NSW", TWO)
     roles, sources = dp.recipients_for(t, TWO)
-    assert roles == [{"roleName": "Buyer 1", "name": "Alex EXAMPLE", "email": "alex@example.com"},
-                     {"roleName": "Buyer 2", "name": "Sam SAMPLE", "email": "sam@example.com"}], roles
+    # the docusign-upload tools' shape: role, name, email
+    assert roles == [{"role": "Buyer 1", "name": "Alex EXAMPLE", "email": "alex@example.com"},
+                     {"role": "Buyer 2", "name": "Sam SAMPLE", "email": "sam@example.com"}], roles
     assert sources == ["Buyer 1: owner_1 + owner_email", "Buyer 2: owner_2 + owner_2_email"], sources
     t, _ = dp.pick_template("QLD", TWO)
     roles, _ = dp.recipients_for(t, TWO)
-    assert [r["roleName"] for r in roles] == ["BUYER 1", "Buyer 2"]
+    assert [r["role"] for r in roles] == ["BUYER 1", "Buyer 2"]
     t, _ = dp.pick_template("QLD", COMPANY)
     roles, sources = dp.recipients_for(t, COMPANY)
-    assert roles == [{"roleName": "Buyer - Company Guarantor", "name": "Casey SIGNER",
+    assert roles == [{"role": "Buyer - Company Guarantor", "name": "Casey SIGNER",
                       "email": "casey@example.com"}], roles
     # stops
     for bad, needle in ((dict(TWO, owner_2_email=""), "owner_2_email"),
@@ -99,29 +101,53 @@ def check_subject_and_message():
     print("  subject + message: ok")
 
 
+DRAFT_ARG_KEYS = {"template_name", "recipients", "email_subject", "email_blurb", "job_no", "documents"}
+
+
 def check_build_envelope():
-    env = dp.build_envelope("NSW", TWO, "docusign-demo")
-    d = env["envelopeDefinition"]
-    assert d["status"] == "created"
-    assert d["templateId"] == ""
-    assert d["emailSubject"] == dp.subject_for(TWO)
-    assert d["customFields"] == {"textCustomFields": [
-        {"name": "JobNo", "value": "26099", "show": "false", "required": "false"}]}
-    assert [r["roleName"] for r in d["templateRoles"]] == ["Buyer 1", "Buyer 2"]
-    assert env["templateName"] == "NSW Build _ 2 Buyers"
+    env = dp.build_envelope("NSW", TWO, dp.PRODUCTION_SERVER)
+    a = env["draftArgs"]
+    # exactly the arguments docusign_draft_preview and docusign_create_draft take
+    assert set(a) == DRAFT_ARG_KEYS, sorted(a)
+    assert a["template_name"] == env["templateName"] == "NSW Build _ 2 Buyers"
+    assert a["email_subject"] == dp.subject_for(TWO)
+    assert a["email_blurb"].startswith("Dear Alex & Sam,")
+    assert a["job_no"] == "26099"
+    assert [r["role"] for r in a["recipients"]] == ["Buyer 1", "Buyer 2"]
+    assert a["documents"] == []
     assert env["defaultRoles"] == ["Builder", "Builder Witness", "Signer 1"]
-    assert env["server"] == "docusign-demo"
-    assert any("placeholder" in s for s in env["staffBeforeSending"]), env["staffBeforeSending"]
-    assert "remoteUrl" not in json.dumps(d) and '"sent"' not in json.dumps(d)
-    env = dp.build_envelope("NSW", SINGLE, "docusign-demo")
+    assert env["server"] == "docusign-upload-prod"
+    # the hosted createEnvelope body is gone: nothing here can be passed to createEnvelope
+    assert "envelopeDefinition" not in env
+    dumped = json.dumps(env)
+    assert "remoteUrl" not in dumped and '"sent"' not in dumped and "templateRoles" not in dumped
+    # the draft carries the job's own PDFs, so staff no longer replace placeholders
+    staff = env["staffBeforeSending"]
+    assert not any("placeholder" in s.lower() for s in staff), staff
+    assert any("flags" in s and "tabs" in s for s in staff), staff
+    env = dp.build_envelope("NSW", SINGLE, dp.PRODUCTION_SERVER)
     assert any("Buyer Witness" in s for s in env["staffBeforeSending"])
     try:
-        dp.build_envelope("NSW", dict(TWO, job_no=""), "docusign-demo")
+        dp.build_envelope("NSW", dict(TWO, job_no=""), dp.PRODUCTION_SERVER)
     except dp.PayloadStop as e:
         assert "job_no" in str(e)
     else:
         raise AssertionError("no stop for missing job_no")
     print("  build_envelope: ok")
+
+
+def check_server_for():
+    """A synthetic job under runtime/docusign-sandbox goes to the sandbox server; every other
+    job folder is a real job's and goes to the production server (CD-10.1)."""
+    sandbox_job = dp.SANDBOX_DIR / "26001 LOT 1 SYNTHETIC" / "CONTRACT DOCUMENTATION"
+    assert dp.server_for(str(sandbox_job)) == dp.SANDBOX_SERVER == "docusign-upload"
+    assert dp.server_for(str(dp.SANDBOX_DIR)) == dp.SANDBOX_SERVER
+    for real in (r"Z:\PROJECTS\SYDNEY\26099\CONTRACT\CONTRACT DOCUMENTATION",
+                 str(dp.SANDBOX_DIR.parent / "docusign-sandbox-old" / "x"),   # a lookalike folder
+                 str(dp.SANDBOX_DIR.parent / "contract-admin" / "outputs" / "x"),
+                 None, ""):
+        assert dp.server_for(real) == dp.PRODUCTION_SERVER == "docusign-upload-prod", real
+    print("  server_for: ok")
 
 
 def check_cli_files():
@@ -130,18 +156,31 @@ def check_cli_files():
         (wd / "job.json").write_text(json.dumps(TWO), encoding="utf-8")
         (wd / "routes.txt").write_text("INCLUSIONS\tTEST\tZ:\\t\nBUILD CONTRACT\tPRODUCTION\tZ:\\p\n",
                                        encoding="utf-8")
-        rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW", "--server", "docusign-demo"])
+        # the hosted placeholder server is not a choice any more
+        try:
+            dp.main(["--job", str(wd / "job.json"), "--region", "NSW", "--server", "docusign-demo"])
+        except SystemExit as e:
+            assert e.code == 2, e.code
+        else:
+            raise AssertionError("--server docusign-demo was accepted")
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW", "--server", dp.SANDBOX_SERVER])
+        assert rc == 0, rc
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert env["server"] == "docusign-upload"
+        assert "SANDBOX" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW"])
         assert rc == 0, rc
         env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
         assert env["call"] is True and env["templateName"] == "NSW Build _ 2 Buyers"
         txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
         assert "CALL: yes" in txt and "Buyer 1: owner_1 + owner_email" in txt and "Signer 1" in txt
+        assert "docusign-upload-prod" in txt and "PRODUCTION" in txt, txt
         # TEST route -> files written, no call
         (wd / "routes.txt").write_text("BUILD CONTRACT\tTEST\tZ:\\t\n", encoding="utf-8")
         rc = dp.main(["--job", str(wd / "job.json"), "--region", "QLD"])
         assert rc == 0
         env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
-        assert env["call"] is False and env["server"] == "docusign-demo"
+        assert env["call"] is False and env["server"] == "docusign-upload-prod"
         assert "CALL: no" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
         # no routes.txt -> stop, and the envelope from the run before is removed
         assert (wd / "docusign_envelope.json").exists()
@@ -194,7 +233,11 @@ def check_documents_list():
         assert [d["kind"] for d in env["documents"]] == ["BUILD CONTRACT", "INCLUSIONS"], env["documents"]
         assert env["documents"][0]["path"] == str(jd / f"BUILD CONTRACT_{suffix}.pdf")
         assert env["documentsMissing"] == ["PRELIMINARY AGREEMENT", "PLANS"], env["documentsMissing"]
-        assert "documents" not in env["envelopeDefinition"]
+        # the tool arguments carry the same list, so preview and create get the same files
+        assert env["draftArgs"]["documents"] == env["documents"]
+        missing_item = [s for s in env["staffBeforeSending"] if s.startswith("Not in the draft")]
+        assert missing_item and "PRELIMINARY AGREEMENT, PLANS" in missing_item[0], env["staffBeforeSending"]
+        assert env["server"] == "docusign-upload-prod"   # a temp folder is not the sandbox folder
         txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
         assert f"    INCLUSIONS: INCLUSIONS_{suffix}.pdf" in txt, txt
         assert "not in the job folder under the CD-7.2 name: PRELIMINARY AGREEMENT, PLANS" in txt, txt
@@ -202,10 +245,17 @@ def check_documents_list():
         assert dp.main(["--job", str(wd / "job.json"), "--job-dir", str(jd), "--region", "NSW"]) == 0
         env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
         assert [d["kind"] for d in env["documents"]] == ["BUILD CONTRACT", "INCLUSIONS", "PLANS"]
+        # QLD templates hold no preliminary agreement, so staff are not told to add one
+        assert dp.main(["--job", str(wd / "job.json"), "--job-dir", str(jd), "--region", "QLD"]) == 0
+        env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
+        assert env["documentsMissing"] == ["PRELIMINARY AGREEMENT"]
+        assert not any(s.startswith("Not in the draft") for s in env["staffBeforeSending"]), \
+            env["staffBeforeSending"]
         # no --job-dir: nothing listed, and the report says why
         assert dp.main(["--job", str(wd / "job.json"), "--region", "NSW"]) == 0
         env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
         assert env["documents"] == [] and env["documentsMissing"] == []
+        assert env["draftArgs"]["documents"] == []
         assert "none listed (no --job-dir)" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
     print("  documents list: ok")
 
@@ -215,6 +265,7 @@ if __name__ == "__main__":
     check_recipients()
     check_subject_and_message()
     check_build_envelope()
+    check_server_for()
     check_cli_files()
     check_documents_list()
     print("docusign_payload self-test: all ok")

@@ -502,16 +502,21 @@ and SEQ upgrades stay a person's edit until their templates are measured.
 ## CD-10 DocuSign draft envelope (instruction, 13 Oct 2026)
 
 - **CD-10.1** After a run whose build contract routed PRODUCTION (CD-7.7),
-  the skill creates a DocuSign envelope with `status: created` — a draft. It
-  never sends. The approval prompt on the `createEnvelope` call is the
-  person's yes, per call; a decline ends the step, and an error from the
-  create call is a stop, reported verbatim, never retried. A template-testing
-  refresh produces the payload files only.
+  the skill creates a DocuSign envelope with `status: created`, a draft, with
+  the job's own PDFs in it, through the local `docusign-upload` server's
+  `docusign_create_draft`. It never sends. The approval prompt on that call is
+  the person's yes, per call; a decline ends the step, and an error from the
+  create call is a stop, reported verbatim, never retried. A real job's folder
+  goes only to the production server, `docusign-upload-prod`; the sandbox
+  server, `docusign-upload`, reads only `runtime\docusign-sandbox\` and takes
+  synthetic jobs only. A template-testing refresh produces the payload files
+  only. *(switched from the hosted `docusign-demo` `createEnvelope`,
+  13 Oct 2026)*
 - **CD-10.2** Template by region × buyer type, matched by exact name after
   trimming whitespace, never by a stored id: NSW/QLD × Single Buyer (one
   owner), 2 Buyers (two or more; owner 3+ flagged, as CD-3.8), Company (a
   company or trust owner, the CD-3.9 condition, or a sourced
-  `company_signatory`). Zero or several matches
+  `company_signatory`). The server matches the name; zero or several matches
   stop the step.
 - **CD-10.3** Only buyer-side roles are set: owner 1/2 names with
   `owner_email`/`owner_2_email`; on the Company template the guarantor
@@ -522,18 +527,31 @@ and SEQ upgrades stay a person's edit until their templates are measured.
 - **CD-10.4** Subject `Complete with DocuSign: BUILD CONTRACT - LOT <lot>,
   <SUBURB>`; message fixed (`Dear <first names>,` / `Please find the building
   contract for review and signing.` / `Thank you` / `Sales Admin`); custom
-  field `JobNo` = job number, used to find an existing envelope before
-  creating another.
-- **CD-10.5** Documents are not attached by the run: the MCP accepts only a
-  public URL, and client PDFs are never published. The draft carries the
-  template's placeholder PDFs until staff replace them in DocuSign with the
-  job's PDFs from the job folder. The report says so every time.
+  field `JobNo` = job number, used to find an existing envelope (any status
+  but voided, declined or deleted, last 180 days) before creating another.
+- **CD-10.5** The draft holds the job's PDFs from its `CONTRACT
+  DOCUMENTATION` under their CD-7.2 names: the build contract (required),
+  and the inclusions, preliminary agreement and plans when a file with
+  exactly that name exists. Another file is never guessed at. Each replaces
+  the template's document of its kind; a template document with no job file
+  is left out, so no past job's PDF reaches the draft. The templates' tabs
+  are fixed to a page and an x/y position, not anchored, so they carry only
+  onto a job document with the same page count as the template's. Any other
+  document goes in with no tabs and the report flags it for staff to tag. The
+  build contract must carry: a different page count means its layout
+  changed, and the step stops.
 - **CD-10.6** Evidence in the workdir only: `docusign_envelope.json`,
   `docusign_payload.txt`, `docusign_result.json`. Nothing from this step goes
   into the job folder.
-- **CD-10.7** The sandbox server (`docusign-demo`) is named SANDBOX in the
-  report; its drafts have no legal effect. Production needs its own server
-  registration first (`docs/mcp-servers.md`).
+- **CD-10.7** The report names the environment: PRODUCTION
+  (`docusign-upload-prod`) or SANDBOX (`docusign-upload`, no legal effect).
+  Production needs its own registration and DocuSign's Go-Live review first
+  (`docs/mcp-servers.md`).
+- **CD-10.8** No draft (a stop, a decline, or production not connected yet):
+  the report says so with the reason, and staff create the envelope by hand
+  from the payload in the workdir. The step never falls back to another
+  server or tool; the hosted `docusign-demo` path, which carried the
+  template's placeholder PDFs, is not used.
 
 ## CD-8 What only a person does
 
@@ -541,7 +559,8 @@ Recorded so the checklist is complete, not so Claude attempts any of it:
 keying and assembling the build contract; emailing the contract to the marketer;
 checking initials and signatures; signing and witnessing; attaching documents in
 OnSite Companion; scanning the executed set; the manila folder for the filing
-cabinet; replacing the placeholder PDFs in the DocuSign draft, and sending it (CD-10).
+cabinet; placing tabs on any document the DocuSign draft flags, checking the
+draft, and sending it (CD-10).
 
 ## Escalations
 

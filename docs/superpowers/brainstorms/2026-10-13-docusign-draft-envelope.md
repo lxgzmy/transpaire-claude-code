@@ -4,6 +4,14 @@ Design, 13 October 2026. Decided in a brainstorming session with the
 Contract-Admin owner; the answers that shaped it are recorded in
 [Decisions](#decisions) so they are not re-argued later.
 
+> **Superseded in part, 13 October 2026.** Step 8 no longer calls the hosted
+> `createEnvelope`. It creates the draft through the local `docusign-upload`
+> server with the job's own PDFs, so staff no longer swap placeholder PDFs
+> ([design](2026-10-13-docusign-upload-mcp.md), CD-10). The template pick,
+> recipients, subject, message, `JobNo` and the payload script below still
+> hold. The tab statement under "What the MCP can and cannot do" was wrong
+> and is corrected there.
+
 ## Goal
 
 When the run has saved a real build contract into a job's folder, it also
@@ -39,10 +47,15 @@ sends.
 - Internal roles: `Builder` on every template; `Builder Witness` and a
   sales-admin date role (`Date Contract`, or `Signer 1` on NSW 2 Buyers) on
   the NSW templates.
-- The filled build contracts already carry the e-sign anchor strings at
-  source (`fill_hia.py` header: `/bs1/\builder_sig`, `/na/`,
-  `/i1/\signer1_sig`), so when staff replace the placeholder PDFs the
-  anchored tabs land on the job's own document.
+- **Corrected 13 October 2026:** the templates' tabs are **not anchored**.
+  Every tab on all six templates is fixed to a page and an x/y position
+  (checked read-only through the sandbox; see
+  [What the templates hold](2026-10-13-docusign-upload-mcp.md#what-the-templates-hold-checked-13-october-2026)).
+  The `/bs1/\builder_sig`, `/na/` and `/i1/\signer1_sig` strings in the
+  filled contracts come from the licensed HIA PDF, and these templates do
+  not use them. A job PDF gets the template's tabs in the right place only
+  when its page count and layout match the template's placeholder; the
+  staff check that every tab sits on its line stays.
 
 ## Where it sits
 
@@ -206,7 +219,8 @@ fields, send.
 ## Out of scope
 
 - Getting the PDFs into the envelope automatically (would need a REST client
-  with base64 upload, or a time-limited share link; both parked).
+  with base64 upload, or a time-limited share link; both parked). Since done
+  by the `docusign-upload` server, a REST client with base64 upload.
 - Production DocuSign (`docs/mcp-servers.md` has the promotion steps).
 - Envelope tracking, reminders, voiding.
 - Replacing the sample PDFs inside the DocuSign templates with blank

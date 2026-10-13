@@ -14,7 +14,8 @@ server without approval, and no credentials in the repo.
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
 | `osc-api` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **dev** | Registered, connected — loads in every session started in this repo; needs the per-checkout venv + `.env` (see below). Writes on via `.mcp.json` since 24 Sep 2026, still `ask` + `confirm=true` per call |
-| `docusign-upload` | Project (`.mcp.json` in repo root) | DocuSign **developer sandbox** (`demo`), synthetic jobs only | Code in repo; needs the per-checkout venv, `.env` and the DocuSign admin prerequisites. Create on `ask` per call |
+| `docusign-upload` | Project (`.mcp.json` in repo root) | DocuSign **developer sandbox** (`demo`), synthetic jobs only | Code in repo; needs the per-checkout venv, `.env` and the DocuSign admin prerequisites. Create on `ask` per call. Step 8 uses it for synthetic jobs under `runtime\docusign-sandbox` |
+| `docusign-upload-prod` | Project (to be added to `.mcp.json`) | DocuSign **production**, real job folders | **Not registered** (production Go-Live). Its create is already on `ask`, its token and preview tools on `allow`. Until it is registered, step 8 creates no draft for a real job |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -138,10 +139,11 @@ allowed:
 ]
 ```
 
-Every DocuSign write prompts for approval. Since 13 Oct 2026 four read-only
-tools are on `allow` so the contract workflow's draft step prompts once, on
-the create call: `getUserInfo`, `getTemplates`, `getEnvelopes`,
-`getEnvelopeVsAgreementSkill`. Every write tool on the server (`createEnvelope`,
+Every DocuSign write prompts for approval. Four read-only tools are on
+`allow` (since 13 Oct 2026): `getUserInfo`, `getTemplates`, `getEnvelopes`,
+`getEnvelopeVsAgreementSkill`. They were added for the contract workflow's
+draft step; step 8 now uses `docusign-upload` (below), and they stay on
+`allow` for read-only checks. Every write tool on the server (`createEnvelope`,
 `updateEnvelope`, `updateEnvelopeRecipients`, `updateEnvelopeTabs`,
 `sendReminder`, the workflow tools, `cloneDVEnabledTemplates`, `installDVApps`)
 is listed under `ask` per tool, and `createEnvelopeFromTemplate` is under `deny`
@@ -165,8 +167,9 @@ Roles do not configure anything. The server is present in every session, so a ro
 workflow just references it.
 
 - **Contract Administration** — signature requests for variation authorities and
-  contract correspondence and, since 13 Oct 2026, the draft envelope step 8 of
-  /new-contract-template (status created, never sent; CD-10). See
+  contract correspondence. The draft envelope in step 8 of
+  /new-contract-template goes through `docusign-upload` instead (below; CD-10),
+  and never falls back to this server. See
   [`job-roles/contract-admin/CLAUDE.md`](../job-roles/contract-admin/CLAUDE.md).
   DocuSign is listed there as a role system; the connection details stay here so
   the next role inherits them rather than re-documenting them.
@@ -212,8 +215,23 @@ as the user who owns the six templates. Design:
 - **Setup.** Install steps are in the server's
   [README](../shared/mcp/docusign-upload/README.md); the DocuSign admin
   prerequisites are in the design document.
-- Step 8 of `/new-contract-template` still uses `docusign-demo` until
-  production DocuSign is connected.
+- **Step 8 of `/new-contract-template`** (CD-10, switched 13 Oct 2026) runs
+  `docusign_token_info`, `docusign_draft_preview` and `docusign_create_draft`
+  with the arguments `docusign_payload.py` writes. The server is picked from
+  the job folder: a real job's goes only to `docusign-upload-prod`, a
+  synthetic job under `runtime\docusign-sandbox` to `docusign-upload`. With
+  no production server registered, a real run creates no draft and reports
+  the payload for staff; it never falls back to `docusign-demo`.
+- **Tabs.** The six templates' tabs are fixed to a page and an x/y position,
+  not anchored. They carry onto a job document with the template's page
+  count; any other document goes in untagged and is flagged for staff.
+- **Production Go-Live** (a separate decision): DocuSign's Go-Live review of
+  the integration key's sandbox calls, a production key pair, redirect URI
+  and consent at `account.docusign.com`, the production user and account ids
+  in the server's `.env`, and a `docusign-upload-prod` entry in `.mcp.json`
+  (`DOCUSIGN_ENVIRONMENT=production`, `DOCUSIGN_UPLOAD_ROOTS` set to the job
+  folders' root, writes on) plus `enabledMcpjsonServers`. The permission
+  entries are already in `.claude/settings.json`.
 
 ## OSC API (Companion Systems)
 

@@ -109,6 +109,13 @@ is not changed by this design. Real runs keep PR #49's placeholder draft until
 production DocuSign is connected; a later PR then switches step 8 to
 `docusign_create_draft`.
 
+> **Revised 13 October 2026 (owner's instruction).** Step 8 switched in the
+> follow-up PR without waiting for Go-Live. It calls `docusign-upload-prod` for
+> a real job's folder and `docusign-upload` for a synthetic job under
+> `runtime\docusign-sandbox`; until the production server is registered, a
+> real run creates no draft and reports the payload. It never falls back to the
+> placeholder draft (CD-10.8).
+
 ## Components
 
 ### `shared/mcp/docusign-upload/` (package `docusign_upload`)
@@ -466,4 +473,4 @@ prototype needs an unrestricted sandbox account, which a person sets up.
 | Build contract page count differs? | Stop | A fixed form whose layout changed needs a person, and it carries the template's internal roles |
 | Does the server import contract-admin code? | No; Claude passes the payload's values as arguments | `shared/` stays role-agnostic, and the prompt shows what will be created |
 | Dependencies | `mcp<2`, `httpx`, `PyJWT[crypto]`, `pypdf` | The osc-api pair plus JWT signing and page counts |
-| Step 8 now? | No, at production go-live | The sandbox server takes synthetic jobs only |
+| Step 8 now? | No, at production go-live. **Revised 13 Oct 2026:** switched now, real jobs to `docusign-upload-prod` only, no draft until it is registered, no fallback to the placeholder draft | The sandbox server takes synthetic jobs only |
