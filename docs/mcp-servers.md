@@ -14,6 +14,7 @@ server without approval, and no credentials in the repo.
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
 | `osc-api` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **dev** | Registered, connected — loads in every session started in this repo; needs the per-checkout venv + `.env` (see below). Writes on via `.mcp.json` since 24 Sep 2026, still `ask` + `confirm=true` per call |
+| `docusign-upload` | Project (`.mcp.json` in repo root) | DocuSign **developer sandbox** (`demo`), synthetic jobs only | Code in repo; needs the per-checkout venv, `.env` and the DocuSign admin prerequisites. Create on `ask` per call |
 
 ## Prerequisite — the `claude` CLI on PATH
 
@@ -184,6 +185,34 @@ sandbox workflow has been reviewed:
 2. Add `mcp__docusign` to `ask` **before** first use.
 3. Keep `docusign-demo` installed for testing, and keep the names distinct so a
    workflow cannot send a real envelope while someone thinks they are testing.
+
+## DocuSign drafts with the job's PDFs (`docusign-upload`)
+
+A **local (stdio) MCP server**, our code, at
+[`shared/mcp/docusign-upload/`](../shared/mcp/docusign-upload/). The hosted
+`docusign-demo` server takes documents only by public URL, so its drafts
+carry the templates' placeholder PDFs. This server reads the job's PDFs
+itself and creates the draft through the eSignature REST API with JWT Grant,
+as the user who owns the six templates. Design:
+[`2026-10-13-docusign-upload-mcp.md`](superpowers/brainstorms/2026-10-13-docusign-upload-mcp.md).
+
+- **Tools.** `docusign_token_info` and `docusign_draft_preview` are read-only
+  and on `allow`; `docusign_create_draft` is on `ask`, so every create prompts.
+  It creates drafts only (status `created`); nothing in the code can send, void
+  or delete an envelope.
+- **Sandbox data rule.** With `DOCUSIGN_ENVIRONMENT=demo` (set in `.mcp.json`)
+  the server reads documents only from the checkout's `runtime` folder. Real job
+  folders need a production server, `docusign-upload-prod`, whose `ask` entry is
+  already in place.
+- **Key custody.** The RSA private key lives on `Z:` outside the checkout, in a
+  folder only the accounts running Claude Code can read, named `*.pem` so the
+  `Z:` deny rules keep Claude's own file tools off it. Only the public key goes
+  to DocuSign. Never on `C:`, in a prompt, a log or a commit.
+- **Setup.** Install steps are in the server's
+  [README](../shared/mcp/docusign-upload/README.md); the DocuSign admin
+  prerequisites are in the design document.
+- Step 8 of `/new-contract-template` still uses `docusign-demo` until
+  production DocuSign is connected.
 
 ## OSC API (Companion Systems)
 
