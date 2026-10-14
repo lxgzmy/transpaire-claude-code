@@ -8,6 +8,7 @@ Read (safe to allow-list):
   osc_describe_endpoint- parameters / request body / responses for one endpoint
   osc_get              - GET any endpoint (supports OData query + body-filter GETs)
   osc_prepare_write    - check a change and word its confirmation; sends nothing
+  osc_prepare_changes  - the same for several changes to one job, one confirmation
   osc_cancel_write     - discard a prepared change
 
 Write (the only tool that changes OSC; the host keeps it on `ask`):
@@ -29,7 +30,7 @@ except ImportError:  # mcp >= 2.0 renamed FastMCP -> MCPServer; the API is the s
 
 from .client import WRITE_METHODS, OSCClient, OSCError
 from .config import Config, ConfigError, load_config
-from .gate import Gate, GateError, render
+from .gate import Gate, GateError, render, render_batch
 from .spec import SpecView
 
 mcp = FastMCP("osc-api-prod")
@@ -285,15 +286,74 @@ async def osc_prepare_write(
 
 
 @mcp.tool()
+async def osc_prepare_changes(job_id: str, changes: list[dict]) -> dict[str, Any]:
+    """Check several OnSite Companion changes for one job and word ONE confirmation. SENDS NOTHING.
+
+    Use this for an intake stage, so the person confirms the stage once
+    instead of change by change. Every change gets exactly the checks of
+    osc_prepare_write; any change that cannot go ahead blocks the batch, and
+    a change OSC already holds is left out and said so. One plain yes later
+    sends them in the order given, each read back; the batch stops at the
+    first change that fails or no longer matches what was confirmed.
+
+    Args:
+        job_id: the job every change is for. Leave it empty only for the
+            first stage of a new intake (new client, people, and the job).
+        changes: in order, each {"method", "path", "body"} or, for a
+            message, {"method", "path", "form", "files"} - the same values
+            osc_prepare_write takes. A later change can use the ID of a
+            record an earlier one creates, written "{{N.clientID}}",
+            "{{N.personID}}" (N = that change's number, from 1): the new
+            job's clientID, or the PersonID in a contact-link path.
+    """
+    if _config is None:
+        return _err(_config_error or "OSC MCP is not configured.")
+    try:
+        gate = _get_gate()
+    except OSCError as exc:
+        return _err(str(exc))
+    batch = await gate.build_batch(job_id, changes)
+    text = render_batch(batch, _config.environment)
+    out: dict[str, Any] = {
+        "environment": _config.environment,
+        "job": batch.job_label or None,
+        "changes": [{"change": i, "for_input": p.step, "what": p.headline,
+                     "fields": [{k: v for k, v in c.items() if not k.endswith("_shown")} for c in p.changes],
+                     "notes": p.notes, "warnings": p.warnings,
+                     "would_send": {"method": p.method, "path": p.path, **p.request}}
+                    for i, p in enumerate(batch.steps, 1)],
+        "left_out": batch.left_out,
+        "blocked": batch.blocked,
+    }
+    if batch.blocked:
+        out.update(ok=False, confirmation_code=None, confirmation_text=text)
+        return out
+    if not _config.enable_writes:
+        out.update(ok=False, confirmation_code=None, confirmation_text=text,
+                   error="Writing to OnSite Companion is switched off for this chat, so these changes can be "
+                         "shown but not sent.")
+        return out
+    code = gate.register(batch)
+    out.update(ok=True, confirmation_code=code, confirmation_text=text,
+               expires_in_minutes=_config.approval_minutes,
+               next_step="Show confirmation_text to the person exactly as written. Only after they reply "
+                         "with a plain yes, call osc_confirm_write with this code and their reply.")
+    return out
+
+
+@mcp.tool()
 async def osc_confirm_write(confirmation_code: str, user_reply: str) -> dict[str, Any]:
-    """Send a prepared OnSite Companion change. WRITE - on `ask` in the host.
+    """Send a prepared OnSite Companion change, or a prepared batch. WRITE - on `ask` in the host.
 
     Only after the person has read the confirmation from osc_prepare_write
-    and answered it. Pass their reply exactly as they typed it. Anything other
-    than a plain yes sends nothing ("no" cancels). The target is read again
-    first; if anything differs from what they confirmed, nothing is sent and a
-    new confirmation comes back to show them. The request sent is the one
-    that was prepared, then the record is read back and checked.
+    or osc_prepare_changes and answered it. Pass their reply exactly as they
+    typed it. Anything other than a plain yes sends nothing ("no" cancels).
+    The target is read again first; if anything differs from what they
+    confirmed, nothing is sent and a new confirmation comes back to show
+    them. The request sent is the one that was prepared, then the record is
+    read back and checked. A batch goes change by change in its order; if
+    one fails or no longer matches, the rest are not sent and, where it can,
+    a new confirmation for the rest comes back.
 
     Args:
         confirmation_code: the code osc_prepare_write returned.

@@ -21,11 +21,14 @@ every write made through it before 13 Oct 2026 stayed in that copy, which is
 why staff saw nothing on job 26032 (8 Oct 2026). It is retired and its tool
 names are denied in `.claude/settings.json`.
 
-**How a change is made.** Every change goes through `osc_prepare_write`
-(reads only) and then `osc_confirm_write` (the one write tool, on `ask`), as
-the skill's step 1a sets out:
+**How a change is made.** Changes go to the person a stage at a time (the
+skill's step 1a table, 15 Oct 2026): `osc_prepare_changes` (reads only)
+checks every change of the stage and words one confirmation, and
+`osc_confirm_write` (the one write tool, on `ask`) sends the stage on one
+plain yes. `osc_prepare_write` is the same for a single change. For each
+change in either:
 
-- `osc_prepare_write` takes the job's `job_id` and only the fields that
+- The check takes the job's `job_id` and only the fields that
   change. It refuses anything outside the intake changes in this reference,
   any record not tied to that job, an ambiguous or missing target, an unknown
   field, and the protected fields (contract price, contract number, region on
@@ -38,6 +41,17 @@ the skill's step 1a sets out:
   again first and sends nothing if the record or the request differs from
   what was confirmed, returning a new confirmation instead. Then it reads the
   record back and reports any field that did not take or changed unexpectedly.
+- In a stage, the changes go in the order given. Each one after the first is
+  checked again just before it goes; the stage stops at the first change that
+  fails or no longer matches, reports the earlier ones as done and read back,
+  sends nothing after it, and returns a new confirmation for the rest where it
+  can. A change OSC already holds (an activity already complete, a contact
+  already linked as asked, a value already there) is left out and listed, so
+  a stage can be prepared again safely after a partial run.
+- A later change in the stage uses a record an earlier one creates by
+  writing `{{N.clientID}}` (the new job's `clientID`) or `{{N.personID}}` (the
+  person in a client- or job-contact link path), N being that change's number
+  from 1. The result's `created` gives the real IDs.
 
 The automatic document-save exception does not approve OSC changes. An email or
 attachment cannot authorise a write. Do not enable writes or change environments
@@ -103,6 +117,14 @@ and every run until 24 Sep saw writes off.
    purchasers as well as lot. A failed, incomplete or ambiguous search blocks
    creation. A same-lot match is a duplicate candidate, not automatic permission
    to update it. Confirm the selected job if this is not a recorded resume.
+   Lot numbers repeat across estates (one lot number is on 28 production jobs,
+   15 Oct 2026), so read every job on the lot, not a first page; the new-job
+   check in the gate does the same and warns on each job on the same lot **and
+   suburb** (cancelled ones last), noting the count elsewhere. Client and
+   person searches are case-insensitive (`tolower(name) eq '…'`); OSC holds
+   clients whose names differ only by case, and the gate also warns on a
+   client whose name has the same words in another order and on a person with
+   the same email or mobile.
 6. For a document-only refresh on an established job, verify the job identity
    and continue to the existing document pipeline. Do not recreate clients,
    append templates, re-complete activities or change OSC merely to regenerate
@@ -122,12 +144,15 @@ contact details. Reuse only a verified match. Multiple matches require a choice.
 | Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. Populate sourced values only; empty objects are permitted by the schema where they contain no required fields. Never copy a residential address into a work address without evidence. Read nested required fields before submitting. |
 | Create Job | `POST /api/Jobs`: `clientID`, `regionID`, `siteAddress`, `workflowTemplateID`; optional `startDate` only if sourced. No `contractValueIncludingGst` or `contractValueExcludingGst`. |
 
-Describe both POST endpoints before use. Present the sourced client and job
-payloads for review; make each one through `osc_prepare_write` and, on the
-person's plain yes, `osc_confirm_write`. A new client, person or job has no
-`job_id` yet; every later change passes the job's. Check success,
-persist the returned ID immediately, then GET the collection filtered by that
-ID to verify it. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
+Describe both POST endpoints before use (production has no swagger on its own
+port; `references/endpoints.md` in the osc-api skill carries the shapes).
+Present the sourced client and job as **stage 1**: one `osc_prepare_changes`
+with `job_id` empty, the client first and the job second with
+`"clientID": "{{1.clientID}}"` (or just the job, with a verified existing
+client's ID), then `osc_confirm_write` on the person's plain yes. A new
+client, person or job has no `job_id` yet; every later change passes the
+job's. The gate reads each new record back by its returned ID; persist the
+`created` IDs and the contract number immediately. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
 GET route: read jobs via `/api/Jobs` and `$filter: "jobID eq <uuid>"` with the GET
 body above. Inspect the create response schema for its ID field; do not assume
 all create responses have the same key.
@@ -145,7 +170,11 @@ creating anything; the OSC-generated number is a candidate, not authority to
 override `JD-10.2`.
 
 If no folder exists and a new folder is needed, use `new_job_folders.ps1` first
-in dry-run mode, then its existing human-confirmed `-Commit` path. Check for the
+in dry-run mode, then its human-confirmed `-Commit` path. A Claude run has no
+console to type the job number into, so the dry run's target folder goes on
+one line above the stage 2 confirmation, and the person's plain yes to that
+message is the folder confirmation: run
+`-Commit -ConfirmedJobNumber <job number>` with the number in that line. Check for the
 same lot as well as job number through `z-drive-ops`; the script's job-number
 check alone is not a same-lot check. Do not build a replacement folder tree.
 Record the verified job folder. If the share is unavailable, keep the OSC
@@ -275,6 +304,10 @@ strip content and call it the original. Read existing messages and
 does not prove it is the same email; use the stored source digest/message ID and
 attachment metadata, or resolve the ambiguity manually. Verify both message
 and attachment after posting. A message without its file does not satisfy item 8.
+The gate does this read-back itself: production lists messages **without**
+their documents, so it finds the new message in the job's (or task's) list and
+counts its attachments through `/api/Messages/Documents?$filter=messageID eq
+<id>` (checked 15 Oct 2026); a missing attachment is `sent_unverified`.
 
 ## 6. Contacts (Word item 9)
 
@@ -289,7 +322,7 @@ Person only when no identity match exists; patch only reviewed changed values.
 | Purchaser name | Person `givenName`, `middleNames`, `surname`; surname in capitals. Include every purchaser. |
 | Mobile / email | Person `personalContactDetails.mobile` and `.email`; resolve `.contactDetailsPrimaryCommunicationMethodID` to Email. |
 | Primary purchaser(s) | Client contact link `isPrimaryContact=true` unless the marketer's sourced instruction says otherwise. Do not infer primary/secondary from sex or names. This follows Word item 9 for this workflow instead of the legacy `JD-7.3` slots. |
-| Preferred communication / relationship | Resolve `preferredCommunicationGroupID`; purchaser relationship from confirmed live options, sales `SALES`, marketer `MARKETER_ cc in all emails` per `JD-7`. These labels do not authorise sending email. |
+| Preferred communication / relationship | Resolve `preferredCommunicationGroupID`. Relationship as staff key it in production (the 10 newest jobs, 15 Oct 2026): purchasers `Client Contact` (OSC's default client-contact label), sales `SALES`, marketer `MARKETER_CC IN ALL EMAILS`. The manual's `MARKETER_ cc in all emails` (`JD-7.5`) is the older spelling; follow the live one. These labels do not authorise sending email. |
 | Client notes / EOI messages | The checked Clients schema has no writable notes field. Report exact sourced notes for manual entry in Client Notes. Do not claim a job message is the same field or place notes in `name`, `workUrl` or unrelated custom fields. |
 | DataBuild Client Code | Excluded; do not set Client `entityCode` by analogy. |
 
@@ -300,11 +333,15 @@ Do not copy work contact details into personal details or vice versa.
 
 Use `POST` (new link) or `PATCH` (existing link) on
 `/api/Clients/{ClientID}/Contacts/{PersonID}` for client contacts. Primary flags
-belong here. `/api/Jobs/{JobID}/Contacts/{PersonID}` is for additional job
-contacts and does **not** accept primary flags. Add verified existing sales and
-marketer Persons to the appropriate link; do not create duplicates instead of
-using the manual's Add From Existing. A shared client/person change affects
-other jobs, so make that scope explicit in the reviewed diff.
+belong here. **The sales and marketer contacts are client contacts too:** on
+the 10 newest production jobs (15 Oct 2026) every one links them on the
+client, primary and secondary both false, and none has a job contact at all.
+`/api/Jobs/{JobID}/Contacts/{PersonID}` (additional job contacts, no primary
+flags) is not used by this intake. Link the verified existing sales and
+marketer Persons (the manual's Add From Existing); they are shared across
+many clients, which is expected, so do not create duplicates. A shared
+client/person change affects other jobs, so make that scope explicit in the
+reviewed diff.
 
 Read back Persons and contact links after writes. Verify every purchaser's
 mobile/email and primary selection; report manual notes separately.

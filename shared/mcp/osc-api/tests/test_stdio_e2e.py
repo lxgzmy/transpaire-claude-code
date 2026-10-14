@@ -50,7 +50,8 @@ class StdioEndToEnd(unittest.IsolatedAsyncioTestCase):
                 await session.initialize()
                 names = {t.name for t in (await session.list_tools()).tools}
                 self.assertEqual(names, {"osc_token_info", "osc_list_endpoints", "osc_describe_endpoint",
-                                         "osc_get", "osc_prepare_write", "osc_confirm_write", "osc_cancel_write"})
+                                         "osc_get", "osc_prepare_write", "osc_prepare_changes",
+                                         "osc_confirm_write", "osc_cancel_write"})
 
                 info = payload(await session.call_tool("osc_token_info", {}))
                 self.assertEqual(info["config"]["environment"], "production")
@@ -90,12 +91,30 @@ class StdioEndToEnd(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(f.writes[0]["body"], {"siteAddress": {"suburb": "BOX HILL"}})
                 self.assertEqual(f.jobs[f.job_id]["siteAddress"]["line1"], "SAMPLE STREET")
 
+                # a stage of the intake: one confirmation, one yes, every change read back
+                listed = payload(await session.call_tool("osc_get", {
+                    "path": "/api/Jobs", "query": {"$top": 5}, "odata_filter": {"shouldShowMyJobsOnly": False}}))
+                self.assertNotIn("fake-osc-host", json.dumps(listed), "the OData context link is dropped")
+                batch = payload(await session.call_tool("osc_prepare_changes", {"job_id": f.job_id, "changes": [
+                    {"method": "POST", "path": f"/api/JobActivities/{f.act1}/Complete",
+                     "body": {"completionDate": "2026-10-15"}},
+                    {"method": "POST", "path": f"/api/JobActivities/{f.act2}/Complete",
+                     "body": {"completionDate": "2026-10-15"}}]}))
+                self.assertTrue(batch["ok"], batch)
+                self.assertIn("1 change, made in this order", batch["confirmation_text"])
+                self.assertIn("left out", batch["confirmation_text"])  # activity 2 was already complete
+                self.assertEqual(len(f.writes), 1)
+                done = payload(await session.call_tool("osc_confirm_write", {
+                    "confirmation_code": batch["confirmation_code"], "user_reply": "yes"}))
+                self.assertEqual(done["state"], "verified", done)
+                self.assertEqual(len(f.writes), 2)
+
                 # a route outside the intake is refused over the wire too
                 refused = payload(await session.call_tool("osc_prepare_write", {
                     "method": "DELETE", "path": f"/api/Persons/{f.person_id}", "job_id": f.job_id,
                     "body": {"x": 1}}))
                 self.assertFalse(refused["ok"])
-                self.assertEqual(len(f.writes), 1)
+                self.assertEqual(len(f.writes), 2)
 
 
 if __name__ == "__main__":

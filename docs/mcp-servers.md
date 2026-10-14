@@ -213,7 +213,9 @@ Config        OSC_* settings in the git-ignored production.env; nothing in the r
 - `osc_get` *(read)* — GET any endpoint; OData query params and body-filter GETs.
 - `osc_prepare_write` *(read)* — checks a change and words its confirmation;
   sends nothing.
-- `osc_cancel_write` *(read)* — discards a prepared change.
+- `osc_prepare_changes` *(read)* — the same for several changes to one job,
+  one confirmation for the lot (an intake stage); sends nothing.
+- `osc_cancel_write` *(read)* — discards a prepared change or batch.
 - `osc_confirm_write` *(write)* — the only tool that changes OSC.
 
 ### Human-in-the-loop: the write gate
@@ -251,7 +253,16 @@ these checks, enforced in code (`osc_mcp/gate.py`), not just in the skills:
    [`.claude/settings.json`](../.claude/settings.json), so the person also
    approves the call itself.
 8. **Read-back.** After sending, the record is read again: `verified` only when
-   every confirmed field took and nothing else on the record changed.
+   every confirmed field took and nothing else on the record changed. A
+   message must be listed with its attachments (counted through
+   `/api/Messages/Documents`).
+
+A **batch** (`osc_prepare_changes`, 15 Oct 2026) puts the changes of one
+intake stage under one confirmation and one yes, so a contract intake asks
+three times instead of once per field. Every change in it gets checks 1 to 5
+and 8; it is all re-checked before the first is sent, each later change is
+planned again just before it goes, and the batch stops at the first change
+that fails or no longer matches, with a new confirmation for the rest.
 9. **Master switch.** `OSC_ENABLE_WRITES` in the `env` block of `.mcp.json`
    (beats `production.env`). It changes only by PR and takes effect in the next
    session opened in the repo folder; the server is started per session, so

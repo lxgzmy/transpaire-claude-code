@@ -13,6 +13,7 @@
       "mcp__osc-api-prod__osc_describe_endpoint",
       "mcp__osc-api-prod__osc_get",
       "mcp__osc-api-prod__osc_prepare_write",
+      "mcp__osc-api-prod__osc_prepare_changes",
       "mcp__osc-api-prod__osc_cancel_write"
     ],
     "ask": [

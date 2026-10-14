@@ -8,8 +8,12 @@ the template tree (incl. seeded template documents). A new job is that tree
 copied to "<JobNumber> - <JobTitle>" in the same region folder.
 
 DRY-RUN BY DEFAULT: without -Commit it only reports what it would create.
-HITL: -Commit additionally requires interactive confirmation. Refuses to run
-if the job number is already in use, and never overwrites anything.
+HITL: -Commit additionally requires confirmation: the job number typed at the
+prompt, or -ConfirmedJobNumber when the person has already said yes in the
+chat to a confirmation that names this exact folder (Claude's runs have no
+console to type into, 15 Oct 2026). Either way the number must match.
+Refuses to run if the job number is already in use, and never overwrites
+anything.
 
 The duplicate check covers the live region folder, that region's lifecycle
 subfolders (HANDED OVER / ARCHIVE-HANDED OVER / CANCELLED) and the top-level
@@ -23,6 +27,7 @@ Job-number source (OSC contract no vs DataBuild) - confirm with the business.
 .EXAMPLE
 pwsh new_job_folders.ps1 -Region GUNNEDAH -JobNumber 26046 -JobTitle "LOT 8 YARRAANDOO CLOSE, GUNNEDAH NSW"
 pwsh new_job_folders.ps1 -Region GUNNEDAH -JobNumber 26046 -JobTitle "..." -Commit
+pwsh new_job_folders.ps1 -Region GUNNEDAH -JobNumber 26046 -JobTitle "..." -Commit -ConfirmedJobNumber 26046
 #>
 [CmdletBinding()]
 param(
@@ -31,7 +36,8 @@ param(
     [Parameter(Mandatory)] [string]$JobTitle,
     [string]$ProjectsRoot = 'Z:\PROJECTS',
     [string]$MasterName = '00000 - LOT MASTER FOLDER',
-    [switch]$Commit
+    [switch]$Commit,
+    [string]$ConfirmedJobNumber
 )
 
 $ErrorActionPreference = 'Stop'
@@ -101,11 +107,12 @@ if (-not $Commit) {
     $items | Where-Object PSIsContainer | ForEach-Object {
         Write-Host ("  " + $_.FullName.Substring($master.Length + 1))
     }
-    Write-Host "Re-run with -Commit (requires interactive confirmation) to create."
+    Write-Host "Re-run with -Commit (requires confirmation) to create."
     exit 0
 }
 
-$answer = Read-Host "Create '$targetName' in $Region ? Type the job number ($JobNumber) to confirm"
+$answer = if ($PSBoundParameters.ContainsKey('ConfirmedJobNumber')) { $ConfirmedJobNumber.Trim() }
+          else { Read-Host "Create '$targetName' in $Region ? Type the job number ($JobNumber) to confirm" }
 if ($answer -ne $JobNumber) {
     Write-Host 'Not confirmed - nothing created.'
     exit 1

@@ -118,7 +118,11 @@ These scoped changes leave the other field rules and document pricing rules inta
 - **JD-7.4** Sales contact: **Add From Existing**; Relationship field =
   `SALES` (full uppercase, entered manually).
 - **JD-7.5** Marketer contact: **Add From Existing**; Relationship field =
-  `MARKETER_ cc in all emails` (exact string).
+  `MARKETER_ cc in all emails` (exact string). *Observed in production
+  (15 Oct 2026, the 10 newest jobs):* staff key `MARKETER_CC IN ALL EMAILS`,
+  and both the sales and the marketer contact sit on the **client** (no job
+  contacts at all); purchasers carry OSC's default `Client Contact`. The
+  integrated intake follows the live practice.
 - **JD-7.6** Tick the Purchaser(s) as primary contact(s) unless the marketer
   has noted otherwise.
 - **JD-7.7** Finish with **Save and Close**.

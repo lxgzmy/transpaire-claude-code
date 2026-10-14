@@ -202,7 +202,7 @@
      something it made up. It saves the finished documents into the job folder and
      hands you a review sheet. Every OnSite Companion change waits for your Yes, and
      nothing is ever sent, signed or issued without you.</p>
-  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 13 October 2026</span>
+  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 15 October 2026</span>
 </div>
 
 <p class="custom"><b>It uses the real template, every time.</b> Claude opens the same
@@ -325,28 +325,48 @@
     </ul>
   </div>
   <div class="say">
-    <span class="lbl">Before each change, Claude shows you a check like this</span>
+    <span class="lbl">You are asked at most three times, once per stage</span>
+    <ul>
+      <li><b>New client and job.</b> After the lot search, one check covers both.</li>
+      <li><b>Setting up the job.</b> One check covers the job details, the contacts,
+          activities 1 and 2, the NEW JOB email on the job and task 11, and, on a new
+          job, the job folder on <code>Z:</code>.</li>
+      <li><b>DataBuild done.</b> When you say so, one check covers activity 6.</li>
+      <li>Everything else (reading the email, the searches, the documents) goes
+          ahead without asking.</li>
+    </ul>
+  </div>
+  <div class="say">
+    <span class="lbl">Each check looks like this</span>
     <p style="font-family:Consolas,monospace;font-size:.9em;margin:.4em 0">
       Job: 26999 - LOT 12 SAMPLE STREET, TESTVILLE NSW 2000<br>
-      Change: job details<br>
-      - Site address, suburb: now &ldquo;TESTVILLE&rdquo;, will be &ldquo;BOX HILL&rdquo;<br>
-      Nothing else on this job changes.<br>
-      Reply &ldquo;yes&rdquo; to make this change, or &ldquo;no&rdquo; to leave OnSite Companion as it is.</p>
+      2 changes, made in this order:<br>
+      1. Job details<br>
+      &nbsp;&nbsp;&nbsp;- Site address, suburb: now &ldquo;TESTVILLE&rdquo;, will be &ldquo;BOX HILL&rdquo;<br>
+      2. Activity 1 &ldquo;Initial Contact&rdquo; is marked complete<br>
+      &nbsp;&nbsp;&nbsp;- Completion date: now empty, will be 15 Oct 2026<br>
+      Nothing else on these records changes.<br>
+      Already in OnSite Companion, so left out: activity 2 is already complete.<br>
+      Reply &ldquo;yes&rdquo; to make all 2 changes, or &ldquo;no&rdquo; to leave OnSite Companion as it is.</p>
     <ul>
       <li>Check the job number and address first. If it is the wrong job, say no.</li>
       <li>&ldquo;now&rdquo; is what OSC holds today; &ldquo;will be&rdquo; is what it changes to.
           &ldquo;will be cleared&rdquo; means the value is removed.</li>
-      <li>Reply <b>yes</b> to make the change, or <b>no</b> to leave OSC alone. If you
-          want something different, say what; Claude shows you a new check, and
-          nothing changes until you say yes to that one.</li>
+      <li>A <b>Warning</b> line needs your eye: another job on the same lot and suburb,
+          or a client or person who may already be in OSC. If it is the same buyer or
+          job, say no and tell Claude which one to use.</li>
+      <li>Reply <b>yes</b> to make every change in the list, or <b>no</b> to leave OSC
+          alone. If you want something different, say what; Claude shows you a new
+          check, and nothing changes until you say yes to that one.</li>
       <li>Then click <b>Allow</b> on the approval box. It shows the same
           confirmation code as the check.</li>
     </ul>
   </div>
-  <p class="back"><b>You get back:</b> after each yes, Claude reads the record back
-     from OSC and tells you it is done, or exactly what did not take. You also get the
-     job&rsquo;s contract number, which becomes the job number for the folder and the
-     documents.</p>
+  <p class="back"><b>You get back:</b> after each yes, Claude reads every change back
+     from OSC and tells you it is done, or exactly what did not take. If something in
+     the list changed in OSC part-way, Claude stops there, the changes before it stay
+     done, and you get a new check for the rest. You also get the job&rsquo;s contract
+     number, which becomes the job number for the folder and the documents.</p>
   <p class="tip"><b>DataBuild is still yours.</b> Claude never opens it, and never puts
      the contract price into OSC (the price lives in DataBuild only). Enter the job in
      DataBuild as you do now, then tell Claude &ldquo;DataBuild done&rdquo; and it

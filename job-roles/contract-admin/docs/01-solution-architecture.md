@@ -8,8 +8,9 @@
 > `/new-contract-template`; Workflow 1 below is kept as the design record. Its
 > OSC steps (1, 3, 4, 5, 7) were integrated into `/new-contract-template` on
 > 11 Sep 2026 (issue #34). Since 13 Oct 2026 they write to the production OnSite
-> Companion through the `osc-api-prod` MCP, each change confirmed by a person in
-> plain words before it is sent; activity 6 is ticked only after the DataBuild entry is confirmed.
+> Companion through the `osc-api-prod` MCP, every change confirmed by a person in
+> plain words before it is sent (one confirmation per intake stage since
+> 15 Oct 2026); activity 6 is ticked only after the DataBuild entry is confirmed.
 > The **DataBuild integration was closed 23 Aug 2026** — DataBuild
 > confirmed it provides no API access, so the adapter/tier design below is
 > superseded and kept only as the record (see the Key Research Finding for

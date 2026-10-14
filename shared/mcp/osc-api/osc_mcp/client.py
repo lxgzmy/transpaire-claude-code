@@ -132,6 +132,9 @@ class OSCClient:
         text = resp.text
         try:
             result["data"] = resp.json()
+            if isinstance(result["data"], dict):
+                # OData's context link carries the server's host name; it never leaves the server.
+                result["data"].pop("@odata.context", None)
         except ValueError:
             result["data"] = None
             if text:
@@ -148,7 +151,7 @@ class OSCClient:
         if not self.config.swagger_url:
             raise OSCError(
                 "No OSC_SWAGGER_URL configured, so endpoint introspection is "
-                "unavailable. osc_get / osc_write still work with an explicit path."
+                "unavailable. osc_get and the prepare/confirm tools still work with an explicit path."
             )
         resp = await self._client.get(self.config.swagger_url)
         if resp.status_code != 200:
