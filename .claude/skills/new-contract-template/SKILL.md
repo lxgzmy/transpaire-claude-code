@@ -6,7 +6,7 @@ description: >
   Outlook subject, or asks to draft/raise a build contract, inclusions, or
   preliminary agreement from a contract request or EOI, including OSC job setup
   and updates in the production OnSite Companion through the osc-api-prod MCP,
-  each change confirmed by the person first. Reads the email and its
+  each stage of changes confirmed by the person first. Reads the email and its
   attachments, picks the correct blank template off the Z: drive, fills it, and
   saves the finished documents in one pass, routed per document - a document
   the job folder does not hold yet goes into the job folder under Z:\PROJECTS;
@@ -244,8 +244,8 @@ never say that a person, IT or an administrator has to restart a server — the
 MCP server is a child process of the chat and a new chat is the restart —
 never edit `.env`, `production.env` or `.mcp.json` during a run, and never
 call `osc_confirm_write` while the switch is off (the call is refused anyway).
-`osc_prepare_write` still works in draft mode: it reads OSC and shows exactly
-what would change, so the person sees a real preview.
+`osc_prepare_changes` and `osc_prepare_write` still work in draft mode: they
+read OSC and show exactly what would change, so the person sees a real preview.
 The tools missing altogether (`osc_token_info` not available) means the chat
 was not opened in the repo folder: same fix, new chat in the repo root.
 
@@ -254,24 +254,41 @@ before creating a folder or filling documents. Read the request/ID, check for
 duplicates, discover runtime region/template/custom-field IDs, then prepare
 reviewed client/job, detail, activity, request-email and contact changes.
 
-**Every OSC change is confirmed by the person, one at a time:**
+**Every OSC change is confirmed by the person, a stage at a time (15 Oct
+2026).** Reading the email, the lookups, the duplicate search, the folder
+probe and the documents run without asking. The person is asked only where
+OSC (or a new job folder) is about to change, and then once per stage, not
+once per field:
 
-1. `osc_prepare_write` with the job's `job_id` and only the fields that
-   change. It sends nothing.
-2. Show its `confirmation_text` exactly as written (the job, each field as
-   *now X, will be Y*, notes and warnings) and ask nothing else in the same
-   message. A refusal (`ok: false`) is reported in its own words; do not
-   work around it.
+| Stage | One confirmation covers | When |
+|---|---|---|
+| 1. New client and job | the client (unless a verified existing one is reused) and the job, the job taking `"clientID": "{{1.clientID}}"` | New intake, after the duplicate search |
+| 2. Set up the job | job details and custom fields, purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`), the sales and marketer links, activities 1 and 2, the `NEW JOB` email on the job and on task 11, task 11's answers and completion, and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
+| 3. DataBuild done | activity 6's answers and its completion | When the person says the DataBuild entry is done |
+
+1. `osc_prepare_changes(job_id, changes)` with the stage's changes in order
+   (`job_id` empty for stage 1 only). It sends nothing. Anything OSC already
+   holds is left out and listed; any change that cannot go ahead blocks the
+   stage and is reported in its own words. Do not work around it.
+2. Show its `confirmation_text` exactly as written (the job, every change
+   with each field as *now X, will be Y*, notes and warnings). On a new
+   intake, put the folder to be created (`new_job_folders.ps1` dry run) on
+   one line directly above it. Ask nothing else in that message.
 3. Only after the person replies, call `osc_confirm_write` with the code and
-   their reply verbatim. A plain yes sends; "no", silence or anything else
-   sends nothing. If they ask for a different value, prepare that change and
-   show its new confirmation. If the gate says OSC changed since they
-   confirmed, show the new confirmation it returns and ask again.
-4. Relay `result_text`. Only `state: verified` counts as done.
+   their reply verbatim. A plain yes sends the stage; "no", silence or
+   anything else sends nothing. If they want something different, prepare
+   the stage again and show the new confirmation. The same yes approves the
+   folder line: then run the script with
+   `-Commit -ConfirmedJobNumber <the number in that line>`.
+4. Relay `result_text`. Only `state: verified` counts as done. If the stage
+   stopped part-way (`state: stopped`, `failed` or `sent_unverified`), the
+   changes before it are done and read back, nothing after it was sent, and
+   a `stopped` result carries a new confirmation for the rest: show it.
 
-The confirmation the person approved is the record of their approval: note
-the code and their reply against the operation in `osc-state.json`. Read back
-every result and checkpoint returned IDs in server-only `osc-state.json`.
+A single later correction still goes through `osc_prepare_write`, the same
+way with one change. The confirmation the person approved is the record of
+their approval: note the code and their reply against the stage in
+`osc-state.json`, with every returned ID (`created`) and each change's state.
 DataBuild is excluded:
 no handoff email or wait, no OSC contract-value writes; activity 6 is completed
 only when the person confirms the DataBuild entry is done, never before.
@@ -649,9 +666,10 @@ user's yes in chat.
 **Outward acts stay human.** Never send email, never issue to DocuSign, never sign or
 initial anything, and never write to DataBuild. OSC intake changes use only
 the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md):
-the production OnSite Companion, one change at a time, each shown to the
-person in plain words with the values it overwrites and sent only on their
-plain yes (`osc_prepare_write` then `osc_confirm_write`). The manual's
+the production OnSite Companion, one stage at a time, every change in it
+shown to the person in plain words with the values it overwrites and sent
+only on their plain yes (`osc_prepare_changes` or `osc_prepare_write`, then
+`osc_confirm_write`). The manual's
 signing steps (builder's name on page 9, the sign-here sticker, the tray for
 signing) are a person's job, described here only so the checklist is complete.
 

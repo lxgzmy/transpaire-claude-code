@@ -15,6 +15,14 @@ Every write goes through two steps, and nothing reaches OSC between them:
    new one) is sent, and the record is read back to check that the confirmed
    fields changed and nothing else did.
 
+A batch (build_batch) is the same two steps for several changes to one job:
+each change is planned as above, the person reads one confirmation listing
+them all, and one plain "yes" sends them in order. Everything is checked
+again before the first is sent; each later change is planned again just
+before it goes, and if it no longer matches what was approved the batch
+stops there and asks again for the rest. A change can use the ID of a
+record an earlier change in the batch creates ("{{1.clientID}}").
+
 Codes live in this server process only: a new chat starts with none, and a
 code is used once, replaced by a newer check of the same target, or expires.
 """
@@ -45,6 +53,16 @@ CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L to misread
 
 class GateError(Exception):
     """A reason the change cannot go ahead, worded for the person."""
+
+
+class AlreadyDone(GateError):
+    """OSC already holds what the change asks for. In a batch the change is left out, not a blocker."""
+
+
+NOTHING_TO_CHANGE = "OnSite Companion already holds these values, so there is nothing to change."
+REF = re.compile(r"\{\{(\d+)\.(clientID|personID|jobID)\}\}")
+CREATED_ID = {"create_client": "clientID", "create_person": "personID", "create_job": "jobID"}
+MAX_BATCH = 25
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +190,28 @@ YES = {"yes", "y", "yep", "yeah", "ok", "okay", "confirm", "confirmed", "approve
        "是", "是的", "确认", "好", "好的", "可以", "同意"}
 NO = {"no", "n", "nope", "cancel", "stop", "don't", "do not", "no thanks",
       "不", "不要", "否", "取消", "不用"}
+
+
+LOT_PAGE = 500  # jobs read per lot-number check; reaching it means the check could be incomplete
+NAME_FILLER = {"and", "pty", "ltd", "atf", "the", "trust", "family", "no", "no.1", "acn", "abn"}
+
+
+def _q(text: str) -> str:
+    """A value inside an OData string literal: apostrophes doubled."""
+    return str(text).replace("'", "''")
+
+
+def _describe(plan: Plan) -> str:
+    return plan.headline or (plan.rule.what if plan.rule else f"{plan.method} {plan.path}")
+
+
+def _created_name(plan: Plan) -> str:
+    body = plan.inputs.get("body") or {}
+    if plan.rule.kind == "create_client":
+        return str(body.get("name") or "the new client")
+    if plan.rule.kind == "create_person":
+        return " ".join(str(body.get(k)) for k in ("givenName", "surname") if body.get(k)) or "the new person"
+    return plan.job_label or "the new job"
 
 
 def label(path: str) -> str:
@@ -328,11 +368,23 @@ class Plan:
     before: dict[str, Any] | None = None
     reads: dict[str, Any] = field(default_factory=dict)
     checks: list[dict[str, Any]] = field(default_factory=list)
+    refs: dict[str, dict[str, Any]] = field(default_factory=dict)  # batch placeholders -> the record they create
+    done: bool = False  # blocked only because OSC already holds it
+    step: int = 0       # the change's number in its batch, as the caller numbered it
 
     @property
     def fingerprint(self) -> str:
         return digest({"reads": self.reads, "request": self.request, "changes": self.changes,
                        "warnings": self.warnings, "blocked": self.blocked})
+
+    def signature(self, ids: dict[str, str] | None = None) -> str:
+        """What would be sent and what it changes; placeholders swapped for the IDs now known."""
+        text = json.dumps({"method": self.method, "path": self.path.lower(), "request": self.request,
+                           "changes": [[c["field"], c["current"], c["new"], c["action"]] for c in self.changes],
+                           "files": self.reads.get("files")}, sort_keys=True, default=str)
+        for placeholder, real in (ids or {}).items():
+            text = text.replace(placeholder, real).replace(placeholder.lower(), real.lower())
+        return hashlib.sha256(text.encode()).hexdigest()
 
     @property
     def target_key(self) -> str:
@@ -343,23 +395,34 @@ class Plan:
 
 
 @dataclass
+class Batch:
+    """Several changes to one job (or the client, people and job of a new intake), one confirmation."""
+    job_id: str
+    changes: list[Any]
+    steps: list[Plan] = field(default_factory=list)
+    left_out: list[str] = field(default_factory=list)
+    blocked: list[str] = field(default_factory=list)
+    job_label: str = ""
+
+    @property
+    def fingerprint(self) -> str:
+        return digest({"steps": [p.fingerprint for p in self.steps], "left_out": self.left_out,
+                       "blocked": self.blocked})
+
+    @property
+    def target_key(self) -> str:
+        return "batch " + (self.job_id.lower() or digest(self.changes)[:12])
+
+
+@dataclass
 class Pending:
     code: str
-    plan: Plan
+    plan: Plan | Batch
     created: float
 
 
-def render(plan: Plan, environment: str = "production") -> str:
-    """The confirmation a person reads before anything changes."""
-    if plan.blocked:
-        lines = ["Nothing was changed in OnSite Companion."]
-        lines += [f"- {reason}" for reason in plan.blocked]
-        return "\n".join(lines)
-    lines = [f"OnSite Companion ({environment}): please check this before anything changes.", ""]
-    if plan.job_label:
-        lines.append(f"Job: {plan.job_label}")
-    lines.append(f"Change: {plan.headline}")
-    lines.append("")
+def _change_lines(plan: Plan) -> list[str]:
+    lines = []
     for c in plan.changes:
         cur, new = c.get("current_shown", _shown(c["current"])), c.get("new_shown", _shown(c["new"]))
         if c["action"] == "new":
@@ -368,6 +431,47 @@ def render(plan: Plan, environment: str = "production") -> str:
             lines.append(f"- {c['label']}: now {cur}, will be cleared")
         else:
             lines.append(f"- {c['label']}: now {cur}, will be {new}")
+    return lines
+
+
+def _blocked_text(reasons: list[str]) -> str:
+    return "\n".join(["Nothing was changed in OnSite Companion."] + [f"- {reason}" for reason in reasons])
+
+
+def render_batch(batch: Batch, environment: str = "production") -> str:
+    """One confirmation for every change in a batch, in the order they will be made."""
+    if batch.blocked:
+        return _blocked_text(batch.blocked)
+    n = len(batch.steps)
+    lines = [f"OnSite Companion ({environment}): please check this before anything changes.", ""]
+    if batch.job_label:
+        lines.append(f"Job: {batch.job_label}")
+    lines += [f"{n} change{'s' if n != 1 else ''}, made in this order:", ""]
+    for i, plan in enumerate(batch.steps, 1):
+        lines.append(f"{i}. {plan.headline[:1].upper()}{plan.headline[1:]}")
+        lines += ["   " + line for line in _change_lines(plan)]
+        lines += [f"   Note: {x}" for x in plan.notes]
+        lines += [f"   Warning: {x}" for x in plan.warnings]
+    lines.append("")
+    if any(p.rule and p.rule.kind not in CREATE_KINDS | MESSAGE_KINDS for p in batch.steps):
+        lines.append("Nothing else on these records changes.")
+    lines += [f"Already in OnSite Companion, so left out: {x}" for x in batch.left_out]
+    lines.append("")
+    what = f"all {n} changes" if n > 1 else "this change"
+    lines.append(f'Reply "yes" to make {what}, or "no" to leave OnSite Companion as it is.')
+    return "\n".join(lines)
+
+
+def render(plan: Plan, environment: str = "production") -> str:
+    """The confirmation a person reads before anything changes."""
+    if plan.blocked:
+        return _blocked_text(plan.blocked)
+    lines = [f"OnSite Companion ({environment}): please check this before anything changes.", ""]
+    if plan.job_label:
+        lines.append(f"Job: {plan.job_label}")
+    lines.append(f"Change: {plan.headline}")
+    lines.append("")
+    lines += _change_lines(plan)
     lines.append("")
     if plan.rule and plan.rule.kind not in CREATE_KINDS | MESSAGE_KINDS:
         lines.append(f"Nothing else on this {plan.rule.what} changes.")
@@ -489,17 +593,67 @@ class Gate:
 
     # ---- planning -------------------------------------------------------
     async def build_plan(self, method: str, path: str, job_id: str = "", body: Any = None,
-                         form: dict | None = None, files: dict | None = None) -> Plan:
+                         form: dict | None = None, files: dict | None = None,
+                         refs: dict[str, dict[str, Any]] | None = None) -> Plan:
         plan = Plan(method=(method or "").upper(), path=(path or "").strip(), job_id=(job_id or "").strip(),
                     inputs={"method": method, "path": path, "job_id": job_id, "body": body,
-                            "form": form, "files": files})
+                            "form": form, "files": files}, refs=dict(refs or {}))
         try:
             await self._plan(plan, body, form, files)
         except GateError as exc:
             plan.blocked.append(str(exc))
+            plan.done = isinstance(exc, AlreadyDone)
         if not plan.blocked and not plan.changes:
-            plan.blocked.append("OnSite Companion already holds these values, so there is nothing to change.")
+            plan.blocked.append(NOTHING_TO_CHANGE)
+            plan.done = True
         return plan
+
+    async def build_batch(self, job_id: str, changes: Any) -> Batch:
+        """Plan every change of a batch. Any change that cannot go ahead blocks the whole batch."""
+        batch = Batch(job_id=(job_id or "").strip(), changes=changes if isinstance(changes, list) else [])
+        if not batch.changes:
+            batch.blocked.append("The batch has no changes in it.")
+            return batch
+        if len(batch.changes) > MAX_BATCH:
+            batch.blocked.append(f"A batch takes at most {MAX_BATCH} changes. Split it into stages.")
+            return batch
+        refs: dict[str, dict[str, Any]] = {}
+        targets: dict[str, int] = {}
+        for n, change in enumerate(batch.changes, 1):
+            if not isinstance(change, dict) or not change.get("method") or \
+                    set(change) - {"method", "path", "body", "form", "files"}:
+                batch.blocked.append(f"Change {n}: give method and path, plus body (or form and files), "
+                                     "and nothing else.")
+                continue
+            inputs = {"method": change.get("method"), "path": change.get("path"), "job_id": batch.job_id,
+                      "body": change.get("body"), "form": change.get("form"), "files": change.get("files")}
+            unknown = [m.group(0) for m in REF.finditer(json.dumps(inputs, default=str))
+                       if m.group(0) not in refs]
+            if unknown:
+                batch.blocked.append(f"Change {n} uses {unknown[0]}, which is not the ID of a record that an "
+                                     "earlier change in this batch creates.")
+                continue
+            plan = await self.build_plan(**inputs, refs=refs)
+            plan.step = n
+            if plan.done:
+                batch.left_out.append(f"change {n} ({_describe(plan)}): {plan.blocked[0]}")
+                continue
+            if plan.blocked:
+                batch.blocked += [f"Change {n}: {reason}" for reason in plan.blocked]
+                continue
+            if plan.target_key in targets:
+                batch.blocked.append(f"Changes {targets[plan.target_key]} and {n} are for the same record. "
+                                     "Put both into one change.")
+                continue
+            targets[plan.target_key] = n
+            if plan.rule.kind in CREATED_ID:
+                refs["{{%d.%s}}" % (n, CREATED_ID[plan.rule.kind])] = {
+                    "kind": plan.rule.kind, "step": n, "name": _created_name(plan)}
+            batch.steps.append(plan)
+            batch.job_label = batch.job_label or plan.job_label
+        if not batch.blocked and not batch.steps:
+            batch.blocked.append(NOTHING_TO_CHANGE)
+        return batch
 
     async def _plan(self, plan: Plan, body: Any, form: dict | None, files: dict | None) -> None:
         for rule in APPROVED:
@@ -513,6 +667,10 @@ class Gate:
                 "only make the contract-intake changes; anything else is done by a person in OnSite Companion.")
         rule = plan.rule
         for name, value in plan.params.items():
+            new = plan.refs.get(value)
+            if new and name == "PersonID" and rule.kind in {"link_client", "link_job"} \
+                    and new["kind"] == "create_person":
+                continue  # a person an earlier change in this batch creates
             if not GUID.fullmatch(value):
                 raise GateError(f"{name} must be a single record ID (a GUID), not {value!r}.")
         if rule.kind in MESSAGE_KINDS:
@@ -703,21 +861,34 @@ class Gate:
         if client_side:
             self._same_id(plan.params["ClientID"], job.get("clientID"),
                           f"That client is not the client on job {plan.job_label}.")
+        else:
+            self._same_id(plan.params["JobID"], plan.job_id, "The job in the request is not the job named for this change.")
+        new = plan.refs.get(pid)
+        if new:  # created earlier in this batch: no record and no link exist yet
+            plan.reads["link"] = []
+            return {"fullName": new["name"]}, []
+        if client_side:
             rows = await self._find("/api/Clients/Contacts",
                                     f"clientID eq {plan.params['ClientID']} and personID eq {pid}", "client contacts")
         else:
-            self._same_id(plan.params["JobID"], plan.job_id, "The job in the request is not the job named for this change.")
             rows = await self._find("/api/Jobs/Contacts", f"jobID eq {plan.job_id} and personID eq {pid}",
                                     "job contacts")
         person = await self._one("/api/Persons", "personID", pid, "person")
         plan.reads["link"] = _strip(rows)
         return person, rows
 
+    @staticmethod
+    def _existing_link(person: dict, rows: list[dict], body: dict, where: str) -> None:
+        name = person.get("fullName") or "That person"
+        if len(rows) == 1 and all(same(_current(rows[0], k), v) for k, v in body.items()):
+            raise AlreadyDone(f"{name} is already a contact on {where}, set up as asked.")
+        raise GateError(f"{name} is already a contact on {where}. Change the existing contact instead of "
+                        "adding another.")
+
     async def _plan_link_client(self, plan, job, body, form, files):
         person, rows = await self._link_parts(plan, job, client_side=True)
         if rows:
-            raise GateError(f"{person.get('fullName') or 'That person'} is already a contact on this client. "
-                            "Change the existing contact instead of adding another.")
+            self._existing_link(person, rows, body, "this client")
         if not str(body.get("relationship") or "").strip():
             raise GateError("A client contact needs a relationship.")
         plan.request = {"json": await self._diff(plan, body, None, minimise=False)}
@@ -734,7 +905,7 @@ class Gate:
     async def _plan_link_job(self, plan, job, body, form, files):
         person, rows = await self._link_parts(plan, job, client_side=False)
         if rows:
-            raise GateError(f"{person.get('fullName') or 'That person'} is already a contact on this job.")
+            self._existing_link(person, rows, body, "this job")
         if not str(body.get("relationship") or "").strip():
             raise GateError("A job contact needs a relationship.")
         plan.request = {"json": await self._diff(plan, body, None, minimise=False)}
@@ -755,11 +926,25 @@ class Gate:
         for part in ("postalAddress", "workAddress", "workContactDetails"):
             if not isinstance(body.get(part), dict):
                 raise GateError(f"{label(part)} must be given (an empty group is fine where nothing is sourced).")
-        rows = await self._find("/api/Clients", f"name eq '{name.replace(chr(39), chr(39) * 2)}'", "clients")
-        plan.reads["same_name"] = sorted(str(r.get("clientID")).lower() for r in rows)
+        # Case-insensitive, and every word of the name in any order: OSC holds clients that differ
+        # only by case, and "Given SURNAME & Given SURNAME" is typed in either order.
+        rows = await self._find("/api/Clients", f"tolower(name) eq '{_q(name.lower())}'", "clients", top=50)
+        exact = {str(r.get("clientID")).lower() for r in rows}
+        words = [w for w in re.split(r"[\s,&]+", name.lower()) if len(w) > 1 and w not in NAME_FILLER][:4]
+        similar = []
+        if len(words) >= 2:
+            flt = " and ".join(f"contains(tolower(name),'{_q(w)}')" for w in words)
+            similar = [r for r in await self._find("/api/Clients", flt, "clients with a similar name", top=50)
+                       if str(r.get("clientID")).lower() not in exact]
+        plan.reads["same_name"] = sorted(exact)
+        plan.reads["similar_name"] = sorted(str(r.get("clientID")).lower() for r in similar)
         if rows:
             plan.warnings.append(f"OnSite Companion already has {len(rows)} client(s) called \"{name}\". "
                                  "Use the existing client if it is the same buyer.")
+        if similar:
+            names = ", ".join(f"\"{r.get('name')}\"" for r in similar[:5])
+            plan.warnings.append(f"OnSite Companion has {len(similar)} client(s) with a similar name ({names}). "
+                                 "Use one of them if it is the same buyer.")
         plan.request = {"json": await self._diff(plan, body, None, minimise=False)}
         plan.headline = f"a new client \"{name}\" is created"
 
@@ -770,25 +955,49 @@ class Gate:
                      "workContactDetails"):
             if not isinstance(body.get(part), dict):
                 raise GateError(f"{label(part)} must be given (an empty group is fine where nothing is sourced).")
-        given, surname = str(body.get("givenName") or ""), str(body.get("surname") or "")
-        q = lambda s: s.replace("'", "''")
-        rows = await self._find("/api/Persons", f"givenName eq '{q(given)}' and surname eq '{q(surname)}'", "people")
+        given, surname = str(body.get("givenName") or "").strip(), str(body.get("surname") or "").strip()
+        rows = await self._find("/api/Persons", f"tolower(givenName) eq '{_q(given.lower())}' and "
+                                                f"tolower(surname) eq '{_q(surname.lower())}'", "people", top=50)
         plan.reads["same_name"] = sorted(str(r.get("personID")).lower() for r in rows)
         whole = " ".join(x for x in (given, surname) if x)
         if rows:
             plan.warnings.append(f"OnSite Companion already has {len(rows)} person(s) called \"{whole}\". "
                                  "Use the existing person if it is the same one.")
+        # The same email or mobile is a stronger sign of the same person than the name.
+        contact = body.get("personalContactDetails") if isinstance(body.get("personalContactDetails"), dict) else {}
+        email = str(contact.get("email") or "").strip().lower()
+        digits = re.sub(r"\D", "", str(contact.get("mobile") or ""))
+        checks = []
+        if email:
+            checks.append(("email", f"tolower(personalContactDetails/email) eq '{_q(email)}'"))
+        if len(digits) >= 8:
+            forms = {digits, f"{digits[:4]} {digits[4:7]} {digits[7:]}" if len(digits) == 10 else digits,
+                     str(contact.get("mobile")).strip()}
+            checks.append(("mobile", " or ".join(f"personalContactDetails/mobile eq '{_q(f)}'"
+                                                 for f in sorted(forms))))
+        for what, flt in checks:
+            found = [r for r in await self._find("/api/Persons", flt, f"people with the same {what}", top=20)
+                     if str(r.get("personID")).lower() not in plan.reads["same_name"]]
+            plan.reads[f"same_{what}"] = sorted(str(r.get("personID")).lower() for r in found)
+            if found:
+                names = ", ".join(f"\"{r.get('fullName') or 'no name'}\"" for r in found[:5])
+                plan.warnings.append(f"OnSite Companion already has {len(found)} person(s) with this {what} "
+                                     f"({names}). Use the existing person if it is the same one.")
         labels = await self._lookup("person_fields", required=CUSTOM in body)
         plan.request = {"json": await self._diff(plan, body, None, minimise=False, field_labels=labels)}
         plan.headline = f"a new person \"{whole}\" is created"
 
     async def _plan_create_job(self, plan, job, body, form, files):
+        new_client = plan.refs.get(str(body.get("clientID") or ""))
+        if new_client and new_client["kind"] != "create_client":
+            raise GateError(f"{body['clientID']} is not a client that an earlier change in this batch creates.")
         for key in ("clientID", "regionID"):
-            if not GUID.fullmatch(str(body.get(key) or "")):
+            if not (key == "clientID" and new_client) and not GUID.fullmatch(str(body.get(key) or "")):
                 raise GateError(f"A new job needs {label(key).lower()} as an ID.")
         if not isinstance(body.get("siteAddress"), dict):
             raise GateError("A new job needs a site address.")
-        client = await self._one("/api/Clients", "clientID", body["clientID"], "client")
+        client = ({"name": new_client["name"]} if new_client
+                  else await self._one("/api/Clients", "clientID", body["clientID"], "client"))
         regions = await self._lookup("regions", required=True)
         if str(body["regionID"]).lower() not in regions:
             raise GateError("That region is not one of OnSite Companion's regions.")
@@ -799,12 +1008,29 @@ class Gate:
         site = body["siteAddress"]
         lot = str(site.get("lotNumber") or "").strip()
         if lot:
-            rows = await self._find("/api/Jobs", f"siteAddress/lotNumber eq '{lot.replace(chr(39), chr(39) * 2)}'",
-                                    "jobs on the same lot", {"shouldShowMyJobsOnly": False})
+            # Every job on the lot number, cancelled ones included. Lot numbers repeat across estates
+            # (one is on 28 production jobs, 15 Oct 2026), so a short page could hide the real twin.
+            rows = await self._find("/api/Jobs", f"siteAddress/lotNumber eq '{_q(lot)}'", "jobs on the same lot",
+                                    {"shouldShowMyJobsOnly": False}, top=LOT_PAGE)
+            if len(rows) >= LOT_PAGE:
+                raise GateError(f"More than {LOT_PAGE - 1} jobs use lot {lot}, so they could not all be checked "
+                                "for a duplicate. A person creates this job in OnSite Companion.")
             plan.reads["same_lot"] = sorted(str(r.get("jobID")).lower() for r in rows)
-            for r in rows[:5]:
+            suburb = str(site.get("suburb") or "").strip().upper()
+            here = [r for r in rows if not suburb
+                    or str((r.get("siteAddress") or {}).get("suburb") or "").strip().upper() == suburb]
+            here.sort(key=lambda r: ("cancel" in str(r.get("workflowStatusName") or "").lower(),
+                                     str(r.get("contractNumber") or "")))
+            where = f"lot {lot} in {suburb}" if suburb else f"lot {lot}"
+            for r in here[:10]:
                 plan.warnings.append(f"OnSite Companion already has job {job_label(r)} "
-                                     f"({r.get('workflowStatusName') or 'status unknown'}) on lot {lot}.")
+                                     f"({r.get('workflowStatusName') or 'status unknown'}) on {where}. "
+                                     "Make sure it is not this job.")
+            if len(here) > 10:
+                plan.warnings.append(f"... and {len(here) - 10} more job(s) on {where}.")
+            if len(rows) > len(here):
+                plan.notes.append(f"lot {lot} is also used by {len(rows) - len(here)} job(s) in other suburbs. "
+                                  "None of them is at this site.")
         else:
             plan.warnings.append("No lot number is given, so OnSite Companion could not be checked for a job "
                                  "on the same lot.")
@@ -831,8 +1057,8 @@ class Gate:
         if not isinstance(body.get("completionDate"), str) or not _parse_dt(body["completionDate"]):
             raise GateError("A completion date (YYYY-MM-DD) is needed.")
         if activity.get("completionDate"):
-            raise GateError(f"{name[0].upper() + name[1:]} is already complete "
-                            f"({fmt_date(activity['completionDate'])}), so there is nothing to change.")
+            raise AlreadyDone(f"{name[0].upper() + name[1:]} is already complete "
+                              f"({fmt_date(activity['completionDate'])}), so there is nothing to change.")
         if activity.get("isNotApplicable"):
             raise GateError(f"{name[0].upper() + name[1:]} is marked not applicable. A person decides that one.")
         # A completion is one action, checked by its date on read-back; OSC may
@@ -942,6 +1168,8 @@ class Gate:
             return {"ok": False, "sent": False, "result_text":
                     "Nothing was sent: writing to OnSite Companion is switched off for this chat."}
         del self.pending[code]  # single use, before anything is sent
+        if isinstance(pending.plan, Batch):
+            return await self._confirm_batch(pending.plan)
         fresh = await self.build_plan(**pending.plan.inputs)
         if fresh.blocked:
             return {"ok": False, "sent": False, "result_text": render(fresh, self.config.environment)}
@@ -953,6 +1181,69 @@ class Gate:
                                    "the change itself is different now. Show the person the new confirmation "
                                    "and ask again."}
         return await self._send(pending.plan)
+
+    async def _confirm_batch(self, approved: Batch) -> dict[str, Any]:
+        env = self.config.environment
+        fresh = await self.build_batch(approved.job_id, approved.changes)
+        if fresh.blocked:
+            return {"ok": False, "sent": False, "result_text": render_batch(fresh, env)}
+        if fresh.fingerprint != approved.fingerprint:
+            new_code = self.register(fresh)
+            return {"ok": False, "sent": False, "changed": True, "confirmation_code": new_code,
+                    "confirmation_text": render_batch(fresh, env),
+                    "result_text": "Nothing was sent: OnSite Companion changed after this was confirmed, or the "
+                                   "changes themselves are different now. Show the person the new confirmation "
+                                   "and ask again."}
+        where = f" on job {fresh.job_label}" if fresh.job_label and fresh.job_id else ""
+        total, ids, done = len(fresh.steps), {}, []
+        for i, step in enumerate(fresh.steps, 1):
+            plan = step
+            if i > 1:
+                # Planned again just before it goes: an earlier change, or someone in OSC, may have moved it.
+                inputs = json.loads(_swap(json.dumps(step.inputs, default=str), ids))
+                plan = await self.build_plan(**inputs)
+                if plan.blocked or plan.signature() != step.signature(ids):
+                    return await self._batch_stopped(approved, step, ids, done, total, plan)
+            res = await self._send(plan)
+            entry = {"change": i, "what": _describe(plan), "state": res.get("state", "failed"),
+                     "result_text": res.get("result_text")}
+            if res.get("verification", {}).get("contract_number"):
+                entry["contract_number"] = res["verification"]["contract_number"]
+            key = CREATED_ID.get(plan.rule.kind)
+            if res.get("ok") and key:
+                new_id = (res.get("data") or {}).get(key) if isinstance(res.get("data"), dict) else None
+                ids["{{%d.%s}}" % (step.step, key)] = str(new_id)
+                entry[key] = new_id
+            done.append(entry)
+            if not res.get("ok"):
+                return {"ok": False, "sent": bool(res.get("sent")) or i > 1, "state": entry["state"],
+                        "changes": done, "created": ids,
+                        "result_text": (f"{i - 1} of {total} change(s) made and read back{where}. Change {i} "
+                                        f"({entry['what']}): {res.get('result_text')} The other {total - i} "
+                                        "change(s) were not sent.")}
+        text = f"Done{where}: all {total} change(s) made and read back from OnSite Companion."
+        numbers = [d["contract_number"] for d in done if d.get("contract_number")]
+        if numbers:
+            text += f" Contract number: {numbers[0]}."
+        return {"ok": True, "sent": True, "state": "verified", "changes": done, "created": ids, "result_text": text}
+
+    async def _batch_stopped(self, approved: Batch, step: Plan, ids: dict[str, str], done: list[dict],
+                             total: int, plan: Plan) -> dict[str, Any]:
+        """A later change no longer matches what was approved: stop, and ask again for the rest."""
+        first = step.step
+        rest = [json.loads(_renumber(_swap(json.dumps(c, default=str), ids), first - 1))
+                for c in approved.changes[first - 1:]]
+        again = await self.build_batch(approved.job_id, rest)
+        out: dict[str, Any] = {
+            "ok": False, "sent": bool(done), "state": "stopped", "changes": done, "created": ids,
+            "confirmation_text": render_batch(again, self.config.environment),
+            "result_text": (f"{len(done)} of {total} change(s) made and read back. The next change "
+                            f"({_describe(step)}) no longer matches what was confirmed"
+                            + (f" ({plan.blocked[0]})" if plan.blocked else "")
+                            + ", so nothing more was sent. Show the person the new confirmation for the rest.")}
+        if not again.blocked:
+            out["confirmation_code"] = self.register(again)
+        return out
 
     async def _send(self, plan: Plan) -> dict[str, Any]:
         req = plan.request
@@ -992,7 +1283,7 @@ class Gate:
         where = f" on job {plan.job_label}" if plan.job_label and kind != "create_job" else ""
         try:
             if kind in MESSAGE_KINDS:
-                return self._verify_message(plan, data, where)
+                return await self._verify_message(plan, data, where)
             after = await self._read_back(plan, data)
         except GateError as exc:
             return {"verified": False, "text": f"The change was sent{where}, but reading it back failed: {exc} "
@@ -1098,16 +1389,47 @@ class Gate:
         body = {"shouldShowMyJobsOnly": False} if kind == "create_job" else None
         return await self._one(path, key, new_id, what, body)
 
-    @staticmethod
-    def _verify_message(plan: Plan, data: Any, where: str) -> dict[str, Any]:
-        message_id = data.get("messageID") if isinstance(data, dict) else None
-        documents = (data.get("documents") or []) if isinstance(data, dict) else []
+    async def _verify_message(self, plan: Plan, data: Any, where: str) -> dict[str, Any]:
+        """Read the message back from OSC itself: listed where it was posted, with its attachments.
+
+        Production lists messages without their documents, so the attachments are read from
+        /api/Messages/Documents by message ID (checked 15 Oct 2026)."""
+        message_id = str(data.get("messageID") or "") if isinstance(data, dict) else ""
         expected = len(plan.request.get("files") or {})
-        ok = bool(message_id) and len(documents) >= expected
-        text = (f"Done{where}. OnSite Companion saved the message with {len(documents)} attachment(s)."
-                if ok else f"The message was sent{where}, but OnSite Companion reported "
-                           f"{len(documents)} of {expected} attachment(s). Check it in OnSite Companion.")
+        if not GUID.fullmatch(message_id):
+            return {"verified": False, "message_id": None, "attachments": 0,
+                    "text": f"The message was sent{where}, but OnSite Companion did not return its ID, so it could "
+                            "not be read back. Check it in OnSite Companion before sending it again."}
+        rows = self._rows(await self._get(plan.path, {"$orderby": "createdOnUtc desc", "$top": 50}, None,
+                                          "messages"))
+        listed = [r for r in rows if str(r.get("messageID")).lower() == message_id.lower()]
+        subject = str(plan.request.get("form", {}).get("Subject") or "").strip()
+        documents = self._rows(await self._get("/api/Messages/Documents", {"$filter": f"messageID eq {message_id}"},
+                                               None, "message attachments")) if expected else []
+        problems = []
+        if not listed:
+            problems.append("the message is not listed")
+        elif str(listed[0].get("subject") or "").strip() != subject:
+            problems.append(f"its subject reads \"{listed[0].get('subject')}\"")
+        if len(documents) < expected:
+            problems.append(f"{len(documents)} of {expected} attachment(s) are there")
+        ok = not problems
+        text = (f"Done{where}. I read it back from OnSite Companion: the message \"{subject}\" is there with "
+                f"{len(documents)} attachment(s)." if ok else
+                f"The message was sent{where}, but the read-back found a problem ({'; '.join(problems)}). "
+                "Check it in OnSite Companion before sending it again.")
         return {"verified": ok, "message_id": message_id, "attachments": len(documents), "text": text}
+
+
+def _swap(text: str, ids: dict[str, str]) -> str:
+    for placeholder, real in ids.items():
+        text = text.replace(placeholder, real)
+    return text
+
+
+def _renumber(text: str, offset: int) -> str:
+    """Placeholders of a batch's remaining changes, numbered from 1 again."""
+    return REF.sub(lambda m: "{{%d.%s}}" % (int(m.group(1)) - offset, m.group(2)), text)
 
 
 def job_label(job: dict) -> str:

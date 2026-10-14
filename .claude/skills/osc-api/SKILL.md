@@ -31,7 +31,8 @@ guardrail enforced.
   repo's committed `.mcp.json`, so every session opened in the repo folder has
   its tools. Read tools, allowed without a prompt: `osc_token_info`,
   `osc_list_endpoints`, `osc_describe_endpoint`, `osc_get`, plus
-  `osc_prepare_write` and `osc_cancel_write`, which send nothing. The one
+  `osc_prepare_write`, `osc_prepare_changes` and `osc_cancel_write`, which
+  send nothing. The one
   tool that changes OSC is `osc_confirm_write`, on `ask`. If the tools are
   missing, the session was opened outside the repo folder or predates a pull:
   ask the user to start a new session in `Z:\CLAUDE CODE\transpire-claude-code`.
@@ -77,6 +78,18 @@ There is no direct write tool. Every change goes through the gate in
 4. The result's `result_text` says what happened after reading the record
    back: done, or exactly which fields did not take or changed unexpectedly.
    Relay it. `sent_unverified` means look in OSC before anything else.
+
+**Several changes to one job: `osc_prepare_changes(job_id, changes)`.** Each
+change gets exactly the checks above; the person reads one confirmation for
+all of them and one plain yes sends them in order, each read back. Anything
+OSC already holds is left out and listed; any change that cannot go ahead
+blocks the lot. Each change after the first is checked again just before it
+goes, and the batch stops at the first one that fails or no longer matches
+(`state: stopped` comes with a new confirmation for the rest). A later change
+can use an ID an earlier one creates: `{{N.clientID}}` for a new job's
+client, `{{N.personID}}` in a contact-link path. `job_id` is empty only for a
+batch that creates the client, people and job of a new intake. The contract
+intake uses one batch per stage (the `new-contract-template` skill, step 1a).
 
 Never describe a change as made unless `osc_confirm_write` returned
 `state: verified`. A person who says no, does not answer, or asks for

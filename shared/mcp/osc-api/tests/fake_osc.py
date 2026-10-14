@@ -22,6 +22,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 import httpx
 
+CONTEXT_HOST = "https://fake-osc-host.invalid:53500"
 GROUP_FIELDS = {"contactDetailsPrimaryCommunicationMethodID": ("primaryCommunicationMethod", "methods"),
                 "preferredCommunicationGroupID": ("preferredCommunicationGroup", "groups")}
 
@@ -38,6 +39,8 @@ class FakeOSC:
     def __init__(self, newest_job_days_ago: int = 1):
         self.writes: list[dict] = []      # every write that reached the API
         self.patch_hook = None            # optional f(kind, record) run after a PATCH (to simulate faults)
+        self.fail_write = None            # optional f(write) -> HTTP status to refuse that write with
+        self.keep_documents = True        # False: a message is saved but its attachment is lost
         self.numbers = itertools.count(26100)
         self.region_nsw, self.region_qld = _id(), _id()
         self.regions = [{"regionID": self.region_nsw, "description": "SYDNEY01", "isActive": True},
@@ -63,6 +66,7 @@ class FakeOSC:
         self.activities: dict[str, dict] = {}
         self.questions: dict[str, list[dict]] = {}
         self.messages: dict[str, list[dict]] = {}
+        self.documents: list[dict] = []  # message attachments, listed by /api/Messages/Documents
         self._seed(newest_job_days_ago)
 
     # ---- synthetic records ----------------------------------------------
@@ -170,6 +174,9 @@ class FakeOSC:
             return self._get(path, parts, params)
         self.writes.append({"method": method, "path": path, "body": copy.deepcopy(body), "form": form,
                             "files": dict(files or {})})
+        refused = self.fail_write(self.writes[-1]) if self.fail_write else None
+        if refused:
+            return refused, {"title": "refused by the fake"}
         return self._write(method, path, parts, body or {}, form or {}, files or {})
 
     def _get(self, path, parts, params):
@@ -185,6 +192,7 @@ class FakeOSC:
             "/api/jobs/customfieldschemas": lambda: self.job_fields,
             "/api/persons/customfieldschemas": lambda: self.person_fields,
             "/api/jobactivities/completionanswerstates": lambda: self.answers,
+            "/api/messages/documents": lambda: self.documents,
         }
         key = path.lower()
         if key == "/api/jobs/workflowtemplates":
@@ -208,20 +216,34 @@ class FakeOSC:
             rows.sort(key=lambda r: r.get("createdOnUtc") or "", reverse=True)
         if params.get("$top"):
             rows = rows[: int(params["$top"])]
-        return 200, {"value": rows}
+        # production's OData answers carry a context link with the server's host name in it
+        return 200, {"@odata.context": f"{CONTEXT_HOST}/api/$metadata#{parts[-1]}", "value": rows}
 
     @staticmethod
-    def _match(row: dict, flt: str) -> bool:
-        for clause in flt.split(" and "):
-            fld, _, value = clause.strip().partition(" eq ")
-            if value.startswith("'"):
-                value = value[1:-1].replace("''", "'")
-            node = row
-            for part in fld.split("/"):
-                node = node.get(part) if isinstance(node, dict) else None
-            if str(node).lower() != value.lower():
-                return False
-        return True
+    def _value(row: dict, fld: str):
+        node = row
+        for part in fld.split("/"):
+            node = node.get(part) if isinstance(node, dict) else None
+        return node
+
+    @classmethod
+    def _match(cls, row: dict, flt: str) -> bool:
+        """The OData the gate uses: a and b, a or b, x eq v, tolower(x) eq v, contains(tolower(x),v).
+        A quoted value is compared as production does: case-sensitive unless tolower() is used."""
+        return all(any(cls._term(row, t.strip()) for t in clause.split(" or ")) for clause in flt.split(" and "))
+
+    @classmethod
+    def _term(cls, row: dict, term: str) -> bool:
+        found = re.fullmatch(r"contains\(tolower\(([\w/]+)\),'(.*)'\)", term)
+        if found:
+            return found.group(2).replace("''", "'") in str(cls._value(row, found.group(1)) or "").lower()
+        fld, _, value = term.partition(" eq ")
+        lower = fld.startswith("tolower(")
+        node = cls._value(row, fld[8:-1] if lower else fld)
+        if value.startswith("'"):
+            value = value[1:-1].replace("''", "'")
+            return (str(node or "").lower() if lower else str(node)) == value
+        return str(node).lower() == value.lower()  # IDs and numbers
 
     def _job_contact_view(self, c):
         g = c.get("_group")
@@ -316,8 +338,11 @@ class FakeOSC:
             message = {"messageID": _id(), "subject": form.get("Subject"), "body": form.get("Body"),
                        "createdOnUtc": _now()}
             self.messages.setdefault(owner.lower(), []).append(message)
-            return 201, {"messageID": message["messageID"],
-                         "documents": [{"documentID": _id()} for _ in files]}
+            documents = [{"documentID": _id(), "messageID": message["messageID"],
+                          "description": form.get(name.replace(".file", ".description"))} for name in files]
+            if self.keep_documents:
+                self.documents += documents
+            return 201, {"messageID": message["messageID"], "documents": documents}
         return 404, {"error": "unsupported in fake"}
 
 

@@ -120,8 +120,9 @@ many-to-one, `}o--o{` many-to-many, `||--||` one-to-one.
 | `osc_describe_endpoint` | read | Complete parameters, request/response schemas and their transitive local references for one path. |
 | `osc_get` | read | GET any endpoint. Supports OData `query` params and body-filter GETs (e.g. `/api/Jobs`) via `odata_filter`. |
 | `osc_prepare_write` | read | Checks one change and words its confirmation; sends nothing. See [Write safety](#write-safety-human-in-the-loop). |
-| `osc_cancel_write` | read | Discards a prepared change. |
-| `osc_confirm_write` | **write** | Sends a prepared change on the person's plain yes, then reads it back. The only tool that changes OSC. |
+| `osc_prepare_changes` | read | The same for several changes to one job (an intake stage): one confirmation for all of them; sends nothing. |
+| `osc_cancel_write` | read | Discards a prepared change or batch. |
+| `osc_confirm_write` | **write** | Sends a prepared change or batch on the person's plain yes, then reads each change back. The only tool that changes OSC. |
 
 The read tools cover all 148 OSCAPI endpoints generically (the spec is loaded at
 run time), so no per-endpoint code needs maintaining when the API version moves.
@@ -249,7 +250,7 @@ It refuses, with the reason in plain words:
   (DataBuild only), contract number (OSC generates it), region of an existing
   job, DataBuild client code;
 - a completed activity, an existing contact link, or a change OSC already
-  holds;
+  holds (in a batch these are left out and listed instead of blocking);
 - a stale copy: the newest job in OSC is more than `OSC_STALE_AFTER_DAYS`
   (30) days old.
 
@@ -257,8 +258,11 @@ Otherwise it reads the current record and returns:
 
 - `confirmation_text`: the job, each change as *now X, will be Y* (clears and
   overwrites spelled out), a note when the client or person is shared with
-  other jobs, and duplicate warnings (same lot, same client name, a message
-  with the same subject);
+  other jobs, and duplicate warnings: every job on the same lot **and suburb**
+  (all jobs on the lot number are read, since lot numbers repeat across
+  estates; the count elsewhere is a note), a client with the same name in any
+  case or the same words in another order, a person with the same name, email
+  or mobile, and a message with the same subject;
 - `would_send`: the smallest request that makes exactly those changes. Values
   OSC already holds are dropped. Custom fields go as the record's full set with
   the changes merged in, so none is dropped whether OSC merges or replaces the
@@ -283,6 +287,31 @@ With writes switched off it still returns the confirmation, but no code.
   `sent_unverified`: look in OSC before trying again.
 
 `osc_cancel_write(confirmation_code)` discards a prepared change.
+
+A message is read back from OSC itself: the new message must be listed where
+it was posted, and its attachments are counted through
+`/api/Messages/Documents` (production lists messages without their documents).
+
+### Batches: one confirmation per stage
+
+`osc_prepare_changes(job_id, changes)` takes the changes of one stage in
+order, each `{method, path, body}` or `{method, path, form, files}`, and
+gives every one the checks above. The person reads one confirmation and one
+plain yes sends them all, so a contract intake asks three times (new client
+and job; the job's set-up; DataBuild done) instead of once per field.
+
+- Anything that cannot go ahead blocks the whole batch; anything OSC already
+  holds is left out and listed.
+- Two changes to the same record are refused: put them into one.
+- A later change can use an ID an earlier one creates: `{{N.clientID}}` as a
+  new job's `clientID`, `{{N.personID}}` as the person in a contact-link path.
+  `job_id` is empty only for a batch that creates a new intake's client,
+  people and job.
+- On the yes, every change is checked again before the first is sent. Each
+  later change is planned again just before it goes; the batch stops at the
+  first that fails or no longer matches what was confirmed (`state: stopped`,
+  `failed` or `sent_unverified`), the earlier ones stay done and read back,
+  and a `stopped` result carries a new confirmation for the rest.
 
 On top of the gate, the host keeps `mcp__osc-api-prod__osc_confirm_write` on
 `ask` in [`.claude/settings.json`](../../../.claude/settings.json), and the master

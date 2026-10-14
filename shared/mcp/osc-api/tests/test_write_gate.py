@@ -410,6 +410,230 @@ class SendFailureTests(GateTestCase):
         self.assertEqual(self.fake.writes, [])
 
 
+class BatchTests(GateTestCase):
+    """One confirmation per intake stage (15 Oct 2026): fewer interruptions, the same protections."""
+
+    async def batch(self, changes, job_id=None):
+        return await server.osc_prepare_changes(self.fake.job_id if job_id is None else job_id, changes)
+
+    def message_file(self, name="request.msg"):
+        path = Path(self.folder.name) / name
+        path.write_bytes(b"synthetic email")
+        return str(path)
+
+    def stage_two(self):
+        f = self.fake
+        return [
+            {"method": "PATCH", "path": f"/api/Jobs/{f.job_id}",
+             "body": {"customFieldValues": [{"customFieldID": f.f_sp, "value": "DP 1285148"}]}},
+            {"method": "POST", "path": f"/api/Jobs/{f.job_id}/Contacts/{f.other_person_id}",
+             "body": {"relationship": "SALES"}},
+            {"method": "POST", "path": f"/api/JobActivities/{f.act1}/Complete", "body": {"completionDate": "2026-10-15"}},
+            {"method": "POST", "path": f"/api/JobActivities/{f.act2}/Complete", "body": {"completionDate": "2026-10-15"}},
+            {"method": "POST", "path": f"/api/Jobs/{f.job_id}/Messages",
+             "form": {"Subject": "NEW JOB", "Body": "Contract request email attached.",
+                      "Documents[0].description": "NEW JOB"},
+             "files": {"Documents[0].file": self.message_file()}},
+        ]
+
+    async def test_one_confirmation_lists_every_change_and_one_yes_sends_them_in_order(self):
+        out = await self.batch(self.stage_two())
+        self.assertTrue(out["ok"], out)
+        text = out["confirmation_text"]
+        self.assertIn("Job: 26999 - LOT 12 SAMPLE STREET, TESTVILLE NSW 2000", text)
+        self.assertIn("4 changes, made in this order:", text)
+        self.assertIn('1. Job details\n   - SP No.: now empty, will be "DP 1285148"', text)
+        self.assertIn("2. Sam OTHER is added as a contact on this job", text)
+        self.assertIn('3. Activity 1 "Initial Contact" is marked complete', text)
+        self.assertIn("4. A message is added to the job", text)
+        self.assertIn('Already in OnSite Companion, so left out: change 4 (activity): Activity 2 "Follow Up Initial '
+                      'Contact" is already complete', text)
+        self.assertIn('Reply "yes" to make all 4 changes', text)
+        self.assertEqual(self.fake.writes, [], "preparing must never write")
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["state"], "verified")
+        self.assertEqual([c["state"] for c in result["changes"]], ["verified"] * 4)
+        self.assertIn("all 4 change(s) made and read back", result["result_text"])
+        self.assertEqual([w["method"] + " " + w["path"].split("/")[2] for w in self.fake.writes],
+                         ["PATCH Jobs", "POST Jobs", "POST JobActivities", "POST Jobs"])
+        values = {c["customFieldID"]: c["value"] for c in self.job()["customFieldValues"]}
+        self.assertEqual(values[self.fake.f_design], "Hampton 22", "unrelated custom fields are kept")
+        self.assertEqual(self.fake.activities[self.fake.act2]["completionDate"], "2026-04-17T00:00:00Z")
+        # a used code is dead
+        self.assertFalse((await server.osc_confirm_write(out["confirmation_code"], "yes"))["sent"])
+        self.assertEqual(len(self.fake.writes), 4)
+
+    async def test_no_or_an_unclear_reply_sends_nothing(self):
+        for reply in ("no", "yes but not the contact", ""):
+            with self.subTest(reply=reply):
+                out = await self.batch(self.stage_two())
+                result = await server.osc_confirm_write(out["confirmation_code"], reply)
+                self.assertFalse(result["sent"])
+        self.assertEqual(self.fake.writes, [])
+
+    async def test_one_change_that_cannot_go_ahead_blocks_the_whole_batch(self):
+        changes = self.stage_two() + [{"method": "PATCH", "path": f"/api/Jobs/{self.fake.other_job_id}",
+                                       "body": {"startDate": "2026-11-01"}}]
+        out = await self.batch(changes)
+        self.assertFalse(out["ok"])
+        self.assertIsNone(out["confirmation_code"])
+        self.assertTrue(out["confirmation_text"].startswith("Nothing was changed in OnSite Companion."))
+        self.assertIn("Change 6: The job in the request is not the job named for this change.", out["confirmation_text"])
+        protected = await self.batch([{"method": "PATCH", "path": f"/api/Jobs/{self.fake.job_id}",
+                                       "body": {"contractValueIncludingGst": 1.0}}])
+        self.assertIn("DataBuild only", protected["confirmation_text"])
+        twice = await self.batch([{"method": "PATCH", "path": f"/api/Jobs/{self.fake.job_id}",
+                                   "body": {"siteAddress": {"suburb": "X"}}},
+                                  {"method": "PATCH", "path": f"/api/Jobs/{self.fake.job_id}",
+                                   "body": {"startDate": "2026-11-01"}}])
+        self.assertIn("Changes 1 and 2 are for the same record", twice["confirmation_text"])
+        self.assertEqual(self.fake.writes, [])
+
+    async def test_record_changed_before_the_yes_sends_nothing_and_asks_again(self):
+        out = await self.batch(self.stage_two())
+        self.job()["siteAddress"]["suburb"] = "EDITED IN OSC"
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["sent"])
+        self.assertTrue(result["changed"])
+        self.assertIn("4 changes, made in this order", result["confirmation_text"])
+        self.assertEqual(self.fake.writes, [])
+        self.assertTrue((await server.osc_confirm_write(result["confirmation_code"], "yes"))["ok"])
+
+    async def test_a_later_change_that_moved_stops_the_batch_there(self):
+        f = self.fake
+
+        def someone_completes_activity_1(kind, record):
+            f.activities[f.act1]["completionDate"] = "2026-10-14T00:00:00Z"
+        f.patch_hook = someone_completes_activity_1
+        out = await self.batch(self.stage_two())
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "stopped")
+        self.assertEqual(len(result["changes"]), 2, "the job details and the contact went before the stop")
+        self.assertIn("no longer matches what was confirmed", result["result_text"])
+        self.assertEqual(len(f.writes), 2)
+        # the rest is offered again, with the activity now left out
+        self.assertIn("1 change, made in this order", result["confirmation_text"])
+        self.assertIn("1. A message is added to the job", result["confirmation_text"])
+        rest = await server.osc_confirm_write(result["confirmation_code"], "yes")
+        self.assertTrue(rest["ok"], rest)
+        self.assertEqual(len(f.writes), 3)
+
+    async def test_a_failed_change_stops_the_rest(self):
+        self.fake.fail_write = lambda w: 500 if w["path"].endswith("/Complete") else None
+        out = await self.batch(self.stage_two())
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "failed")
+        self.assertIn("2 of 4 change(s) made and read back", result["result_text"])
+        self.assertIn("The other 1 change(s) were not sent.", result["result_text"])
+        self.assertFalse(any(w["path"].endswith("/Messages") for w in self.fake.writes))
+
+    async def test_new_intake_in_two_stages_with_references(self):
+        f = self.fake
+        stage_one = await self.batch([
+            {"method": "POST", "path": "/api/Clients",
+             "body": {"name": "Jamie NEWBUYER", "postalAddress": {"line1": "5 HOME STREET", "suburb": "TESTVILLE",
+                                                                  "state": "NSW", "postcode": "2000"},
+                      "workAddress": {}, "workContactDetails": {}}},
+            {"method": "POST", "path": "/api/Jobs",
+             "body": {"clientID": "{{1.clientID}}", "regionID": f.region_nsw, "workflowTemplateID": f.template,
+                      "siteAddress": {"lotNumber": "77", "line1": "NEW ROAD", "suburb": "BOX HILL", "state": "NSW",
+                                      "postcode": "2765"}}},
+        ], job_id="")
+        self.assertTrue(stage_one["ok"], stage_one)
+        text = stage_one["confirmation_text"]
+        self.assertIn("Job: new job at LOT 77 NEW ROAD, BOX HILL NSW 2765", text)
+        self.assertIn('2. A new job is created for client "Jamie NEWBUYER"', text)
+        self.assertIn('- Client: "Jamie NEWBUYER"', text)
+        done = await server.osc_confirm_write(stage_one["confirmation_code"], "yes")
+        self.assertTrue(done["ok"], done)
+        self.assertIn("Contract number: 26100.", done["result_text"])
+        client_id, job_id = done["created"]["{{1.clientID}}"], done["created"]["{{2.jobID}}"]
+        self.assertEqual(f.jobs[job_id]["clientID"], client_id)
+        stage_two = await self.batch([
+            {"method": "POST", "path": "/api/Persons",
+             "body": {"givenName": "Jamie", "surname": "NEWBUYER",
+                      "personalContactDetails": {"email": "jamie@example.invalid"},
+                      "personalAddress": {}, "postalAddress": {}, "workAddress": {}, "workContactDetails": {}}},
+            {"method": "POST", "path": f"/api/Clients/{client_id}/Contacts/{{{{1.personID}}}}",
+             "body": {"relationship": "Client Contact", "isPrimaryContact": True}},
+            {"method": "POST", "path": f"/api/Clients/{client_id}/Contacts/{f.other_person_id}",
+             "body": {"relationship": "SALES"}},
+        ], job_id=job_id)
+        self.assertTrue(stage_two["ok"], stage_two)
+        self.assertIn("2. Jamie NEWBUYER is added as a contact on the job's client", stage_two["confirmation_text"])
+        done = await server.osc_confirm_write(stage_two["confirmation_code"], "yes")
+        self.assertTrue(done["ok"], done)
+        person_id = done["created"]["{{1.personID}}"]
+        links = {(c["personID"], c["relationship"]) for c in f.client_contacts if c["clientID"] == client_id}
+        self.assertEqual(links, {(person_id, "Client Contact"), (f.other_person_id, "SALES")})
+
+    async def test_a_reference_must_be_an_earlier_create(self):
+        f = self.fake
+        for changes, words in (
+            ([{"method": "POST", "path": "/api/Jobs", "body": {"clientID": "{{2.clientID}}", "regionID": f.region_nsw,
+                                                              "siteAddress": {"lotNumber": "1"}}}],
+             "not the ID of a record that an earlier change"),
+            ([{"method": "PATCH", "path": "/api/Persons/{{1.personID}}", "body": {"surname": "X"}}],
+             "not the ID of a record that an earlier change"),
+        ):
+            with self.subTest(words=words):
+                out = await self.batch(changes, job_id="")
+                self.assertFalse(out["ok"])
+                self.assertIn(words, out["confirmation_text"])
+        self.assertEqual(f.writes, [])
+
+
+class DuplicateCheckTests(GateTestCase):
+    async def test_client_names_match_whatever_the_case_or_order(self):
+        body = {"postalAddress": {}, "workAddress": {}, "workContactDetails": {}}
+        out = await self.prepare("POST", "/api/Clients", job_id="", body={"name": "synthetic, alex", **body})
+        self.assertIn('already has 1 client(s) called "synthetic, alex"', out["confirmation_text"])
+        out = await self.prepare("POST", "/api/Clients", job_id="", body={"name": "Alex SYNTHETIC", **body})
+        self.assertIn('1 client(s) with a similar name ("SYNTHETIC, Alex")', out["confirmation_text"])
+
+    async def test_a_person_with_the_same_email_is_flagged(self):
+        out = await self.prepare("POST", "/api/Persons", job_id="", body={
+            "givenName": "Alexandra", "surname": "SYNTHETIC-SMITH",
+            "personalContactDetails": {"email": "ALEX@example.invalid"},
+            "personalAddress": {}, "postalAddress": {}, "workAddress": {}, "workContactDetails": {}})
+        self.assertIn('1 person(s) with this email ("Alex SYNTHETIC")', out["confirmation_text"])
+
+    async def test_same_lot_elsewhere_is_a_note_and_every_twin_is_found(self):
+        f = self.fake
+        for n in range(30):  # lot numbers repeat across estates
+            f.add_job(f.other_client_id, f"25{n:03d}", lot="12", line1="FAR ROAD", suburb="FARAWAY", postcode="2999")
+        f.add_job(f.other_client_id, "25999", lot="12", line1="SAMPLE STREET", suburb="TESTVILLE", postcode="2000")
+        out = await self.prepare("POST", "/api/Jobs", job_id="", body={
+            "clientID": f.client_id, "regionID": f.region_nsw,
+            "siteAddress": {"lotNumber": "12", "line1": "SAMPLE STREET", "suburb": "TESTVILLE"}})
+        text = out["confirmation_text"]
+        self.assertIn("Warning: OnSite Companion already has job 25999 - LOT 12", text)
+        self.assertIn("Warning: OnSite Companion already has job 26999 - LOT 12", text)
+        self.assertIn("lot 12 is also used by 31 job(s) in other suburbs", text)
+        self.assertNotIn("FARAWAY", text)
+
+
+class ReadBackTests(GateTestCase):
+    async def test_a_message_whose_attachment_did_not_land_is_not_verified(self):
+        path = Path(self.folder.name) / "request.msg"
+        path.write_bytes(b"synthetic email")
+        self.fake.keep_documents = False
+        out = await self.prepare("POST", f"/api/Jobs/{self.fake.job_id}/Messages",
+                                 form={"Subject": "NEW JOB"}, files={"Documents[0].file": str(path)})
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "sent_unverified")
+        self.assertIn("0 of 1 attachment(s) are there", result["result_text"])
+
+    async def test_osc_get_drops_the_context_link_with_the_host_name(self):
+        out = await server.osc_get("/api/Jobs", {"$top": 1}, {"shouldShowMyJobsOnly": False})
+        self.assertTrue(out["ok"])
+        self.assertNotIn("@odata.context", out["data"])
+
+
 class StaleCopyTests(GateTestCase):
     newest_job_days_ago = 53  # the retired dev copy: frozen 21 Aug, checked 13 Oct
 

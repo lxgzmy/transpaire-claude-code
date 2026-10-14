@@ -132,7 +132,9 @@ skills are scoped to that folder and must not leak into another role.
   retired. Every OSC change is prepared, shown to the person in plain words with
   the values it overwrites, and sent only on their plain yes, then read back
   (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes are possible,
-  each tied to the named job. This is not an extension of automatic
+  each tied to the named job. Since 15 October 2026 the changes are grouped one
+  confirmation per intake stage (new client and job; the job's set-up;
+  DataBuild done), each change still re-checked and read back. This is not an extension of automatic
   document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
   activity 6 is completed only once that person confirms the entry. Multipart
