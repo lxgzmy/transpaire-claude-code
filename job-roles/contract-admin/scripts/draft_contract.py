@@ -515,6 +515,8 @@ def main():
     # inclusions feedback sheet 9.9 / issue #35, built 10 Sep 2026). Any failure
     # blocks the save - a document with a label off its wording, a red note or
     # an empty page never ships.
+    # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
+    # path since 15 Oct 2026 (CD-9.11, issue #63): each upgrades item names its dwelling.
     if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")

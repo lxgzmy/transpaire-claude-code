@@ -1,0 +1,78 @@
+{
+  "_fixture": "SYNTHETIC - invented names, lot and prices. AUXILIARY blank (split MAIN / AUX DWELLING upgrades), Gables job (area box_hill), double storey, ground-floor Bathroom 2 present, air conditioning specified, items in BOTH dwellings: replace, add, replaces-one-line and new labels.",
+  "_blank": "auxiliary",
+  "lot_no": "9004",
+  "street": "Example Road",
+  "suburb": "GABLES NSW",
+  "estate": "",
+  "house_type": "Sample 250 + Auxiliary Unit",
+  "house_size": "250.00 m²",
+  "facade": "Sample Façade",
+  "garage_side": "Left Hand Side",
+  "price": "800,000.00",
+  "owner_1": "Sam EXAMPLE",
+  "owner_2": "",
+  "owners": "Sam EXAMPLE",
+  "site_address": "9004, Example Road, GABLES NSW 2765",
+  "builders_rep": "Michael CRONK",
+  "upgrades": {
+    "area": "box_hill",
+    "storeys": 2,
+    "bathroom2_ground": true,
+    "aircon": "Actron reverse cycle ducted air-conditioning system\nNote: Includes four (4) zones\nNote: Number of outlets is design specific",
+    "items": [
+      {
+        "dwelling": "main",
+        "category": "Ceiling Height",
+        "request": "2700mm ground floor and 2590mm upper floor ceilings",
+        "variation_row": null,
+        "wording": "Nominal Ceiling Height 2700mm to ground floor\nNominal Ceiling Height 2590mm to upper floor",
+        "confidence": "medium"
+      },
+      {
+        "dwelling": "main",
+        "category": "Alfresco",
+        "request": "No alfresco on this design",
+        "variation_row": null,
+        "mode": "remove",
+        "wording": "",
+        "confidence": "medium"
+      },
+      {
+        "dwelling": "main",
+        "category": "Electrical Allowances",
+        "request": "Outdoor double power point to the backyard",
+        "variation_row": null,
+        "mode": "add",
+        "wording": "One (1) off weatherproof double power point to rear yard",
+        "confidence": "low"
+      },
+      {
+        "dwelling": "aux",
+        "category": "Ceiling Height",
+        "before": "Architrave",
+        "request": "2700mm ceilings to the granny flat",
+        "variation_row": 23,
+        "wording": "Nominal Ceiling Height 2700mm",
+        "confidence": "high"
+      },
+      {
+        "dwelling": "aux",
+        "category": "Plumbing",
+        "request": "Undermount sink to the granny flat kitchen",
+        "variation_row": null,
+        "replaces": "Base Single Bowl",
+        "wording": "Memo Hugo stainless steel single bowl under mount sink (2402704) to Kitchen 2",
+        "confidence": "medium"
+      },
+      {
+        "dwelling": "aux",
+        "category": "Air Conditioning",
+        "request": "Bedroom split system to the granny flat, 2.5kW to 3.3kW",
+        "variation_row": null,
+        "wording": "Split system reverse cycle air conditioner (2.5kW to 3.3kW) to Bedroom",
+        "confidence": "low"
+      }
+    ]
+  }
+}
