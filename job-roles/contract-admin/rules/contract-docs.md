@@ -367,8 +367,8 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   dwelling**. *(observed — the sales manager's email said so explicitly)*
 - **CD-6.2** House type reads `<design> + Auxiliary Unit`. *(observed)*
 - **CD-6.3** ~~The aux inclusions text itself is a pricing and specification
-  decision. Claude does not write it.~~ **Reversed 8 Oct 2026** (instruction in
-  chat, option B, job 26032): on the Sydney AUXILIARY blanks the run writes the
+  decision. Claude does not write it.~~ **Reversed, signed off 15 Oct 2026**
+  (issue #63, option B; built 8 Oct 2026 for job 26032): on the Sydney AUXILIARY blanks the run writes the
   aux dwelling's upgrade lines too, under the same CD-9 rules as the main
   dwelling — each `upgrades` item names its `dwelling`, the row choice and any
   custom wording stay a person's call, and every item is reported with its
@@ -379,8 +379,8 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-6.4** A Sydney-region auxiliary job has its own template variant — use it
   rather than amending the standard one. *(observed)*
 - **CD-6.5** The Sydney AUXILIARY blanks go through the full CD-9 edit,
-  layout pass and gate like the STANDARD ones (CD-9.11). (Superseded the
-  interim fields-only skip of PR #47, 8 Oct 2026.) A hand-added section that
+  layout pass and gate like the STANDARD ones (CD-9.11). (Replaces the
+  interim fields-only skip proposed on 8 Oct 2026, never merged.) A hand-added section that
   is in neither blank — 26032's `SPECIAL CONDITIONS` — stays a person's edit:
   decided 8 Oct 2026 (option C declined).
 
@@ -529,7 +529,7 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   reports request → row → wording → confidence per item and a TO CONFIRM
   list; medium/low confidence and custom items are confirmed before issue.
   *(instruction, 10 Sep 2026)*
-- **CD-9.11** AUXILIARY blanks *(instruction, 8 Oct 2026, option B)*: the
+- **CD-9.11** AUXILIARY blanks *(signed off 15 Oct 2026, issue #63 option B)*: the
   upgrades are two sections, `UPGRADED INCLUSIONS – MAIN DWELLING` then
   `– AUX DWELLING`, each with its own labels and wording. Every `upgrades`
   item carries `dwelling: "main"` or `"aux"`; an item with none on an

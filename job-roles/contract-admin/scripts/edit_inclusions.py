@@ -30,7 +30,7 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       right. Choosing the row and any custom wording is a person's judgment
       (10 Sep 2026): this script applies what the job JSON says and reports
       request -> row -> wording -> confidence for confirmation. It never picks.
-  AUXILIARY blanks (CD-9.11, 8 Oct 2026)  the upgrades are two sections,
+  AUXILIARY blanks (CD-9.11, issue #63, 15 Oct 2026)  the upgrades are two sections,
       "UPGRADED INCLUSIONS – MAIN DWELLING" then "– AUX DWELLING"; each item's
       `dwelling` ("main"/"aux") picks the section its label is matched and
       placed in. No `dwelling` on an AUXILIARY blank -> MAIN, flagged; "aux"

@@ -47,7 +47,7 @@ OSC intake, field mapping and recovery: [`references/osc-new-contract.md`](refer
 
 | Document | Status |
 |---|---|
-| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`). **Sydney:** also the job's content — section 18 area, Bathroom 2 / air-con notes, `UPGRADED INCLUSIONS` items from the `upgrades` block (`edit_inclusions.py`, CD-9), re-levelled through Word (`word_layout.ps1`) and gated (`gate_inclusions.py`) before it can save. **Sydney auxiliary blanks** (split MAIN / AUX DWELLING upgrades): the same edit, layout pass and gate, each upgrade item tagged with its `dwelling` (CD-9.11, 8 Oct 2026) |
+| **Inclusions** (`.docx`) | **Produced, filled.** Real Word template, all fields (`fill_inclusions.py`). **Sydney:** also the job's content — section 18 area, Bathroom 2 / air-con notes, `UPGRADED INCLUSIONS` items from the `upgrades` block (`edit_inclusions.py`, CD-9), re-levelled through Word (`word_layout.ps1`) and gated (`gate_inclusions.py`) before it can save. **Sydney auxiliary blanks** (split MAIN / AUX DWELLING upgrades): the same edit, layout pass and gate, each upgrade item tagged with its `dwelling` (CD-9.11, issue #63, 15 Oct 2026) |
 | **Preliminary agreement** (`.docx`) | **Produced, filled** (`fill_prelim.py`) when the job needs one — whether it needs one is a human call (CD-4.4); the standard $30,000 fee stands unless the request names another (CD-4.3, reversed 28 Aug 2026) |
 | **Build contract (incl. HIA)** | **Produced by the driver whenever a usable template exists** (`fill_hia.py`, region-aware NSW/QLD, integrated 18 Aug 2026; HIA licence held, so the docx+PDF pair is the requirement, CD-5.2a). Template resolution is automatic (CD-5.2b): an approved blank in the region's `CONTRACT\` folder → filled under the real name; none yet → the region's **staged interim template**, filled under the real name too, in PRODUCTION and TEST alike (business rule, 8 Sep 2026: a job with no build contract in `Z:\PROJECTS` gets a real one, saved into its job folder; the old TEST-only tagged output is gone). Staged templates: NSW is the **v1.1 TABLES interim** (3 Sep 2026) — the team's own Word build (21 Aug 2026) plus the team review sheet's layout fixes; filled exports hold the licensed 45 pages. QLD is the **v2.1 LAND TABLES interim** (3 Sep 2026) — the team's v2 from issue #8 (value-cell tables, e-sign anchors at source) plus the same table fix for the land block v2 missed; filled exports hold the licensed 37 pages. Only a region with no staged template → **data sheet only** |
 | Plans, general conditions, colour options | Not produced. Listed as pack items to collect |
@@ -654,7 +654,7 @@ job checked in detail, the person producing it added a whole
 
 So: use the Sydney **AUXILIARY** blank (it carries `UPGRADED INCLUSIONS – MAIN
 DWELLING` and `– AUX DWELLING`), `+ Auxiliary Unit` in the house type, and tag
-every `upgrades` item with its `dwelling`. Since 8 Oct 2026 the run writes the
+every `upgrades` item with its `dwelling`. Since 15 Oct 2026 (issue #63) the run writes the
 aux dwelling's lines as well as the main ones (CD-6.3 reversed, CD-9.11): same
 Standard Variation rows, same confidence flags, same gate. Choosing the row
 and approving custom wording stay a person's call, so **flag the job for

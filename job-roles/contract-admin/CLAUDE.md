@@ -37,7 +37,8 @@ builder). Claude assists by reading requests, applying rules, and producing
    figures fill only when a person keys them into the job JSON — never
    calculated — and legal statements are never filled, CD-5.4). **Sydney
    inclusions content is edited by the run since 10 Sep 2026** (CD-9, from
-   the NSW inclusions feedback sheet 9.9 / issue #35): section 18 area,
+   the NSW inclusions feedback sheet 9.9 / issue #35; the AUXILIARY blanks'
+   MAIN and AUX DWELLING sections too since 15 Oct 2026, issue #63): section 18 area,
    Bathroom 2 and air-con notes, `UPGRADED INCLUSIONS` items from the job's
    `upgrades` block, black except the blue package headings, then a Word
    layout pass keeps the two

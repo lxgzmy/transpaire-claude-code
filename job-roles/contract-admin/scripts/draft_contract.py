@@ -516,7 +516,7 @@ def main():
     # blocks the save - a document with a label off its wording, a red note or
     # an empty page never ships.
     # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
-    # path since 8 Oct 2026 (CD-9.11): each upgrades item names its dwelling.
+    # path since 15 Oct 2026 (CD-9.11, issue #63): each upgrades item names its dwelling.
     if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")

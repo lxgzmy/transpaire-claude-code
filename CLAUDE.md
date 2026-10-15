@@ -88,6 +88,9 @@ skills are scoped to that folder and must not leak into another role.
   each item with a confidence flag for confirmation; it never chooses
   silently. A Word layout pass and a quality gate stand between the edit
   and the save; a gate failure blocks the save.
+  Since 15 Oct 2026 (issue #63, owner sign-off) this covers the Sydney
+  AUXILIARY blanks too: the aux dwelling's upgrade lines are written under
+  the same rules and checks (`contract-docs.md` CD-6.3 reversed, CD-9.11).
 
 ## Security posture
 
