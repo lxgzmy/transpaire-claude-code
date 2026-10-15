@@ -438,7 +438,8 @@ preview stop (removed 17 Aug 2026):
    `upgrades` block — CD-9, 10 Sep 2026): section 18 trimmed to the job's
    area, Bathroom 2 and air-conditioning notes actioned, the upgrade items
    written into `UPGRADED INCLUSIONS` (replace / one line / add / new label
-   at the Standard Variation order), every run black. The script refuses to
+   at the Standard Variation order), every run black except the blue package
+   headings, section 18 one blank line below NBN. The script refuses to
    write if anything outside those regions would change. Report:
    `edit_inclusions.txt` — request → row → wording → confidence per item,
    plus a TO CONFIRM list.
@@ -450,9 +451,10 @@ preview stop (removed 17 Aug 2026):
    level, and puts the three package headings back at the top of their
    pages. Blank paragraphs only, body cells only, text never touched.
 5. **Quality gate** (`gate_inclusions.py`): labels level, headings at page
-   top, no empty page, all black, no highlight, no editor note left, page-1
-   values on one x per column, page-13 owner name under the builder's and
-   the Date columns on one x. **A FAIL blocks the save.**
+   top, no empty page, black except the blue package headings, no highlight,
+   no editor note left, page-1 values on one x per column, page-13 owner name
+   under the builder's and every Date (the witness line included) on one x,
+   section 18 one blank line below NBN and never stranded at a page foot. **A FAIL blocks the save.**
    `gate_inclusions.txt` says what failed and why.
 6. **Blank-vs-filled diff** (`diff_*_vs_blank.txt`) — read it; the changed
    regions may be the fields you set and the CD-9 content regions only.
@@ -526,7 +528,8 @@ feedback sheet 9.9, issue #35).** Until 9 Sep 2026 every spec line the email
 ordered was "a person's edit". The reviewer's sheet reversed that for the
 Sydney inclusions: the run itself now edits the `UPGRADED INCLUSIONS`
 section, trims section 18 to the job's area, actions the Bathroom 2 and
-air-conditioning notes and turns every run black (CD-9). What stays human,
+air-conditioning notes and turns every run black except the package
+headings, which keep the template's blue (CD-9). What stays human,
 by instruction of the same day: **choosing the Standard Variation row for a
 request, and approving any custom wording where no row exists.** You
 propose both in the job JSON; the run applies them and reports each one

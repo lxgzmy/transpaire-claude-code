@@ -553,8 +553,13 @@ def fill(xml, values, report, family):
     return xml
 
 
-SIG_LABELS = ("Name of Owner 1:", "Name of Owner 2:", "Builders Representative:")
+SIG_LABELS = ("Name of Owner 1:", "Name of Owner 2:", "Owners Witness Name:", "Builders Representative:")
 ELLIPSIS = "\u2026"
+# Dotted-line length of an empty line. The witness label is about three dots
+# wider than "Name of Owner 2:" (the blank's typist gave it 31 dots to Owner 2's
+# 34), so 29 ends it level with the others and well before the Date: stop (#56).
+SIG_DOTS = {"Owners Witness Name:": 29}
+SIG_DOTS_DEFAULT = 32
 
 
 def signature_tabs(xml, values, family):
@@ -598,7 +603,8 @@ def signature_tabs(xml, values, family):
         elif name:
             parts.append(TAB_RUN + f'<w:r>{rpr_value}<w:t xml:space="preserve">{xml_escape(name)}</w:t></w:r>')
         elif dots:
-            parts.append(f'<w:r>{rpr_value}<w:t xml:space="preserve"> {ELLIPSIS * min(dots, 32)}</w:t></w:r>')
+            cap = SIG_DOTS.get(label, SIG_DOTS_DEFAULT)
+            parts.append(f'<w:r>{rpr_value}<w:t xml:space="preserve"> {ELLIPSIS * min(dots, cap)}</w:t></w:r>')
         parts.append(TAB_RUN + f'<w:r>{rpr_date}<w:t xml:space="preserve">{xml_escape(date_text)}</w:t></w:r>')
         open_tag = re.match(r"<w:p\b[^>]*>", p).group(0)
         ppr = re.search(r"<w:pPr>.*?</w:pPr>", p, re.S)

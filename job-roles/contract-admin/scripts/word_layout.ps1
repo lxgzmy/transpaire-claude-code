@@ -27,8 +27,10 @@ blank paragraphs (a fraction of a line as paragraph spacing) until the label
 sits level with its wording within -Tolerance points; each package heading is
 pushed to the top of its page. A verification pass then re-measures every
 step, and the report carries the final delta per step, the anchor
-x-positions (page-1 values, page-13 names and Date:), the page count and the
-empty pages - everything gate_inclusions.py checks. Only blank paragraphs are
+x-positions (page-1 values, page-13 names and Date:), the page count, the
+empty pages (inside the body table read column by column: Word's \page
+bookmark is wrong there) and the section 18 heading against the last NBN line
+(issue #57) - everything gate_inclusions.py checks. Only blank paragraphs are
 ever inserted or deleted, only inside the two body cells; text never changes.
 
 check: the same report without changing anything.
@@ -154,7 +156,10 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 $sb = [double]$first.SpaceBefore
                 $prev = $first.Previous(1)
                 if ($sb -gt 0.05) { $cut = [math]::Min($sb, -$delta); $first.SpaceBefore = $sb - $cut; $actions += ("left space -{0:n1}" -f $cut) }
-                elseif ($prev -ne $null -and (Is-Blank $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
+                elseif ($prev -ne $null -and (Is-Blank $prev) -and (Has-Blank-Before $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
+                # never the last blank between this label and the text above it: the two would be
+                # glued into one block (Block-First), and from then on levelling one moves the other -
+                # 15 Oct 2026, "Hinges & Drawer Runners" pushed a line off by the "Tiles" step below it
                 else { $rp.Paragraphs.Item(1).Range.InsertParagraphBefore(); $actions += 'right +1' }
             }
             # InsertParagraphBefore grows the range to include the new blank: re-point at the text paragraph
@@ -214,6 +219,13 @@ function Prev-Paragraph($rng) {
 
 function Is-Blank($para) { return ((Clean $para.Range.Text).Trim().Length -eq 0) }
 
+function Has-Blank-Before($para) {
+    # true when the paragraph above $para is blank too (or there is none), so deleting $para
+    # still leaves a blank between the label below it and the text above
+    $pp = $para.Previous(1)
+    return ($pp -eq $null -or (Is-Blank $pp))
+}
+
 function Block-First($rng) {
     # the label and any heading glued directly above it move together
     $cur = $rng.Paragraphs.Item(1)
@@ -262,8 +274,32 @@ function Measure-Anchors($doc) {
     return $found
 }
 
-function Get-EmptyPages($doc, $pages) {
-    # a page is empty when neither its main-story text nor any text box anchored on it says anything
+function Cell-PageText($doc, $cell, [int]$first, [int]$last) {
+    # the cell's text on each page $first..$last. Pages only rise through a cell, so each page
+    # boundary is a binary search on character positions (~15 calls), then one Range.Text a page
+    $s = $cell.Range.Start; $e = $cell.Range.End
+    $bound = @{ $first = $s }
+    $lo = $s
+    for ($p = $first + 1; $p -le $last + 1; $p++) {
+        $a = $lo; $b = $e
+        while ($a -lt $b) {
+            $mid = [int][math]::Floor(($a + $b) / 2)
+            if ([int]$doc.Range($mid, $mid).Information($wdPage) -ge $p) { $b = $mid } else { $a = $mid + 1 }
+        }
+        $bound[$p] = $a; $lo = $a
+    }
+    $text = @{}
+    for ($p = $first; $p -le $last; $p++) {
+        $text[$p] = $(if ($bound[$p + 1] -gt $bound[$p]) { [string]$doc.Range($bound[$p], $bound[$p + 1]).Text } else { '' })
+    }
+    return $text
+}
+
+function Get-EmptyPages($doc, $pages, $lc, $rc) {
+    # a page is empty when nothing on it - main text, either body column, a text box - says anything.
+    # Word's \page bookmark returns the wrong range on a page inside the body table's one row: a
+    # page of nothing but padding read as text, and the gate passed it. Those pages are read
+    # column by column instead.
     $shapePages = @{}
     foreach ($sh in $doc.Shapes) {
         try {
@@ -272,12 +308,35 @@ function Get-EmptyPages($doc, $pages) {
             }
         } catch { }
     }
+    $tFirst = 0; $tLast = -1
+    if ($lc -ne $null -and $rc -ne $null) {
+        $tStart = $lc.Range.Start; $tEnd = $rc.Range.End
+        $tFirst = [int]$doc.Range($tStart, $tStart).Information($wdPage)
+        $tLast = [math]::Max([int]$doc.Range($lc.Range.End - 1, $lc.Range.End - 1).Information($wdPage),
+                             [int]$doc.Range($tEnd - 1, $tEnd - 1).Information($wdPage))
+        $lt = Cell-PageText $doc $lc $tFirst $tLast
+        $rt = Cell-PageText $doc $rc $tFirst $tLast
+    }
     $empty = New-Object System.Collections.Generic.List[int]
     $sel = $doc.ActiveWindow.Selection
     for ($p = 1; $p -le $pages; $p++) {
-        $sel.GoTo(1, 1, $p) | Out-Null
-        $t = $doc.Bookmarks.Item('\page').Range.Text
-        if (($t -replace '[\s\a]', '').Length -eq 0 -and -not $shapePages.ContainsKey($p)) { $empty.Add($p) }
+        if ($p -ge $tFirst -and $p -le $tLast) {
+            $t = $lt[$p] + $rt[$p]
+            if ($p -eq $tFirst) {
+                # anything above the table on its first page
+                $ps = $doc.GoTo(1, 1, $p).Start
+                if ($ps -lt $tStart) { $t += $doc.Range($ps, $tStart).Text }
+            }
+            if ($p -eq $tLast) {
+                # anything below the table on its last page
+                $ns = $(if ($p -lt $pages) { $doc.GoTo(1, 1, $p + 1).Start } else { $doc.Content.End })
+                if ($ns -gt $tEnd) { $t += $doc.Range($tEnd, $ns).Text }
+            }
+        } else {
+            $sel.GoTo(1, 1, $p) | Out-Null
+            $t = $doc.Bookmarks.Item('\page').Range.Text
+        }
+        if (([string]$t -replace '[\s\a]', '').Length -eq 0 -and -not $shapePages.ContainsKey($p)) { $empty.Add($p) }
     }
     return $empty
 }
@@ -298,14 +357,41 @@ function Get-CellParas($cell) {
     return $out
 }
 
-function Doc-Facts($doc) {
+function Measure-Section18($doc, $lc, $rc) {
+    # issue #57: the "18. REGIONAL REGULATIONS" heading (left column), its label, and the last
+    # line of the NBN wording above it (right column) - page and top of each, for the gate
+    $h = $null
+    foreach ($pr in (Find-Runs $doc $lc.Range 'REGULATIONS')) {
+        if ((Norm (Clean $pr.Text)) -match '^\d+\.\s*REGIONAL REGULATIONS$') { $h = $pr; break }
+    }
+    if ($h -eq $null) { return $null }
+    $out = [ordered]@{ heading_page = [int]$h.Information($wdPage); heading_top = [math]::Round([double]$h.Information($wdTop), 2) }
+    $nx = $h.Paragraphs.Item(1).Next(1); $guard = 0
+    while ($nx -ne $null -and (Is-Blank $nx) -and $guard -lt 50) { $nx = $nx.Next(1); $guard++ }
+    if ($nx -ne $null) {
+        $out.label = (Clean $nx.Range.Text)
+        $out.label_page = [int]$nx.Range.Information($wdPage)
+    }
+    $note = $null
+    foreach ($pr in (Find-Runs $doc $rc.Range 'unavailable')) { if ((Clean $pr.Text) -match 'NBN is unavailable') { $note = $pr } }
+    if ($note -ne $null) {
+        $last = $note.Duplicate
+        $last.SetRange($note.End - 2, $note.End - 1)   # the last character before the paragraph mark
+        $out.note_page = [int]$last.Information($wdPage)
+        $out.note_last_top = [math]::Round([double]$last.Information($wdTop), 2)
+    }
+    return [pscustomobject]$out
+}
+
+function Doc-Facts($doc, $lc, $rc) {
     $pages = [int]$doc.ComputeStatistics(2)
     $ps = $doc.Sections.Item(1).PageSetup
     return [ordered]@{
-        pages = $pages; empty_pages = @(Get-EmptyPages $doc $pages)
+        pages = $pages; empty_pages = @(Get-EmptyPages $doc $pages $lc $rc)
         page_top = [math]::Round([double]$ps.TopMargin, 2)
         usable = [math]::Round([double]$ps.PageHeight - [double]$ps.TopMargin - [double]$ps.BottomMargin, 2)
         anchors = @(Measure-Anchors $doc)
+        section18 = $(if ($lc -ne $null) { Measure-Section18 $doc $lc $rc } else { $null })
     }
 }
 
@@ -331,7 +417,7 @@ try {
         $tbl = $doc.Tables.Item($BodyTable)
         $lc = $tbl.Cell(1, 1); $rc = $tbl.Cell(1, 2)
         if ($Mode -eq 'anchors') {
-            $facts = Doc-Facts $doc
+            $facts = Doc-Facts $doc $lc $rc
             $m = [ordered]@{ docx = $doc.FullName } + $facts
             $json = $m | ConvertTo-Json -Depth 5 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
@@ -340,7 +426,7 @@ try {
         elseif ($Mode -eq 'measure') {
             $left = Get-CellParas $lc;  Say "  left cell: $($left.Count) paragraphs"
             $right = Get-CellParas $rc; Say "  right cell: $($right.Count) paragraphs"
-            $facts = Doc-Facts $doc;    Say "  pages $($facts.pages), empty $($facts.empty_pages -join ','), anchors $($facts.anchors.Count)"
+            $facts = Doc-Facts $doc $lc $rc;    Say "  pages $($facts.pages), empty $($facts.empty_pages -join ','), anchors $($facts.anchors.Count)"
             $m = [ordered]@{ docx = $doc.FullName } + $facts + [ordered]@{ left = $left; right = $right }
             $json = $m | ConvertTo-Json -Depth 5 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
@@ -416,7 +502,7 @@ try {
                 $dst = if ($Save) { $Save } else { $src }
                 if ($dst -ne $src) { $doc.SaveAs2($dst) } else { $doc.Save() }
             } else { $dst = $src }
-            $facts = Doc-Facts $doc
+            $facts = Doc-Facts $doc $lc $rc
             $report = [ordered]@{ docx = $dst; mode = $Mode; line_height = $lineH; tolerance = $Tolerance } + $facts + [ordered]@{ steps = $results }
             $json = $report | ConvertTo-Json -Depth 6 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }

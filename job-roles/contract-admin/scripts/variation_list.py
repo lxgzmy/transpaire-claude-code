@@ -6,7 +6,8 @@
     python variation_list.py --region NSW --normalise "Provide 2700mm nominal ceiling height ... in lieu of standard.\\nNote: Price includes ..."
 
 The workbook is `Standard Variation Costs 2025 (up to 220m2).xlsm` under
-Z:\\ESTIMATING\\6. Sales Estimating\\3. Variations\\STANDARD VARIATION\\. Its
+Z:\\ESTIMATING\\6. Sales Estimating\\3. Variations\\STANDARD VARIATION\\SALES
+ESTIMATING - WORKINGS\\ (moved there 24 Sep 2026; the old spot is a fallback). Its
 "NSW Variation List" and "QLD Variation List" sheets hold, in column A, the
 category headings (one word or two, no price) and the item descriptions
 ("Provide ..."), with the single / double storey prices in B and C. It is
@@ -35,8 +36,14 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-WORKBOOK = Path(r"Z:\ESTIMATING\6. Sales Estimating\3. Variations\STANDARD VARIATION"
-                r"\Standard Variation Costs 2025 (up to 220m2).xlsm")
+_SV = Path(r"Z:\ESTIMATING\6. Sales Estimating\3. Variations\STANDARD VARIATION")
+_SV_NAME = "Standard Variation Costs 2025 (up to 220m2).xlsm"
+# Estimating moved the live workbook into "SALES ESTIMATING - WORKINGS\" on
+# 24 Sep 2026; every run since fell back to the built-in category order (the
+# other-area-double-storey regression's "Wardrobe Doors before Shelving"). The
+# current spot first, the old one as a fallback; never its SUPERSEDED\ copies.
+WORKBOOK_CANDIDATES = [_SV / "SALES ESTIMATING - WORKINGS" / _SV_NAME, _SV / _SV_NAME]
+WORKBOOK = next((p for p in WORKBOOK_CANDIDATES if p.exists()), WORKBOOK_CANDIDATES[0])
 SHEETS = {"NSW": "NSW Variation List", "QLD": "QLD Variation List"}
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 RID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"

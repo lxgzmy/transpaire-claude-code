@@ -91,7 +91,11 @@ RESI_LABEL = "(Current Residential Address)"
 CONS_LABEL = "(For Construction Address)"
 FEE_TEXT = "$30,000."
 RESI_PAD, CONS_PAD = 1, 5  # spaces between label and value (corrected 26032/26052)
-SIG_LEAD = {"owner_1": "  ", "owner_2": "  ", "builders_rep": "   "}
+# One lead for every signing name, so the client's and the builder's names
+# start at the same edge (issue #60, 14 Oct 2026 review: "align client's name
+# and builder's name"). The corrected 26032/26052 agreements carried a third,
+# hand-typed space before Michael CRONK; regress_prelim.py folds space runs.
+SIG_LEAD = {"owner_1": "  ", "owner_2": "  ", "builders_rep": "  "}
 # Calibri 12 for the typed signature names (comparison sheet; team-confirmed
 # 28 Aug 2026, over both the blank's 8-9pt and the corrected docs' 10-11pt)
 SIG_RPR = ('<w:rPr><w:rFonts w:ascii="Calibri" w:eastAsia="Calibri"'

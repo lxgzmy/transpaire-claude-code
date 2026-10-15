@@ -187,7 +187,10 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
     label, owner 2 two above the second, builders representative three above
     `Name who is authorised…` — typed **Calibri 12** *(confirmed by the team
     28 Aug 2026, chosen over both the blank's 8–9pt rendering and the
-    corrected documents' own 10–11pt)*. **A third buyer** (`owner_3`, 9.1
+    corrected documents' own 10–11pt)*, every name with the same two-space
+    lead so the client's and the builder's names start at one edge *(14 Oct
+    2026 review, issue #60; the corrected 26032/26052 had a third space
+    before Michael CRONK)*. **A third buyer** (`owner_3`, 9.1
     item 6) gets the second client's whole signing row cloned below itself —
     spacers, name line, rule and `Client Name` label — with the Transpire
     authorised-signatory block flowing down, as the manual 26011 lays it out.
@@ -482,8 +485,12 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   change. The editor compares every other paragraph of both columns and
   every text outside the body table with the blank and refuses to write on
   any difference. *(sheet row 8)*
-- **CD-9.8** Every run black; no highlight, no run shading — the blue
-  package headings included ("no exception"). *(sheet rows 3, 13)*
+- **CD-9.8** Every run black except the package headings (INTERNAL /
+  EXTERNAL TURNKEY PACKAGE, UPGRADED INCLUSIONS and its MAIN / AUX DWELLING
+  variants), which keep the template's blue (`00B0F0`); no highlight, no run
+  shading. *(sheet rows 3, 13; the headings exception from the 14 Oct 2026
+  review of job 26032, issue #58, which answered open question 8 and reversed
+  the earlier "no exception" reading)*
 - **CD-9.9** Layout: the body is one table row with two independent
   columns. After any content change the Word pass measures each label
   against its wording and pads/trims blank left-column paragraphs (a
@@ -491,8 +498,21 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   puts INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS at the
   top of their pages. Page-1 values and the page-13 signature lines sit on
   tab stops (one x per column; the owner's name under the builder's; every
-  `Date:` on one x). The gate fails the document on any miss, on an empty
-  page, or on any colour left. *(sheet rows 1, 4, 12, 14, 15)*
+  `Date:` on one x, the Owners Witness Name line included — issue #56).
+  Section 18 sits one blank line below the NBN wording, on the same page as
+  its label: the editor leaves three blank paragraphs above the kept wording
+  (one blank line plus the heading's two) whatever the blank had (2 in the
+  STANDARD blanks, 11 in the AUXILIARY one — issue #57), and two below it
+  (one blank line plus section 19's one-line heading; the blank leaves 1 to
+  4 depending on which area pair was kept). The foot of the table keeps
+  one blank paragraph per column: the blanks pad it with 38, which landed
+  on a page of their own once the upgrades ran past one page (the section
+  after the table starts its own page either way). The gate fails the
+  document on any miss, on an empty page (pages inside the body table read
+  column by column), on a colour left outside the
+  package headings, on a label line whose `Date:` is not on the tab stops,
+  or on a section 18 gap or stranded heading. *(sheet rows 1, 4, 12, 14,
+  15; the 14 Oct 2026 review of job 26032)*
 - **CD-9.10** What stays human: mapping a request line to a Standard
   Variation row, and approving custom wording where no row exists. The run
   reports request → row → wording → confidence per item and a TO CONFIRM
@@ -591,6 +611,7 @@ cabinet; and any DocuSign issue to a client.
    make the alignment structural, and the notes could become Word comments.
    Three CD-9 readings also want a one-line confirmation on the first job
    they meet: North Kellyville pairs with the rain-garden wording (by
-   elimination); the blue package headings go black too ("no exception");
+   elimination); ~~the blue package headings go black too ("no exception")~~
+   answered 14 Oct 2026: they stay blue (CD-9.8, issue #58);
    Bathroom 2 on the ground floor writes "Bathroom 2" into the descriptions
    as 26019 did rather than leaving the note text in the contract. (CD-9)

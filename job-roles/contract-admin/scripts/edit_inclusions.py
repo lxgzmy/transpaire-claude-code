@@ -29,7 +29,14 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       right. Choosing the row and any custom wording is a person's judgment
       (10 Sep 2026): this script applies what the job JSON says and reports
       request -> row -> wording -> confidence for confirmation. It never picks.
-  Hygiene   every run black, no highlight, no run shading (row 3 / row 13).
+  Hygiene   every run black except the package headings, which keep the
+      template's blue (issue #58); no highlight, no run shading (row 3 / row 13).
+  Section 18 spacing  one blank line between the NBN wording and the heading
+      (issue #57): three blank paragraphs above the kept wording on the right.
+  Table end   the blank pads both columns with 38 empty paragraphs after the
+      last item; the section after the table starts its own page, so the
+      padding only matters once the upgrades run past one page, where it
+      lands on a page of its own (an empty page, sheet row 12). One is kept.
   Storeys   `upgrades.storeys` (1/2) is recorded and checked against the
       wording ("First Floor" on a single storey is flagged); nothing in the
       document changes with it.
@@ -73,6 +80,9 @@ AREAS = {
 REGIONAL_LABELS = [v[0] for v in AREAS.values()]
 REGIONAL_WORDING = ["DELETE NOT APPLICABLE ONE", "rain garden", "Connection of Recycled Water",
                     "Water tank as required"]
+REGIONAL_RIGHT_BLANKS = 3   # one blank line + the two lines "18. REGIONAL REGULATIONS" wraps to
+REGIONAL_AFTER_BLANKS = 2   # one blank line + the one line of "19. NCC 2022"
+TABLE_END_BLANKS = 1        # blank paragraphs left at the foot of each column (the blanks carry 38)
 LAST_STANDARD_LABEL = "Letterbox"          # the upgraded-section labels follow it on the left
 UPGRADED_HEADING = "UPGRADED INCLUSIONS"   # the upgraded-section wording follows it on the right
 PAGE_TOP_HEADINGS = ("INTERNAL TURNKEY PACKAGE", "EXTERNAL TURNKEY PACKAGE", "UPGRADED INCLUSIONS")
@@ -328,6 +338,42 @@ def edit_regional(cols, area, log):
     if kw + 1 >= len(R) or not is_blank(R[kw + 1]):
         R.insert(kw + 1, blank_like(R, kw))
         log.append("section 18    : inserted the blank line after the kept wording")
+    # One blank line between the NBN wording and the heading (issue #57). The
+    # heading sits in the left column glued above the kept label, which the
+    # layout pass levels with this wording, so the heading's height is set by
+    # the blank paragraphs above the wording in the right column: one blank
+    # line plus the two lines the heading wraps to. The blanks carry 2
+    # (heading tight under NBN) and the AUXILIARY blank 11 (a page break typed
+    # as padding, which strands the heading at a page foot once content moves).
+    n = 0
+    while kw - n - 1 >= 0 and is_blank(R[kw - n - 1]):
+        n += 1
+    if n != REGIONAL_RIGHT_BLANKS:
+        if n > REGIONAL_RIGHT_BLANKS:
+            del R[kw - n:kw - REGIONAL_RIGHT_BLANKS]
+        else:
+            for _ in range(REGIONAL_RIGHT_BLANKS - n):
+                R.insert(kw - n, blank_like(R, kw - n))
+        kw += REGIONAL_RIGHT_BLANKS - n
+        log.append(f"section 18    : {n} -> {REGIONAL_RIGHT_BLANKS} blank paragraph(s) above the kept wording "
+                   "(one blank line between NBN and the heading)")
+    # ...and one blank line between the kept wording and section 19's one-line heading.
+    # What follows the kept wording depends on which pair was kept (the last pair carries
+    # the blank's 4 trailing blanks, a middle one 2), so the gap varied by area.
+    end = kw + 1
+    while end < len(R) and not is_blank(R[end]):
+        end += 1   # the kept wording may run over several paragraphs
+    n = 0
+    while end + n < len(R) and is_blank(R[end + n]):
+        n += 1
+    if end + n < len(R) and n != REGIONAL_AFTER_BLANKS:
+        if n > REGIONAL_AFTER_BLANKS:
+            del R[end:end + n - REGIONAL_AFTER_BLANKS]
+        else:
+            for _ in range(REGIONAL_AFTER_BLANKS - n):
+                R.insert(end, blank_like(R, end))
+        log.append(f"section 18    : {n} -> {REGIONAL_AFTER_BLANKS} blank paragraph(s) after the kept wording "
+                   "(one blank line before section 19)")
     log.append(f"section 18    : kept {keep_label!r} <-> {norm(ptext(R[kw]))[:50]!r}")
     return norm(ptext(L[ki])), norm(ptext(R[kw]))
 
@@ -503,9 +549,62 @@ def edit_items(cols, items, categories, log, flags):
     return results
 
 
+def next_section_on_new_page(cols):
+    """True when the paragraph right after the body table ends the section and the
+    next section starts on a new page (no w:type, or nextPage / oddPage / evenPage)."""
+    after = cols.xml[cols.te:]
+    p = P_RE.search(after)
+    if not p or after[: p.start()].strip() or "<w:sectPr" not in p.group(0):
+        return False
+    nxt = re.search(r"<w:sectPr\b.*?</w:sectPr>", after[p.end():], re.S)
+    if not nxt:
+        return False
+    t = re.search(r'<w:type w:val="(\w+)"', nxt.group(0))
+    return t is None or t.group(1) in ("nextPage", "oddPage", "evenPage")
+
+
+def trim_table_end(cols, log):
+    """Cut the padding at the foot of both columns to TABLE_END_BLANKS paragraphs."""
+    counts = []
+    for paras in (cols.left, cols.right):
+        n = 0
+        while n < len(paras) and is_blank(paras[len(paras) - 1 - n]):
+            n += 1
+        counts.append(n)
+    if max(counts) <= TABLE_END_BLANKS:
+        return
+    if not next_section_on_new_page(cols):
+        log.append(f"table end     : {counts[0]}/{counts[1]} blank paragraph(s) left at the foot of the columns - "
+                   "the next section does not start on a new page here, so the padding may be holding it there")
+        return
+    for paras, n in zip((cols.left, cols.right), counts):
+        if n > TABLE_END_BLANKS:
+            del paras[len(paras) - n + TABLE_END_BLANKS:]
+    log.append(f"table end     : {counts[0]}/{counts[1]} -> {TABLE_END_BLANKS} blank paragraph(s) at the foot of "
+               "each column (the next section starts its own page; the padding spilled onto an empty page "
+               "once the upgrades ran past one page)")
+
+
+def is_package_heading(text):
+    """INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS (with any '- MAIN/AUX DWELLING')."""
+    t = norm(text).upper()
+    return t in PAGE_TOP_HEADINGS[:2] or t.startswith(UPGRADED_HEADING)
+
+
 def hygiene(xml, log):
-    n_col = len(re.findall(r'<w:color w:val="(?!000000")[^>]*/>', xml))
-    xml = re.sub(r'<w:color w:val="(?!000000")[^>]*/>', '<w:color w:val="000000"/>', xml)
+    # Everything black except the package headings, which keep the blank's blue
+    # (issue #58, 14 Oct 2026 review: it reversed CD-9.8's "no exception").
+    colour = re.compile(r'<w:color w:val="(?!000000")[^>]*/>')
+    keep = [m.span() for m in P_RE.finditer(xml)
+            if "<w:p " not in m.group(0)[4:] and "<w:p>" not in m.group(0)[4:]
+            and is_package_heading(ptext(m.group(0))) and colour.search(m.group(0))]
+    parts, pos, n_col = [], 0, 0
+    for s, e in keep + [(len(xml), len(xml))]:
+        segment, k = colour.subn('<w:color w:val="000000"/>', xml[pos:s])
+        n_col += k
+        parts += [segment, xml[s:e]]
+        pos = e
+    xml, kept = "".join(parts), len(keep)
     n_hl = len(re.findall(r"<w:highlight [^>]*/>", xml))
     xml = re.sub(r"<w:highlight [^>]*/>", "", xml)
     n_shd = 0
@@ -517,7 +616,8 @@ def hygiene(xml, log):
         return s
     xml = RPR_RE.sub(rpr_shd, xml)
     log.append(f"hygiene       : {n_col} colour(s) set to black, {n_hl} highlight(s) and {n_shd} run "
-               f"shading(s) removed (sheet rows 3 and 13: black, no highlight, no exception)")
+               f"shading(s) removed; {kept} package heading(s) keep the template's colour "
+               f"(sheet rows 3 and 13; issue #58)")
     return xml
 
 
@@ -681,6 +781,7 @@ def main():
         if storeys == 1 and re.search(r"first floor|upper floor", " ".join(r["lines"]) + " "
                                       + str(r.get("variation_text", "")), re.I):
             flags.append(f"item {r['category']!r}: wording mentions an upper floor on a single-storey job")
+    trim_table_end(cols, log)
 
     if not scope_check(blank_cols, cols, log):
         for l in log:
