@@ -504,8 +504,12 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   (one blank line plus the heading's two) whatever the blank had (2 in the
   STANDARD blanks, 11 in the AUXILIARY one — issue #57), and two below it
   (one blank line plus section 19's one-line heading; the blank leaves 1 to
-  4 depending on which area pair was kept). The gate fails the
-  document on any miss, on an empty page, on a colour left outside the
+  4 depending on which area pair was kept). The foot of the table keeps
+  one blank paragraph per column: the blanks pad it with 38, which landed
+  on a page of their own once the upgrades ran past one page (the section
+  after the table starts its own page either way). The gate fails the
+  document on any miss, on an empty page (pages inside the body table read
+  column by column), on a colour left outside the
   package headings, on a label line whose `Date:` is not on the tab stops,
   or on a section 18 gap or stranded heading. *(sheet rows 1, 4, 12, 14,
   15; the 14 Oct 2026 review of job 26032)*

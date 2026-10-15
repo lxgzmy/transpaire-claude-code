@@ -115,6 +115,14 @@ def main():
             after += 1
         check(f"{ed.REGIONAL_AFTER_BLANKS} blank paragraphs between the section 18 wording and section 19",
               after == ed.REGIONAL_AFTER_BLANKS, problems)
+
+        def foot(paras):
+            n = 0
+            while n < len(paras) and ed.is_blank(paras[len(paras) - 1 - n]):
+                n += 1
+            return n
+        check(f"at most {ed.TABLE_END_BLANKS} blank paragraph at the foot of each column (no padding page)",
+              max(foot(cols.left), foot(cols.right)) <= ed.TABLE_END_BLANKS, problems)
         check("no highlight", "<w:highlight" not in xml, problems)
         check("no editor notes", not editor_notes_left(xml), problems)
         check("labels == groups", len(labels) == len(groups), problems)

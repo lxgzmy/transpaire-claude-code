@@ -33,6 +33,10 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       template's blue (issue #58); no highlight, no run shading (row 3 / row 13).
   Section 18 spacing  one blank line between the NBN wording and the heading
       (issue #57): three blank paragraphs above the kept wording on the right.
+  Table end   the blank pads both columns with 38 empty paragraphs after the
+      last item; the section after the table starts its own page, so the
+      padding only matters once the upgrades run past one page, where it
+      lands on a page of its own (an empty page, sheet row 12). One is kept.
   Storeys   `upgrades.storeys` (1/2) is recorded and checked against the
       wording ("First Floor" on a single storey is flagged); nothing in the
       document changes with it.
@@ -78,6 +82,7 @@ REGIONAL_WORDING = ["DELETE NOT APPLICABLE ONE", "rain garden", "Connection of R
                     "Water tank as required"]
 REGIONAL_RIGHT_BLANKS = 3   # one blank line + the two lines "18. REGIONAL REGULATIONS" wraps to
 REGIONAL_AFTER_BLANKS = 2   # one blank line + the one line of "19. NCC 2022"
+TABLE_END_BLANKS = 1        # blank paragraphs left at the foot of each column (the blanks carry 38)
 LAST_STANDARD_LABEL = "Letterbox"          # the upgraded-section labels follow it on the left
 UPGRADED_HEADING = "UPGRADED INCLUSIONS"   # the upgraded-section wording follows it on the right
 PAGE_TOP_HEADINGS = ("INTERNAL TURNKEY PACKAGE", "EXTERNAL TURNKEY PACKAGE", "UPGRADED INCLUSIONS")
@@ -544,6 +549,42 @@ def edit_items(cols, items, categories, log, flags):
     return results
 
 
+def next_section_on_new_page(cols):
+    """True when the paragraph right after the body table ends the section and the
+    next section starts on a new page (no w:type, or nextPage / oddPage / evenPage)."""
+    after = cols.xml[cols.te:]
+    p = P_RE.search(after)
+    if not p or after[: p.start()].strip() or "<w:sectPr" not in p.group(0):
+        return False
+    nxt = re.search(r"<w:sectPr\b.*?</w:sectPr>", after[p.end():], re.S)
+    if not nxt:
+        return False
+    t = re.search(r'<w:type w:val="(\w+)"', nxt.group(0))
+    return t is None or t.group(1) in ("nextPage", "oddPage", "evenPage")
+
+
+def trim_table_end(cols, log):
+    """Cut the padding at the foot of both columns to TABLE_END_BLANKS paragraphs."""
+    counts = []
+    for paras in (cols.left, cols.right):
+        n = 0
+        while n < len(paras) and is_blank(paras[len(paras) - 1 - n]):
+            n += 1
+        counts.append(n)
+    if max(counts) <= TABLE_END_BLANKS:
+        return
+    if not next_section_on_new_page(cols):
+        log.append(f"table end     : {counts[0]}/{counts[1]} blank paragraph(s) left at the foot of the columns - "
+                   "the next section does not start on a new page here, so the padding may be holding it there")
+        return
+    for paras, n in zip((cols.left, cols.right), counts):
+        if n > TABLE_END_BLANKS:
+            del paras[len(paras) - n + TABLE_END_BLANKS:]
+    log.append(f"table end     : {counts[0]}/{counts[1]} -> {TABLE_END_BLANKS} blank paragraph(s) at the foot of "
+               "each column (the next section starts its own page; the padding spilled onto an empty page "
+               "once the upgrades ran past one page)")
+
+
 def is_package_heading(text):
     """INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS (with any '- MAIN/AUX DWELLING')."""
     t = norm(text).upper()
@@ -740,6 +781,7 @@ def main():
         if storeys == 1 and re.search(r"first floor|upper floor", " ".join(r["lines"]) + " "
                                       + str(r.get("variation_text", "")), re.I):
             flags.append(f"item {r['category']!r}: wording mentions an upper floor on a single-storey job")
+    trim_table_end(cols, log)
 
     if not scope_check(blank_cols, cols, log):
         for l in log:
