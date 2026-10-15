@@ -182,9 +182,24 @@ def run_suite(family, root, pattern, blank):
         if got_site != want_site:
             site_bad = (got_site, want_site)
 
+    # the footer's "Page n of N": N is Word's page count wherever the blank typed it (16 Oct 2026)
+    import zipfile
+    import fill_inclusions
+    import gate_inclusions
+    _, typed_in_blank, _ = fill_inclusions.footer_parts(blank)
+    with zipfile.ZipFile(out) as z:
+        numpages = sum(z.read(n).decode("utf-8").count(" NUMPAGES ") for n in z.namelist()
+                       if re.fullmatch(r"word/footer\d*\.xml", n))
+    footer_bad = None
+    if not gate_inclusions.check_footer_total(out, []) or numpages < typed_in_blank:
+        footer_bad = f"{typed_in_blank} typed page total(s) in the blank, {numpages} NUMPAGES field(s) in the fill"
+
     out.unlink(missing_ok=True)
     jf.unlink(missing_ok=True)
 
+    if footer_bad:
+        print(f"   FAIL - footer page total: {footer_bad}")
+        return 1
     if bad:
         print("   FAIL - filler disagrees with the convention:")
         for label, want, have in bad:
@@ -197,7 +212,8 @@ def run_suite(family, root, pattern, blank):
         print(f"      real  : {' '.join(site_bad[1] or ['(missing)'])[:100]}")
         return 1
     print(f"   PASS - filler matches the convention on all {len(convention)} fields"
-          " + the site address line" + (" (tab-stopped values; x verified by gate_inclusions.py)" if tabs else ""))
+          " + the site address line + the footer page total (NUMPAGES)"
+          + (" (tab-stopped values; x verified by gate_inclusions.py)" if tabs else ""))
     return 0
 
 

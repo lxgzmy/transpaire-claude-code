@@ -16,20 +16,21 @@ param(
     [switch]$Force
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'word_com.ps1')   # Start-Word, Stop-Word, Drive-Path
 if ($Pdf.Count -ne $Out.Count) { throw "Pdf and Out counts differ" }
 foreach ($o in $Out) {
     if ((Test-Path $o) -and -not $Force) { throw "exists (use -Force): $o" }
 }
-$word = New-Object -ComObject Word.Application
-$word.Visible = $false
-$word.DisplayAlerts = 0   # wdAlertsNone
+$word = $null
 try {
+    $word = Start-Word
     for ($i = 0; $i -lt $Pdf.Count; $i++) {
-        $src = (Resolve-Path $Pdf[$i]).Path
+        $src = Drive-Path (Resolve-Path $Pdf[$i]).Path   # a UNC path opens in Protected View
         $dst = [System.IO.Path]::GetFullPath($Out[$i])
         $t = [Diagnostics.Stopwatch]::StartNew()
         # Open(FileName, ConfirmConversions:=$false, ReadOnly:=$true)
         $doc = $word.Documents.Open($src, $false, $true)
+        if ($doc -eq $null) { throw "Word did not open $src (Protected View or a lock on the file)" }
         $doc.SaveAs2($dst, 16)   # wdFormatXMLDocument
         $pages = $doc.ComputeStatistics(2)  # wdStatisticPages
         $words = $doc.ComputeStatistics(0)  # wdStatisticWords
@@ -40,6 +41,5 @@ try {
     }
 }
 finally {
-    $word.Quit()
-    [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word)
+    Stop-Word $word
 }

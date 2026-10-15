@@ -33,10 +33,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from fill_inclusions import EDITOR_NOTES, SIG_LABELS, run_text, RUN_RE  # noqa: E402
-from edit_inclusions import P_RE, is_package_heading, ptext  # noqa: E402
+from edit_inclusions import P_RE, REGIONAL_RIGHT_BLANKS, is_package_heading, ptext  # noqa: E402
 
 XTOL = 1.0   # pt - horizontal agreement for tab-stopped values
 TEXT_LINE_PT = 13.5   # pt - one line of body text in the Sydney blanks (measured 13.1-14.6)
+EDITOR_BLANKS = REGIONAL_RIGHT_BLANKS   # blank lines the editor leaves above the kept section 18 wording
 RIGHT_COLUMN = ("HOUSE TYPE :", "HOUSE SIZE :", "HOUSE FAÇADE :", "GARAGE SIDE :")
 LEFT_COLUMN = ("Lot No. :", "STREET :", "SUBURB :", "ESTATE :", "PRICE :")
 
@@ -99,7 +100,7 @@ def check_layout(measure, plan, out):
                 bad += 1
                 continue
             prev = R[h["i"] - 1] if h["i"] > 0 else None
-            if prev and prev["page"] >= h["page"]:
+            if prev and prev.get("end_page", prev["page"]) >= h["page"]:   # the paragraph above ends on its page
                 out.append(f"  FAIL {s['right']!r} is not first on its page (p{h['page']})")
                 bad += 1
     n_pairs = sum(1 for s in plan["steps"] if s["kind"] == "pair")
@@ -215,7 +216,27 @@ def check_section18(measure, out):
             gap = (s["heading_top"] - s["note_last_top"]) / line - 1
             if not 0.5 <= gap <= 1.6:
                 problems.append(f"{gap:.1f} blank line(s) between the NBN wording and the heading, want one")
+        elif s["heading_page"] > s["note_page"] and "blanks_on_note_page" in s:
+            # a new page is right when the kept area wording itself could not fit on the NBN
+            # wording's page: it starts the new page with no more than the editor's 3 blank lines
+            # left behind it (one blank line and the heading's two). Word decided it did not fit;
+            # no line arithmetic - the wording needs 3 blanks plus at least 2 of its own lines (Word
+            # keeps a lone line off a page foot), so "free lines" undercounted it (15 Oct 2026).
+            # More blanks there is #57's gap pushing the heading over. The heading then starts the
+            # page, the wording beside its label.
+            if s["blanks_on_note_page"] > EDITOR_BLANKS:
+                problems.append(f"{s['blanks_on_note_page']} blank lines follow the NBN wording on page "
+                                f"{s['note_page']} (the editor leaves {EDITOR_BLANKS}): a gap pushed the heading "
+                                f"to page {s['heading_page']}")
+            if s.get("wording_page") != s["heading_page"]:
+                problems.append(f"the heading starts page {s['heading_page']} but its area wording starts "
+                                f"page {s.get('wording_page')}")
+            if not s.get("heading_starts_page"):
+                problems.append(f"the heading is on page {s['heading_page']} after the NBN wording's page "
+                                f"but does not start it")
         elif s["heading_page"] > s["note_page"]:
+            # measured before 15 Oct 2026 (no blank count): the old free-lines rule, which can only
+            # fail a good document, never pass a bad one
             room = float(measure.get("page_top") or 0) + float(measure.get("usable") or 0) - s["note_last_top"]
             if room > 4 * line:
                 problems.append(f"the heading starts page {s['heading_page']} although {room / line:.0f} lines "
@@ -225,6 +246,27 @@ def check_section18(measure, out):
         return False
     out.append("section 18: " + (f"{gap:.1f} blank line below the NBN wording" if gap is not None
                                  else "heading starts a new page") + ", heading on its label's page")
+    return True
+
+
+def check_footer_total(docx, out):
+    """The footer's "Page n of N": N is Word's page count (NUMPAGES), never a typed number -
+    the blanks type their own count, and a longer document read "Page 17 of 16" (16 Oct 2026;
+    fill_inclusions.py makes it the field)."""
+    import fill_inclusions as fi
+    typed = 0
+    with zipfile.ZipFile(docx) as z:
+        for name in z.namelist():
+            if re.fullmatch(r"word/footer\d*\.xml", name):
+                x = z.read(name).decode("utf-8")
+                typed += sum(1 for pm in fi.P_RE.finditer(x)
+                             if fi.PAGE_INSTR_RE.search(pm.group(0)) and "NUMPAGES" not in pm.group(0)
+                             and re.search(r"\bof\s*\d", "".join(fi.run_text(r.group(0))
+                                                                for r in fi.RUN_RE.finditer(pm.group(0)))))
+    if typed:
+        out.append(f"footer   : FAIL - {typed} footer page number(s) give a typed total, not the page count")
+        return False
+    out.append("footer   : page totals are Word's page count")
     return True
 
 
@@ -293,7 +335,7 @@ def main():
     out = []
     results = [check_layout(measure, plan, out), check_pages(measure, plan, out),
                check_xml(args.docx, out), check_anchors(measure, out), check_section18(measure, out),
-               check_signature_lines(args.docx, out)]
+               check_signature_lines(args.docx, out), check_footer_total(args.docx, out)]
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"
              + ("" if verdict == "PASS" else " - the document does not ship until every FAIL above is fixed")]
