@@ -529,9 +529,11 @@ and SEQ upgrades stay a person's edit until their templates are measured.
 - **CD-9.9** Layout: the body is one table row with two independent
   columns. After any content change the Word pass measures each label
   against its wording and pads/trims blank left-column paragraphs (a
-  fraction of a line as paragraph spacing) until level within 1.5 pt, and
-  puts INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS at the
-  top of their pages. Page-1 values and the page-13 signature lines sit on
+  fraction of a line as paragraph spacing) until level within 0.5 pt (the
+  gate allows 1.5 pt; the margin absorbs the small shifts a later edit
+  causes), and puts INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED
+  INCLUSIONS at the top of their pages. A re-measure follows, with up to
+  four correction rounds. Page-1 values and the page-13 signature lines sit on
   tab stops (one x per column; the owner's name under the builder's; every
   `Date:` on one x, the Owners Witness Name line included — issue #56).
   Section 18 sits one blank line below the NBN wording, on the same page as
@@ -539,7 +541,10 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   (one blank line plus the heading's two) whatever the blank had (2 in the
   STANDARD blanks, 11 in the AUXILIARY one — issue #57), and two below it
   (one blank line plus section 19's one-line heading; the blank leaves 1 to
-  4 depending on which area pair was kept). The foot of the table keeps
+  4 depending on which area pair was kept). When the kept wording starts a
+  page and leaves the heading at the foot of the page before, the pass
+  pushes the wording down a line and re-levels its label until heading and
+  label share a page (the heading moves with its label). The foot of the table keeps
   one blank paragraph per column: the blanks pad it with 38, which landed
   on a page of their own once the upgrades ran past one page (the section
   after the table starts its own page either way). The gate fails the

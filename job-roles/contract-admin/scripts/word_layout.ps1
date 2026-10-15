@@ -24,8 +24,8 @@ align (every filled document): executes the plan edit_inclusions.py wrote.
 Each planned paragraph is located with Word's own Find (one call) instead of
 walking the whole cell, measured, and the left column padded or trimmed with
 blank paragraphs (a fraction of a line as paragraph spacing) until the label
-sits level with its wording within -Tolerance points; each package heading is
-pushed to the top of its page. A verification pass then re-measures every
+sits level with its wording within -Target points (the gate allows
+-Tolerance); each package heading is pushed to the top of its page. A verification pass then re-measures every
 step, and the report carries the final delta per step, the anchor
 x-positions (page-1 values, page-13 names and Date:), the page count, the
 empty pages (inside the body table read column by column: Word's \page
@@ -46,7 +46,12 @@ param(
     [string]$Save,
     [int]$BodyTable = 2,
     [double]$Tolerance = 1.5,
-    [int]$MaxIter = 80
+    # the pass levels each pair to within -Target; the gate allows -Tolerance. The
+    # margin absorbs the small shifts later edits cause - a pair left at 1.4 pt was
+    # pushed to 1.6 and failed the gate (26032, 26058 on 15 Oct 2026)
+    [double]$Target = 0.5,
+    [int]$MaxIter = 80,
+    [int]$Rounds = 4
 )
 
 $ErrorActionPreference = 'Stop'
@@ -366,6 +371,34 @@ function Get-CellParas($cell) {
     return $out
 }
 
+function Keep-Section18($doc, $lc, $results, [double]$usable, [double]$lineH, [double]$target) {
+    # issue #57: "18. REGIONAL REGULATIONS" sits glued above its label in the left column, and the
+    # label is levelled with its wording on the right. When that wording starts a page, the label
+    # follows it there and the heading's lines are left at the foot of the page before (26032,
+    # 15 Oct 2026). Push the wording down a line and re-level the pair - the heading moves with its
+    # label (Block-First) - until both share a page. Does nothing when they already do.
+    $h = $null
+    foreach ($pr in (Find-Runs $doc $lc.Range 'REGULATIONS')) {
+        if ((Norm (Clean $pr.Text)) -match '^\d+\.\s*REGIONAL REGULATIONS$') { $h = $pr; break }
+    }
+    if ($h -eq $null) { return @() }
+    $done = @()
+    for ($i = 0; $i -lt 6; $i++) {
+        $lab = $h.Paragraphs.Item(1).Next(1)
+        while ($lab -ne $null -and (Is-Blank $lab)) { $lab = $lab.Next(1) }
+        $top = $h.Duplicate; $top.Collapse(1)   # the heading's first line: it wraps to two
+        if ($lab -eq $null -or [int]$top.Information($wdPage) -ge [int]$lab.Range.Information($wdPage)) { break }
+        $res = @($results | Where-Object { $_.kind -eq 'pair' -and $_._lp -ne $null -and $_._lp.Start -eq $lab.Range.Start })[0]
+        if ($res -eq $null) { break }
+        $res._rp.Paragraphs.Item(1).Range.InsertParagraphBefore()
+        $res._rp = $res._rp.Paragraphs.Last.Range
+        $more = @(Adjust-Step $res $usable $lineH $target 80)
+        $res.actions = (@($res.actions, ((@('section 18 heading kept with its label: right +1') + $more) -join ', ')) | Where-Object { $_ }) -join ' | '
+        $done += $i
+    }
+    return $done
+}
+
 function Measure-Section18($doc, $lc, $rc) {
     # issue #57: the "18. REGIONAL REGULATIONS" heading (left column), its label, and the last
     # line of the NBN wording above it (right column) - page and top of each, for the gate
@@ -485,25 +518,28 @@ try {
                 $res._lp = $lp; $res._rp = $rp
                 $resObj = [pscustomobject]$res
                 $iters = $(if ($Mode -eq 'check') { 0 } else { $MaxIter })
-                $actions = @(Adjust-Step $resObj $usable $lineH $Tolerance $iters)
+                $actions = @(Adjust-Step $resObj $usable $lineH $Target $iters)
                 $resObj.actions = ($actions -join ', ')
                 $results.Add($resObj)
                 if ($stepNo % 20 -eq 0) { Say "  step $stepNo/$($steps.Count)" }
             }
             Say "steps done - verifying"
             # verification pass: final positions after all edits; a later step's padding
-            # can nudge an earlier pair, so anything still off gets another round (twice)
+            # can nudge an earlier pair, so anything still off gets another round (up to
+            # -Rounds; one round's corrections can tip a neighbour, 26032 on 15 Oct 2026)
+            if ($Mode -eq 'align') { $null = Keep-Section18 $doc $lc $results $usable $lineH $Target }
             $off = Verify-Steps $results $usable $Tolerance
             $round = 0
-            while ($off -gt 0 -and $Mode -eq 'align' -and $round -lt 2) {
+            while ($off -gt 0 -and $Mode -eq 'align' -and $round -lt $Rounds) {
                 $round++
                 Say "  $off step(s) off after verification - correction round $round"
                 foreach ($r in $results) {
                     if ($r.status -in @('OFF', 'NOT AT PAGE TOP')) {
-                        $more = @(Adjust-Step $r $usable $lineH $Tolerance $MaxIter)
+                        $more = @(Adjust-Step $r $usable $lineH $Target $MaxIter)
                         if ($more.Count) { $r.actions = (@($r.actions, ($more -join ', ')) | Where-Object { $_ }) -join ' | ' }
                     }
                 }
+                $null = Keep-Section18 $doc $lc $results $usable $lineH $Target   # a correction can strand it again
                 $off = Verify-Steps $results $usable $Tolerance
             }
             foreach ($r in $results) { $r.PSObject.Properties.Remove('_lp'); $r.PSObject.Properties.Remove('_rp') }
