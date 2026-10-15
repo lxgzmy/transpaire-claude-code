@@ -648,6 +648,13 @@ def write_docx(template, out, xml):
     return out
 
 
+# GARAGE SIDE as the team writes it (CD-2.9 / JD-9.5, issue #59): left or right
+# facing the house; "Via <the street or lane the driveway uses>" on a corner
+# block or a lane lot; Rear Lane outside Sydney. Anything else is a typo or a
+# placeholder ("LHS", "Via", "Via <street>") and stops the fill.
+GARAGE_RE = re.compile(r"Left Hand Side|Right Hand Side|Rear Lane|Via [A-Z0-9][\w'-]*(?: [A-Z0-9][\w'-]*)*")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--template", required=True)
@@ -657,6 +664,13 @@ def main():
     args = ap.parse_args()
 
     values = json.loads(Path(args.job).read_text(encoding="utf-8"))
+    garage = str(values.get("garage_side") or "").strip()
+    if garage and not GARAGE_RE.fullmatch(garage):
+        print(f"ERROR: garage_side {garage!r} is not a garage side the inclusions take - "
+              "'Left Hand Side' / 'Right Hand Side' facing the house, 'Via <the street or lane the "
+              "driveway uses>' on a corner block or a lane lot (CD-2.9), or blank with a flag",
+              file=sys.stderr)
+        return 3
 
     fam_name, family = pick_family(args.template)
     if not family:

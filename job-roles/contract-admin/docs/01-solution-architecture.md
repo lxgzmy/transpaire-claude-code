@@ -118,7 +118,7 @@ runtime state / evidence live outside git under
 5. Activities 1, 2, 6 completed; request email attached to JOB and Item 11 with `NEW JOB` subject (uppercase enforced).
 6. DataBuild handoff: email Lisa (draft); the price double-check when her confirmation lands stays manual (JD-6.2 — no DataBuild integration exists).
 7. Contact details: client (primary/secondary rules), SALES and `MARKETER_ cc in all emails` relationships.
-8. Plan arrival (Item 12): update street/design/facade/inclusions per PLANS, garage side mapping (else escalate to Michael).
+8. Plan arrival (Item 12): update street/design/facade/inclusions per PLANS, garage side read off the rendered site plan (left/right, or `Via <street or lane>` on a Sydney corner or lane lot; unclear → flagged for the reviewer, who may ask Michael).
 
 ### Workflow 2 — Variation Stage 1
 

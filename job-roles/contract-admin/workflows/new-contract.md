@@ -43,7 +43,7 @@ forwarded marketer → sales manager → contract admin.
 | Client ID documents | Attachment — optional (24 Sep 2026) | Name spelling when present (CD-0.3); absent → EOI names, flagged |
 | Inclusions document | Attachment or `Z:` | Which template the sender intends (CD-0.4) |
 | Blank template | `Z:\PROCEDURES & FORMS\CONTRACTS\` | The document itself (CD-1) |
-| PLANS | Job folder / drafting | House size, garage side (CD-2.7, CD-2.9) |
+| PLANS | Job folder / drafting | House size, garage side read off the rendered site plan: left/right, or `Via <street or lane>` on a Sydney corner or lane lot (CD-2.7, CD-2.9; `site_streets.py`, `pdf_page.ps1`) |
 | DataBuild | — | Keyed figures that override the NSW figures worked from the price; the QLD GST split (CD-5.4, CD-5.6) |
 | Estate information | `Z:\ESTATES INFORMATION\<state>\<region>\<estate>\` | Lot-specific facts |
 

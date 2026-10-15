@@ -7,7 +7,7 @@ How Claude Code and Python UI automation fit together when processing an email i
 Claude Code does **not** move the mouse itself. It:
 
 1. Reads the EOI / variation email (Graph API) and extracts structured data.
-2. Applies judgment: variation type, workflow template selection, address/council lookups, escalations (e.g. garage side → Michael).
+2. Applies judgment: variation type, workflow template selection, address/council lookups, escalations (e.g. a garage side the site plan does not show clearly is flagged for the reviewer, who may ask Michael).
 3. Calls pre-built, deterministic **Python step scripts** (e.g. `osc_create_job.py --data job.json`) that drive the OSC desktop UI via `pywinauto`.
 4. Verifies each step from screenshots and recovers when the UI does something unexpected.
 

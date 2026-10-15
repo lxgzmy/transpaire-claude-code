@@ -143,8 +143,12 @@ These scoped changes leave the other field rules and document pricing rules inta
 - **JD-9.4** Modified designs: Kent MOD → `Modified Kent Façade`;
   Macquarie 160 MOD → `Modified Macquarie 160`.
 - **JD-9.5** Garage side, judged facing the house: left → `Left Hand Side`;
-  right → `Right Hand Side`; behind → `Rear Lane`. Anything else →
-  **escalate to the responsible manager (Michael)** — do not guess.
+  right → `Right Hand Side`; behind → `Rear Lane`. **Sydney:** a corner block
+  or a lot whose driveway uses a lane → `Via <that street or lane>`, as the
+  site plan spells it (`Via Lane` when the lane has no name) — CD-2.9, issue
+  #59. Anything the drawing does not show clearly → blank and **flagged for
+  the reviewer**, naming the streets the site plan carries; the reviewer
+  confirms it or asks the responsible manager (Michael). Never guessed.
 - **JD-9.6** Update the street address in **Inclusions**, **Build Contract**
   (also update the SITE) and **Preliminary Contract**.
 
@@ -171,4 +175,4 @@ These scoped changes leave the other field rules and document pricing rules inta
 | Existing job found for lot number | Stop; flag duplicate (JD-0.2) |
 | Council lookup ambiguous | Check Estimate folder (JD-3.7) |
 | DataBuild price ≠ request-email price | Flag; do not proceed (JD-6.2) |
-| Garage side unclear | Escalate to Michael (JD-9.5) |
+| Garage side unclear on the rendered site plan | Blank + flag for the reviewer, who confirms or asks Michael (JD-9.5) |
