@@ -501,6 +501,14 @@ def main():
         (workdir / f"diff_{kind}_vs_blank.txt").write_text(diff.stdout, encoding="utf-8")
         regions = diff.stdout.strip().splitlines()[-1] if diff.stdout.strip() else "?"
         print(f"  {kind}: filled -> {out.name}   blank-diff: {regions}")
+        # approved amendments (CD-10, issue #61): applied or refused, each with
+        # its request line - the reviewer reads these in the run summary
+        lines = fill.stdout.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("AMENDMENT"):
+                print(f"  {line}")
+                if i + 1 < len(lines) and lines[i + 1].startswith("    request:"):
+                    print(f"  {lines[i + 1]}")
         artifacts.append(out)
         return out
 
@@ -619,6 +627,15 @@ def main():
                                 print(f"  {line}")
                     return bool(doc)
                 stage("build contract: check+fill+diff", do_bc)
+
+    # an approved amendment for a document this run did not produce would
+    # otherwise vanish silently (CD-10)
+    import amendments
+    for n, am in enumerate(values.get("amendments") or [], 1):
+        doc = amendments.KINDS.get(am.get("kind"), am.get("document")) if isinstance(am, dict) else None
+        if doc and not made.get({"build_contract": "buildcontract"}.get(doc, doc)):
+            print(f"  AMENDMENT {am.get('id') or f'A{n}'} NOT APPLIED: the {doc.replace('_', ' ')} was not "
+                  f"filled this run - a person makes it: {amendments.norm(am.get('request_line'))!r}")
 
     # gather every PDF the run needs and export them through one Word launch
     pairs = [(doc, workdir / f"PREVIEW_{doc.stem}.pdf") for doc in made.values() if doc]

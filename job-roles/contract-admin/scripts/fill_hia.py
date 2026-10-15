@@ -138,6 +138,8 @@ import sys
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 
+import amendments
+
 P_RE = re.compile(r"<w:p\b[^>]*>(?:(?!</w:p>|<w:p\b).)*?</w:p>", re.S)
 # text nodes and the layout elements that separate them visually
 SEG_RE = re.compile(r"(<w:t(?: [^>]*)?>)(.*?)(</w:t>)|(<w:tab/>|<w:br/>|<w:cr/>)", re.S)
@@ -283,6 +285,15 @@ def fill_para(p_xml, label, value, mode, occ=1):
     if mode == "replace_amount":
         m = AMOUNT_RE.search(concat)
         if not m:
+            return p_xml, False
+        _splice(segs, m.start(), m.end(), value)
+        return _rebuild(p_xml, segs), True
+    if isinstance(mode, tuple) and mode[0] == "replace_value":
+        # an approved schedule change (CD-10): the rate right after its label,
+        # which must still read the old value
+        hits = list(label_regex(label).finditer(concat))
+        m = RATE_RE.search(concat, hits[0].end()) if hits else None
+        if not m or plain_rate(m.group(0)) != mode[1]:
             return p_xml, False
         _splice(segs, m.start(), m.end(), value)
         return _rebuild(p_xml, segs), True
@@ -449,6 +460,12 @@ REGIONS = {
                       "The total amount must be the same as the contract price"),
             "stages": [10, 10, 25, 25, 20, 10],
         },
+        # approved amendments (CD-10, issue #61): the schedule values one may
+        # change, by the label they follow, and the style of the general
+        # conditions' "Clause N. Title" headings (the TOC repeats each title
+        # in another style, so the style is what picks the heading)
+        "schedule": {"interest_rate": "Interest on late payments is"},
+        "clause_style": "Heading1",
     },
     # The team's v2 Word build of the QC2 October 2020 contract (1 Sep 2026,
     # issue #8). v2 rebuilt the wrap-prone label areas as real tables: the
@@ -534,8 +551,74 @@ REGIONS = {
             ("price_incl_gst", "THE CONTRACT PRICE IS:",   3),
         ],
         "liq": ("liq_damages", "per day"),
+        # approved amendments (CD-10): the interest rate only; striking a QC2
+        # clause is not set up (its clause headings are not verified yet)
+        "schedule": {"interest_rate": "Rate on overdue payments"},   # prints "payments:15%"
     },
 }
+
+# an interest rate as the schedule prints it: "15%", "12.5 %"
+RATE_RE = re.compile(r"\d+(?:\.\d+)?\s?%")
+
+
+def plain_rate(s):
+    return re.sub(r"\s+", "", str(s or ""))
+
+
+def _strike_rpr(inner):
+    """<w:strike/> into an rPr's content at its schema place: after rStyle,
+    rFonts, b, bCs, i, iCs, caps, smallCaps; before everything else."""
+    if re.search(r'<w:strike(?: w:val="(?:1|true|on)")?/>', inner):
+        return inner
+    inner = re.sub(r'<w:strike w:val="[^"]*"/>', "", inner)
+    head = list(re.finditer(r"<w:(?:rStyle|rFonts|b|bCs|i|iCs|caps|smallCaps)\b[^>]*/>", inner))
+    at = head[-1].end() if head else 0
+    return inner[:at] + "<w:strike/>" + inner[at:]
+
+
+def strike_range(seg):
+    """Strike through every run that prints text in an XML range, and every
+    paragraph mark (the automatic 14.1 / (a) numbers render in the mark's
+    format). Text, numbering and section breaks are untouched. (new xml, runs)"""
+    runs = 0
+
+    def run(m):
+        nonlocal runs
+        r = m.group(0)
+        if not re.search(r"<w:t[ >]", r):
+            return r
+        runs += 1
+        rp = re.search(r"<w:rPr>(.*?)</w:rPr>", r, re.S)
+        if rp:
+            return r[:rp.start(1)] + _strike_rpr(rp.group(1)) + r[rp.end(1):]
+        op = re.match(r"<w:r\b[^>]*>", r)
+        return r[:op.end()] + "<w:rPr><w:strike/></w:rPr>" + r[op.end():]
+
+    def mark(m):
+        inner = m.group(1)
+        rp = re.search(r"<w:rPr>(.*?)</w:rPr>", inner, re.S)
+        if rp:
+            inner = inner[:rp.start(1)] + _strike_rpr(rp.group(1)) + inner[rp.end(1):]
+        else:
+            cut = min([i for i in (inner.find("<w:sectPr"), inner.find("<w:pPrChange")) if i >= 0],
+                      default=len(inner))
+            inner = inner[:cut] + "<w:rPr><w:strike/></w:rPr>" + inner[cut:]
+        return f"<w:pPr>{inner}</w:pPr>"
+
+    seg = re.sub(r"<w:r\b[^>]*>.*?</w:r>", run, seg, flags=re.S)
+    seg = re.sub(r"(<w:p\b[^>]*?(?<!/)>)(?!<w:pPr>)", r"\1<w:pPr></w:pPr>", seg)
+    seg = re.sub(r"<w:pPr>(.*?)</w:pPr>", mark, seg, flags=re.S)
+    return seg, runs
+
+
+def strike_read_back(old, new):
+    """The struck range reads the same, keeps its section breaks, and every
+    run that prints text is struck."""
+    def text(s):
+        return "".join(m.group(1) for m in re.finditer(r"<w:t(?: [^>]*)?>(.*?)</w:t>", s, re.S))
+    printing = [r for r in re.findall(r"<w:r\b[^>]*>.*?</w:r>", new, re.S) if re.search(r"<w:t[ >]", r)]
+    return (text(old) == text(new) and old.count("<w:sectPr") == new.count("<w:sectPr") and printing
+            and all(re.search(r'<w:strike(?: w:val="(?:1|true|on)")?/>', r) for r in printing))
 
 
 def derive_values(values, region):
@@ -808,6 +891,62 @@ def run(template, job, out_path, check_only, region):
     else:
         blank_fields.append((key, label))
 
+    # approved per-job amendments (CD-10, issue #61): checked here, applied
+    # with the fills; a refused one is reported and the template wording stays
+    am_lines, range_edits, struck = [], [], []
+    for aid, am, approval, why in amendments.for_document(values, "build_contract", job):
+        kind, line = am.get("kind"), amendments.norm(am.get("request_line"))
+        if approval and kind == "schedule":
+            field = am.get("field")
+            label = anchors.get("schedule", {}).get(field)
+            hits = [i for i, t in enumerate(ntexts) if label and label_regex(label).search(t)]
+            old_m = (RATE_RE.match(ntexts[hits[0]][label_regex(label).search(ntexts[hits[0]]).end():].lstrip(" :\t"))
+                     if len(hits) == 1 else None)
+            old, frm, to = plain_rate(old_m and old_m.group(0)), plain_rate(am.get("from")), plain_rate(am.get("to"))
+            if not label:
+                why = f"{field!r} is not a schedule value the run changes (only the interest rate)"
+            elif len(hits) != 1 or not old_m:
+                why = f"the {field} line ({label!r}) is not where the template should have it"
+            elif not re.fullmatch(r"\d+(?:\.\d+)?%", to):
+                why = f"the new value {am.get('to')!r} is not a rate like 12%"
+            elif old != frm:
+                why = f"the contract reads {old}; the request changes it from {frm or '(not stated)'}"
+            else:
+                plan.append((hits[0], f"amendment {aid}", label, to, ("replace_value", old), 1))
+                am_lines.append((aid, f"{field}: {old} -> {to} (para {hits[0]})", approval, line))
+                continue
+        elif approval and kind == "strike_clause":
+            style = anchors.get("clause_style")
+            n = str(am.get("clause") or "").strip()
+            heads = [k for k, (_, _, p) in enumerate(paras) if style and f'<w:pStyle w:val="{style}"/>' in p]
+            target = [k for k in heads if n.isdigit() and re.match(rf"\s*Clause\s+{n}\.(?!\d)", ptexts[k])]
+            title = re.sub(r"[^a-z0-9]+", " ", str(am.get("title") or "").lower()).strip()
+            if not style:
+                why = f"striking a clause is not set up for the {region} contract yet"
+            elif len(target) != 1:
+                why = f"Clause {n or '?'} heading found {len(target)} times in the general conditions"
+            elif title and title not in re.sub(r"[^a-z0-9]+", " ", ptexts[target[0]].lower()):
+                why = f"Clause {n} is {ptexts[target[0]].strip()!r}, not {am.get('title')!r}"
+            elif not any(k > target[0] for k in heads):
+                why = f"no clause heading after Clause {n} to end the range"
+            else:
+                k = target[0]
+                nxt = min(h for h in heads if h > k)
+                s, e = paras[k][0], paras[nxt][0]
+                seg, runs = strike_range(xml[s:e])
+                if not strike_read_back(xml[s:e], seg):
+                    print(f"AMENDMENT {aid}: READ-BACK FAILED striking Clause {n} - nothing written")
+                    return 1
+                refs = sum(1 for j, t in enumerate(ntexts) if not k <= j < nxt
+                           and re.search(rf"\bClause\s+{n}\b(?!\.\d)", t))
+                range_edits.append((s, e, seg))
+                struck.append((s, e, xml[s:e]))
+                am_lines.append((aid, f"Clause {n} struck through: {ptexts[k].strip()} (paras {k}-{nxt - 1}, "
+                                      f"{runs} runs; its {refs} mention(s) elsewhere - contents, cross-"
+                                      f"references - left for the reviewer)", approval, line))
+                continue
+        am_lines.append((aid, f"REFUSED - {why}; a person makes this change", None, line))
+
     print(f"template : {Path(template).name}")
     print(f"region   : {region}")
     print(f"job      : {Path(job).name}")
@@ -830,6 +969,14 @@ def run(template, job, out_path, check_only, region):
             print(line)
         for flag in fig_flags:
             print(f"FLAG: {flag}")
+    if am_lines or amendments.for_person(values):
+        print()
+        for aid, what, approval, line in am_lines:
+            state = "REFUSED" if approval is None else ("APPLIES" if check_only else "APPLIED")
+            print(f"AMENDMENT {aid} {state}: {what.replace('REFUSED - ', '')}")
+            print(f"    request: {line!r}" + (f" | approval: {approval}" if approval else ""))
+        for item in amendments.for_person(values):
+            print(f"AMENDMENT WITH A PERSON: {item}")
     if missing_anchor:
         print()
         for msg in missing_anchor:
@@ -843,7 +990,7 @@ def run(template, job, out_path, check_only, region):
     # apply, back-to-front so offsets stay valid; all fills for one
     # paragraph compose on the same XML before it is spliced back once,
     # and cell edits land in the same descending pass
-    edits = list(cell_edits)
+    edits = list(cell_edits) + range_edits
     by_para = {}
     for idx, key, label, val, mode, occ in plan:
         by_para.setdefault(idx, []).append((key, label, val, mode, occ))

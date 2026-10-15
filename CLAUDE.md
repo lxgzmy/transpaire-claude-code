@@ -91,6 +91,16 @@ skills are scoped to that folder and must not leak into another role.
   Since 15 Oct 2026 (issue #63, owner sign-off) this covers the Sydney
   AUXILIARY blanks too: the aux dwelling's upgrade lines are written under
   the same rules and checks (`contract-docs.md` CD-6.3 reversed, CD-9.11).
+- **Sanctioned exception (15 Oct 2026, issue #61, owner sign-off):** a
+  contract amendment the request marks approved on its own line is applied
+  by the run, in three kinds only — the late-payment interest rate, a whole
+  NSW HIA clause struck through, words added to or removed from a prelim
+  clause the request quotes (`contract-docs.md` CD-10). Each is checked word
+  for word against the saved request text, refused when anything does not
+  match, and reported with its request line and approval. Every other
+  change the request asks for stays a person's. The NSW contract price
+  split, deposit and progress payments are worked from the request price by
+  a fixed rule the same day (issue #62, CD-5.4).
 
 ## Security posture
 

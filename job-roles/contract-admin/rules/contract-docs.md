@@ -46,7 +46,8 @@ unchanged.
   deposit figure, CD-5.4, is a contract term and is filled.)
 - **CD-0.6** Instructions in the email that change the job — "needs review
   first", "no prelim required", a revised price — are surfaced to a human, not
-  acted on autonomously.
+  acted on autonomously. The one exception is a contract amendment the
+  request marks approved on its own line, in the three kinds of CD-10.
 
 ## CD-1 Template selection
 
@@ -575,6 +576,48 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   (each starts a page) and the gate checks them. CD-9.7's scope check covers
   both sections and refuses any change to the headings themselves.
 
+## CD-10 Approved per-job amendments (sign-off 15 Oct 2026, issue #61)
+
+A request sometimes asks for a per-job change to the contract and marks it
+approved on the same line (26032, 12 Oct 2026: "Delete Clause 14. Hidden
+Site Conditions – Approved by <director>", "Change late payment interest
+rate from 15% to 12% - Approved", and new words for the prelim's clause 4).
+Until 15 Oct 2026 a person retyped each of these; the team's review of
+26032 called that the defect. The run now applies three kinds itself
+(`amendments.py`, `fill_hia.py`, `fill_prelim.py`):
+
+- **CD-10.1** `schedule` (build contract): a schedule value with a stated old
+  and new value. Only the late-payment interest rate so far (`field:
+  interest_rate`): NSW Schedule 1 item 12, QLD's rate on overdue payments.
+  The contract must still read the old value, or the change is refused.
+- **CD-10.2** `strike_clause` (build contract, NSW): a whole general-
+  conditions clause named by number, struck through from its heading to the
+  next clause heading — heading, sub-clauses, their numbers and the margin
+  notes, as the team struck clause 14 by hand. Never deleted (the clause
+  numbers would move), never part of a clause; the contents line and any
+  cross-reference stay as printed and the report counts them for the
+  reviewer. A `title`, when given, must match the heading.
+- **CD-10.3** `prelim_words` (preliminary agreement): words added to or
+  removed from one paragraph of a numbered clause. The request quotes the
+  new paragraph (`expect`); the run finds the one paragraph of that clause
+  that becomes it by adding or removing words, and refuses rewording.
+- **CD-10.4** Every amendment carries its request line verbatim
+  (`request_line`). The line must close with its own approval marker
+  ("Approved", "Approved by <name>"), must not ask for approval ("to be
+  approved", "pending approval"), and must be found word for word in the
+  request text saved beside the job JSON (`email*.txt`); a `prelim_words`
+  paragraph must be found there too. An approval given anywhere else — a
+  separate reply, a chat — does not count.
+- **CD-10.5** A refused amendment is reported with its reason and the
+  document saves with the template wording; a refusal never blocks the
+  save. The report and the run summary list each amendment APPLIED or
+  REFUSED with its request line and approval.
+- **CD-10.6** Everything else stays with a person and goes, verbatim, under
+  `amendments_for_person` in the job JSON and the report: a new clause or
+  special condition, rewording an HIA clause, part of a clause, any other
+  schedule item, a line without its own marker. The Special Conditions
+  validity clause (open question 7) is one of these.
+
 ## CD-8 What only a person does
 
 Recorded so the checklist is complete, not so Claude attempts any of it:
@@ -588,6 +631,8 @@ cabinet; and any DocuSign issue to a client.
 | Situation | Action |
 |---|---|
 | Price in email ≠ price on EOI | Stop; hand to a human (CD-2.5) |
+| Request asks for a contract change without its own approval marker, or of a kind CD-10 does not cover | List it under `amendments_for_person`; a person makes it (CD-10.6) |
+| An approved amendment is REFUSED (old value, title or quoted paragraph does not match) | The document saves with the template wording; a person checks the request and makes the change (CD-10.5) |
 | Keyed DataBuild figure ≠ the figure worked from the price | The keyed figure is used; FLAG in the report and the run summary (CD-5.4) |
 | Request asks for a deposit over 10% | Refused, 10% used, FLAG (CD-5.4) |
 | Garage side not left/right | Escalate to Michael (JD-9.5) |
