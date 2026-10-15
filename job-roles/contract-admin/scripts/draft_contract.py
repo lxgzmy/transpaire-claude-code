@@ -609,6 +609,14 @@ def main():
                     if doc:
                         made["buildcontract"] = doc
                         print(f"  build contract: from {provenance}")
+                        # the item 2 / progress schedule arithmetic and its flags
+                        # (CD-5.4, issue #62) belong in the run summary, not only
+                        # in fill_buildcontract.txt
+                        block = False
+                        for line in (workdir / "fill_buildcontract.txt").read_text(encoding="utf-8").splitlines():
+                            block = line.startswith("contract figures") or (block and line.startswith("  "))
+                            if block or line.startswith("FLAG:"):
+                                print(f"  {line}")
                     return bool(doc)
                 stage("build contract: check+fill+diff", do_bc)
 

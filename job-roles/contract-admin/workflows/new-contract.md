@@ -44,7 +44,7 @@ forwarded marketer → sales manager → contract admin.
 | Inclusions document | Attachment or `Z:` | Which template the sender intends (CD-0.4) |
 | Blank template | `Z:\PROCEDURES & FORMS\CONTRACTS\` | The document itself (CD-1) |
 | PLANS | Job folder / drafting | House size, garage side (CD-2.7, CD-2.9) |
-| DataBuild | — | GST split, progress payments (CD-5.4, CD-5.6) |
+| DataBuild | — | Keyed figures that override the NSW figures worked from the price; the QLD GST split (CD-5.4, CD-5.6) |
 | Estate information | `Z:\ESTATES INFORMATION\<state>\<region>\<estate>\` | Lot-specific facts |
 
 ## Phase 1 — Draft the documents
@@ -66,7 +66,9 @@ the field-to-API map, lookup rules, example multipart call and recovery protocol
 | Document handoff | Use verified job number/folder and original field sources in the existing document pipeline. |
 
 DataBuild is excluded by the 11 September 2026 scope instruction: no integration,
-handoff email or waiting for its completion. This does not change `CD-5.4`.
+handoff email or waiting for its completion. The NSW contract figures are
+worked from the request price (CD-5.4, issue #62), so the documents do not
+wait for DataBuild either.
 An existing document refresh verifies identity without replaying OSC writes.
 Save OSC IDs, source references and per-operation verification separately in
 `osc-state.json` in server runtime. A timeout requires reconciliation before
@@ -79,7 +81,7 @@ retrying; disabled writes produce a draft, never a success claim.
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply. **Sydney:** also the `upgrades` block — area, storeys, Bathroom 2, air con, and one item per upgrade line with the Standard Variation row chosen (`variation_list.py --search`), the house wording and a confidence flag; a request with no row is a custom item at low confidence | Claude | CD-2, CD-3, CD-9 |
 | 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, **Sydney inclusions content edit + Word layout pass + quality gate** (CD-9, 10 Sep 2026 — section 18 area, notes, `UPGRADED INCLUSIONS` items, black throughout; both columns re-levelled; a gate FAIL blocks the save), blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (standard $30,000 fee unless the request names another, CD-4.3); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
-| 6 | Draft the build contract **data sheet** (the person-keyed values: price split and Part B as `FROM DATABUILD` placeholders — never computed — guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
+| 6 | Draft the build contract **data sheet** (NSW: the contract figures block from `fill_buildcontract.txt`, worked from the price, CD-5.4; QLD: price split as `FROM DATABUILD` placeholders; guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
 | 7 | Report destination + mode, field table, flags, and — Sydney — the `edit_inclusions.txt` items table (request → row → wording → confidence) and the gate verdict; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill/edit/gate reports, layout plan + align report, diffs, timings) | Claude | CD-9.10 |
 
 ## Phase 2 — Issue and execute (human)

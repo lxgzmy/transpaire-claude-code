@@ -76,12 +76,11 @@ team's own review ordered until the team folds them into its master:
   one wording order, verbatim — Special Conditions clause 1 cites **Item 2**
   (contract price), not Item 3. **Filled exports hold the licensed 45
   pages** (the reviewed fill ran 47 with values wrapped vertically under
-  the labels). Two sheet items stay open and ride with every NSW report:
-  item 4 (derive the GST split / deposit / progress claims from the
-  order's GST-inclusive price) is a CD-5.4 decision the business still has
-  to make — until then those figures stay DataBuild-keyed only — and item
-  12 (amending the validity clause when a specific end date is requested)
-  stays a human spec clause, per the sheet's own fallback.
+  the labels). Sheet item 4 (the GST split, deposit and progress claims
+  from the order's GST-inclusive price) is done since 15 Oct 2026 (CD-5.4
+  reversed for NSW, issue #62). Item 12 (amending the validity clause when
+  a specific end date is requested) stays a human spec clause, per the
+  sheet's own fallback.
 - **QLD — v2.1 LAND TABLES** (3 Sep 2026, `make_v21.py`): the team's v2
   master (1 Sep 2026, issue #8), which fixed the 25 Aug build review at
   source — the wrap-crushed label areas (cover, Schedule 1 items 3/7, the
@@ -103,10 +102,13 @@ the labels' bold/italic never rides onto a value (review items 2/7/10/14).
 From the moment a blank is filed, the driver fills it under the real
 name with no further engineering (`regress_hia.py` guards the anchors and
 the cell placement in both regions; eye-verify the first fill after any
-template lands). CD-5.4 always applies:
-no figure is ever computed here — price/GST/deposit type in only when a
-person keys the DataBuild figures into the job JSON, and date and progress
-stage amounts are never filled.
+template lands). Contract figures (CD-5.4, issue #62): on NSW the fill
+works item 2 (price excluding GST, GST, contract price, deposit) and the
+Part B progress schedule from the job's `price` - GST = price / 11 to the
+cent, deposit 10% rounded down, each stage its printed % with the last
+stage taking the rounding balance - and shows the arithmetic in the report.
+Keyed DataBuild figures win, with a flag on any difference. QLD item 2
+still types only keyed DataBuild figures. The date is never filled.
 
 ## Where the documents go
 
@@ -393,7 +395,8 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `house_size` | `"nnn.nn m²"` — the plans' Total Areas sum, all dwellings + garages/porches/alfresco | PLANS only (CD-2.7) |
 | `facade` | `"<name> Façade"` with the cedilla — the dominant convention (3 of 4 completed Tamworth jobs); a completed doc's plain `Facade` is that job's typing, not a rule | Email "Facade:" (CD-2.8) |
 | `garage_side` | `"Left Hand Side"` / `"Right Hand Side"`, judged facing the house, ONLY when a drawing or a person confirms it. Drawing unreadable in this session → `""` + flag for the reviewer. Never guess (JD-9.5) | PLANS only (CD-2.9) |
-| `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
+| `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). The GST-inclusive contract price: on NSW the build contract's item 2 and progress schedule are worked from it (CD-5.4). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
+| `deposit_request` | only when the request asks for a deposit other than 10%: an amount (`"25,000.00"`) or `"5%"`. Lower than 10% goes into item 2(b) with a flag; higher is refused (CD-5.4) | Email |
 | `owner_1`, `owner_2` | `"First name Middle name SURNAME"` — the middle name is included whenever the client ID shows one, and it is usually absent from the email, so read it off the licence/passport (CD-3.1, team-confirmed 28 Aug 2026). Single owner → `owner_2: ""`. **Three or more owners:** key `owner_3` too — the **preliminary agreement** takes it natively (9.1 round, 4 Sep 2026: third name joins the client row, which keeps `("Client")` for three per the sheet + manual 26011, and the second signing row is cloned for the third name). The **inclusions and build contract** still fill owner_1/owner_2 only — FLAG the rest there (the one observed job hand-repurposed the witness rows into "Name of Owner 3", a template-wording edit a person makes, CD-3.8) | EOI (CD-0.2); ID confirms spelling and the middle name (CD-0.3) |
 | `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"VWJJ INVESTMENT No.1 PTY LTD ATF WANG AND LIU No.1 FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 693 135 572"`). On the **preliminary agreement**, a sourced `company_signatory` key (the person named by the signed land contract) types the page-3 signing line as `<signatory>` ⏎ `on behalf of <owners incl. ABN/ACN>` and relabels that row `Client Name / Company` (9.1 round, CD-4.5); on the **inclusions/build contract** the signer line ("<Director> on behalf of ...") stays typed by a person at signing, never filled (observed 26039) | EOI / signed land contract |
 | `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026) | Job folder + lookup |
@@ -489,10 +492,12 @@ DocuSign (team review item 8) — NSW `dp_no`/`land_suburb`/`land_postcode`
 `land_suburb`/`land_state`/`land_postcode`, and `liq_damages` only when the
 job's LD is sourced to differ from the template's $25.00 prefill). On both
 team builds the fill also types the owner signature name and accepts
-**explicitly sourced** extras: `price_excl_gst`/`gst_amount`/`price_incl_gst` (NSW also
-`deposit`; QC2 has no schedule deposit item — its deposit is a Schedule 2
-progress row, never filled) typed only when a person keys the DataBuild
-figures into the JSON (never computed, CD-5.4), and `guarantor_name`/
+**explicitly sourced** extras: DataBuild figures a person keys -
+`price_excl_gst`/`gst_amount`/`price_incl_gst`, NSW also `deposit` and
+`progress_1`..`progress_6`/`progress_total` - which win over the figures
+NSW works from `price` (CD-5.4; QC2 has no schedule deposit item, its
+deposit is a Schedule 2 progress row and QLD is not calculated yet); any
+amount types as `$nnn,nnn.nn` however it is keyed; and `guarantor_name`/
 `guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
 only when a signed source names them (these also complete the deed's
 BUILDER IS / OWNER IS lines; the deed date is never filled). Region
@@ -584,10 +589,12 @@ agreement" seen at 26053 is a different document this skill does not produce):
 The values a person needs to key into the contract (CD-5): cover page (owners,
 job, lot, site), the building period in contract days (single storey 180,
 single-storey duplex 210, double storey 210, double-storey duplex 240 — CD-5.5),
-and the land details. For contract price excluding GST, GST, total, the
-fixed-price component and the Part B progress payment schedule, write literally
-`— FROM DATABUILD (a person keys this in)`: those figures are **never computed
-or inferred here** (CD-5.4).
+and the land details. Contract price excluding GST, GST, total, deposit and
+the Part B progress payment schedule: on NSW, copy the `contract figures`
+block from `fill_buildcontract.txt` (worked from the request price, CD-5.4)
+and any FLAG under it; on QLD, or when no build contract was filled, write
+`— FROM DATABUILD (a person keys this in)` for any figure not keyed in the
+job JSON.
 
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
@@ -604,7 +611,9 @@ The save already happened in step 5 — this step is information, not a gate.
 Report, as a short table: **the destination per document (job folder or
 template-testing)**, the template path (naming an interim build-contract
 template when one was used), every field with its value and source, and every
-unresolved flag. **Sydney:** also the `edit_inclusions.txt` items table —
+unresolved flag. **NSW build contract:** the contract figures (price,
+GST, price excluding GST, deposit, each stage) and every FLAG the run
+summary printed under them (CD-5.4). **Sydney:** also the `edit_inclusions.txt` items table —
 one row per upgrade line: request → Standard Variation row (its normalised
 sheet wording) → the wording written → confidence — plus the TO CONFIRM
 list, and the gate verdict line from `gate_inclusions.txt`. Say plainly
@@ -682,11 +691,12 @@ only on their plain yes (`osc_prepare_changes` or `osc_prepare_write`, then
 signing steps (builder's name on page 9, the sign-here sticker, the tray for
 signing) are a person's job, described here only so the checklist is complete.
 
-**Never guess a contract value.** Price, house size, garage side, prelim fee,
-GST split, progress payments: sourced or escalated. A plausible number in a
-contract is a liability. The preliminary agreement's template fee is a template
-default and has been wrong for the job in practice — it is not a fallback, and
-`fill_prelim.py` refuses to run without a sourced fee.
+**Never guess a contract value.** Price, house size, garage side: sourced or
+escalated. A plausible number in a contract is a liability. The GST split,
+deposit and progress payments are worked from the sourced price by the fixed
+NSW rule (CD-5.4), never estimated; with no usable price they stay blank and
+flagged. The preliminary fee is the standard $30,000 unless the request names
+another (CD-4.3).
 
 **Saves are automatic, but only ever to two destinations.** Routing is decided
 per document before any save (8 Sep 2026): a document type the job folder
