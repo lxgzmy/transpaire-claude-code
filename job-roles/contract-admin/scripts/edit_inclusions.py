@@ -29,7 +29,10 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       right. Choosing the row and any custom wording is a person's judgment
       (10 Sep 2026): this script applies what the job JSON says and reports
       request -> row -> wording -> confidence for confirmation. It never picks.
-  Hygiene   every run black, no highlight, no run shading (row 3 / row 13).
+  Hygiene   every run black except the package headings, which keep the
+      template's blue (issue #58); no highlight, no run shading (row 3 / row 13).
+  Section 18 spacing  one blank line between the NBN wording and the heading
+      (issue #57): three blank paragraphs above the kept wording on the right.
   Storeys   `upgrades.storeys` (1/2) is recorded and checked against the
       wording ("First Floor" on a single storey is flagged); nothing in the
       document changes with it.
@@ -73,6 +76,8 @@ AREAS = {
 REGIONAL_LABELS = [v[0] for v in AREAS.values()]
 REGIONAL_WORDING = ["DELETE NOT APPLICABLE ONE", "rain garden", "Connection of Recycled Water",
                     "Water tank as required"]
+REGIONAL_RIGHT_BLANKS = 3   # one blank line + the two lines "18. REGIONAL REGULATIONS" wraps to
+REGIONAL_AFTER_BLANKS = 2   # one blank line + the one line of "19. NCC 2022"
 LAST_STANDARD_LABEL = "Letterbox"          # the upgraded-section labels follow it on the left
 UPGRADED_HEADING = "UPGRADED INCLUSIONS"   # the upgraded-section wording follows it on the right
 PAGE_TOP_HEADINGS = ("INTERNAL TURNKEY PACKAGE", "EXTERNAL TURNKEY PACKAGE", "UPGRADED INCLUSIONS")
@@ -328,6 +333,42 @@ def edit_regional(cols, area, log):
     if kw + 1 >= len(R) or not is_blank(R[kw + 1]):
         R.insert(kw + 1, blank_like(R, kw))
         log.append("section 18    : inserted the blank line after the kept wording")
+    # One blank line between the NBN wording and the heading (issue #57). The
+    # heading sits in the left column glued above the kept label, which the
+    # layout pass levels with this wording, so the heading's height is set by
+    # the blank paragraphs above the wording in the right column: one blank
+    # line plus the two lines the heading wraps to. The blanks carry 2
+    # (heading tight under NBN) and the AUXILIARY blank 11 (a page break typed
+    # as padding, which strands the heading at a page foot once content moves).
+    n = 0
+    while kw - n - 1 >= 0 and is_blank(R[kw - n - 1]):
+        n += 1
+    if n != REGIONAL_RIGHT_BLANKS:
+        if n > REGIONAL_RIGHT_BLANKS:
+            del R[kw - n:kw - REGIONAL_RIGHT_BLANKS]
+        else:
+            for _ in range(REGIONAL_RIGHT_BLANKS - n):
+                R.insert(kw - n, blank_like(R, kw - n))
+        kw += REGIONAL_RIGHT_BLANKS - n
+        log.append(f"section 18    : {n} -> {REGIONAL_RIGHT_BLANKS} blank paragraph(s) above the kept wording "
+                   "(one blank line between NBN and the heading)")
+    # ...and one blank line between the kept wording and section 19's one-line heading.
+    # What follows the kept wording depends on which pair was kept (the last pair carries
+    # the blank's 4 trailing blanks, a middle one 2), so the gap varied by area.
+    end = kw + 1
+    while end < len(R) and not is_blank(R[end]):
+        end += 1   # the kept wording may run over several paragraphs
+    n = 0
+    while end + n < len(R) and is_blank(R[end + n]):
+        n += 1
+    if end + n < len(R) and n != REGIONAL_AFTER_BLANKS:
+        if n > REGIONAL_AFTER_BLANKS:
+            del R[end:end + n - REGIONAL_AFTER_BLANKS]
+        else:
+            for _ in range(REGIONAL_AFTER_BLANKS - n):
+                R.insert(end, blank_like(R, end))
+        log.append(f"section 18    : {n} -> {REGIONAL_AFTER_BLANKS} blank paragraph(s) after the kept wording "
+                   "(one blank line before section 19)")
     log.append(f"section 18    : kept {keep_label!r} <-> {norm(ptext(R[kw]))[:50]!r}")
     return norm(ptext(L[ki])), norm(ptext(R[kw]))
 
@@ -503,9 +544,26 @@ def edit_items(cols, items, categories, log, flags):
     return results
 
 
+def is_package_heading(text):
+    """INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS (with any '- MAIN/AUX DWELLING')."""
+    t = norm(text).upper()
+    return t in PAGE_TOP_HEADINGS[:2] or t.startswith(UPGRADED_HEADING)
+
+
 def hygiene(xml, log):
-    n_col = len(re.findall(r'<w:color w:val="(?!000000")[^>]*/>', xml))
-    xml = re.sub(r'<w:color w:val="(?!000000")[^>]*/>', '<w:color w:val="000000"/>', xml)
+    # Everything black except the package headings, which keep the blank's blue
+    # (issue #58, 14 Oct 2026 review: it reversed CD-9.8's "no exception").
+    colour = re.compile(r'<w:color w:val="(?!000000")[^>]*/>')
+    keep = [m.span() for m in P_RE.finditer(xml)
+            if "<w:p " not in m.group(0)[4:] and "<w:p>" not in m.group(0)[4:]
+            and is_package_heading(ptext(m.group(0))) and colour.search(m.group(0))]
+    parts, pos, n_col = [], 0, 0
+    for s, e in keep + [(len(xml), len(xml))]:
+        segment, k = colour.subn('<w:color w:val="000000"/>', xml[pos:s])
+        n_col += k
+        parts += [segment, xml[s:e]]
+        pos = e
+    xml, kept = "".join(parts), len(keep)
     n_hl = len(re.findall(r"<w:highlight [^>]*/>", xml))
     xml = re.sub(r"<w:highlight [^>]*/>", "", xml)
     n_shd = 0
@@ -517,7 +575,8 @@ def hygiene(xml, log):
         return s
     xml = RPR_RE.sub(rpr_shd, xml)
     log.append(f"hygiene       : {n_col} colour(s) set to black, {n_hl} highlight(s) and {n_shd} run "
-               f"shading(s) removed (sheet rows 3 and 13: black, no highlight, no exception)")
+               f"shading(s) removed; {kept} package heading(s) keep the template's colour "
+               f"(sheet rows 3 and 13; issue #58)")
     return xml
 
 

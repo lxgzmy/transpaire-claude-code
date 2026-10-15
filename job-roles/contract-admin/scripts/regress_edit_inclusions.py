@@ -94,7 +94,27 @@ def main():
         want_label, want_word = ed.AREAS[up["area"]]
         check("one regional label, the right one", left == [want_label], problems)
         check("one regional wording, the right one", right == [want_word], problems)
-        check("all runs black", not (set(re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', xml)) - {"000000"}), problems)
+        heads = [m for m in ed.P_RE.finditer(xml) if ed.is_package_heading(ed.ptext(m.group(0)))]
+        rest = ed.P_RE.sub(lambda m: "" if ed.is_package_heading(ed.ptext(m.group(0))) else m.group(0), xml)
+        check("black except the package headings (#58)",
+              not (set(re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', rest)) - {"000000"}), problems)
+        check("package headings keep the template's blue (#58)",
+              len(heads) >= 3 and all('w:val="00B0F0"' in m.group(0) for m in heads), problems)
+        # one blank line between the NBN wording and section 18 (#57): three blanks above the kept wording
+        kw = next(i for i, p in enumerate(cols.right) if want_word.lower() in ed.ptext(p).lower())
+        above = 0
+        while ed.is_blank(cols.right[kw - above - 1]):
+            above += 1
+        check(f"{ed.REGIONAL_RIGHT_BLANKS} blank paragraphs above the section 18 wording (#57)",
+              above == ed.REGIONAL_RIGHT_BLANKS, problems)
+        end = kw + 1
+        while not ed.is_blank(cols.right[end]):
+            end += 1
+        after = 0
+        while ed.is_blank(cols.right[end + after]):
+            after += 1
+        check(f"{ed.REGIONAL_AFTER_BLANKS} blank paragraphs between the section 18 wording and section 19",
+              after == ed.REGIONAL_AFTER_BLANKS, problems)
         check("no highlight", "<w:highlight" not in xml, problems)
         check("no editor notes", not editor_notes_left(xml), problems)
         check("labels == groups", len(labels) == len(groups), problems)

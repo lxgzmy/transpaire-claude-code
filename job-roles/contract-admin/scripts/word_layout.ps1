@@ -27,8 +27,9 @@ blank paragraphs (a fraction of a line as paragraph spacing) until the label
 sits level with its wording within -Tolerance points; each package heading is
 pushed to the top of its page. A verification pass then re-measures every
 step, and the report carries the final delta per step, the anchor
-x-positions (page-1 values, page-13 names and Date:), the page count and the
-empty pages - everything gate_inclusions.py checks. Only blank paragraphs are
+x-positions (page-1 values, page-13 names and Date:), the page count, the
+empty pages and the section 18 heading against the last NBN line (issue #57) -
+everything gate_inclusions.py checks. Only blank paragraphs are
 ever inserted or deleted, only inside the two body cells; text never changes.
 
 check: the same report without changing anything.
@@ -298,7 +299,33 @@ function Get-CellParas($cell) {
     return $out
 }
 
-function Doc-Facts($doc) {
+function Measure-Section18($doc, $lc, $rc) {
+    # issue #57: the "18. REGIONAL REGULATIONS" heading (left column), its label, and the last
+    # line of the NBN wording above it (right column) - page and top of each, for the gate
+    $h = $null
+    foreach ($pr in (Find-Runs $doc $lc.Range 'REGULATIONS')) {
+        if ((Norm (Clean $pr.Text)) -match '^\d+\.\s*REGIONAL REGULATIONS$') { $h = $pr; break }
+    }
+    if ($h -eq $null) { return $null }
+    $out = [ordered]@{ heading_page = [int]$h.Information($wdPage); heading_top = [math]::Round([double]$h.Information($wdTop), 2) }
+    $nx = $h.Paragraphs.Item(1).Next(1); $guard = 0
+    while ($nx -ne $null -and (Is-Blank $nx) -and $guard -lt 50) { $nx = $nx.Next(1); $guard++ }
+    if ($nx -ne $null) {
+        $out.label = (Clean $nx.Range.Text)
+        $out.label_page = [int]$nx.Range.Information($wdPage)
+    }
+    $note = $null
+    foreach ($pr in (Find-Runs $doc $rc.Range 'unavailable')) { if ((Clean $pr.Text) -match 'NBN is unavailable') { $note = $pr } }
+    if ($note -ne $null) {
+        $last = $note.Duplicate
+        $last.SetRange($note.End - 2, $note.End - 1)   # the last character before the paragraph mark
+        $out.note_page = [int]$last.Information($wdPage)
+        $out.note_last_top = [math]::Round([double]$last.Information($wdTop), 2)
+    }
+    return [pscustomobject]$out
+}
+
+function Doc-Facts($doc, $lc, $rc) {
     $pages = [int]$doc.ComputeStatistics(2)
     $ps = $doc.Sections.Item(1).PageSetup
     return [ordered]@{
@@ -306,6 +333,7 @@ function Doc-Facts($doc) {
         page_top = [math]::Round([double]$ps.TopMargin, 2)
         usable = [math]::Round([double]$ps.PageHeight - [double]$ps.TopMargin - [double]$ps.BottomMargin, 2)
         anchors = @(Measure-Anchors $doc)
+        section18 = $(if ($lc -ne $null) { Measure-Section18 $doc $lc $rc } else { $null })
     }
 }
 
@@ -331,7 +359,7 @@ try {
         $tbl = $doc.Tables.Item($BodyTable)
         $lc = $tbl.Cell(1, 1); $rc = $tbl.Cell(1, 2)
         if ($Mode -eq 'anchors') {
-            $facts = Doc-Facts $doc
+            $facts = Doc-Facts $doc $lc $rc
             $m = [ordered]@{ docx = $doc.FullName } + $facts
             $json = $m | ConvertTo-Json -Depth 5 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
@@ -340,7 +368,7 @@ try {
         elseif ($Mode -eq 'measure') {
             $left = Get-CellParas $lc;  Say "  left cell: $($left.Count) paragraphs"
             $right = Get-CellParas $rc; Say "  right cell: $($right.Count) paragraphs"
-            $facts = Doc-Facts $doc;    Say "  pages $($facts.pages), empty $($facts.empty_pages -join ','), anchors $($facts.anchors.Count)"
+            $facts = Doc-Facts $doc $lc $rc;    Say "  pages $($facts.pages), empty $($facts.empty_pages -join ','), anchors $($facts.anchors.Count)"
             $m = [ordered]@{ docx = $doc.FullName } + $facts + [ordered]@{ left = $left; right = $right }
             $json = $m | ConvertTo-Json -Depth 5 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
@@ -416,7 +444,7 @@ try {
                 $dst = if ($Save) { $Save } else { $src }
                 if ($dst -ne $src) { $doc.SaveAs2($dst) } else { $doc.Save() }
             } else { $dst = $src }
-            $facts = Doc-Facts $doc
+            $facts = Doc-Facts $doc $lc $rc
             $report = [ordered]@{ docx = $dst; mode = $Mode; line_height = $lineH; tolerance = $Tolerance } + $facts + [ordered]@{ steps = $results }
             $json = $report | ConvertTo-Json -Depth 6 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }

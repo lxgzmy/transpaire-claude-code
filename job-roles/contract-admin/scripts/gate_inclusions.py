@@ -10,7 +10,10 @@ Checks (NSW inclusions feedback sheet 9.9, issue #35):
             its page (row 4.1)
   pages     no empty page (row 12); page count against the blank's (a longer
             document is reported, an empty page fails)
-  colour    every run black, no highlight, no run shading (rows 3, 13)
+  colour    every run black except the package headings, which must keep the
+            template's colour (rows 3, 13; issue #58); no highlight, no shading
+  section 18  one blank line between the NBN wording and the heading, and the
+            heading on the same page as its label (issue #57)
   notes     no template editor instruction left (fill_inclusions.EDITOR_NOTES)
   page 1    the values of each header column start at one x (row 1)
   page 13   the signature lines (a text box, which Word cannot measure) carry
@@ -29,9 +32,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from fill_inclusions import EDITOR_NOTES, run_text, RUN_RE  # noqa: E402
+from fill_inclusions import EDITOR_NOTES, SIG_LABELS, run_text, RUN_RE  # noqa: E402
+from edit_inclusions import P_RE, is_package_heading, ptext  # noqa: E402
 
 XTOL = 1.0   # pt - horizontal agreement for tab-stopped values
+TEXT_LINE_PT = 13.5   # pt - one line of body text in the Sydney blanks (measured 13.1-14.6)
 RIGHT_COLUMN = ("HOUSE TYPE :", "HOUSE SIZE :", "HOUSE FAÇADE :", "GARAGE SIDE :")
 LEFT_COLUMN = ("Lot No. :", "STREET :", "SUBURB :", "ESTATE :", "PRICE :")
 
@@ -126,17 +131,35 @@ def check_xml(docx, out):
         others = {n: z.read(n).decode("utf-8") for n in z.namelist()
                   if re.match(r"word/(header|footer)\d*\.xml", n)}
     ok = True
-    colours = sorted(set(re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', xml)) - {"000000"})
+    # The package headings keep the template's blue (issue #58); every other run is black.
+    heads = [m for m in P_RE.finditer(xml) if not re.search(r"<w:p[ >]", m.group(0)[4:])
+             and is_package_heading(ptext(m.group(0)))]
+    rest, pos = [], 0
+    for m in heads:
+        rest.append(xml[pos:m.start()])
+        pos = m.end()
+    rest.append(xml[pos:])
+    # colour on text a reader sees: a blank paragraph Word inserts before a heading inherits the
+    # heading's blue on its empty paragraph mark, which prints nothing
+    colours = sorted({c for r in RUN_RE.finditer("".join(rest)) if run_text(r.group(0)).strip()
+                      for c in re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', r.group(0))} - {"000000"})
     if colours:
-        out.append(f"colour   : FAIL - non-black colours {colours} (sheet row 3)")
+        out.append(f"colour   : FAIL - non-black colours {colours} outside the package headings (sheet row 3)")
         ok = False
+    lost = [norm(ptext(m.group(0))) for m in heads
+            if not set(re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', m.group(0))) - {"000000"}]
+    if lost:
+        out.append(f"colour   : FAIL - package heading(s) {lost} lost the template's colour (issue #58)")
+        ok = False
+    elif heads:
+        out.append(f"colour   : {len(heads)} package heading(s) keep the template's colour")
     hl = len(re.findall(r"<w:highlight ", xml))
     shd = sum(len(re.findall(r"<w:shd ", m.group(0))) for m in re.finditer(r"<w:rPr>.*?</w:rPr>", xml, re.S))
     if hl or shd:
         out.append(f"colour   : FAIL - {hl} highlight(s), {shd} run shading(s) (sheet row 13)")
         ok = False
     if ok:
-        out.append("colour   : all black, no highlight, no shading")
+        out.append("colour   : everything else black, no highlight, no shading")
     text = " ".join(run_text(m.group(0)) for m in RUN_RE.finditer(xml)).lower()
     notes = [n for n in EDITOR_NOTES if n.lower() in text]
     if notes:
@@ -172,7 +195,37 @@ def check_anchors(measure, out):
     return ok
 
 
-SIG_LABELS = ("Name of Owner 1:", "Name of Owner 2:", "Builders Representative:")
+def check_section18(measure, out):
+    """Issue #57: one blank line between the NBN wording and "18. REGIONAL REGULATIONS",
+    and the heading on the same page as its label (never stranded at a page foot)."""
+    s = measure.get("section18")
+    if not s:
+        out.append("section 18: not measured (no heading or NBN wording found)")
+        return True
+    # one body-text line (Segoe UI Light 11). Not the layout pass's blank-paragraph height:
+    # two wordings one blank line apart measure ~27 pt top to top in these blanks.
+    line = TEXT_LINE_PT
+    problems = []
+    if s.get("label_page") and s["heading_page"] < s["label_page"]:
+        problems.append(f"the heading is stranded at the foot of page {s['heading_page']}, "
+                        f"its label starts page {s['label_page']}")
+    gap = None
+    if s.get("note_page"):
+        if s["heading_page"] == s["note_page"]:
+            gap = (s["heading_top"] - s["note_last_top"]) / line - 1
+            if not 0.5 <= gap <= 1.6:
+                problems.append(f"{gap:.1f} blank line(s) between the NBN wording and the heading, want one")
+        elif s["heading_page"] > s["note_page"]:
+            room = float(measure.get("page_top") or 0) + float(measure.get("usable") or 0) - s["note_last_top"]
+            if room > 4 * line:
+                problems.append(f"the heading starts page {s['heading_page']} although {room / line:.0f} lines "
+                                f"are free below the NBN wording on page {s['note_page']}")
+    if problems:
+        out.append("section 18: FAIL - " + "; ".join(problems) + " (issue #57)")
+        return False
+    out.append("section 18: " + (f"{gap:.1f} blank line below the NBN wording" if gap is not None
+                                 else "heading starts a new page") + ", heading on its label's page")
+    return True
 
 
 def check_signature_lines(docx, out):
@@ -191,7 +244,14 @@ def check_signature_lines(docx, out):
         runs = [r.group(0) for r in RUN_RE.finditer(p)]
         text = "".join(rt(r) for r in runs)
         label = next((l for l in SIG_LABELS if text.startswith(l)), None)
-        if not label or "Date:" not in text:
+        if "Date:" not in text:
+            continue
+        if not label:
+            # any other "Label: ... Date:" line would put its Date: off the shared x (issue #56:
+            # the Owners Witness Name line was left out and its Date: sat 2 cm to the right)
+            other = re.match(r"\s*([A-Z][^:]{2,40}:)", text[:text.index("Date:")])
+            if other:
+                problems.append(f"{other.group(1)} line carries a Date: that is not on the signature tab stops")
             continue
         seen += 1
         if f'w:pos="{t_name}"' not in p or f'w:pos="{t_date}"' not in p:
@@ -227,10 +287,12 @@ def main():
 
     data = json.loads(Path(args.measure).read_text(encoding="utf-8"))
     measure = data.get("measure", data)
+    if "line_height" in data and "line_height" not in measure:
+        measure["line_height"] = data["line_height"]
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     out = []
     results = [check_layout(measure, plan, out), check_pages(measure, plan, out),
-               check_xml(args.docx, out), check_anchors(measure, out),
+               check_xml(args.docx, out), check_anchors(measure, out), check_section18(measure, out),
                check_signature_lines(args.docx, out)]
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"

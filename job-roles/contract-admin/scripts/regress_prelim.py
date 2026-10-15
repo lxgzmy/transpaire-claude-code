@@ -66,6 +66,17 @@ REF_JOBS = [("26032 lot 5085 (single, std fee)", "26032*", True,  True),
             # fill - give it its own paragraph). The structural conventions
             # are held by those two and the synthetic suites.
             ("26011 lot 209 (three clients)",    "26011*", False, False)]
+# Approved per-job amendments a person has since typed into a reference
+# agreement: folded back to the template wording before comparing, so the
+# reference keeps guarding everything else. 26032: clause 4, amended in the
+# job folder on 8 Oct 2026 as its request approved (issue #61).
+REF_AMENDMENTS = {"26032*": [(" with fabricated information", ""), ("any false statement", "any statement")]}
+
+
+def unamend(t, pattern):
+    for amended, original in REF_AMENDMENTS.get(pattern, []):
+        t = t.replace(amended, original)
+    return t
 
 RESI_LABEL = fp.RESI_LABEL
 CONS_LABEL = fp.CONS_LABEL
@@ -160,10 +171,10 @@ def main():
             failures += 1
             continue
         got = norm(text(out), plural, spaceless=True)
-        want = norm(text(real), plural, spaceless=True)
+        want = norm(unamend(text(real), pattern), plural, spaceless=True)
         got_s = ([(k, norm(t, plural)) for k, t in structure(out)]
                  if with_structure else None)
-        want_s = ([(k, norm(t, plural)) for k, t in structure(real)]
+        want_s = ([(k, norm(unamend(t, pattern), plural)) for k, t in structure(real)]
                   if with_structure else None)
         out.unlink(missing_ok=True)
         if got == want and got_s == want_s:
@@ -224,7 +235,8 @@ def main():
             ("standard fee kept when none supplied", "$30,000." in t),
             ("owner 1 signing line", "  Alpha Quentin ONE" in t),
             ("owner 2 signing line", "  Beta Rae TWO" in t),
-            ("builders rep signing line", "   Michael CRONK" in t),
+            ("builders rep signing line, same lead as the clients (#60)",
+             "  Michael CRONK" in t and "   Michael CRONK" not in t),
             ("signature names typed Calibri 12", xml.count(fp.SIG_RPR) == 3),
             ("sunset clause ¶ re-indented", ppr_ok(sun)),
             ("spacer above sunset ¶ re-indented",
