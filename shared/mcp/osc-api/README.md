@@ -243,7 +243,7 @@ It refuses, with the reason in plain words:
   endpoint that emails (`EmailWorkReleases`) or re-templates
   (`AddWorkflowTemplate`), `/Contract`, and the rest stay a person's job in OSC;
 - a record that is not tied to `job_id`: the job itself, its client, a
-  contact on the job or its client, or one of its activities;
+  contact on the job or its client, or one of its four intake activities (Initial Contact, Follow Up Initial Contact, Create Job within Databuild, Receive EOI Approval to Proceed from Marketer), checked by name because activity numbers differ between workflow templates;
 - a target that is missing, not a single GUID, or matches more than one
   record;
 - a field the record does not have, or a protected one: contract price

@@ -55,6 +55,9 @@ The workflow now includes the OSC setup in Word items 1–9. Follow the
 [OSC execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md)
 after reading the request and before the document steps below. It contains
 the field-to-API map, lookup rules, example multipart call and recovery protocol.
+OSC changes go to the person a stage at a time (15 Oct 2026), one confirmation
+each: stage 1 is Word 1–4 (client and job), stage 2 is Word 5–9 plus a new job
+folder, and stage 3 is activity 6 once the DataBuild entry is done.
 
 | Sequence | Action |
 |---|---|
@@ -109,8 +112,8 @@ permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
 and bounded by CD-7.6/7.7's per-document routing (8 Sep 2026): a document the
 job already holds refreshes only to the test folder, a document it does not
 hold yet saves into the job folder, and production saves never overwrite. What stays with a person, permanently: every
-outward-facing act — email, signature, DocuSign — plus approval of each OSC
-write through the integrated MCP procedure, resolving
+outward-facing act — email, signature, DocuSign — plus approval of every OSC
+write through the integrated MCP procedure (one confirmation per stage), resolving
 flagged fields, aux inclusions wording, and promoting test/amendment output
 into a job folder.
 
