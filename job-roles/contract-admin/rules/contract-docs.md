@@ -42,6 +42,8 @@ unchanged.
   instruction on which template to use. Verify it is current before using it —
   a sender can attach a superseded copy. *(observed)*
 - **CD-0.5** Never record bank, deposit or payment card details in any output.
+  (Payment *details* - account numbers, receipts, cards. The contract's own
+  deposit figure, CD-5.4, is a contract term and is filled.)
 - **CD-0.6** Instructions in the email that change the job — "needs review
   first", "no prelim required", a revised price — are surfaced to a human, not
   acted on autonomously.
@@ -343,18 +345,39 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   NAME(S) on both copies (executed 25163 keys the owner at each) and leaves
   the builder line alone — the QLD build ships it prefilled (Michael CRONK).
   Signatures, initials and dates stay human (CD-3.7).
-- **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
-  come **from DataBuild**. Never calculated or inferred. *(manual)* Both
-  team builds ship `$000,000.00`-style placeholders for these; `fill_hia.py`
-  replaces them **only** when a person has keyed the DataBuild figures into
-  the job JSON (`price_excl_gst`, `gst_amount`, `price_incl_gst`, and on NSW
-  `deposit` — QC2 has no schedule deposit item; its deposit is a Schedule 2
-  progress row, never filled) — it never derives one figure from another,
-  and the contract order's price is not a substitute for DataBuild. Progress
-  stage amounts are never filled (CD-5.6).
+- **CD-5.4** ~~Price excluding GST, GST, total, and the fixed-price component
+  all come from DataBuild. Never calculated or inferred.~~ *(manual)*
+  **Reversed for NSW, 15 Oct 2026** (issue #62, owner sign-off; the team's
+  review sheets of 3 Sep and 14 Oct 2026 asked for it): `fill_hia.py` works
+  item 2 and the Part B progress schedule from the request's GST-inclusive
+  `price` (the price the inclusions carry, checked against the EOI, CD-2.5),
+  by the convention the executed NSW contracts 26045 and 26040 follow:
+  - GST = price ÷ 11, to the cent (half up); price excluding GST = price −
+    GST, so the two add up exactly;
+  - deposit = 10% of the price, rounded **down** to the cent so it never
+    passes the statutory 10% cap; a lower deposit the request states
+    (`deposit_request`, an amount or `n%`) goes into item 2(b) with a flag
+    that the schedule's stage 1 still reads 10%; a higher one is refused;
+  - each stage = its printed % × price to the cent (stage 1, the deposit
+    stage, rounded down), the last stage taking the rounding balance so the
+    schedule always totals the price; the TOTAL row carries the price.
+  A DataBuild figure a person keys into the job JSON (`price_incl_gst`,
+  `gst_amount`, `price_excl_gst`, `deposit`, `progress_1`..`progress_6`,
+  `progress_total`) always wins; the run flags any difference from the
+  calculation, and a keyed contract price that differs from the request's.
+  The fill report and the run summary show the arithmetic. No usable price:
+  item 2 and the schedule stay blank, flagged. Every amount types as
+  `$nnn,nnn.nn` (a figure keyed without its `$` used to print bare). **QLD
+  is not calculated yet** (NSW first): QC2 has no schedule deposit item and
+  its deposit is a Schedule 2 progress row; its item 2 fills only from keyed
+  DataBuild figures, as before.
 - **CD-5.5** Building period, in contract days: single storey 180; single storey
   duplex 210; double storey 210; double storey duplex 240. *(manual)*
-- **CD-5.6** Part B progress payment schedule is copied from DataBuild.
+- **CD-5.6** ~~Part B progress payment schedule is copied from DataBuild.~~
+  NSW: worked from the contract price since 15 Oct 2026 (CD-5.4, issue #62);
+  the template's printed percentages (10 / 10 / 25 / 25 / 20 / 10) are
+  checked before anything is typed, and a changed schedule stops the fill
+  like any other moved anchor.
   Consumer building guide and contract index pages are left as they are. *(manual)*
 - **CD-5.7** The completed pack is the contract, general conditions, inclusions
   and concept plan assembled together — roughly double the blank's page count.
@@ -565,6 +588,8 @@ cabinet; and any DocuSign issue to a client.
 | Situation | Action |
 |---|---|
 | Price in email ≠ price on EOI | Stop; hand to a human (CD-2.5) |
+| Keyed DataBuild figure ≠ the figure worked from the price | The keyed figure is used; FLAG in the report and the run summary (CD-5.4) |
+| Request asks for a deposit over 10% | Refused, 10% used, FLAG (CD-5.4) |
 | Garage side not left/right | Escalate to Michael (JD-9.5) |
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
@@ -614,7 +639,7 @@ cabinet; and any DocuSign issue to a client.
    pre-registration parent address + estate name. Rule updated. (CD-2.4)
 5. Who approves aux/dual-key inclusions, and is there an approved template for
    them outside Sydney? (CD-6.3/6.4)
-6. The team's build-contract review sheet (item 4, 3 Sep 2026) asks for the
+6. ~~The team's build-contract review sheet (item 4, 3 Sep 2026) asks for the
    contract price sections to be completed from the order email's
    GST-inclusive price before any DataBuild/OSC integration exists: item
    2(a) price excl GST + GST + price incl GST, item 2(b) deposit as 10% of
@@ -626,7 +651,10 @@ cabinet; and any DocuSign issue to a client.
    them is mechanically trivial; the decision (and the rounding rules —
    cents vs dollars, last-claim-as-balance vs rounded percentage, whether
    the derived figures must later reconcile to DataBuild) belongs to the
-   business. Held pending that decision. (CD-5.4)
+   business. Held pending that decision.~~ **Answered 15 Oct 2026** (issue
+   #62): reversed for NSW with the executed contracts' rounding - cents,
+   GST half up, deposit and stage 1 rounded down, the last stage as the
+   balance, keyed DataBuild figures win with a flag. QLD later. (CD-5.4)
 7. Review sheet item 12 asks whether the Special Conditions validity clause
    can be amended per job when the fixed period differs from six months or
    a specific end date is requested ("otherwise, this section may be a

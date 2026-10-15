@@ -30,8 +30,10 @@ DataBuild touchpoint stays with a person:
 - **New-job handoff** — an email to the DataBuild administrator, drafted for
   human review (JD-6); the price double-check when the confirmation returns is
   manual too (JD-6.2).
-- **Contract figures** — a person keys the DataBuild figures into the job JSON
-  before a fill; the fill scripts never compute or fetch them (CD-5.4).
+- **Contract figures** — NSW item 2 and the progress schedule are worked
+  from the request price by a fixed rule (CD-5.4, issue #62, 15 Oct 2026);
+  a DataBuild figure a person keys into the job JSON wins, flagged when it
+  differs. QLD figures are keyed only. Nothing is fetched from DataBuild.
 
 DataBuild is also retiring in favour of Estimator Companion, so no automation
 against it will be built. Background on what the tool is:

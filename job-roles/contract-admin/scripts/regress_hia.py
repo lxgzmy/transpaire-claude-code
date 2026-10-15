@@ -11,7 +11,11 @@ region it asserts that
   2. a fill writes a docx whose document.xml still parses,
   3. every synthetic value actually appears in the filled text,
   4. every replaced prefill/placeholder is gone (the $25.00 LD figure, and
-     the $000,000.00-style price placeholders when figures are supplied), and
+     the $000,000.00-style price placeholders when figures are supplied),
+  4a. NSW: the Progress Payments Schedule rows carry the stage amounts worked
+     from the contract price, keyed DataBuild figures win and a difference is
+     flagged; QLD keeps its placeholders when only a price is given (issue
+     #62 - NSW first), and
   5. in both regions: each cell-mode value sits in the empty value cell
      beside its label (asserted row-by-row on the filled tables - the
      page-spill fix depends on values never landing in the narrow label
@@ -63,12 +67,17 @@ SYNTH = {
             "guarantor_address": "9 Guarantee Grove",
             "guarantor_suburb": "EXAMPLETON", "guarantor_state": "NSW",
             "guarantor_postcode": "2997",
-            # CD-5.4: figures only ever arrive pre-keyed from DataBuild
+            # keyed DataBuild figures win over the calculation (CD-5.4, #62)
             "price_excl_gst": "$636,363.64", "gst_amount": "$63,636.36",
             "price_incl_gst": "$700,000.00", "deposit": "$70,000.00",
         },
         # prefills/placeholders that must NOT survive the fill
         "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
+        # the stage amounts worked from the keyed contract price
+        "progress": [("10%", "$70,000.00"), ("10%", "$70,000.00"), ("25%", "$175,000.00"),
+                     ("25%", "$175,000.00"), ("20%", "$140,000.00"), ("10%", "$70,000.00"),
+                     ("100%", "$700,000.00")],
+        "no_flags": ["FLAG:"],
         # v1.1's structural contract: cell-mode values land in the value
         # cell beside their label, never inside the narrow label cell (the
         # 28 Aug review's wrap-crush findings); the joined contact strings
@@ -144,6 +153,46 @@ SYNTH = {
         # (counted on space-stripped text: Word may split a code across runs)
         "anchors": {"/bs1/\\builder_sig": 1, "/i1/\\signer1_sig": 1, "/na/": 4},
     },
+    # issue #62: NSW item 2 and the schedule from the request price alone
+    "NSW price only": {
+        "region": "NSW",
+        "template": STAGED / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "price": "456,789.00", "liq_damages": "77"},
+        # as worked out; the liq damages keyed without its $ types with it
+        "expect": ["$415,262.73", "$41,526.27", "$456,789.00", "$45,678.90", "$77.00"],
+        "gone": ["$25.00", "$000,000.00", "$00,00.00", "$00,000.00"],
+        "progress": [("10%", "$45,678.90"), ("10%", "$45,678.90"), ("25%", "$114,197.25"),
+                     ("25%", "$114,197.25"), ("20%", "$91,357.80"), ("10%", "$45,678.90"),
+                     ("100%", "$456,789.00")],
+        "flags": ["contract figures (CD-5.4, issue #62): from the request price $456,789.00"],
+        "no_flags": ["FLAG:"],
+    },
+    # a keyed DataBuild price that differs from the request price wins, flagged
+    "NSW DataBuild differs": {
+        "region": "NSW",
+        "template": STAGED / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "price": "500,000.00", "price_incl_gst": "$510,000.00"},
+        "expect": ["$510,000.00", "$46,363.64", "$463,636.36", "$51,000.00"],
+        "gone": ["$000,000.00", "$00,00.00", "$00,000.00"],
+        "progress": [("10%", "$51,000.00"), ("10%", "$51,000.00"), ("25%", "$127,500.00"),
+                     ("25%", "$127,500.00"), ("20%", "$102,000.00"), ("10%", "$51,000.00"),
+                     ("100%", "$510,000.00")],
+        "flags": ["FLAG: the keyed DataBuild contract price $510,000.00 differs from the request "
+                  "price $500,000.00 - the DataBuild figure is used"],
+    },
+    # QLD is not calculated yet (NSW first): a price alone leaves item 2 blank
+    "QLD price only": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "price": "456,789.00"},
+        "expect": [],
+        "gone": [],
+        "kept": ["$ 000,000.00"],
+        "no_flags": ["contract figures"],
+    },
 }
 
 
@@ -170,14 +219,16 @@ def table_rows(path):
     return rows
 
 
-def run(region, spec, tmp):
+def run(name, spec, tmp):
     template, values = spec["template"], spec["values"]
+    region = spec.get("region", name)
     if not template.exists():
-        print(f"  {region}: SKIP - no staged template at {template}")
+        print(f"  {name}: SKIP - no staged template at {template}")
         return None
-    job = Path(tmp) / f"job_{region}.json"
+    slug = re.sub(r"\W+", "_", name)
+    job = Path(tmp) / f"job_{slug}.json"
     job.write_text(json.dumps(values), encoding="utf-8")
-    out = Path(tmp) / f"filled_{region}.docx"
+    out = Path(tmp) / f"filled_{slug}.docx"
 
     check = subprocess.run([sys.executable, str(HERE / "fill_hia.py"), "--template",
                             str(template), "--job", str(job), "--check",
@@ -196,8 +247,11 @@ def run(region, spec, tmp):
         return False
 
     text = docx_text(out)
-    missing = [v for v in values.values()
-               if v and re.sub(" +", " ", v) not in text]
+    # each value as typed, or the case's own list of strings the fill must
+    # produce (an amount types as "$nnn,nnn.nn"; the bare request price is
+    # not itself printed in the build contract)
+    expect = spec.get("expect", [v for k, v in values.items() if v and k != "price"])
+    missing = [v for v in expect if re.sub(" +", " ", v) not in text]
     if missing:
         print(f"  {region}: FAIL - value(s) not in the filled text: {missing}")
         return False
@@ -205,6 +259,22 @@ def run(region, spec, tmp):
     if survived:
         print(f"  {region}: FAIL - prefill(s)/placeholder(s) survived a fill that "
               f"should have replaced them: {survived}")
+        return False
+    lost = [k for k in spec.get("kept", []) if k not in text]
+    if lost:
+        print(f"  {name}: FAIL - placeholder(s) that must stay were filled: {lost}")
+        return False
+    if "progress" in spec:
+        rows = [(r[2], r[3]) for r in table_rows(out)
+                if len(r) == 4 and re.fullmatch(r"\d+%", r[2])]
+        if rows != spec["progress"]:
+            print(f"  {name}: FAIL - progress schedule rows {rows}, expected {spec['progress']}")
+            return False
+    report = check.stdout + fill.stdout
+    no_flag = [f for f in spec.get("flags", []) if f not in report]
+    bad_flag = [f for f in spec.get("no_flags", []) if f in report]
+    if no_flag or bad_flag:
+        print(f"  {name}: FAIL - report lines missing {no_flag} / unexpected {bad_flag}\n{fill.stdout}")
         return False
     want_rows = spec.get("cell_rows", [])
     if want_rows:
@@ -223,8 +293,9 @@ def run(region, spec, tmp):
         return False
     extra = (f", {len(want_rows)} cell rows + {len(spec.get('anchors', {}))} "
              f"anchor codes verified" if want_rows else "")
-    print(f"  {region}: PASS ({len([v for v in values.values() if v])} values filled, "
-          f"XML valid, {len(spec['gone'])} prefill(s) replaced{extra})")
+    print(f"  {name}: PASS ({len(expect)} values filled, XML valid, "
+          f"{len(spec['gone'])} prefill(s) replaced{extra}"
+          + (", progress schedule verified" if "progress" in spec else "") + ")")
     return True
 
 
@@ -240,9 +311,44 @@ def legacy_key_split():
     return ok
 
 
+def contract_figures_unit():
+    """Issue #62 arithmetic without a template: the rounding balance, the
+    deposit cap, a lower requested deposit, an unusable price, QLD untouched."""
+    sys.path.insert(0, str(HERE))
+    import fill_hia
+    fails = []
+
+    def figs(values, region="NSW"):
+        lines, flags = fill_hia.contract_figures(values, region)
+        return values, lines, flags
+
+    v, _, f = figs({"price": "456,789.15"})
+    stages = [v[f"progress_{n}"] for n in range(1, 7)]
+    if (v["gst_amount"], v["price_excl_gst"], v["deposit"]) != ("$41,526.29", "$415,262.86", "$45,678.91"):
+        fails.append(f"odd-cent price item 2: {v['gst_amount']} {v['price_excl_gst']} {v['deposit']}")
+    if stages != ["$45,678.91", "$45,678.92", "$114,197.29", "$114,197.29", "$91,357.83", "$45,678.91"]:
+        fails.append(f"odd-cent price stages: {stages}")
+    if sum(fill_hia.parse_money(s) for s in stages) != fill_hia.parse_money("456,789.15") or f:
+        fails.append(f"odd-cent price: stages do not total the price, or flags {f}")
+    v, _, f = figs({"price": "514,700.00", "deposit_request": "5%"})
+    if v["deposit"] != "$25,735.00" or v["progress_1"] != "$51,470.00" or not any("below 10%" in x for x in f):
+        fails.append(f"lower deposit: {v['deposit']} / stage 1 {v['progress_1']} / {f}")
+    v, _, f = figs({"price": "514,700.00", "deposit_request": "$60,000"})
+    if v["deposit"] != "$51,470.00" or not any("over the 10% cap" in x for x in f):
+        fails.append(f"deposit over the cap: {v['deposit']} / {f}")
+    v, lines, f = figs({"price": "TBC"})
+    if lines or v.get("deposit") or not any("left blank for a person" in x for x in f):
+        fails.append(f"unusable price: {lines} {v} {f}")
+    v, lines, f = figs({"price": "514,700.00", "liq_damages": "100.00"}, "QLD")
+    if lines or f or "gst_amount" in v or v["liq_damages"] != "$100.00":
+        fails.append(f"QLD: {lines} {f} {v}")
+    print("  contract figures (#62): " + ("PASS" if not fails else "FAIL - " + "; ".join(fails)))
+    return not fails
+
+
 def main():
     print("regress_hia: fill_hia.py vs the staged HIA templates (synthetic values)")
-    results = [legacy_key_split()]
+    results = [legacy_key_split(), contract_figures_unit()]
     with tempfile.TemporaryDirectory(dir=STAGED.parent if STAGED.parent.is_dir() else None) as tmp:
         for region, spec in SYNTH.items():
             results.append(run(region, spec, tmp))

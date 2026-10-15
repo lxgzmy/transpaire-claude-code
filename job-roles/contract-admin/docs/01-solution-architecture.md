@@ -147,6 +147,6 @@ when DataBuild confirmed no API access — there is nothing to validate.)*
 ## Key Risks
 
 - OSC automation surface unproven — UI automation of a legacy VB app can be brittle (window titles, modal dialogs, grid controls); mitigate with pywinauto/UIA (not pure pixel clicking), per-step verification screenshots, and resumable state.
-- DataBuild figures reach the workflow only through a person keying them (CD-5.4) — a typo there flows into the contract data sheet; the JD-6.2 price double-check is the control.
+- DataBuild figures reach the workflow only through a person keying them (CD-5.4) — a typo there flows into the contract data sheet; the JD-6.2 price double-check is the control. Since 15 Oct 2026 the NSW item 2 and progress figures are worked from the request price (issue #62), and a keyed figure that differs from them is flagged, which also catches most typos.
 - On-prem compliance — orchestrator, MCP servers and all data stay on the client's server; only Graph/DocuSign cloud APIs are called for their own data.
 - Claude Code on Windows Server 2022 runs natively; UI automation requires an unlocked interactive session (console session or persistent RDP with disconnect-keeps-session policy) — needs IT setup. See [02-windows-server-setup.md](02-windows-server-setup.md).
