@@ -12,6 +12,12 @@ region it asserts that
   3. every synthetic value actually appears in the filled text,
   4. every replaced prefill/placeholder is gone (the $25.00 LD figure, and
      the $000,000.00-style price placeholders when figures are supplied),
+  4b. approved amendments (CD-10, issue #61): the interest rate changes and
+     NSW Clause 14 is struck through from heading to the next clause (its
+     contents line and Clause 15 untouched) when the request line carries
+     its own approval and is in the request text; a wrong old value, a wrong
+     title, no marker or a line the request does not carry is refused and
+     the template wording stays,
   4a. NSW: the Progress Payments Schedule rows carry the stage amounts worked
      from the contract price, keyed DataBuild figures win and a difference is
      flagged; QLD keeps its placeholders when only a price is given (issue
@@ -182,6 +188,65 @@ SYNTH = {
         "flags": ["FLAG: the keyed DataBuild contract price $510,000.00 differs from the request "
                   "price $500,000.00 - the DataBuild figure is used"],
     },
+    # issue #61: approved amendments - the interest rate and Clause 14 struck
+    "NSW amendments": {
+        "region": "NSW",
+        "template": STAGED / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "amendments": [
+                       {"id": "A1", "kind": "schedule", "field": "interest_rate", "from": "15%", "to": "12%",
+                        "request_line": "Item 4. Change late payment interest rate from 15% to 12% - Approved"},
+                       {"id": "A2", "kind": "strike_clause", "clause": 14, "title": "Hidden Site Conditions",
+                        "request_line": "Item 3. Delete Clause 14. Hidden Site Conditions \u2013 Approved by Test"}],
+                   "amendments_for_person": ["Item 6. Add a special condition - a person writes it"]},
+        "request": ("Item 3. Delete Clause 14. Hidden Site Conditions \u2013 Approved by Test\n"
+                    "Item 4. Change late payment interest rate from 15% to 12% - Approved \n"),
+        "expect": ["12%"], "gone": ["15%"],
+        "struck": 14,
+        "flags": ["AMENDMENT A1 APPLIED: interest_rate: 15% -> 12%",
+                  "AMENDMENT A2 APPLIED: Clause 14 struck through",
+                  "AMENDMENT WITH A PERSON: Item 6. Add a special condition"],
+    },
+    # each one refused: the wrong old rate, the wrong clause title, no marker,
+    # and a marked line the request does not carry - the template stays
+    "NSW amendments refused": {
+        "region": "NSW",
+        "template": STAGED / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "amendments": [
+                       {"id": "B1", "kind": "schedule", "field": "interest_rate", "from": "18%", "to": "12%",
+                        "request_line": "Change late payment interest rate from 18% to 12% - Approved"},
+                       {"id": "B2", "kind": "strike_clause", "clause": 14, "title": "Other Costs",
+                        "request_line": "Delete Clause 14. Other Costs - Approved"},
+                       {"id": "B3", "kind": "strike_clause", "clause": 15,
+                        "request_line": "Delete Clause 15 please"},
+                       {"id": "B4", "kind": "schedule", "field": "interest_rate", "from": "15%", "to": "10%",
+                        "request_line": "Change interest to 10% - Approved by Test"}]},
+        "request": ("Change late payment interest rate from 18% to 12% - Approved\n"
+                    "Delete Clause 14. Other Costs - Approved\nDelete Clause 15 please\n"),
+        "expect": ["15%"], "gone": ["12%"],
+        "struck": None,
+        "flags": ["AMENDMENT B1 REFUSED: the contract reads 15%; the request changes it from 18%",
+                  "AMENDMENT B2 REFUSED: Clause 14 is",
+                  "AMENDMENT B3 REFUSED: the request line carries no approval marker of its own",
+                  "AMENDMENT B4 REFUSED: the request line is not in the request text word for word"],
+    },
+    # QLD: the interest rate changes; a clause strike is not set up there
+    "QLD amendments": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "amendments": [
+                       {"id": "Q1", "kind": "schedule", "field": "interest_rate", "from": "15%", "to": "12%",
+                        "request_line": "Change the interest rate from 15% to 12% - Approved"},
+                       {"id": "Q2", "kind": "strike_clause", "clause": 14,
+                        "request_line": "Delete Clause 14 - Approved"}]},
+        "request": "Change the interest rate from 15% to 12% - Approved\nDelete Clause 14 - Approved\n",
+        "expect": ["12%"], "gone": ["15%"],
+        "struck": None,
+        "flags": ["AMENDMENT Q1 APPLIED: interest_rate: 15% -> 12%",
+                  "AMENDMENT Q2 REFUSED: striking a clause is not set up for the QLD contract yet"],
+    },
     # QLD is not calculated yet (NSW first): a price alone leaves item 2 blank
     "QLD price only": {
         "region": "QLD",
@@ -228,6 +293,11 @@ def run(name, spec, tmp):
     slug = re.sub(r"\W+", "_", name)
     job = Path(tmp) / f"job_{slug}.json"
     job.write_text(json.dumps(values), encoding="utf-8")
+    # the request text the run saves beside the job JSON (amendment checks)
+    email = Path(tmp) / "email_original.txt"
+    email.unlink(missing_ok=True)
+    if "request" in spec:
+        email.write_text(spec["request"], encoding="utf-8")
     out = Path(tmp) / f"filled_{slug}.docx"
 
     check = subprocess.run([sys.executable, str(HERE / "fill_hia.py"), "--template",
@@ -270,6 +340,11 @@ def run(name, spec, tmp):
         if rows != spec["progress"]:
             print(f"  {name}: FAIL - progress schedule rows {rows}, expected {spec['progress']}")
             return False
+    if "struck" in spec:
+        why = struck_check(out, spec["struck"])
+        if why:
+            print(f"  {name}: FAIL - {why}")
+            return False
     report = check.stdout + fill.stdout
     no_flag = [f for f in spec.get("flags", []) if f not in report]
     bad_flag = [f for f in spec.get("no_flags", []) if f in report]
@@ -297,6 +372,29 @@ def run(name, spec, tmp):
           f"{len(spec['gone'])} prefill(s) replaced{extra}"
           + (", progress schedule verified" if "progress" in spec else "") + ")")
     return True
+
+
+def struck_check(path, n):
+    """"" when Clause n is struck from its heading to the next clause heading
+    and nothing else in the document is (n None: nothing struck at all)."""
+    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+    paras = [(m.start(), m.group(0)) for m in re.finditer(r"<w:p\b[^>]*>(?:(?!</w:p>|<w:p\b).)*?</w:p>", xml, re.S)]
+    heads = [s for s, p in paras if '<w:pStyle w:val="Heading1"/>' in p]
+    if n is None:
+        return "" if "<w:strike" not in xml else "a strike-through where no amendment applied"
+    def text(p):
+        return "".join(re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", p, re.S))
+    start = next((s for s, p in paras if s in heads and re.match(rf"\s*Clause\s+{n}\.", text(p))), None)
+    if start is None:
+        return f"Clause {n} heading not found"
+    end = min(h for h in heads if h > start)
+    printing = [r for r in re.findall(r"<w:r\b[^>]*>.*?</w:r>", xml[start:end], re.S) if re.search(r"<w:t[ >]", r)]
+    if not printing or not all("<w:strike/>" in r for r in printing):
+        return f"Clause {n}: {sum('<w:strike/>' not in r for r in printing)} printing run(s) not struck"
+    outside = xml[:start].count("<w:strike") + xml[end:].count("<w:strike")
+    if outside:
+        return f"{outside} strike-through(s) outside Clause {n} (contents line or Clause {n + 1} touched)"
+    return ""
 
 
 def legacy_key_split():

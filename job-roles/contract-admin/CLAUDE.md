@@ -37,7 +37,9 @@ builder). Claude assists by reading requests, applying rules, and producing
    item 2 and the progress schedule are worked from the request price since
    15 Oct 2026, keyed DataBuild figures winning with a flag (CD-5.4, issue
    #62); QLD figures fill only when a person keys them; legal statements are
-   never filled). **Sydney
+   never filled, except an amendment the request approves on its own line in
+   the three kinds of CD-10 - the interest rate, a struck NSW clause, prelim
+   clause words - issue #61). **Sydney
    inclusions content is edited by the run since 10 Sep 2026** (CD-9, from
    the NSW inclusions feedback sheet 9.9 / issue #35; the AUXILIARY blanks'
    MAIN and AUX DWELLING sections too since 15 Oct 2026, issue #63): section 18 area,

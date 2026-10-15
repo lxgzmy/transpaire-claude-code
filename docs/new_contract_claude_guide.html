@@ -485,9 +485,9 @@
               already has the document, the new version lands in the testing folder
               (rule 3). Check it, move the old one into <code>SS</code>, copy the new
               one across.</td></tr>
-      <tr><td>QLD progress payment schedule, special conditions, auxiliary dwelling
-              inclusions text outside Sydney, a building period different from the
-              template</td>
+      <tr><td>QLD progress payment schedule, special conditions, a contract change the
+              request did not approve on its own line, auxiliary dwelling inclusions
+              text outside Sydney, a building period different from the template</td>
           <td><b>Edit the <code>.docx</code> in Word yourself.</b> Claude will never
               write these. Type them in, then save a fresh PDF (File, Save As, PDF)
               so the Word file and the PDF stay together under the same names. Move
@@ -509,7 +509,14 @@
         fills the company&rsquo;s template or it stops. The one thing it writes per
         job is the Sydney UPGRADED INCLUSIONS section, and there the words come from
         the Standard Variation spreadsheet; it shows you the row it picked and how
-        sure it is, and anything it could not match is marked for your approval.</li>
+        sure it is, and anything it could not match is marked for your approval.
+        <b>Approved changes (from 15 October 2026):</b> when the request marks a
+        change &ldquo;Approved&rdquo; on the same line, Claude makes three kinds
+        itself: a new late-payment interest rate, striking a whole NSW contract
+        clause, and adding or removing words in a preliminary agreement clause the
+        request quotes. The report lists each one as applied or refused, with the
+        request line. Anything else the request asks to change is listed for you
+        to do.</li>
     <li><b>Never</b> guess a number that goes in a contract. Price, house size and
         garage side are either sourced or flagged for you. The preliminary
         agreement fee is the standard amount unless the request names another.</li>
@@ -653,6 +660,12 @@
           <td>Tell Claude which dwelling the line belongs to and ask it to run the job
               again. An upgrade with no dwelling marked goes under MAIN DWELLING and
               the report flags it.</td></tr>
+      <tr><td>The report says an amendment was REFUSED</td>
+          <td>Claude could not match it exactly: the request line had no
+              &ldquo;Approved&rdquo; of its own, the contract did not read what the
+              request said it reads, or the new wording was more than added or
+              removed words. The document keeps the template wording. Make the change
+              in Word yourself, or fix the request and run the job again.</td></tr>
       <tr><td>An upgrade line says &ldquo;custom wording, a person approves it&rdquo;</td>
           <td>The request did not match any row in the Standard Variation spreadsheet,
               so Claude drafted the line and marked it low confidence. Read it and
