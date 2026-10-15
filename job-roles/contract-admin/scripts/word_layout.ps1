@@ -156,7 +156,10 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 $sb = [double]$first.SpaceBefore
                 $prev = $first.Previous(1)
                 if ($sb -gt 0.05) { $cut = [math]::Min($sb, -$delta); $first.SpaceBefore = $sb - $cut; $actions += ("left space -{0:n1}" -f $cut) }
-                elseif ($prev -ne $null -and (Is-Blank $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
+                elseif ($prev -ne $null -and (Is-Blank $prev) -and (Has-Blank-Before $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
+                # never the last blank between this label and the text above it: the two would be
+                # glued into one block (Block-First), and from then on levelling one moves the other -
+                # 15 Oct 2026, "Hinges & Drawer Runners" pushed a line off by the "Tiles" step below it
                 else { Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1' }
             }
             # InsertParagraphBefore grows the range to include the new blank: re-point at the text paragraph
@@ -224,6 +227,13 @@ function Insert-Blank-Before($para) {
 }
 
 function Is-Blank($para) { return ((Clean $para.Range.Text).Trim().Length -eq 0) }
+
+function Has-Blank-Before($para) {
+    # true when the paragraph above $para is blank too (or there is none), so deleting $para
+    # still leaves a blank between the label below it and the text above
+    $pp = $para.Previous(1)
+    return ($pp -eq $null -or (Is-Blank $pp))
+}
 
 function Block-First($rng) {
     # the label and any heading glued directly above it move together
