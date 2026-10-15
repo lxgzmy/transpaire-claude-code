@@ -39,7 +39,7 @@ KINDS = {"schedule": "build_contract", "strike_clause": "build_contract", "preli
 _DASHES = dict.fromkeys(map(ord, "‐‑‒–—―−"), "-")
 _QUOTES = {ord("‘"): "'", ord("’"): "'", ord("“"): '"', ord("”"): '"',
            ord(" "): " "}
-# the marker closes the line: "... - Approved", "... - approved by Tony."
+# the marker closes the line: "... - Approved", "... - approved by <name>."
 APPROVAL_RE = re.compile(r"\bapproved(?:\s+by\s+[A-Za-z][\w.' -]*?)?[\s.)\]]*$", re.I)
 # ...and is not a request for approval
 NEGATION_RE = re.compile(r"\b(?:not|to be|pending|awaiting|subject to|for|needs?|requires?|seeking)"
