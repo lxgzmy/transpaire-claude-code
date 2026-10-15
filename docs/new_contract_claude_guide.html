@@ -409,10 +409,13 @@
      and its PDF, saved per the four rules above, plus a list of exactly what changed
      against the blank template so you can see it touched the fields and nothing
      else.</p>
-  <p class="tip"><b>Signatures, dates, initials and money are left empty.</b> Always.
-     Signing is yours and Michael&rsquo;s. Price excluding GST, GST, contract price
-     and deposit come from DataBuild and are typed only when you give Claude the
-     exact figures. The progress payment schedule is never filled by Claude.</p>
+  <p class="tip"><b>Signatures, dates and initials are left empty.</b> Always.
+     Signing is yours and Michael&rsquo;s. <b>NSW build contract money (from 15
+     October 2026):</b> Claude works out the price excluding GST, the GST, the
+     deposit and every progress payment from the contract price, the same way the
+     signed contracts do, and shows the sums in its report. Check them. If DataBuild
+     has different figures, give them to Claude and they are used instead. On QLD
+     contracts the money is still typed only when you give Claude the figures.</p>
 </div>
 
 <div class="card" style="--c:var(--amber)">
@@ -448,8 +451,9 @@
         one; against the EOI form when there is not (the report flags &ldquo;no ID
         in the request&rdquo;). If it says the EOI was typed into the chat rather
         than read, check those names twice.</li>
-    <li><b>Key the money from DataBuild.</b> Contract price, GST, deposit and the
-        progress payment schedule are never filled automatically.</li>
+    <li><b>Check the money.</b> On an NSW contract, read the contract figures in
+        the report (GST, deposit, each progress payment) against DataBuild. On a QLD
+        contract, give Claude the DataBuild figures or type them in.</li>
     <li><b>Finish the OSC job.</b> Do the DataBuild entry yourself and tell Claude
         it is done, so activity 6 gets ticked. Type in any Client Notes the report
         lists.</li>
@@ -472,8 +476,8 @@
     <thead><tr><th>What you have</th><th>What to do</th></tr></thead>
     <tbody>
       <tr><td>Owner contacts, DP number, land address, guarantor, house size, garage
-              side, and the DataBuild figures (price excluding GST, GST, contract
-              price, deposit)</td>
+              side, and any DataBuild figure that differs from Claude&rsquo;s (on QLD,
+              the DataBuild figures themselves)</td>
           <td><b>Tell Claude the values in the same chat and ask it to run the job
               again.</b> Say them plainly: &ldquo;Lot 142: owner mobile is &hellip;,
               second owner email is &hellip;, DP number is &hellip;, garage side is
@@ -481,7 +485,7 @@
               already has the document, the new version lands in the testing folder
               (rule 3). Check it, move the old one into <code>SS</code>, copy the new
               one across.</td></tr>
-      <tr><td>Progress payment schedule, special conditions, auxiliary dwelling
+      <tr><td>QLD progress payment schedule, special conditions, auxiliary dwelling
               inclusions text outside Sydney, a building period different from the
               template</td>
           <td><b>Edit the <code>.docx</code> in Word yourself.</b> Claude will never
@@ -554,8 +558,9 @@
               page, the owner block, the land details and the signature names on the
               team&rsquo;s Word version of the licensed NSW or QLD contract, and
               exports the PDF (45 pages for NSW, 37 for QLD). The report names the
-              template it used. Prices, GST, deposit and progress payments always stay
-              yours; they come from DataBuild. Read it against the licensed HIA PDF
+              template it used. On NSW it also works out the GST, deposit and
+              progress payments from the contract price and shows the sums; on QLD the
+              money stays yours, from DataBuild. Read it against the licensed HIA PDF
               before it is issued.</td></tr>
       <tr><td>Plans, general conditions, colour options</td>
           <td>Not produced. Listed as a checklist so nothing is forgotten from the
@@ -635,7 +640,9 @@
           <td>Working as intended. It is read off the site plan drawing and Claude will
               not guess it. Fill it in yourself, or ask Michael.</td></tr>
       <tr><td>The build contract has no prices in it</td>
-          <td>Working as intended. Give Claude the DataBuild figures and re-run, or type
+          <td>On NSW, the request had no contract price Claude could use, and the report
+              says so: give Claude the price and ask it to run the job again. On QLD
+              this is intended: give Claude the DataBuild figures and re-run, or type
               them into the Word file yourself (see &ldquo;Filling in the blanks&rdquo;).</td></tr>
       <tr><td>It says a file is &ldquo;open in another program&rdquo;</td>
           <td>You (or someone) have the old PDF open. Close it and tell Claude to
