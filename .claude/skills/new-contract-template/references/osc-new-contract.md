@@ -234,7 +234,13 @@ complete.
 
 Read `/api/JobActivities` with `$filter: "jobID eq <uuid>"`. Resolve sequence
 **and description** to the returned `jobActivityID`; sequence numbers are not
-IDs and may change between templates. The expected activities are:
+IDs and may change between templates. They do change: on three production
+jobs on another workflow template (15 Oct 2026), activity 1 is "Create Job
+within Databuild", 2 is "Supervisor - File Break Up & Check of Purchase
+Orders" or "m) Fixout Complete - OK to Claim", and 6 and 11 are site and
+completion steps. The gate therefore accepts a completion, an answer or a
+message only on the four intake activities **by name** (the `a)` prefix
+ignored) and refuses any other activity. The expected activities are:
 
 Word item 8 (and `JD-4.1`) marks activities **1, 2 and 6** complete at intake and
 ticks activity 6's questions. The contract request email is the evidence for 1
@@ -247,7 +253,7 @@ person does in issue #34's step 5, after this OSC stage.
 |---|---|---|
 | 1 | Initial Contact | Complete, `completionDate` = the day of entry (the manual's double-click sets today). |
 | 2 | Follow Up Initial Contact | Complete, same date. |
-| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5). Then answer its questions: the DataBuild ones as completed on that confirmation, "Create Job File within Z:\ Drive, Projects Folder" as completed when the folder exists (step 3). Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5); that is stage 3, one confirmation. Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 3 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. The gate adds a warning to this completion: yes only once the job is in DataBuild. Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
 | 11 | Receive EOI Approval to Proceed from Marketer (may carry `a)` prefix) | Attach the request email (below), then complete: the request email *is* the marketer's approval to proceed (`JD-5.2`). Answer any questions it carries the same way. |
 
 Read `/api/JobActivities/{JobActivityID}/Questions` and the completion-state
@@ -256,8 +262,9 @@ lookup. Answer each question with
 (`completionAnswerStateID`, plus a `note` when the source has one), then
 `POST /api/JobActivities/{JobActivityID}/Complete` with `completionDate` in the
 schema's date-time format. Read back completion and answers; do not repeat an
-already verified completion. Any activity other than 1, 2, 6 and 11 is out of
-scope for this intake and is not touched.
+already verified completion. Any activity other than the four intake ones
+is out of scope for this intake and is not touched (the gate refuses it).
+Activities 1, 2 and 11 carry no questions on the intake template.
 
 The Word document requires the email under **task 11**; `JD-5.1` also requires
 it under the job. Use the two message endpoints, preserving uppercase subject

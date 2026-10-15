@@ -340,6 +340,24 @@ class RefusedTargetTests(GateTestCase):
             "clientID": self.fake.client_id, "regionID": self.fake.region_nsw, "contractNumber": "26999",
             "siteAddress": {"lotNumber": "1"}}), "generates the contract number")
 
+    async def test_only_the_four_intake_activities_by_name(self):
+        f = self.fake
+        # another workflow template numbers its activities differently: same job, wrong activity
+        fixout = f.add_activity(f.job_id, 2, "m) Fixout Complete - OK to Claim")
+        await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{fixout}/Complete",
+                                                     body={"completionDate": "2026-10-15"}),
+                                  "not one of the intake activities")
+        await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{fixout}/Messages",
+                                                     form={"Subject": "NEW JOB"}),
+                                  "not one of the intake activities")
+        eoi = f.add_activity(f.job_id, 11, "a) Receive EOI Approval to Proceed from Marketer")
+        out = await self.prepare("POST", f"/api/JobActivities/{eoi}/Complete", body={"completionDate": "2026-10-15"})
+        self.assertTrue(out["ok"], out)
+        self.assertNotIn("DataBuild", out["confirmation_text"])
+        out = await self.prepare("POST", f"/api/JobActivities/{f.act6}/Complete", body={"completionDate": "2026-10-15"})
+        self.assertTrue(out["ok"], out)
+        self.assertIn("Warning: say yes only if the job has been entered in DataBuild.", out["confirmation_text"])
+
     async def test_completed_activity_and_existing_link_are_not_redone(self):
         f = self.fake
         await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{f.act2}/Complete",

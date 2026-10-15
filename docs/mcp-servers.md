@@ -230,7 +230,7 @@ these checks, enforced in code (`osc_mcp/gate.py`), not just in the skills:
    re-templates, is refused. Widening the list is a reviewed code change.
 2. **Tied to the job.** Each change names the job it is for (`job_id`), and the
    gate checks the record belongs to it: the job itself, its client, a contact
-   on it, or one of its activities. A missing, unknown or ambiguous target
+   on it, or one of its four intake activities, checked by name (activity numbers differ between workflow templates). A missing, unknown or ambiguous target
    (no match, or more than one) is refused.
 3. **Protected fields.** Contract price (DataBuild only), contract number
    (OSC generates it), region of an existing job, and the DataBuild client code

@@ -193,6 +193,14 @@ NO = {"no", "n", "nope", "cancel", "stop", "don't", "do not", "no thanks",
 
 
 LOT_PAGE = 500  # jobs read per lot-number check; reaching it means the check could be incomplete
+# The only activities the intake touches (issue #34 items 7-8), matched by name without the "a) " prefix.
+DATABUILD_ACTIVITY = "create job within databuild"
+INTAKE_ACTIVITIES = {"initial contact", "follow up initial contact", DATABUILD_ACTIVITY,
+                     "receive eoi approval to proceed from marketer"}
+
+
+def _activity_name(text: Any) -> str:
+    return re.sub(r"^\s*[a-z]\)\s*", "", re.sub(r"\s+", " ", str(text or "")).strip().lower())
 NAME_FILLER = {"and", "pty", "ltd", "atf", "the", "trust", "family", "no", "no.1", "acn", "abn"}
 
 
@@ -1048,6 +1056,13 @@ class Gate:
         activity = await self._activity(plan.params["JobActivityID"])
         self._same_id(activity.get("jobID"), plan.job_id,
                       f"That activity belongs to a different job, not {plan.job_label}.")
+        # Sequence numbers differ between workflow templates (on three production jobs, 15 Oct 2026,
+        # activity 2 is "m) Fixout Complete - OK to Claim"), so the activity is checked by its name.
+        if _activity_name(activity.get("description")) not in INTAKE_ACTIVITIES:
+            raise GateError(f"Activity {activity.get('sequence')} \"{activity.get('description')}\" is not one of "
+                            "the intake activities (Initial Contact, Follow Up Initial Contact, Create Job within "
+                            "Databuild, Receive EOI Approval to Proceed from Marketer). A person handles it in "
+                            "OnSite Companion.")
         plan.reads["activity"] = _strip(activity)
         return activity
 
@@ -1065,6 +1080,8 @@ class Gate:
         # fill other activity fields when it completes one, so no whole-record compare.
         plan.request = {"json": await self._diff(plan, body, {"completionDate": None})}
         plan.headline = f"{name} is marked complete"
+        if _activity_name(activity.get("description")) == DATABUILD_ACTIVITY:
+            plan.warnings.append("say yes only if the job has been entered in DataBuild.")
 
     async def _plan_answer_question(self, plan, job, body, form, files):
         activity = await self._activity_for_job(plan)
