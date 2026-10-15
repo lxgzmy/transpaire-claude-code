@@ -33,7 +33,10 @@ DataBuild touchpoint stays with a person:
 - **Contract figures** — NSW item 2 and the progress schedule are worked
   from the request price by a fixed rule (CD-5.4, issue #62, 15 Oct 2026);
   a DataBuild figure a person keys into the job JSON wins, flagged when it
-  differs. QLD figures are keyed only. Nothing is fetched from DataBuild.
+  differs. QLD figures are never worked out: the person gives them from
+  DataBuild whenever they have them, typed or as a screenshot read back to
+  them, and the run never waits for them (issue #73). Nothing is fetched
+  from DataBuild.
 
 DataBuild is also retiring in favour of Estimator Companion, so no automation
 against it will be built. Background on what the tool is:

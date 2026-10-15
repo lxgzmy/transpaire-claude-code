@@ -112,8 +112,10 @@ works item 2 (price excluding GST, GST, contract price, deposit) and the
 Part B progress schedule from the job's `price` - GST = price / 11 to the
 cent, deposit 10% rounded down, each stage its printed % with the last
 stage taking the rounding balance - and shows the arithmetic in the report.
-Keyed DataBuild figures win, with a flag on any difference. QLD item 2
-still types only keyed DataBuild figures. The date is never filled.
+Keyed DataBuild figures win, with a flag on any difference. QLD is never
+worked out (issue #73): item 2 and Schedule 2 Part B take the figures the
+person gives, whenever they give them - see "QLD contract figures" in step
+5. The date is never filled.
 
 ## Where the documents go
 
@@ -528,8 +530,11 @@ team builds the fill also types the owner signature name and accepts
 **explicitly sourced** extras: DataBuild figures a person keys -
 `price_excl_gst`/`gst_amount`/`price_incl_gst`, NSW also `deposit` and
 `progress_1`..`progress_6`/`progress_total` - which win over the figures
-NSW works from `price` (CD-5.4; QC2 has no schedule deposit item, its
-deposit is a Schedule 2 progress row and QLD is not calculated yet); any
+NSW works from `price` (CD-5.4); on QLD the same three item 2 keys plus
+Part B's `deposit` (its first row: QC2 has no item 2 deposit),
+`progress_1`..`progress_5` (BASE, FRAME, ENCLOSED, FIXING, PRACTICAL
+COMPLETION) and `progress_total`, with `figures_source` saying where they
+came from (below); any
 amount types as `$nnn,nnn.nn` however it is keyed; and `guarantor_name`/
 `guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
 only when a signed source names them (these also complete the deed's
@@ -542,6 +547,41 @@ alone — the QLD build ships it prefilled (Michael CRONK). The QLD build also
 prefills a 210-day building period — the data sheet still carries the job's
 CD-5.5 period for the reviewer to check against it.
 `--no-build-contract` skips the stage.
+
+**QLD contract figures (issue #73, 15 Oct 2026, contract admin feedback).**
+DataBuild is never a step that has to come first. On QLD nothing is worked
+out: the figures are the person's, from DataBuild, given whenever they have
+them.
+- **Never ask for them and never wait.** Run everything else straight away.
+  With no figures, item 2 and Part B stay blank. The report ends with one
+  optional line: "QLD build contract: give me the DataBuild figures (type
+  them, or paste a screenshot of the DataBuild screen) whenever you have
+  them, and I'll fill item 2 and Part B."
+- **Typed figures** go into the job JSON as given (keys above), with
+  `figures_source` such as `typed by the person`. Don't recalculate,
+  round or "correct" them.
+- **A screenshot** is read like any image (step 1). Show the numbers you
+  read back in one message - price excluding GST, GST, contract price,
+  deposit, Base, Frame, Enclosed, Fixing, Practical Completion, total - and
+  fill only after the person says they are right. A number you can't read
+  clearly is asked about by name, never guessed. Record `figures_source`:
+  `DataBuild screenshot, read back and confirmed`.
+- **Figures given before the save** (with the request, or before the run)
+  go into the same run.
+- **Figures given after the save** fill the build contract alone:
+
+  ```
+  python job-roles/contract-admin/scripts/draft_contract.py --job <workdir>/job.json --job-dir "<the job's CONTRACT DOCUMENTATION folder>" --build-contract-only
+  ```
+
+  The job folder already holds the contract, so the refilled copy goes to
+  template-testing (CD-7.7), and the person swaps it in (old version to
+  `SS\`). The inclusions and the prelim are not touched.
+- **The checks only warn** (FLAG lines under `contract figures`): item 2
+  adds up, the GST is 1/11 of the price, the price matches the request,
+  Part B totals the price with each row at its printed %, and the deposit
+  is within the 5% the contract prints for $20,000 or more. Every figure is
+  typed as given; pass each FLAG to the person in plain words.
 
 Expect ~3s of fills/diffs, 2–5 minutes for the Sydney layout pass (Word
 measures ~1,000 paragraphs and re-levels them), and ~10–20s per PDF (Word
@@ -625,9 +665,10 @@ single-storey duplex 210, double storey 210, double-storey duplex 240 — CD-5.5
 and the land details. Contract price excluding GST, GST, total, deposit and
 the Part B progress payment schedule: on NSW, copy the `contract figures`
 block from `fill_buildcontract.txt` (worked from the request price, CD-5.4)
-and any FLAG under it; on QLD, or when no build contract was filled, write
-`— FROM DATABUILD (a person keys this in)` for any figure not keyed in the
-job JSON.
+and any FLAG under it; on QLD, the same block (the figures as given, issue
+#73) and its FLAGs, or, with none given, `not given yet - optional, any
+time (typed or a DataBuild screenshot)`; when no build contract was filled,
+`to be typed in` for any figure not in the job JSON.
 
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
@@ -649,7 +690,10 @@ document and clause → APPLIED or REFUSED (with the reason) → approval — an
 the `amendments_for_person` list, so a person sees every change the request
 asked for. **NSW build contract:** the contract figures (price,
 GST, price excluding GST, deposit, each stage) and every FLAG the run
-summary printed under them (CD-5.4). **Sydney:** also the `edit_inclusions.txt` items table —
+summary printed under them (CD-5.4). **QLD build contract:** the figures
+as given and their FLAGs; with none given, end the report with the one
+optional line from step 5 ("QLD contract figures"), never a question
+that holds anything up. **Sydney:** also the `edit_inclusions.txt` items table —
 one row per upgrade line: request → Standard Variation row (its normalised
 sheet wording) → the wording written → confidence — plus the TO CONFIRM
 list, and the gate verdict line from `gate_inclusions.txt`. Say plainly
@@ -734,7 +778,8 @@ signing) are a person's job, described here only so the checklist is complete.
 escalated. A plausible number in a contract is a liability. The GST split,
 deposit and progress payments are worked from the sourced price by the fixed
 NSW rule (CD-5.4), never estimated; with no usable price they stay blank and
-flagged. The preliminary fee is the standard $30,000 unless the request names
+flagged. QLD figures are the person's, typed exactly as given (a
+screenshot's numbers read back first), never worked out (issue #73). The preliminary fee is the standard $30,000 unless the request names
 another (CD-4.3).
 
 **Saves are automatic, but only ever to two destinations.** Routing is decided

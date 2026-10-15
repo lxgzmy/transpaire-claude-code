@@ -34,7 +34,9 @@ Built:
   provenance flagged for the reviewer; no staged template → data sheet only
   (CD-5.1/5.2a). NSW item 2 and the progress
   schedule are worked from the request price, keyed DataBuild figures
-  winning with a flag; QLD figures fill only when a person keys them; legal
+  winning with a flag; QLD is never worked out: item 2 and Part B take the
+  figures the person gives, any time, typed or a DataBuild screenshot
+  (issue #73); legal
   statements are never filled (CD-5.4, issue #62). **Sydney inclusions content (10 Sep
   2026, CD-9):** the run edits section 18 to the job's area, actions the
   Bathroom 2 / air-con notes, writes the `UPGRADED INCLUSIONS` items from the

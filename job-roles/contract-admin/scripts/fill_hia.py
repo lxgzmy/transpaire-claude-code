@@ -100,11 +100,14 @@ way a person typing in the value column would):
     Schedule 1   item 3 Owner(s): NAME, ADDRESS, SUBURB, STATE, POSTCODE,
                  MOBILE, EMAIL (company/trust buyer: the whole entity string
                  goes in NAME, as the executed 25163 contract does)
-    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - ONLY when the
-                 job JSON carries the DataBuild figures explicitly (QLD is not
-                 calculated yet: issue #62 decided NSW first). QC2 has no
-                 schedule deposit item: the deposit is a Schedule 2 progress
-                 row, never filled (CD-5.6)
+    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - from the figures
+                 a person gives (issue #73: QLD is never worked out; typed or
+                 read off a DataBuild screenshot, at any time, no gate)
+    Schedule 2   Part B amounts: DEPOSIT, BASE, FRAME, ENCLOSED, FIXING,
+                 PRACTICAL COMPLETION and TOTAL, from the same figures (QC2 has
+                 no item 2 deposit: the deposit is Part B's first row); the
+                 printed percentages are checked first (CD-5.6). The checks
+                 on the figures are warnings only
     item 7       guarantors - only when sourced; a guarantor also completes
                  the deed's BUILDER IS / OWNER IS lines (deed date never)
     item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE
@@ -113,9 +116,9 @@ way a person typing in the value column would):
                  ships prefilled (Michael CRONK, signed for TRANSPIRE
                  CONSTRUCTIONS PTY LTD), so builders_rep is not typed here
 
-What it NEVER fills (CD-5.4): date, interest %, builder's margin %, the QLD
-progress rows, and any figure that is neither keyed in the job JSON nor worked
-from its contract price as above. Every amount types as "$nnn,nnn.nn".
+What it NEVER fills (CD-5.4): date, interest %, builder's margin %, and any
+figure that is neither keyed in the job JSON nor (NSW) worked from its
+contract price as above. Every amount types as "$nnn,nnn.nn".
 The building and initial periods carry the template's own prefills (NSW build:
 52 weeks / 90 + 180 days; QLD build: 210 days / 90 days start / 10 days
 inclement weather) and are left untouched for the reviewer - on QLD check the
@@ -542,14 +545,25 @@ REGIONS = {
         # CONTRACT PRICE labels share one paragraph) and the three
         # $ 000,000.00 placeholders stack in the next column, in the same
         # order - the third element picks the nth placeholder after the
-        # label. Filled ONLY from explicitly keyed DataBuild figures
-        # (CD-5.4). No deposit item on QC2: the deposit is a Schedule 2
-        # progress row, never filled (CD-5.6).
+        # label. Filled only from the figures a person gives (CD-5.4, issue
+        # #73). No deposit item on QC2: the deposit is Part B's first row.
         "amounts": [
             ("price_excl_gst", "PRICE EXCLUDING GST:",     1),
             ("gst_amount",     "GST ON THE ABOVE AMOUNT:", 2),
             ("price_incl_gst", "THE CONTRACT PRICE IS:",   3),
         ],
+        # Schedule 2 Part B (CD-5.6, issue #73), the part the team completes:
+        # six rows and a TOTAL row, each a printed "n.00%" cell then a
+        # "$ 0.00" amount cell. Same source as item 2; the printed
+        # percentages are checked before anything is typed.
+        "part_b": {
+            "scope": ("Part B can be used where the parties agree",
+                      "The total must equal the contract price"),
+            "rows": [("deposit", "DEPOSIT", 5), ("progress_1", "BASE", 15),
+                     ("progress_2", "FRAME", 20), ("progress_3", "ENCLOSED", 25),
+                     ("progress_4", "FIXING", 20),
+                     ("progress_5", "PRACTICAL COMPLETION", 15)],
+        },
         "liq": ("liq_damages", "per day"),
         # approved amendments (CD-10): the interest rate only; striking a QC2
         # clause is not set up (its clause headings are not verified yet)
@@ -676,6 +690,8 @@ def contract_figures(values, region):
                 flags.append(f"{key} {raw!r} is not a plain amount - typed as keyed; check it")
             else:
                 values[key] = fmt_money(d)
+    if REGIONS[region].get("part_b"):
+        return given_figures(values, region, lines, flags)
     prog = REGIONS[region].get("progress")
     if not prog:
         return lines, flags
@@ -749,6 +765,80 @@ def contract_figures(values, region):
     parts = [final[f"progress_{n}"] for n in range(1, len(stages) + 1)]
     if None not in parts and final["price_incl_gst"] is not None and sum(parts) != final["price_incl_gst"]:
         flags.append("the progress stages do not total the contract price")
+    return lines, flags
+
+
+def given_figures(values, region, lines, flags):
+    """QLD item 2 and Schedule 2 Part B from the figures a person gives (issue #73).
+
+    Nothing is worked out. The person types the DataBuild figures, or gives a
+    screenshot that is read back to them first, whenever they have them: with
+    the request, later in the chat, or after the documents are saved (then a
+    build-contract-only run). The checks are warnings: they never stop the fill
+    and never change a figure. With no figures at all the cells stay blank and
+    the report says how to add them - that is a note, not a flag."""
+    rows = REGIONS[region]["part_b"]["rows"]
+    item2 = [("price_excl_gst", "excl. GST"), ("gst_amount", "GST"),
+             ("price_incl_gst", "contract price")]
+    keys = [k for k, _ in item2] + [k for k, _, _ in rows] + ["progress_total"]
+    if not any(str(values.get(k) or "").strip() for k in keys):
+        lines.append("contract figures (QLD, issue #73): none given - item 2 and Part B are left blank. "
+                     "Optional, at any time: give the DataBuild figures (typed, or a screenshot) and "
+                     "the build contract is filled again with them")
+        return lines, flags
+    got = {k: parse_money(values.get(k)) for k in keys}   # None: blank, or not an amount
+    price = got["price_incl_gst"]
+    if any(got[k] is not None for k, _, _ in rows) and not str(values.get("progress_total") or "").strip() \
+            and price is not None:
+        # the contract's own rule: "The total must equal the contract price stated in item 2"
+        values["progress_total"] = fmt_money(price)
+        got["progress_total"] = price
+    show = lambda k: fmt_money(got[k]) if got[k] is not None else "(blank)"
+    src = str(values.get("figures_source") or "").strip()
+    lines += [f"contract figures (QLD, issue #73): as given" + (f" ({src})" if src else "")
+              + " - nothing worked out",
+              "  item 2   " + " | ".join(f"{name} {show(k)}" for k, name in item2),
+              "  Part B   " + " | ".join(f"{name} {pct}% {show(k)}" for k, name, pct in rows)
+              + f" | TOTAL {show('progress_total')}"]
+
+    blank2 = [name for k, name in item2 if got[k] is None]
+    if len(blank2) < len(item2) and blank2:
+        flags.append(f"item 2 is part-filled: {', '.join(blank2)} left blank")
+    if None not in (got["price_excl_gst"], got["gst_amount"], price) \
+            and got["price_excl_gst"] + got["gst_amount"] != price:
+        flags.append("item 2 does not add up: price excluding GST + GST is not the contract price")
+    if got["gst_amount"] is not None and price is not None \
+            and abs(got["gst_amount"] - cents(price / 11)) > Decimal("0.01"):
+        flags.append(f"the GST {fmt_money(got['gst_amount'])} is not 1/11 of the contract price "
+                     f"({fmt_money(cents(price / 11))})")
+    req = parse_money(values.get("price"))
+    if price is not None and req is not None and price != req:
+        flags.append(f"the contract price given, {fmt_money(price)}, differs from the request "
+                     f"price {fmt_money(req)}")
+
+    parts = [got[k] for k, _, _ in rows]
+    if any(p is not None for p in parts):
+        blankb = [name for (k, name, _) in rows if got[k] is None]
+        if blankb:
+            flags.append(f"Part B is part-filled: {', '.join(blankb)} left blank")
+        base = price if price is not None else got["progress_total"]
+        if None not in parts:
+            for what, amt in (("the TOTAL", got["progress_total"]), ("the contract price", price)):
+                if amt is not None and sum(parts) != amt:
+                    flags.append(f"Part B's rows add up to {fmt_money(sum(parts))}, not {what} "
+                                 f"{fmt_money(amt)}")
+        if base is not None:
+            cap = cents(base * 5 / 100, ROUND_DOWN)
+            over = base >= 20000 and got["deposit"] is not None and got["deposit"] > cap
+            if over:
+                flags.append(f"the deposit {fmt_money(got['deposit'])} is over 5% of the contract price "
+                             f"({fmt_money(cap)}), the most the contract allows for a price of $20,000 "
+                             "or more unless the off-site work is over half the price")
+            for (k, name, pct), amt in zip(rows, parts):
+                near = base * pct / 100
+                if amt is not None and abs(amt - near) > 1 and not (k == "deposit" and over):
+                    flags.append(f"Part B {name} {fmt_money(amt)} is not {pct}% of the contract price "
+                                 f"(about {fmt_money(cents(near))}); the printed {pct}% stays as it is")
     return lines, flags
 
 
@@ -876,6 +966,34 @@ def run(template, job, out_path, check_only, region):
                     val = str(values.get(key, "") or "").strip()
                     if val:
                         plan.append((i, key, label, val, "dollar_cell", 1))
+                    else:
+                        blank_fields.append((key, label))
+
+    # QLD Schedule 2 Part B (issue #73): each row's printed percentage, then
+    # its "$ 0.00" amount cell; the percentages must still be the template's
+    pb = anchors.get("part_b")
+    if pb:
+        lo, hi = scope_bounds(pb["scope"])
+        if lo is None:
+            missing_anchor.append(f"Part B: {pb['scope'][0]!r} not found")
+        else:
+            pcts = [i for i in range(lo, hi) if re.fullmatch(r"\d+\.\d{2}%", ntexts[i].strip())]
+            cells = [i for i in range(lo, hi) if AMOUNT_RE.fullmatch(ntexts[i].strip())]
+            rows = pb["rows"] + [("progress_total", "TOTAL", 100)]
+            want = [f"{pct}.00%" for _, _, pct in rows]
+            got = [ntexts[i].strip() for i in pcts]
+            paired = len(cells) == len(pcts) and all(
+                p < c and (k + 1 == len(pcts) or c < pcts[k + 1])
+                for k, (p, c) in enumerate(zip(pcts, cells)))
+            if got != want or not paired:
+                missing_anchor.append(f"Part B: expected rows {want}, each with a $ amount cell; "
+                                      f"found {got} and {len(cells)} amount cell(s)")
+            else:
+                for (key, name, pct), i in zip(rows, cells):
+                    label = f"Part B {name[:10]} {pct}%"
+                    val = str(values.get(key, "") or "").strip()
+                    if val:
+                        plan.append((i, key, label, val, "replace_amount", 1))
                     else:
                         blank_fields.append((key, label))
 
