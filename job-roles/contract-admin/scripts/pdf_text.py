@@ -2,8 +2,9 @@
 
     python pdf_text.py <file.pdf> [--grep PATTERN]
 
-Enough to pull the house size and garage side off a set of Archicad plans
-(CD-2.7, CD-2.9) without a PDF library. Decompresses Flate streams and reads the
+Enough to pull the house size off a set of Archicad plans (CD-2.7) without a
+PDF library - not the garage side, which is in the drawing (CD-2.9: render the
+site plan with pdf_page.ps1; site_streets.py names its streets). Decompresses Flate streams and reads the
 text-showing operators.
 
 This is a plans-reading aid, not a general PDF extractor: it ignores font

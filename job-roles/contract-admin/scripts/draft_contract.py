@@ -488,8 +488,12 @@ def main():
         check = run_py(script, "--template", template, "--job", job_path, "--check", *extra)
         (workdir / f"check_{kind}.txt").write_text(check.stdout + check.stderr, encoding="utf-8")
         if check.returncode != 0:
-            print(f"  {kind}: ANCHOR CHECK FAILED - stopping this document. "
-                  f"See check_{kind}.txt; the template may have been revised.")
+            err = next((l for l in check.stderr.splitlines() if l.startswith("ERROR")), "")
+            if err:   # a value the filler refuses (e.g. a garage side it does not know)
+                print(f"  {kind}: {err} - stopping this document; fix the job JSON and re-run")
+            else:
+                print(f"  {kind}: ANCHOR CHECK FAILED - stopping this document. "
+                      f"See check_{kind}.txt; the template may have been revised.")
             return None
         out = workdir / out_name
         fill = run_py(script, "--template", template, "--job", job_path, "--out", out, *extra)

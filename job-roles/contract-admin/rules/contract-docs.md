@@ -83,7 +83,7 @@ Nine fields, all on page 1. *(manual, confirmed observed)*
 | **CD-2.6** House Type | Email "Design:" | Design name; auxiliary dwellings read `<design> + Auxiliary Unit`, not the email's shorthand (CD-6) |
 | **CD-2.7** House Size | **PLANS** | `nnn.nn m²`. Not in the email — absent until plans arrive (JD-9.3) |
 | **CD-2.8** House Façade | Email "Facade:" | `<name> Façade`. Neighbouring files use both `Façade` and `Facade`; match the template |
-| **CD-2.9** Garage Side | **PLANS** | `Left Hand Side` / `Right Hand Side`, judged facing the house. Unclear → escalate (JD-9.5) |
+| **CD-2.9** Garage Side | **PLANS** | `Left Hand Side` / `Right Hand Side`, judged facing the house. **Sydney corner block or lane lot: `Via <the street or lane the driveway uses>`** (`Via Sample Road`, `Via Example Lane`; an unnamed lane `Via Lane`) — the team's practice in every such completed job, confirmed by the 26032 review (issue #59, 15 Oct 2026). The run renders the site-plan page (`pdf_page.ps1`) every time plans exist and reads it; `site_streets.py` lists the street names labelled there (CORNER / REAR LANE / SINGLE) so a second frontage is not missed. Can't tell → blank + a flag naming the streets, for the reviewer (JD-9.5) |
 
 ## CD-3 Inclusions, owner and signature blocks
 
@@ -635,7 +635,7 @@ cabinet; and any DocuSign issue to a client.
 | An approved amendment is REFUSED (old value, title or quoted paragraph does not match) | The document saves with the template wording; a person checks the request and makes the change (CD-10.5) |
 | Keyed DataBuild figure ≠ the figure worked from the price | The keyed figure is used; FLAG in the report and the run summary (CD-5.4) |
 | Request asks for a deposit over 10% | Refused, 10% used, FLAG (CD-5.4) |
-| Garage side not left/right | Escalate to Michael (JD-9.5) |
+| Garage side not clear from the rendered site plan | Leave it blank; flag the streets the site plan names for the reviewer, who confirms or asks Michael (JD-9.5) |
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
 | Template anchor not found by `--check` | Stop; template revised, needs a person |

@@ -403,7 +403,7 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2) | Email "Design:" |
 | `house_size` | `"nnn.nn m²"` — the plans' Total Areas sum, all dwellings + garages/porches/alfresco | PLANS only (CD-2.7) |
 | `facade` | `"<name> Façade"` with the cedilla — the dominant convention (3 of 4 completed Tamworth jobs); a completed doc's plain `Facade` is that job's typing, not a rule | Email "Facade:" (CD-2.8) |
-| `garage_side` | `"Left Hand Side"` / `"Right Hand Side"`, judged facing the house, ONLY when a drawing or a person confirms it. Drawing unreadable in this session → `""` + flag for the reviewer. Never guess (JD-9.5) | PLANS only (CD-2.9) |
+| `garage_side` | `"Left Hand Side"` / `"Right Hand Side"`, judged facing the house. **Sydney corner block or lane lot:** `"Via <the street or lane the driveway uses>"`, spelt as the site plan labels it (`"Via Sample Road"`, `"Via Example Lane"`, `"Via Lane"` for an unnamed lane). Always read off the rendered site plan (see "Reading the site plan" below), never from text alone. Can't tell → `""` + a flag naming the streets the site plan carries, for the reviewer. Never guess (CD-2.9, JD-9.5). The filler refuses anything else (`LHS`, `Via`, a placeholder) | PLANS only (CD-2.9) |
 | `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). The GST-inclusive contract price: on NSW the build contract's item 2 and progress schedule are worked from it (CD-5.4). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
 | `amendments` | only when the request marks a contract change approved **on its own line** (CD-10). One object per change: `{"id": "A1", "kind": "schedule", "field": "interest_rate", "from": "15%", "to": "12%", "request_line": "<the line, verbatim>"}`, `{"kind": "strike_clause", "clause": 14, "title": "Hidden Site Conditions", "request_line": ...}` (NSW), `{"kind": "prelim_words", "clause": 4, "expect": "<the new paragraph exactly as the request quotes it>", "request_line": ...}`. Copy, never paraphrase: the scripts refuse a line or paragraph they cannot find word for word in `email*.txt` | Email |
 | `amendments_for_person` | every other contract change the request asks for, verbatim: no approval marker, a new clause or special condition, rewording, any other schedule item. Reported, never applied (CD-10.6) | Email |
@@ -418,6 +418,26 @@ unsourceable value stays `""` and is flagged, never guessed:
 If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
 Say that plainly and produce the rest — do not invent them, and do not silently
 leave them blank without saying so.
+
+**Reading the site plan for the garage side** (issue #59, 15 Oct 2026). Every
+time plans exist:
+
+1. `python job-roles/contract-admin/scripts/site_streets.py "<plans.pdf>" --street "<the lot's street>"`
+   names the site-plan page and the streets labelled on it: CORNER (two or
+   more), REAR LANE (a lane besides the lot's street), SINGLE or NONE.
+2. Render that page and look at it, whatever the verdict - a lane can be
+   drawn without a name (26058 reads SINGLE but its driveway uses a lane):
+   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File job-roles/contract-admin/scripts/pdf_page.ps1 -Pdf "<plans.pdf>" -Pages <n> -OutDir "<workdir>\plans"`
+   (Windows PowerShell 5.1 on purpose: its PDF renderer is the only one on
+   the server). Open the PNG with the Read tool; add `-Scale 3 -Crop
+   "x0,y0,x1,y1"` (page fractions) to zoom on the driveway.
+3. Find the driveway (the hatched or paved crossover from the garage to the
+   kerb). One frontage → `Left Hand Side` / `Right Hand Side`, facing the
+   house from that street. A Sydney corner block, or a driveway onto a
+   lane → `Via <the street or lane it crosses to>`, spelt as labelled.
+4. Can't tell → `""`, and the flag says so with the streets: "Corner block:
+   Sample Road and Example Street on the site plan; the driveway street couldn't
+   be read - confirm before issue".
 
 **Sydney jobs also carry an `upgrades` block** — area, storeys, Bathroom 2,
 air conditioning and the upgrade items from the request, with the Standard
@@ -742,8 +762,9 @@ also just don't.
   chose, and the fields you couldn't fill.** Those decide whether the output is
   usable and where the reader finds it.
 - Full copy-pasteable paths, so they can open the document in Explorer.
-- Flag low confidence per field rather than in general. "Garage side isn't in the
-  email or the plans I can see — it needs confirming" beats "please review".
+- Flag low confidence per field rather than in general. "Corner block: Sample
+  Road and Example Street on the site plan, the driveway street couldn't be read —
+  confirm the garage side" beats "please review".
 - One clarifying question at most; otherwise state your assumption and move on.
 - When a stage is blocked, say the exact fix in one sentence a non-technical
   reader can act on (which folder to drag the email into, "start a new chat in
