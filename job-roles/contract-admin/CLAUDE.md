@@ -36,7 +36,9 @@ builder). Claude assists by reading requests, applying rules, and producing
    repair each — NSW v1.1 TABLES, QLD v2.1 LAND TABLES, 3 Sep 2026. NSW
    item 2 and the progress schedule are worked from the request price since
    15 Oct 2026, keyed DataBuild figures winning with a flag (CD-5.4, issue
-   #62); QLD figures fill only when a person keys them; legal statements are
+   #62); QLD is never worked out - item 2 and Part B take the figures the
+   person gives from DataBuild, any time, typed or a screenshot read back to
+   them, with no gate (issue #73); legal statements are
    never filled, except an amendment the request approves on its own line in
    the three kinds of CD-10 - the interest rate, a struck NSW clause, prelim
    clause words - issue #61). **Sydney

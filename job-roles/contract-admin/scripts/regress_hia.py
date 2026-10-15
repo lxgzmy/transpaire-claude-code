@@ -20,8 +20,10 @@ region it asserts that
      the template wording stays,
   4a. NSW: the Progress Payments Schedule rows carry the stage amounts worked
      from the contract price, keyed DataBuild figures win and a difference is
-     flagged; QLD keeps its placeholders when only a price is given (issue
-     #62 - NSW first), and
+     flagged; QLD is never worked out: with no figures given item 2 and
+     Schedule 2 Part B keep their placeholders, figures a person gives fill
+     item 2 and every Part B row as given, and figures that disagree are
+     still typed, each disagreement flagged (issue #73), and
   5. in both regions: each cell-mode value sits in the empty value cell
      beside its label (asserted row-by-row on the filled tables - the
      page-spill fix depends on values never landing in the narrow label
@@ -126,8 +128,8 @@ SYNTH = {
             "guarantor_address": "9 Guarantee Grove",
             "guarantor_suburb": "EXAMPLETON", "guarantor_state": "QLD",
             "guarantor_postcode": "4997",
-            # CD-5.4: figures only ever arrive pre-keyed from DataBuild; QC2
-            # has no schedule deposit item, so no deposit key here
+            # issue #73: figures a person gives, item 2 only here (Part B in
+            # "QLD figures given"); QC2 has no item 2 deposit
             "price_excl_gst": "$636,363.64", "gst_amount": "$63,636.36",
             "price_incl_gst": "$700,000.00",
         },
@@ -247,16 +249,61 @@ SYNTH = {
         "flags": ["AMENDMENT Q1 APPLIED: interest_rate: 15% -> 12%",
                   "AMENDMENT Q2 REFUSED: striking a clause is not set up for the QLD contract yet"],
     },
-    # QLD is not calculated yet (NSW first): a price alone leaves item 2 blank
-    "QLD price only": {
+    # issue #73: QLD is never worked out - a request price alone leaves item 2
+    # and Part B blank, with a note (not a flag) saying the figures can come later
+    "QLD no figures": {
         "region": "QLD",
         "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
                    "price": "456,789.00"},
         "expect": [],
         "gone": [],
-        "kept": ["$ 000,000.00"],
-        "no_flags": ["contract figures"],
+        "kept": ["$ 000,000.00", "$ 0.00"],
+        "flags": ["contract figures (QLD, issue #73): none given"],
+        "no_flags": ["FLAG:"],
+    },
+    # issue #73: the figures a person gives (here as read off a DataBuild
+    # screenshot) fill item 2 and every Part B row; the TOTAL is the contract
+    # price given; consistent figures raise no flag
+    "QLD figures given": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "price": "456,789.00", "figures_source": "DataBuild screenshot, read back",
+                   "price_excl_gst": "415,262.73", "gst_amount": "41,526.27",
+                   "price_incl_gst": "$456,789.00", "deposit": "22,839.45",
+                   "progress_1": "68,518.35", "progress_2": "91,357.80", "progress_3": "114,197.25",
+                   "progress_4": "91,357.80", "progress_5": "68,518.35"},
+        "expect": ["$415,262.73", "$41,526.27", "$456,789.00"],
+        "gone": ["$ 000,000.00", "$ 0.00"],
+        "part_b": [("5.00%", "$22,839.45"), ("15.00%", "$68,518.35"), ("20.00%", "$91,357.80"),
+                   ("25.00%", "$114,197.25"), ("20.00%", "$91,357.80"), ("15.00%", "$68,518.35"),
+                   ("100.00%", "$456,789.00")],
+        "flags": ["as given (DataBuild screenshot, read back) - nothing worked out"],
+        "no_flags": ["FLAG:"],
+    },
+    # issue #73: figures that disagree are still typed as given - every check
+    # is a warning, never a stop and never a correction
+    "QLD figures off": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "price": "456,789.00",
+                   "price_excl_gst": "415,262.73", "gst_amount": "41,000.00",
+                   "price_incl_gst": "460,000.00", "deposit": "46,000.00",
+                   "progress_1": "69,000.00", "progress_2": "92,000.00",
+                   "progress_3": "115,000.00", "progress_4": "92,000.00"},
+        "expect": ["$41,000.00", "$460,000.00"],
+        "gone": [],
+        "part_b": [("5.00%", "$46,000.00"), ("15.00%", "$69,000.00"), ("20.00%", "$92,000.00"),
+                   ("25.00%", "$115,000.00"), ("20.00%", "$92,000.00"), ("15.00%", "$ 0.00"),
+                   ("100.00%", "$460,000.00")],
+        "flags": ["FLAG: item 2 does not add up",
+                  "FLAG: the GST $41,000.00 is not 1/11 of the contract price ($41,818.18)",
+                  "FLAG: the contract price given, $460,000.00, differs from the request price $456,789.00",
+                  "FLAG: Part B is part-filled: PRACTICAL COMPLETION left blank",
+                  "FLAG: the deposit $46,000.00 is over 5% of the contract price ($23,000.00)"],
+        "no_flags": ["DEPOSIT $46,000.00 is not 5%"],
     },
 }
 
@@ -340,6 +387,12 @@ def run(name, spec, tmp):
         if rows != spec["progress"]:
             print(f"  {name}: FAIL - progress schedule rows {rows}, expected {spec['progress']}")
             return False
+    if "part_b" in spec:
+        rows = [(r[1], r[2]) for r in table_rows(out)
+                if len(r) == 3 and re.fullmatch(r"\d+\.\d{2}%", r[1])]
+        if rows != spec["part_b"]:
+            print(f"  {name}: FAIL - Part B rows {rows}, expected {spec['part_b']}")
+            return False
     if "struck" in spec:
         why = struck_check(out, spec["struck"])
         if why:
@@ -370,7 +423,8 @@ def run(name, spec, tmp):
              f"anchor codes verified" if want_rows else "")
     print(f"  {name}: PASS ({len(expect)} values filled, XML valid, "
           f"{len(spec['gone'])} prefill(s) replaced{extra}"
-          + (", progress schedule verified" if "progress" in spec else "") + ")")
+          + (", progress schedule verified" if "progress" in spec else "")
+          + (", Part B verified" if "part_b" in spec else "") + ")")
     return True
 
 
@@ -437,9 +491,22 @@ def contract_figures_unit():
     v, lines, f = figs({"price": "TBC"})
     if lines or v.get("deposit") or not any("left blank for a person" in x for x in f):
         fails.append(f"unusable price: {lines} {v} {f}")
+    # QLD (issue #73): never worked out - a price alone is a note, not a flag
     v, lines, f = figs({"price": "514,700.00", "liq_damages": "100.00"}, "QLD")
-    if lines or f or "gst_amount" in v or v["liq_damages"] != "$100.00":
-        fails.append(f"QLD: {lines} {f} {v}")
+    if len(lines) != 1 or "none given" not in lines[0] or f or "gst_amount" in v \
+            or v["liq_damages"] != "$100.00":
+        fails.append(f"QLD no figures: {lines} {f} {v}")
+    # item 2 part-given; Part B rows without a TOTAL take the contract price
+    v, lines, f = figs({"price_incl_gst": "300,000.00", "gst_amount": "27,272.73",
+                        "deposit": "15,000", "progress_1": "45,000.00"}, "QLD")
+    if v.get("progress_total") != "$300,000.00" or "price_excl_gst" in v \
+            or not any("item 2 is part-filled: excl. GST" in x for x in f) \
+            or "Part B is part-filled: FRAME, ENCLOSED, FIXING, PRACTICAL COMPLETION left blank" not in f:
+        fails.append(f"QLD part-given: {v} {f}")
+    # a price under $20,000 is not held to the 5% deposit
+    v, lines, f = figs({"price_incl_gst": "11,000.00", "deposit": "1,100.00"}, "QLD")
+    if any("over 5%" in x for x in f) or not any("DEPOSIT $1,100.00 is not 5%" in x for x in f):
+        fails.append(f"QLD small price: {f}")
     print("  contract figures (#62): " + ("PASS" if not fails else "FAIL - " + "; ".join(fails)))
     return not fails
 

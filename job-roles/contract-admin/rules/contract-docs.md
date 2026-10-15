@@ -368,10 +368,22 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   calculation, and a keyed contract price that differs from the request's.
   The fill report and the run summary show the arithmetic. No usable price:
   item 2 and the schedule stay blank, flagged. Every amount types as
-  `$nnn,nnn.nn` (a figure keyed without its `$` used to print bare). **QLD
-  is not calculated yet** (NSW first): QC2 has no schedule deposit item and
-  its deposit is a Schedule 2 progress row; its item 2 fills only from keyed
-  DataBuild figures, as before.
+  `$nnn,nnn.nn` (a figure keyed without its `$` used to print bare).
+  **QLD is never worked out** (15 Oct 2026, issue #73, contract admin
+  feedback: no DataBuild prerequisite, the person's figures count). Item 2
+  and Schedule 2 Part B (CD-5.6) fill from the figures the person gives,
+  typed or read off a DataBuild screenshot that is read back to them
+  first. They can arrive at any time: with the request, later in the
+  chat, or after the documents are saved (a build-contract-only run, which
+  refreshes to template-testing under CD-7.7). The run never asks for them
+  or waits. With none, item 2 and Part B stay blank and the report says
+  how to add them; that is a note, not a flag. The figures are typed as
+  given and the checks only warn: item 2 adds up, the GST is 1/11 of the
+  price, the price matches the request, Part B totals the price with each
+  row at its printed %, and the deposit is within the 5% the contract
+  prints for a price of $20,000 or more. Part B's TOTAL is the contract
+  price given when it is not given itself. QC2 has no item 2 deposit; the
+  deposit is Part B's first row.
 - **CD-5.5** Building period, in contract days: single storey 180; single storey
   duplex 210; double storey 210; double storey duplex 240. *(manual)*
 - **CD-5.6** ~~Part B progress payment schedule is copied from DataBuild.~~
@@ -379,6 +391,11 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   the template's printed percentages (10 / 10 / 25 / 25 / 20 / 10) are
   checked before anything is typed, and a changed schedule stops the fill
   like any other moved anchor.
+  QLD: Part B (the part the team completes, with Transpire's stage
+  wording) takes the DEPOSIT, BASE, FRAME, ENCLOSED, FIXING, PRACTICAL
+  COMPLETION and TOTAL amounts the person gives (CD-5.4, issue #73); its
+  printed percentages (5 / 15 / 20 / 25 / 20 / 15) are checked the same
+  way. Part A is left as printed.
   Consumer building guide and contract index pages are left as they are. *(manual)*
 - **CD-5.7** The completed pack is the contract, general conditions, inclusions
   and concept plan assembled together — roughly double the blank's page count.
@@ -635,6 +652,8 @@ cabinet; and any DocuSign issue to a client.
 | An approved amendment is REFUSED (old value, title or quoted paragraph does not match) | The document saves with the template wording; a person checks the request and makes the change (CD-10.5) |
 | Keyed DataBuild figure ≠ the figure worked from the price | The keyed figure is used; FLAG in the report and the run summary (CD-5.4) |
 | Request asks for a deposit over 10% | Refused, 10% used, FLAG (CD-5.4) |
+| QLD figures not given yet | Nothing is asked or waited for; item 2 and Part B stay blank with a note; the person gives them any time, typed or as a DataBuild screenshot (CD-5.4, issue #73) |
+| QLD figures that disagree (item 2 sum, GST, request price, Part B total or %, deposit over 5%) | Typed as given; each disagreement is a FLAG for the person (CD-5.4) |
 | Garage side not clear from the rendered site plan | Leave it blank; flag the streets the site plan names for the reviewer, who confirms or asks Michael (JD-9.5) |
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
@@ -699,7 +718,9 @@ cabinet; and any DocuSign issue to a client.
    business. Held pending that decision.~~ **Answered 15 Oct 2026** (issue
    #62): reversed for NSW with the executed contracts' rounding - cents,
    GST half up, deposit and stage 1 rounded down, the last stage as the
-   balance, keyed DataBuild figures win with a flag. QLD later. (CD-5.4)
+   balance, keyed DataBuild figures win with a flag. QLD is never worked
+   out: it takes the figures the person gives, any time (issue #73).
+   (CD-5.4)
 7. Review sheet item 12 asks whether the Special Conditions validity clause
    can be amended per job when the fixed period differs from six months or
    a specific end date is requested ("otherwise, this section may be a

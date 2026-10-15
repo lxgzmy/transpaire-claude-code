@@ -55,7 +55,10 @@ run report names the template it came from so the reviewer knows an interim
 (not yet MCR-filed) template is behind the draft; issuing stays human. Only a
 region with no staged template stays data-sheet-only. The probe verdict prints
 in the summary and ships as hia_status.txt with the evidence.
---no-build-contract skips the stage.
+--no-build-contract skips the stage. --build-contract-only runs that stage
+alone and routes only the build contract (issue #73: QLD figures a person
+gives after the documents were saved; the job folder already holds the
+contract, so the refilled copy refreshes to template-testing).
 
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
@@ -295,13 +298,14 @@ def deliver_production(finals, job_dir):
         print(f"  saved     : {b}")
 
 
-def deliver_routed(workdir, values, job_dir, existing):
+def deliver_routed(workdir, values, job_dir, existing, kinds=None):
     """Per-document delivery: each kind to its own destination (8 Sep 2026).
 
     Production kinds are checked for clashes BEFORE anything is copied, so a
-    run never ships half of itself. Test kinds refresh in place.
+    run never ships half of itself. Test kinds refresh in place. `kinds`
+    limits the delivery to those documents (a build-contract-only run).
     """
-    finals = collect_finals(workdir, values)
+    finals = [f for f in collect_finals(workdir, values) if kinds is None or f[2] in kinds]
     prod = [f for f in finals if route_kind(f[2], existing, job_dir, workdir)[0] == "PRODUCTION"]
     test = [f for f in finals if f not in prod]
     if prod:
@@ -400,7 +404,15 @@ def main():
                     help="skip the HIA build-contract fill (it otherwise runs on every "
                          "--job-dir fill: approved blank when one exists, staged UNAPPROVED "
                          "template in TEST mode, data sheet otherwise)")
+    ap.add_argument("--build-contract-only", action="store_true",
+                    help="fill and route the build contract alone, e.g. QLD figures given after "
+                         "the documents were saved (issue #73); the inclusions and the prelim "
+                         "in the workdir are not touched or routed again")
     args = ap.parse_args()
+    if args.build_contract_only and (args.template or args.prelim or args.no_build_contract
+                                     or not args.job_dir or args.deliver):
+        sys.exit("ERROR: --build-contract-only takes --job and --job-dir only (no --template, "
+                 "--prelim, --no-build-contract or --deliver)")
 
     job_path = Path(args.job)
     values = json.loads(job_path.read_text(encoding="utf-8"))
@@ -436,7 +448,9 @@ def main():
         wanted = [k for k, flag in (("INCLUSIONS", args.template),
                                     ("PRELIMINARY AGREEMENT", args.prelim),
                                     ("BUILD CONTRACT", not args.no_build_contract)) if flag]
-        if not (args.template or args.prelim):
+        if args.build_contract_only:
+            wanted = ["BUILD CONTRACT"]
+        elif not (args.template or args.prelim):
             wanted = DOC_KINDS  # route-only run: whatever the workdir holds
         routes = {k: route_kind(k, existing, job_dir, workdir) for k in wanted}
         mode = "PRODUCTION" if any(m == "PRODUCTION" for m, _ in routes.values()) else "TEST"
@@ -464,7 +478,7 @@ def main():
             if "hia contract:" in line:
                 print(f"  {line.strip()}")
 
-    if not args.template and not args.prelim:
+    if not args.template and not args.prelim and not args.build_contract_only:
         if mode:
             deliver_routed(workdir, values, job_dir, existing)
             return 0
@@ -637,6 +651,8 @@ def main():
     import amendments
     for n, am in enumerate(values.get("amendments") or [], 1):
         doc = amendments.KINDS.get(am.get("kind"), am.get("document")) if isinstance(am, dict) else None
+        if args.build_contract_only and doc != "build_contract":
+            continue   # the other documents were filled by the earlier run
         if doc and not made.get({"build_contract": "buildcontract"}.get(doc, doc)):
             print(f"  AMENDMENT {am.get('id') or f'A{n}'} NOT APPLIED: the {doc.replace('_', ' ')} was not "
                   f"filled this run - a person makes it: {amendments.norm(am.get('request_line'))!r}")
@@ -685,7 +701,8 @@ def main():
     # still blocks the save - the run fails closed, it never ships a partial.
     if mode and not failures:
         def do_deliver():
-            prod, test = deliver_routed(workdir, values, job_dir, existing)
+            prod, test = deliver_routed(workdir, values, job_dir, existing,
+                                        kinds=wanted if args.build_contract_only else None)
             kinds = lambda fs: ", ".join(sorted({k.lower() for _, _, k in fs})) or "none"
             print(f"  delivered : job folder <- {kinds(prod)}; template-testing <- {kinds(test)}")
             return True
