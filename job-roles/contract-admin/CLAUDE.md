@@ -33,13 +33,21 @@ builder). Claude assists by reading requests, applying rules, and producing
    otherwise the staged interim template → real name too, in production as
    well as test since 8 Sep 2026, no template at all → data sheet only; both
    staged templates are the team's own Word builds plus a sanctioned interim
-   repair each — NSW v1.1 TABLES, QLD v2.1 LAND TABLES, 3 Sep 2026. DataBuild
-   figures fill only when a person keys them into the job JSON — never
-   calculated — and legal statements are never filled, CD-5.4). **Sydney
+   repair each — NSW v1.1 TABLES, QLD v2.1 LAND TABLES, 3 Sep 2026. NSW
+   item 2 and the progress schedule are worked from the request price since
+   15 Oct 2026, keyed DataBuild figures winning with a flag (CD-5.4, issue
+   #62); QLD is never worked out - item 2 and Part B take the figures the
+   person gives from DataBuild, any time, typed or a screenshot read back to
+   them, with no gate (issue #73); legal statements are
+   never filled, except an amendment the request approves on its own line in
+   the three kinds of CD-10 - the interest rate, a struck NSW clause, prelim
+   clause words - issue #61). **Sydney
    inclusions content is edited by the run since 10 Sep 2026** (CD-9, from
-   the NSW inclusions feedback sheet 9.9 / issue #35): section 18 area,
+   the NSW inclusions feedback sheet 9.9 / issue #35; the AUXILIARY blanks'
+   MAIN and AUX DWELLING sections too since 15 Oct 2026, issue #63): section 18 area,
    Bathroom 2 and air-con notes, `UPGRADED INCLUSIONS` items from the job's
-   `upgrades` block, black throughout, then a Word layout pass keeps the two
+   `upgrades` block, black except the blue package headings, then a Word
+   layout pass keeps the two
    columns level and a quality gate blocks the save on any miss. Mapping a
    request to a Standard Variation row, and any custom wording, stay a
    person's call — proposed in the job JSON, applied, reported with a
@@ -62,7 +70,8 @@ Other OSC write workflows remain outside this integration.
 DataBuild automation is **ruled out entirely** (23 Aug 2026): the vendor
 confirmed it provides no API access, so no MCP server, adapter, or import
 automation can be built against it. DataBuild stays manual — a person keys its
-figures into the job JSON (CD-5.4). The legacy JD-6 handoff and wait are excluded
+figures into the job JSON where they should override the ones worked from the
+price (CD-5.4). The legacy JD-6 handoff and wait are excluded
 from the integrated OSC intake; contacts and document drafting proceed without
 them. OSC activity 6 is completed only on the person's word that the DataBuild
 entry is done, and stays pending (never N/A) until then.
@@ -124,9 +133,9 @@ through the gated `docusign_create_draft` call on the `docusign-upload`
 server. The approval prompt on that call is the person's yes, per call. This
 is a gated external write, not an extension of the automatic save. Until
 `docusign-upload-prod` is connected at production Go-Live, a real run creates
-no draft and reports why; any fallback is an open owner decision (CD-10.8).
+no draft and reports why; any fallback is an open owner decision (CD-11.8).
 Tagging any document the report flags, fixing witness/date roles and sending
-stay human (CD-10).
+stay human (CD-11).
 
 **Where the contract documents go (four rules, 8 Sep 2026)**
 

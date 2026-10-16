@@ -1,4 +1,4 @@
-r"""Self-test for docusign_payload.py (CD-10, 13 Oct 2026; docusign-upload switch the same day).
+r"""Self-test for docusign_payload.py (CD-11, 13 Oct 2026; docusign-upload switch the same day).
 
     python test_docusign_payload.py
 
@@ -138,7 +138,7 @@ def check_build_envelope():
 
 def check_server_for():
     """A synthetic job under runtime/docusign-sandbox goes to the sandbox server; every other
-    job folder is a real job's and goes to the production server (CD-10.1)."""
+    job folder is a real job's and goes to the production server (CD-11.1)."""
     sandbox_job = dp.SANDBOX_DIR / "26001 LOT 1 SYNTHETIC" / "CONTRACT DOCUMENTATION"
     assert dp.server_for(str(sandbox_job)) == dp.SANDBOX_SERVER == "docusign-upload"
     assert dp.server_for(str(dp.SANDBOX_DIR)) == dp.SANDBOX_SERVER

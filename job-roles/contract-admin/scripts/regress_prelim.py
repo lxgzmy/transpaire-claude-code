@@ -30,6 +30,16 @@ The same confirmation set the client-name format: First name + Middle name +
 LAST NAME, surname in CAPS (CD-3.1). The synthetic fixture carries middle
 names so the suite fails if a name is ever split or reordered on the way in.
 
+26032's agreement carries the clause 4 words its request approved (typed
+into the job folder on 8 Oct 2026). The suite feeds that change to the fill
+as an approved prelim_words amendment (CD-10, issue #61) - the quoted
+paragraph read from the reference itself - so the fill must reproduce the
+amended document exactly, text and structure.
+
+A synthetic amendment suite on the blank then adds and removes words in one
+clause, and checks that rewording, a line with no approval marker and a line
+missing from the request text are all refused with the document unchanged.
+
 A synthetic two-client fill then asserts what text comparison cannot see:
 inline names + ("Clients"), the residential label starting its own paragraph,
 the standard-fee default, Calibri-12 signature runs, and the re-indented
@@ -66,6 +76,26 @@ REF_JOBS = [("26032 lot 5085 (single, std fee)", "26032*", True,  True),
             # fill - give it its own paragraph). The structural conventions
             # are held by those two and the synthetic suites.
             ("26011 lot 209 (three clients)",    "26011*", False, False)]
+# A clause whose wording a reference carries from an approved request: the
+# fill gets it as a prelim_words amendment (CD-10, issue #61) and must then
+# match the reference as it stands. 26032: clause 4, amended in the job
+# folder on 8 Oct 2026 as its request approved.
+REF_CLAUSES = {"26032*": 4}
+APPROVED_LINE = "Update the first paragraph of clause {n} as shown below - Approved"
+
+
+def reference_amendment(real, n):
+    """The clause n paragraph the reference changed against the blank, as an
+    approved amendment, and the request text that carries it."""
+    def paras(path):
+        xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf8")
+        return [fp.run_text(p) for _, _, p in fp.clause_paragraphs(xml, n)[0]]
+    changed = [b for a, b in zip(paras(BLANK), paras(real)) if a != b]
+    if len(changed) != 1:
+        return None, None
+    line = APPROVED_LINE.format(n=n)
+    return ({"id": "R1", "kind": "prelim_words", "clause": n, "expect": changed[0],
+             "request_line": line}, line + "\n" + changed[0] + "\n")
 
 RESI_LABEL = fp.RESI_LABEL
 CONS_LABEL = fp.CONS_LABEL
@@ -126,15 +156,70 @@ def values_from(real):
             "prelim_fee": fee, "builders_rep": "Michael CRONK"}
 
 
-def run_fill(vals, out):
+def run_fill(vals, out, request=None):
+    """Fill beside a job JSON; `request` is the request text the run saved
+    next to it (email_original.txt) for the amendment checks."""
     jf = out.with_name("job.json")
+    ef = out.with_name("email_original.txt")
     jf.write_text(json.dumps(vals, ensure_ascii=False), encoding="utf-8")
+    if request is not None:
+        ef.write_text(request, encoding="utf-8")
     r = subprocess.run([sys.executable, str(HERE / "fill_prelim.py"),
                         "--template", str(BLANK), "--job", str(jf),
                         "--out", str(out)],
                        capture_output=True, text=True, encoding="utf-8")
     jf.unlink(missing_ok=True)
+    ef.unlink(missing_ok=True)
     return r
+
+
+def amendment_suite(tmp):
+    """Approved prelim_words amendments (CD-10, issue #61) on synthetic values:
+    words added and removed in one clause; rewording, a missing approval
+    marker and a line the request does not carry are refused, the document
+    left exactly as a fill without them."""
+    vals = {"owner_1": "Alpha Quentin ONE", "residential_address": "9 Example Road, EXAMPLETON NSW 2999",
+            "site_address": "901 Sample Street, SAMPLEVILLE NSW 2998", "builders_rep": "Michael CRONK"}
+    xml = zipfile.ZipFile(BLANK).read("word/document.xml").decode("utf8")
+    body = [fp.run_text(p) for _, _, p in fp.clause_paragraphs(xml, 4)[0]]
+    para = next((b for b in body if len(b.split()) > 20), None)
+    if not para:
+        print("FAIL  amendment suite - clause 4 has no paragraph to amend")
+        return 1
+    w = para.split()
+    added = " ".join(w[:5] + ["TESTWORDS", "ADDED"] + w[5:9] + w[10:])     # two words in, word 10 out
+    reworded = " ".join(w[:5] + ["CHANGED"] + w[6:])                      # word 6 replaced
+    base = tmp / "amend_base.docx"
+    run_fill(vals, base)
+    base_text = text(base)
+    line = "Update clause 4 as below - Approved by Test"
+    cases = [("add + remove", added, line, line + "\n" + added, True),
+             ("rewording", reworded, line, line + "\n" + reworded, False),
+             ("no marker", added, "Update clause 4 as below", "Update clause 4 as below\n" + added, False),
+             ("line not in the request", added, line, "something else\n" + added, False)]
+    fails = 0
+    for name, expect, req_line, request, applies in cases:
+        v = dict(vals, amendments=[{"id": "T1", "kind": "prelim_words", "clause": 4,
+                                    "expect": expect, "request_line": req_line}])
+        out = tmp / "amend_case.docx"
+        r = run_fill(v, out, request)
+        got = text(out) if out.exists() else ""
+        if applies:
+            g, e = norm(got, spaceless=True), norm(expect, spaceless=True)
+            # the quoted paragraph is there, and nothing else moved: the amended
+            # document less it equals the plain fill less the original paragraph
+            ok = (r.returncode == 0 and "AMENDMENT T1 APPLIED" in r.stdout and e in g
+                  and g.replace(e, "") == norm(base_text, spaceless=True).replace(norm(para, spaceless=True), ""))
+        else:
+            ok = r.returncode == 0 and "AMENDMENT T1 REFUSED" in r.stdout and got == base_text
+        print(f"{'PASS' if ok else 'FAIL'}  amendment: {name} - "
+              f"{'applied, nothing else changed' if applies else 'refused, document as the template'}")
+        if not ok:
+            print("      " + "\n      ".join(r.stdout.splitlines()[-8:]))
+            fails += 1
+        out.unlink(missing_ok=True)
+    base.unlink(missing_ok=True)
+    return fails
 
 
 def main():
@@ -153,8 +238,21 @@ def main():
         plural = bool(vals["owner_2"]) and not vals.get("owner_3")
         if drop_fee:
             vals["prelim_fee"] = ""   # exercises the standard-fee default
+        request = None
+        if pattern in REF_CLAUSES:
+            am, request = reference_amendment(real, REF_CLAUSES[pattern])
+            if not am:
+                print(f"FAIL  {name} - clause {REF_CLAUSES[pattern]} has no single amended paragraph")
+                failures += 1
+                continue
+            vals["amendments"] = [am]
         out = tmp / "prelim_filled.docx"
-        r = run_fill(vals, out)
+        r = run_fill(vals, out, request)
+        if request is not None and "AMENDMENT R1 APPLIED" not in r.stdout:
+            print(f"FAIL  {name} - the approved clause {REF_CLAUSES[pattern]} amendment was not applied:\n"
+                  + r.stdout[-600:])
+            failures += 1
+            continue
         if not out.exists():
             print(f"FAIL  {name} - fill did not run: {r.stderr.strip()[:200]}")
             failures += 1
@@ -168,7 +266,8 @@ def main():
         out.unlink(missing_ok=True)
         if got == want and got_s == want_s:
             what = "text AND structure" if with_structure else "text (spaces ignored)"
-            print(f"PASS  {name} - {what} identical to the corrected agreement")
+            extra = f" (clause {REF_CLAUSES[pattern]} by its approved amendment)" if request else ""
+            print(f"PASS  {name} - {what} identical to the corrected agreement{extra}")
         elif got != want:
             failures += 1
             i = next((k for k, (a, b) in enumerate(zip(got, want)) if a != b),
@@ -224,7 +323,8 @@ def main():
             ("standard fee kept when none supplied", "$30,000." in t),
             ("owner 1 signing line", "  Alpha Quentin ONE" in t),
             ("owner 2 signing line", "  Beta Rae TWO" in t),
-            ("builders rep signing line", "   Michael CRONK" in t),
+            ("builders rep signing line, same lead as the clients (#60)",
+             "  Michael CRONK" in t and "   Michael CRONK" not in t),
             ("signature names typed Calibri 12", xml.count(fp.SIG_RPR) == 3),
             ("sunset clause ¶ re-indented", ppr_ok(sun)),
             ("spacer above sunset ¶ re-indented",
@@ -315,6 +415,8 @@ def main():
             print(f"FAIL  company smoke - {', '.join(bad)}")
         else:
             print("PASS  company smoke - two-line signatory, label swap, entity recital hold")
+
+    failures += amendment_suite(tmp)
 
     print("\n" + ("PASS" if not failures else f"FAIL - {failures} suite(s)"))
     return 1 if failures else 0

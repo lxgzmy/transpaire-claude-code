@@ -159,7 +159,17 @@ def main():
             print(f"plans    {pdf.name}")
             for k, v in facts_from_plans(text).items():
                 print(f"           {k:<28} {v}")
-            print("           garage side                  NOT IN TEXT - read the site plan (JD-9.5)")
+            # issue #59: which streets the site plan names - a corner or a lane
+            # lot writes "Via <the street the driveway uses>", read off the
+            # rendered page (pdf_page.ps1); the drawing decides either way
+            try:
+                import site_streets
+                s = site_streets.analyse(pdf)
+                print(f"           garage side                  {s['verdict']} on the site plan (page "
+                      f"{s['site_page']}): {', '.join(s['streets']) or 'no street label read'} - "
+                      "render the page and read it (CD-2.9)")
+            except Exception as e:   # a plan set the reader cannot parse
+                print(f"           garage side                  site plan not read ({e}) - render it (CD-2.9)")
         else:
             print("plans    none in CONTRACT DOCUMENTATION - house size/garage side unavailable")
         print()

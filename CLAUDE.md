@@ -88,6 +88,9 @@ skills are scoped to that folder and must not leak into another role.
   each item with a confidence flag for confirmation; it never chooses
   silently. A Word layout pass and a quality gate stand between the edit
   and the save; a gate failure blocks the save.
+  Since 15 Oct 2026 (issue #63, owner sign-off) this covers the Sydney
+  AUXILIARY blanks too: the aux dwelling's upgrade lines are written under
+  the same rules and checks (`contract-docs.md` CD-6.3 reversed, CD-9.11).
 - **Gated write, not an exception (13 Oct 2026):** `/new-contract-template`
   step 8 creates a DocuSign **draft** envelope (`status: created`) with the
   job's own PDFs after a real build-contract save, through the local
@@ -97,12 +100,22 @@ skills are scoped to that folder and must not leak into another role.
   and `docusign_draft_preview` are on `allow`. Sending stays human. A real job
   goes only to `docusign-upload-prod`, registered at production Go-Live; until
   then step 8 creates no draft and reports why (any fallback is an open owner
-  decision, CD-10.8). The sandbox `docusign-upload` takes synthetic jobs only.
+  decision, CD-11.8). The sandbox `docusign-upload` takes synthetic jobs only.
   Step 8 no longer calls the hosted `docusign-demo` server: every write tool
   there stays under `ask` per tool, `createEnvelopeFromTemplate` (it sends and
   cannot be held at draft) under `deny`, and its read-only calls
   (`getUserInfo`, `getTemplates`, `getEnvelopes`,
   `getEnvelopeVsAgreementSkill`) on `allow` for checks.
+- **Sanctioned exception (15 Oct 2026, issue #61, owner sign-off):** a
+  contract amendment the request marks approved on its own line is applied
+  by the run, in three kinds only — the late-payment interest rate, a whole
+  NSW HIA clause struck through, words added to or removed from a prelim
+  clause the request quotes (`contract-docs.md` CD-10). Each is checked word
+  for word against the saved request text, refused when anything does not
+  match, and reported with its request line and approval. Every other
+  change the request asks for stays a person's. The NSW contract price
+  split, deposit and progress payments are worked from the request price by
+  a fixed rule the same day (issue #62, CD-5.4).
 
 ## Security posture
 
@@ -140,9 +153,17 @@ skills are scoped to that folder and must not leak into another role.
   with routed destinations per CD-7.7 — unprefixed because that name was
   requested; see the role's `skills/README.md`). The earlier `ca-new-job` EOI
   intake skill was retired 18 Aug 2026 in its favour. Since 11 September 2026,
-  `/new-contract-template` includes OSC intake through the existing `osc-api`
-  MCP, following issue #34's Word fields and steps. OSC writes remain approved
-  per call; this is not an extension of automatic document-save permission.
+  `/new-contract-template` includes OSC intake, following issue #34's Word
+  fields and steps. Since 13 October 2026 (owner approval) it writes to the
+  **production** OnSite Companion through the `osc-api-prod` MCP; the earlier
+  `osc-api` connection reached only a dev copy frozen on 21 Aug 2026 and is
+  retired. Every OSC change is prepared, shown to the person in plain words with
+  the values it overwrites, and sent only on their plain yes, then read back
+  (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes are possible,
+  each tied to the named job. Since 15 October 2026 the changes are grouped one
+  confirmation per intake stage (new client and job; the job's set-up;
+  DataBuild done), each change still re-checked and read back. This is not an extension of automatic
+  document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
   activity 6 is completed only once that person confirms the entry. Multipart
   uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).

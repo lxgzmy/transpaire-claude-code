@@ -55,7 +55,10 @@ run report names the template it came from so the reviewer knows an interim
 (not yet MCR-filed) template is behind the draft; issuing stays human. Only a
 region with no staged template stays data-sheet-only. The probe verdict prints
 in the summary and ships as hia_status.txt with the evidence.
---no-build-contract skips the stage.
+--no-build-contract skips the stage. --build-contract-only runs that stage
+alone and routes only the build contract (issue #73: QLD figures a person
+gives after the documents were saved; the job folder already holds the
+contract, so the refilled copy refreshes to template-testing).
 
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
@@ -320,13 +323,14 @@ def deliver_production(finals, job_dir):
         print(f"  saved     : {b}")
 
 
-def deliver_routed(workdir, values, job_dir, existing):
+def deliver_routed(workdir, values, job_dir, existing, kinds=None):
     """Per-document delivery: each kind to its own destination (8 Sep 2026).
 
     Production kinds are checked for clashes BEFORE anything is copied, so a
-    run never ships half of itself. Test kinds refresh in place.
+    run never ships half of itself. Test kinds refresh in place. `kinds`
+    limits the delivery to those documents (a build-contract-only run).
     """
-    finals = collect_finals(workdir, values)
+    finals = [f for f in collect_finals(workdir, values) if kinds is None or f[2] in kinds]
     prod = [f for f in finals if route_kind(f[2], existing, job_dir, workdir)[0] == "PRODUCTION"]
     test = [f for f in finals if f not in prod]
     if prod:
@@ -365,12 +369,24 @@ def run_ps(script, *args):
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
+# word_layout.ps1 -Mode measure output version: 2 since 16 Oct 2026 (each paragraph's page is its
+# first line's, as its top is; end_page is its last line's). An older cache is measured again.
+MEASURE_VERSION = 2
+
+
+def measure_version(path):
+    try:
+        return int(json.loads(Path(path).read_text(encoding="utf-8-sig")).get("measure_version") or 1)
+    except (OSError, ValueError):
+        return 0
+
+
 def blank_measure_for(template):
     """The blank's Word measurement, made (3 min) when missing or older than the blank."""
     template = Path(template)
     LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
     out = LAYOUT_STATE / f"{template.stem}.measure.json"
-    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime:
+    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
         return out
     print(f"  measuring : the blank's layout through Word (first run for this blank, ~3 min) -> {out.name}")
     r = run_ps("word_layout.ps1", "-Mode", "measure", "-Docx", template, "-Out", out)
@@ -425,7 +441,15 @@ def main():
                     help="skip the HIA build-contract fill (it otherwise runs on every "
                          "--job-dir fill: approved blank when one exists, staged UNAPPROVED "
                          "template in TEST mode, data sheet otherwise)")
+    ap.add_argument("--build-contract-only", action="store_true",
+                    help="fill and route the build contract alone, e.g. QLD figures given after "
+                         "the documents were saved (issue #73); the inclusions and the prelim "
+                         "in the workdir are not touched or routed again")
     args = ap.parse_args()
+    if args.build_contract_only and (args.template or args.prelim or args.no_build_contract
+                                     or not args.job_dir or args.deliver):
+        sys.exit("ERROR: --build-contract-only takes --job and --job-dir only (no --template, "
+                 "--prelim, --no-build-contract or --deliver)")
 
     job_path = Path(args.job)
     values = json.loads(job_path.read_text(encoding="utf-8"))
@@ -463,7 +487,9 @@ def main():
         wanted = [k for k, flag in (("INCLUSIONS", args.template),
                                     ("PRELIMINARY AGREEMENT", args.prelim),
                                     ("BUILD CONTRACT", not args.no_build_contract)) if flag]
-        if not (args.template or args.prelim):
+        if args.build_contract_only:
+            wanted = ["BUILD CONTRACT"]
+        elif not (args.template or args.prelim):
             wanted = DOC_KINDS  # route-only run: whatever the workdir holds
         routes = {k: route_kind(k, existing, job_dir, workdir) for k in wanted}
         mode = "PRODUCTION" if any(m == "PRODUCTION" for m, _ in routes.values()) else "TEST"
@@ -491,7 +517,7 @@ def main():
             if "hia contract:" in line:
                 print(f"  {line.strip()}")
 
-    if not args.template and not args.prelim:
+    if not args.template and not args.prelim and not args.build_contract_only:
         if mode:
             deliver_routed(workdir, values, job_dir, existing)
             write_routes(workdir, routes)  # only after a delivery that did not stop
@@ -516,8 +542,12 @@ def main():
         check = run_py(script, "--template", template, "--job", job_path, "--check", *extra)
         (workdir / f"check_{kind}.txt").write_text(check.stdout + check.stderr, encoding="utf-8")
         if check.returncode != 0:
-            print(f"  {kind}: ANCHOR CHECK FAILED - stopping this document. "
-                  f"See check_{kind}.txt; the template may have been revised.")
+            err = next((l for l in check.stderr.splitlines() if l.startswith("ERROR")), "")
+            if err:   # a value the filler refuses (e.g. a garage side it does not know)
+                print(f"  {kind}: {err} - stopping this document; fix the job JSON and re-run")
+            else:
+                print(f"  {kind}: ANCHOR CHECK FAILED - stopping this document. "
+                      f"See check_{kind}.txt; the template may have been revised.")
             return None
         out = workdir / out_name
         fill = run_py(script, "--template", template, "--job", job_path, "--out", out, *extra)
@@ -529,6 +559,14 @@ def main():
         (workdir / f"diff_{kind}_vs_blank.txt").write_text(diff.stdout, encoding="utf-8")
         regions = diff.stdout.strip().splitlines()[-1] if diff.stdout.strip() else "?"
         print(f"  {kind}: filled -> {out.name}   blank-diff: {regions}")
+        # approved amendments (CD-10, issue #61): applied or refused, each with
+        # its request line - the reviewer reads these in the run summary
+        lines = fill.stdout.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("AMENDMENT"):
+                print(f"  {line}")
+                if i + 1 < len(lines) and lines[i + 1].startswith("    request:"):
+                    print(f"  {lines[i + 1]}")
         artifacts.append(out)
         return out
 
@@ -543,6 +581,8 @@ def main():
     # inclusions feedback sheet 9.9 / issue #35, built 10 Sep 2026). Any failure
     # blocks the save - a document with a label off its wording, a red note or
     # an empty page never ships.
+    # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
+    # path since 15 Oct 2026 (CD-9.11, issue #63): each upgrades item names its dwelling.
     if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")
@@ -635,8 +675,27 @@ def main():
                     if doc:
                         made["buildcontract"] = doc
                         print(f"  build contract: from {provenance}")
+                        # the item 2 / progress schedule arithmetic and its flags
+                        # (CD-5.4, issue #62) belong in the run summary, not only
+                        # in fill_buildcontract.txt
+                        block = False
+                        for line in (workdir / "fill_buildcontract.txt").read_text(encoding="utf-8").splitlines():
+                            block = line.startswith("contract figures") or (block and line.startswith("  "))
+                            if block or line.startswith("FLAG:"):
+                                print(f"  {line}")
                     return bool(doc)
                 stage("build contract: check+fill+diff", do_bc)
+
+    # an approved amendment for a document this run did not produce would
+    # otherwise vanish silently (CD-10)
+    import amendments
+    for n, am in enumerate(values.get("amendments") or [], 1):
+        doc = amendments.KINDS.get(am.get("kind"), am.get("document")) if isinstance(am, dict) else None
+        if args.build_contract_only and doc != "build_contract":
+            continue   # the other documents were filled by the earlier run
+        if doc and not made.get({"build_contract": "buildcontract"}.get(doc, doc)):
+            print(f"  AMENDMENT {am.get('id') or f'A{n}'} NOT APPLIED: the {doc.replace('_', ' ')} was not "
+                  f"filled this run - a person makes it: {amendments.norm(am.get('request_line'))!r}")
 
     # gather every PDF the run needs and export them through one Word launch
     pairs = [(doc, workdir / f"PREVIEW_{doc.stem}.pdf") for doc in made.values() if doc]
@@ -682,7 +741,8 @@ def main():
     # still blocks the save - the run fails closed, it never ships a partial.
     if mode and not failures:
         def do_deliver():
-            prod, test = deliver_routed(workdir, values, job_dir, existing)
+            prod, test = deliver_routed(workdir, values, job_dir, existing,
+                                        kinds=wanted if args.build_contract_only else None)
             write_routes(workdir, routes)  # only after a delivery that did not stop
             kinds = lambda fs: ", ".join(sorted({k.lower() for _, _, k in fs})) or "none"
             print(f"  delivered : job folder <- {kinds(prod)}; template-testing <- {kinds(test)}")

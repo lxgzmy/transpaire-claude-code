@@ -35,6 +35,9 @@ class OSCClient:
         self._client = httpx.AsyncClient(
             verify=config.verify_tls,
             timeout=config.timeout,
+            # The production API answers HTTP 400 to any request, the token
+            # call included, that does not name the API version it expects.
+            headers={"api-version": config.api_version},
         )
         self._access_token: str | None = None
         self._token_expiry: float = 0.0  # monotonic seconds
@@ -129,6 +132,9 @@ class OSCClient:
         text = resp.text
         try:
             result["data"] = resp.json()
+            if isinstance(result["data"], dict):
+                # OData's context link carries the server's host name; it never leaves the server.
+                result["data"].pop("@odata.context", None)
         except ValueError:
             result["data"] = None
             if text:
@@ -145,7 +151,7 @@ class OSCClient:
         if not self.config.swagger_url:
             raise OSCError(
                 "No OSC_SWAGGER_URL configured, so endpoint introspection is "
-                "unavailable. osc_get / osc_write still work with an explicit path."
+                "unavailable. osc_get and the prepare/confirm tools still work with an explicit path."
             )
         resp = await self._client.get(self.config.swagger_url)
         if resp.status_code != 200:

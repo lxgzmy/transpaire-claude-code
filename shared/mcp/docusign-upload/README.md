@@ -23,7 +23,7 @@ Both preview and create take `template_name`, `recipients` (buyer roles:
 `docusign_envelope.json` that
 `job-roles/contract-admin/scripts/docusign_payload.py` writes. Step 8 of
 `/new-contract-template` calls this server (`docusign-upload-prod` for a real
-job, this sandbox server for a synthetic one; CD-10).
+job, this sandbox server for a synthetic one; CD-11).
 
 ## How the draft is built
 

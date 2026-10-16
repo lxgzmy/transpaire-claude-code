@@ -1,13 +1,13 @@
 r"""Regenerate references/endpoints.md from the live OSC OpenAPI spec.
 
 Run with the osc-api MCP server's venv python, so `osc_mcp` and its
-git-ignored `.env` are available:
+git-ignored `production.env` are available:
 
     <repo>\shared\mcp\osc-api\.venv\Scripts\python.exe `
         .claude\skills\osc-api\scripts\generate_endpoints.py
 
-The spec location comes from OSC_SWAGGER_URL (environment / `.env` beside the
-osc-api package). Org guardrail: no server name, address, or credential may
+The spec location comes from OSC_SWAGGER_URL (environment / `production.env`
+beside the osc-api package). Org guardrail: no server name, address, or credential may
 land in the repo — this script writes only paths, methods, summaries,
 parameter names, and schema property names, and refuses to write at all if
 any host string from the configuration appears in the rendered output.
@@ -51,7 +51,8 @@ def main() -> None:
         "Host and credentials are configuration (`OSC_*` env), never recorded here.",
         "",
         "`[WRITE]` marks operations that change the system of record — those go",
-        "through `osc_write`, which is gated (see SKILL.md).",
+        "through `osc_prepare_write` (or `osc_prepare_changes`) and `osc_confirm_write`, and only the",
+        "contract-intake changes the gate approves are possible (see SKILL.md).",
         "",
     ]
 

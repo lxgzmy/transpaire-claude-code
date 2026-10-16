@@ -42,9 +42,12 @@ unchanged.
   instruction on which template to use. Verify it is current before using it —
   a sender can attach a superseded copy. *(observed)*
 - **CD-0.5** Never record bank, deposit or payment card details in any output.
+  (Payment *details* - account numbers, receipts, cards. The contract's own
+  deposit figure, CD-5.4, is a contract term and is filled.)
 - **CD-0.6** Instructions in the email that change the job — "needs review
   first", "no prelim required", a revised price — are surfaced to a human, not
-  acted on autonomously.
+  acted on autonomously. The one exception is a contract amendment the
+  request marks approved on its own line, in the three kinds of CD-10.
 
 ## CD-1 Template selection
 
@@ -80,7 +83,7 @@ Nine fields, all on page 1. *(manual, confirmed observed)*
 | **CD-2.6** House Type | Email "Design:" | Design name; auxiliary dwellings read `<design> + Auxiliary Unit`, not the email's shorthand (CD-6) |
 | **CD-2.7** House Size | **PLANS** | `nnn.nn m²`. Not in the email — absent until plans arrive (JD-9.3) |
 | **CD-2.8** House Façade | Email "Facade:" | `<name> Façade`. Neighbouring files use both `Façade` and `Facade`; match the template |
-| **CD-2.9** Garage Side | **PLANS** | `Left Hand Side` / `Right Hand Side`, judged facing the house. Unclear → escalate (JD-9.5) |
+| **CD-2.9** Garage Side | **PLANS** | `Left Hand Side` / `Right Hand Side`, judged facing the house. **Sydney corner block or lane lot: `Via <the street or lane the driveway uses>`** (`Via Sample Road`, `Via Example Lane`; an unnamed lane `Via Lane`) — the team's practice in every such completed job, confirmed by the 26032 review (issue #59, 15 Oct 2026). The run renders the site-plan page (`pdf_page.ps1`) every time plans exist and reads it; `site_streets.py` lists the street names labelled there (CORNER / REAR LANE / SINGLE) so a second frontage is not missed. Can't tell → blank + a flag naming the streets, for the reviewer (JD-9.5) |
 
 ## CD-3 Inclusions, owner and signature blocks
 
@@ -126,6 +129,13 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   (26044) repurposed the Owners Witness rows into `Name of Owner 3` /
   `Signature of Owner 3` by hand. Claude fills owners 1–2, puts every owner in
   `owners`, and flags the rest for a person. *(observed 16 Aug 2026)*
+- **CD-3.10** **Footer page total:** every inclusions blank types its own
+  page count after "Page n of" (15, 16 or 17), so a filled document that
+  runs past the blank's pages read "Page 17 of 16". The fill makes that
+  total Word's page count field (NUMPAGES), in the typed digits' own
+  formatting, as the team did by hand on 26032 (26020's person typed
+  "18"). The Sydney gate fails a typed total. *(16 Oct 2026, from the
+  26058 run that grew to 17 pages)*
 
 ## CD-4 Preliminary agreement
 
@@ -187,7 +197,10 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
     label, owner 2 two above the second, builders representative three above
     `Name who is authorised…` — typed **Calibri 12** *(confirmed by the team
     28 Aug 2026, chosen over both the blank's 8–9pt rendering and the
-    corrected documents' own 10–11pt)*. **A third buyer** (`owner_3`, 9.1
+    corrected documents' own 10–11pt)*, every name with the same two-space
+    lead so the client's and the builder's names start at one edge *(14 Oct
+    2026 review, issue #60; the corrected 26032/26052 had a third space
+    before Michael CRONK)*. **A third buyer** (`owner_3`, 9.1
     item 6) gets the second client's whole signing row cloned below itself —
     spacers, name line, rule and `Client Name` label — with the Transpire
     authorised-signatory block flowing down, as the manual 26011 lays it out.
@@ -340,18 +353,56 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   NAME(S) on both copies (executed 25163 keys the owner at each) and leaves
   the builder line alone — the QLD build ships it prefilled (Michael CRONK).
   Signatures, initials and dates stay human (CD-3.7).
-- **CD-5.4** Price excluding GST, GST, total, and the fixed-price component all
-  come **from DataBuild**. Never calculated or inferred. *(manual)* Both
-  team builds ship `$000,000.00`-style placeholders for these; `fill_hia.py`
-  replaces them **only** when a person has keyed the DataBuild figures into
-  the job JSON (`price_excl_gst`, `gst_amount`, `price_incl_gst`, and on NSW
-  `deposit` — QC2 has no schedule deposit item; its deposit is a Schedule 2
-  progress row, never filled) — it never derives one figure from another,
-  and the contract order's price is not a substitute for DataBuild. Progress
-  stage amounts are never filled (CD-5.6).
+- **CD-5.4** ~~Price excluding GST, GST, total, and the fixed-price component
+  all come from DataBuild. Never calculated or inferred.~~ *(manual)*
+  **Reversed for NSW, 15 Oct 2026** (issue #62, owner sign-off; the team's
+  review sheets of 3 Sep and 14 Oct 2026 asked for it): `fill_hia.py` works
+  item 2 and the Part B progress schedule from the request's GST-inclusive
+  `price` (the price the inclusions carry, checked against the EOI, CD-2.5),
+  by the convention the executed NSW contracts 26045 and 26040 follow:
+  - GST = price ÷ 11, to the cent (half up); price excluding GST = price −
+    GST, so the two add up exactly;
+  - deposit = 10% of the price, rounded **down** to the cent so it never
+    passes the statutory 10% cap; a lower deposit the request states
+    (`deposit_request`, an amount or `n%`) goes into item 2(b) with a flag
+    that the schedule's stage 1 still reads 10%; a higher one is refused;
+  - each stage = its printed % × price to the cent (stage 1, the deposit
+    stage, rounded down), the last stage taking the rounding balance so the
+    schedule always totals the price; the TOTAL row carries the price.
+  A DataBuild figure a person keys into the job JSON (`price_incl_gst`,
+  `gst_amount`, `price_excl_gst`, `deposit`, `progress_1`..`progress_6`,
+  `progress_total`) always wins; the run flags any difference from the
+  calculation, and a keyed contract price that differs from the request's.
+  The fill report and the run summary show the arithmetic. No usable price:
+  item 2 and the schedule stay blank, flagged. Every amount types as
+  `$nnn,nnn.nn` (a figure keyed without its `$` used to print bare).
+  **QLD is never worked out** (15 Oct 2026, issue #73, contract admin
+  feedback: no DataBuild prerequisite, the person's figures count). Item 2
+  and Schedule 2 Part B (CD-5.6) fill from the figures the person gives,
+  typed or read off a DataBuild screenshot that is read back to them
+  first. They can arrive at any time: with the request, later in the
+  chat, or after the documents are saved (a build-contract-only run, which
+  refreshes to template-testing under CD-7.7). The run never asks for them
+  or waits. With none, item 2 and Part B stay blank and the report says
+  how to add them; that is a note, not a flag. The figures are typed as
+  given and the checks only warn: item 2 adds up, the GST is 1/11 of the
+  price, the price matches the request, Part B totals the price with each
+  row at its printed %, and the deposit is within the 5% the contract
+  prints for a price of $20,000 or more. Part B's TOTAL is the contract
+  price given when it is not given itself. QC2 has no item 2 deposit; the
+  deposit is Part B's first row.
 - **CD-5.5** Building period, in contract days: single storey 180; single storey
   duplex 210; double storey 210; double storey duplex 240. *(manual)*
-- **CD-5.6** Part B progress payment schedule is copied from DataBuild.
+- **CD-5.6** ~~Part B progress payment schedule is copied from DataBuild.~~
+  NSW: worked from the contract price since 15 Oct 2026 (CD-5.4, issue #62);
+  the template's printed percentages (10 / 10 / 25 / 25 / 20 / 10) are
+  checked before anything is typed, and a changed schedule stops the fill
+  like any other moved anchor.
+  QLD: Part B (the part the team completes, with Transpire's stage
+  wording) takes the DEPOSIT, BASE, FRAME, ENCLOSED, FIXING, PRACTICAL
+  COMPLETION and TOTAL amounts the person gives (CD-5.4, issue #73); its
+  printed percentages (5 / 15 / 20 / 25 / 20 / 15) are checked the same
+  way. Part A is left as printed.
   Consumer building guide and contract index pages are left as they are. *(manual)*
 - **CD-5.7** The completed pack is the contract, general conditions, inclusions
   and concept plan assembled together — roughly double the blank's page count.
@@ -363,12 +414,23 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   dwelling, means the standard range inclusions **do not cover the second
   dwelling**. *(observed — the sales manager's email said so explicitly)*
 - **CD-6.2** House type reads `<design> + Auxiliary Unit`. *(observed)*
-- **CD-6.3** The aux inclusions text itself is a **pricing and specification
-  decision**. Claude does not write it. Fill the fields, then route for review
-  before issue. On the observed job a whole `UPGRADED INCLUSIONS – AUX DWELLING`
-  section was added and the existing upgrades relabelled `– Main Dwelling`.
+- **CD-6.3** ~~The aux inclusions text itself is a pricing and specification
+  decision. Claude does not write it.~~ **Reversed, signed off 15 Oct 2026**
+  (issue #63, option B; built 8 Oct 2026 for job 26032): on the Sydney AUXILIARY blanks the run writes the
+  aux dwelling's upgrade lines too, under the same CD-9 rules as the main
+  dwelling — each `upgrades` item names its `dwelling`, the row choice and any
+  custom wording stay a person's call, and every item is reported with its
+  confidence for confirmation before issue (CD-9.11). On the observed job a
+  whole `UPGRADED INCLUSIONS – AUX DWELLING` section was added and the existing
+  upgrades relabelled `– Main Dwelling`; the 19.08.2026 AUXILIARY blanks now
+  carry both headings.
 - **CD-6.4** A Sydney-region auxiliary job has its own template variant — use it
   rather than amending the standard one. *(observed)*
+- **CD-6.5** The Sydney AUXILIARY blanks go through the full CD-9 edit,
+  layout pass and gate like the STANDARD ones (CD-9.11). (Replaces the
+  interim fields-only skip proposed on 8 Oct 2026, never merged.) A hand-added section that
+  is in neither blank — 26032's `SPECIAL CONDITIONS` — stays a person's edit:
+  decided 8 Oct 2026 (option C declined).
 
 ## CD-7 Output naming and location
 
@@ -482,26 +544,122 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   change. The editor compares every other paragraph of both columns and
   every text outside the body table with the blank and refuses to write on
   any difference. *(sheet row 8)*
-- **CD-9.8** Every run black; no highlight, no run shading — the blue
-  package headings included ("no exception"). *(sheet rows 3, 13)*
+- **CD-9.8** Every run black except the package headings (INTERNAL /
+  EXTERNAL TURNKEY PACKAGE, UPGRADED INCLUSIONS and its MAIN / AUX DWELLING
+  variants), which keep the template's blue (`00B0F0`); no highlight, no run
+  shading. *(sheet rows 3, 13; the headings exception from the 14 Oct 2026
+  review of job 26032, issue #58, which answered open question 8 and reversed
+  the earlier "no exception" reading)*
 - **CD-9.9** Layout: the body is one table row with two independent
   columns. After any content change the Word pass measures each label
   against its wording and pads/trims blank left-column paragraphs (a
-  fraction of a line as paragraph spacing) until level within 1.5 pt, and
-  puts INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS at the
-  top of their pages. Page-1 values and the page-13 signature lines sit on
+  fraction of a line as paragraph spacing) until level within 0.5 pt (the
+  gate allows 1.5 pt; the margin absorbs the small shifts a later edit
+  causes), and puts INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED
+  INCLUSIONS at the top of their pages. A re-measure follows, with up to
+  four correction rounds. Page-1 values and the page-13 signature lines sit on
   tab stops (one x per column; the owner's name under the builder's; every
-  `Date:` on one x). The gate fails the document on any miss, on an empty
-  page, or on any colour left. *(sheet rows 1, 4, 12, 14, 15)*
+  `Date:` on one x, the Owners Witness Name line included — issue #56).
+  Section 18 sits one blank line below the NBN wording, on the same page as
+  its label: the editor leaves three blank paragraphs above the kept wording
+  (one blank line plus the heading's two) whatever the blank had (2 in the
+  STANDARD blanks, 11 in the AUXILIARY one — issue #57), and two below it
+  (one blank line plus section 19's one-line heading; the blank leaves 1 to
+  4 depending on which area pair was kept). When the kept wording starts a
+  page (the NBN wording then ends at the foot of the page before), the
+  label is levelled onto that page and the heading's two lines would be
+  left behind. The pass then puts the heading at the top of the label's
+  page, by blank lines above it, and levels the pair from the wording side
+  only: whole blank lines and spacing above the wording, or a fraction of
+  a line above the label under its heading. Nothing above the heading is
+  touched again, in that pass or any correction round, so it is never
+  pulled back to the page before. The foot of the table keeps
+  one blank paragraph per column: the blanks pad it with 38, which landed
+  on a page of their own once the upgrades ran past one page (the section
+  after the table starts its own page either way). The gate fails the
+  document on any miss, on an empty page (pages inside the body table read
+  column by column), on a colour left outside the
+  package headings, on a label line whose `Date:` is not on the tab stops,
+  or on a section 18 gap or stranded heading. A heading on the page after
+  the NBN wording passes only when the kept area wording could not fit
+  there: it starts that page beside its label, the heading starts it
+  too, and no more than the editor's 3 blank lines follow the NBN
+  wording on its page (Word's own placement, no free-line count: the
+  wording needs those 3 lines plus 2 of its own). *(sheet rows 1, 4, 12, 14,
+  15; the 14 Oct 2026 review of job 26032)*
 - **CD-9.10** What stays human: mapping a request line to a Standard
   Variation row, and approving custom wording where no row exists. The run
   reports request → row → wording → confidence per item and a TO CONFIRM
   list; medium/low confidence and custom items are confirmed before issue.
   *(instruction, 10 Sep 2026)*
+- **CD-9.11** AUXILIARY blanks *(signed off 15 Oct 2026, issue #63 option B)*: the
+  upgrades are two sections, `UPGRADED INCLUSIONS – MAIN DWELLING` then
+  `– AUX DWELLING`, each with its own labels and wording. Every `upgrades`
+  item carries `dwelling: "main"` or `"aux"`; an item with none on an
+  AUXILIARY blank goes under MAIN and is flagged, and an `aux` item on a
+  STANDARD blank is refused. Labels are matched, and new ones placed in
+  Standard Variation order, within the item's own section; a new label at
+  both body columns always end on a blank line (the AUXILIARY blank ends
+  them on text, and Word cannot measure a cell's last paragraph for the
+  layout pass). Two item keys added
+  the same day for any Sydney blank: `mode: "remove"` drops a label with its
+  wording (26032 has no alfresco), and `before: "<label>"` puts a new label
+  in front of an existing one when the agreed document's order differs from
+  the Standard Variation order (labels like Architrave or Trim have no
+  category to rank by). Section 18 (whose
+  red instruction reads `(DELETE AS REQUIRED)` on these blanks), the Bathroom
+  2 notes and lines (the AUXILIARY exhaust fan names its rooms on a
+  `Location:` line) and the main dwelling's air conditioning follow CD-9.2–
+  9.4. A granny-flat air conditioner is an `aux` item, never a change to the
+  main dwelling's ducted system. Both headings stay where the blank puts them
+  (each starts a page) and the gate checks them. CD-9.7's scope check covers
+  both sections and refuses any change to the headings themselves.
 
-## CD-10 DocuSign draft envelope (instruction, 13 Oct 2026)
+## CD-10 Approved per-job amendments (sign-off 15 Oct 2026, issue #61)
 
-- **CD-10.1** After a run whose build contract routed PRODUCTION (CD-7.7),
+A request sometimes asks for a per-job change to the contract and marks it
+approved on the same line (26032, 12 Oct 2026: "Delete Clause 14. Hidden
+Site Conditions – Approved by <director>", "Change late payment interest
+rate from 15% to 12% - Approved", and new words for the prelim's clause 4).
+Until 15 Oct 2026 a person retyped each of these; the team's review of
+26032 called that the defect. The run now applies three kinds itself
+(`amendments.py`, `fill_hia.py`, `fill_prelim.py`):
+
+- **CD-10.1** `schedule` (build contract): a schedule value with a stated old
+  and new value. Only the late-payment interest rate so far (`field:
+  interest_rate`): NSW Schedule 1 item 12, QLD's rate on overdue payments.
+  The contract must still read the old value, or the change is refused.
+- **CD-10.2** `strike_clause` (build contract, NSW): a whole general-
+  conditions clause named by number, struck through from its heading to the
+  next clause heading — heading, sub-clauses, their numbers and the margin
+  notes, as the team struck clause 14 by hand. Never deleted (the clause
+  numbers would move), never part of a clause; the contents line and any
+  cross-reference stay as printed and the report counts them for the
+  reviewer. A `title`, when given, must match the heading.
+- **CD-10.3** `prelim_words` (preliminary agreement): words added to or
+  removed from one paragraph of a numbered clause. The request quotes the
+  new paragraph (`expect`); the run finds the one paragraph of that clause
+  that becomes it by adding or removing words, and refuses rewording.
+- **CD-10.4** Every amendment carries its request line verbatim
+  (`request_line`). The line must close with its own approval marker
+  ("Approved", "Approved by <name>"), must not ask for approval ("to be
+  approved", "pending approval"), and must be found word for word in the
+  request text saved beside the job JSON (`email*.txt`); a `prelim_words`
+  paragraph must be found there too. An approval given anywhere else — a
+  separate reply, a chat — does not count.
+- **CD-10.5** A refused amendment is reported with its reason and the
+  document saves with the template wording; a refusal never blocks the
+  save. The report and the run summary list each amendment APPLIED or
+  REFUSED with its request line and approval.
+- **CD-10.6** Everything else stays with a person and goes, verbatim, under
+  `amendments_for_person` in the job JSON and the report: a new clause or
+  special condition, rewording an HIA clause, part of a clause, any other
+  schedule item, a line without its own marker. The Special Conditions
+  validity clause (open question 7) is one of these.
+
+## CD-11 DocuSign draft envelope (instruction, 13 Oct 2026)
+
+- **CD-11.1** After a run whose build contract routed PRODUCTION (CD-7.7),
   the skill creates a DocuSign envelope with `status: created`, a draft, with
   the job's own PDFs in it, through the local `docusign-upload` server's
   `docusign_create_draft`. It never sends. The approval prompt on that call is
@@ -512,24 +670,24 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   synthetic jobs only. A template-testing refresh produces the payload files
   only. *(switched from the hosted `docusign-demo` `createEnvelope`,
   13 Oct 2026)*
-- **CD-10.2** Template by region × buyer type, matched by exact name after
+- **CD-11.2** Template by region × buyer type, matched by exact name after
   trimming whitespace, never by a stored id: NSW/QLD × Single Buyer (one
   owner), 2 Buyers (two or more; owner 3+ flagged, as CD-3.8), Company (a
   company or trust owner, the CD-3.9 condition, or a sourced
   `company_signatory`). The server matches the name; zero or several matches
   stop the step.
-- **CD-10.3** Only buyer-side roles are set: owner 1/2 names with
+- **CD-11.3** Only buyer-side roles are set: owner 1/2 names with
   `owner_email`/`owner_2_email`; on the Company template the guarantor
   (`guarantor_name`, `guarantor_email`). Builder, Builder Witness, Date
   Contract, Signer 1 and Buyer Witness keep the template defaults and are
   listed in the report; Buyer Witness is a staff change before sending. A
   missing buyer or guarantor email stops the step.
-- **CD-10.4** Subject `Complete with DocuSign: BUILD CONTRACT - LOT <lot>,
+- **CD-11.4** Subject `Complete with DocuSign: BUILD CONTRACT - LOT <lot>,
   <SUBURB>`; message fixed (`Dear <first names>,` / `Please find the building
   contract for review and signing.` / `Thank you` / `Sales Admin`); custom
   field `JobNo` = job number, used to find an existing envelope (any status
   but voided, declined or deleted, last 180 days) before creating another.
-- **CD-10.5** The draft holds the job's PDFs from its `CONTRACT
+- **CD-11.5** The draft holds the job's PDFs from its `CONTRACT
   DOCUMENTATION` under their CD-7.2 names: the build contract (required),
   and the inclusions, preliminary agreement and plans when a file with
   exactly that name exists. Another file is never guessed at. Each replaces
@@ -540,14 +698,14 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   document goes in with no tabs and the report flags it for staff to tag. The
   build contract must carry: a different page count means its layout
   changed, and the step stops.
-- **CD-10.6** Evidence in the workdir only: `docusign_envelope.json`,
+- **CD-11.6** Evidence in the workdir only: `docusign_envelope.json`,
   `docusign_payload.txt`, `docusign_result.json`. Nothing from this step goes
   into the job folder.
-- **CD-10.7** The report names the environment: PRODUCTION
+- **CD-11.7** The report names the environment: PRODUCTION
   (`docusign-upload-prod`) or SANDBOX (`docusign-upload`, no legal effect).
   Production needs its own registration and DocuSign's Go-Live review first
   (`docs/mcp-servers.md`).
-- **CD-10.8** *Open, owner's decision pending (13 Oct 2026).* What step 8
+- **CD-11.8** *Open, owner's decision pending (13 Oct 2026).* What step 8
   does when no draft can be created: production not connected yet, a stop,
   or a decline. The step reports the reason and creates nothing, as for any
   stop. Whether staff then create the envelope by hand from the payload, or
@@ -561,14 +719,20 @@ keying and assembling the build contract; emailing the contract to the marketer;
 checking initials and signatures; signing and witnessing; attaching documents in
 OnSite Companion; scanning the executed set; the manila folder for the filing
 cabinet; placing tabs on any document the DocuSign draft flags, checking the
-draft, and sending it (CD-10).
+draft, and sending it (CD-11).
 
 ## Escalations
 
 | Situation | Action |
 |---|---|
 | Price in email ≠ price on EOI | Stop; hand to a human (CD-2.5) |
-| Garage side not left/right | Escalate to Michael (JD-9.5) |
+| Request asks for a contract change without its own approval marker, or of a kind CD-10 does not cover | List it under `amendments_for_person`; a person makes it (CD-10.6) |
+| An approved amendment is REFUSED (old value, title or quoted paragraph does not match) | The document saves with the template wording; a person checks the request and makes the change (CD-10.5) |
+| Keyed DataBuild figure ≠ the figure worked from the price | The keyed figure is used; FLAG in the report and the run summary (CD-5.4) |
+| Request asks for a deposit over 10% | Refused, 10% used, FLAG (CD-5.4) |
+| QLD figures not given yet | Nothing is asked or waited for; item 2 and Part B stay blank with a note; the person gives them any time, typed or as a DataBuild screenshot (CD-5.4, issue #73) |
+| QLD figures that disagree (item 2 sum, GST, request price, Part B total or %, deposit over 5%) | Typed as given; each disagreement is a FLAG for the person (CD-5.4) |
+| Garage side not clear from the rendered site plan | Leave it blank; flag the streets the site plan names for the reviewer, who confirms or asks Michael (JD-9.5) |
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
 | Template anchor not found by `--check` | Stop; template revised, needs a person |
@@ -617,7 +781,7 @@ draft, and sending it (CD-10).
    pre-registration parent address + estate name. Rule updated. (CD-2.4)
 5. Who approves aux/dual-key inclusions, and is there an approved template for
    them outside Sydney? (CD-6.3/6.4)
-6. The team's build-contract review sheet (item 4, 3 Sep 2026) asks for the
+6. ~~The team's build-contract review sheet (item 4, 3 Sep 2026) asks for the
    contract price sections to be completed from the order email's
    GST-inclusive price before any DataBuild/OSC integration exists: item
    2(a) price excl GST + GST + price incl GST, item 2(b) deposit as 10% of
@@ -629,7 +793,12 @@ draft, and sending it (CD-10).
    them is mechanically trivial; the decision (and the rounding rules —
    cents vs dollars, last-claim-as-balance vs rounded percentage, whether
    the derived figures must later reconcile to DataBuild) belongs to the
-   business. Held pending that decision. (CD-5.4)
+   business. Held pending that decision.~~ **Answered 15 Oct 2026** (issue
+   #62): reversed for NSW with the executed contracts' rounding - cents,
+   GST half up, deposit and stage 1 rounded down, the last stage as the
+   balance, keyed DataBuild figures win with a flag. QLD is never worked
+   out: it takes the figures the person gives, any time (issue #73).
+   (CD-5.4)
 7. Review sheet item 12 asks whether the Special Conditions validity clause
    can be amended per job when the fixed period differs from six months or
    a specific end date is requested ("otherwise, this section may be a
@@ -647,7 +816,8 @@ draft, and sending it (CD-10).
    make the alignment structural, and the notes could become Word comments.
    Three CD-9 readings also want a one-line confirmation on the first job
    they meet: North Kellyville pairs with the rain-garden wording (by
-   elimination); the blue package headings go black too ("no exception");
+   elimination); ~~the blue package headings go black too ("no exception")~~
+   answered 14 Oct 2026: they stay blue (CD-9.8, issue #58);
    Bathroom 2 on the ground floor writes "Bathroom 2" into the descriptions
    as 26019 did rather than leaving the note text in the contract. (CD-9)
 9. When step 8 cannot create a DocuSign draft (production upload server not
@@ -658,4 +828,4 @@ draft, and sending it (CD-10).
    into the sandbox. Nothing is built either way until the owner decides.
    Also open: whether inclusions whose page count differs from the
    template's get their tabs re-based (see the tab placement write-up,
-   13 Oct 2026). (CD-10.5, CD-10.8)
+   13 Oct 2026). (CD-11.5, CD-11.8)

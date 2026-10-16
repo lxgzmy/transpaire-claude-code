@@ -1,14 +1,15 @@
-# osc-api MCP server
+# osc-api MCP server (registered as `osc-api-prod`)
 
 A local (stdio) MCP server that bridges Claude Code to the **Companion Systems
-OSC API** (OSCAPI). It gives skills and sessions a small set of tools to query
-OSC data and, once deliberately enabled, to write to it - with the org
-human-in-the-loop rules enforced.
+OSC API** (OSCAPI) of the **production** OnSite Companion, the one staff use. It
+gives skills and sessions a small set of tools to query OSC data and to change
+it only through a confirmation gate: the person sees each change in plain words,
+with the values it overwrites, and nothing is sent without their yes.
 
-This is **code only**. No credentials or server names live here; everything that
-identifies an environment is supplied through `OSC_*` environment variables, so
-the same server points at **dev** or **production** by changing the environment,
-not the code.
+This is **code only**. No credentials or server names live here; they are
+supplied through `OSC_*` settings in the git-ignored `production.env`. The dev
+copy this server used until 13 Oct 2026 (frozen 21 Aug 2026) is no longer a
+supported target.
 
 ## OSC object model (what you can query)
 
@@ -114,11 +115,14 @@ many-to-one, `}o--o{` many-to-many, `||--||` one-to-one.
 
 | Tool | Kind | What it does |
 |---|---|---|
-| `osc_token_info` | read | Granted OAuth scope + token expiry for the current credential. Start here to check connectivity. |
+| `osc_token_info` | read | Environment, granted scope, write switch and the live-data check. Start here. |
 | `osc_list_endpoints` | read | List endpoints from the OpenAPI spec; filter by `contains` / `method`. |
 | `osc_describe_endpoint` | read | Complete parameters, request/response schemas and their transitive local references for one path. |
 | `osc_get` | read | GET any endpoint. Supports OData `query` params and body-filter GETs (e.g. `/api/Jobs`) via `odata_filter`. |
-| `osc_write` | **write** | JSON or multipart POST/PUT/PATCH/DELETE. Gated - see below. |
+| `osc_prepare_write` | read | Checks one change and words its confirmation; sends nothing. See [Write safety](#write-safety-human-in-the-loop). |
+| `osc_prepare_changes` | read | The same for several changes to one job (an intake stage): one confirmation for all of them; sends nothing. |
+| `osc_cancel_write` | read | Discards a prepared change or batch. |
+| `osc_confirm_write` | **write** | Sends a prepared change or batch on the person's plain yes, then reads each change back. The only tool that changes OSC. |
 
 The read tools cover all 148 OSCAPI endpoints generically (the spec is loaded at
 run time), so no per-endpoint code needs maintaining when the API version moves.
@@ -127,7 +131,8 @@ run time), so no per-endpoint code needs maintaining when the API version moves.
 
 Once the server is registered (see below) and your session has started, you don't
 call the tools by hand. Ask Claude Code in plain English and it picks the right
-tool. Read requests run without a prompt; writes stay gated.
+tool. Read requests run without a prompt; every change is shown to you first
+and waits for your yes.
 
 | Ask in plain English | Tool(s) it uses |
 |---|---|
@@ -142,18 +147,19 @@ reachable the same way. Check what's registered and connected with `/mcp`.
 
 ## Actions you can do via the MCP
 
-Two verbs cover everything the API exposes: **`osc_get`** performs the **101
-read** operations, and **`osc_write`** performs the **76 write** operations
-(create / update / delete, plus workflow actions like *complete*, *not
-applicable* and *send*). `osc_list_endpoints` and `osc_describe_endpoint`
-discover and explain any of them. The full catalogue, by area:
+**`osc_get`** performs any of the **101 read** operations below.
+`osc_list_endpoints` and `osc_describe_endpoint` discover and explain any of
+them. The catalogue also lists the API's **76 write** operations for
+reference, but Claude can make **only the 14 contract-intake changes**
+(see [Write safety](#write-safety-human-in-the-loop)); the rest stay a
+person's job in OnSite Companion.
 
 > **Note — some writes are outward-facing or irreversible.** `EmailWorkReleases`
 > actually **sends an email** to a service provider; `Complete`, `NotApplicable`
-> and the `Delete` operations change records in ways that are hard to undo. These
-> are exactly what the write gate is for: `osc_write` sends nothing unless the
-> server was started with `OSC_ENABLE_WRITES=true`, every call is on `ask`, and
-> you must pass `confirm=true` (see [Write safety](#write-safety-human-in-the-loop)).
+> and the `Delete` operations change records in ways that are hard to undo.
+> Email, delete, not-applicable and re-template operations are outside the
+> approved list, and an activity completion needs the person's yes like any
+> other change.
 
 ### Jobs
 - **Read** — list/filter jobs; get a job; its contacts, documents, custom fields (+ schemas), alerts, messages, locations, defects (+ defect locations), inspections, variations, sub-job relationships, document types in use, and workflow statuses/templates.
@@ -207,9 +213,120 @@ discover and explain any of them. The full catalogue, by area:
 Regions, locations, statutory requirements, document types, defect categories, workflow statuses/templates, variation reasons/approvals, users (+ roles), the `Miscellaneous/*` enums, Liink lookups, and the read-only MobileApp job/workflow/message feeds.
 
 ### Auth / diagnostics
-`osc_token_info` shows the credential's granted scope and token expiry.
+`osc_token_info` shows the environment, the credential's granted scope and
+token expiry, the write switch, and `live_check` (the newest job's date).
 
 ## Write safety (human-in-the-loop)
+
+This server writes to the **production** OnSite Companion that staff work from
+(owner approval, 13 Oct 2026). There is no direct write tool: every change
+goes through the gate in [`osc_mcp/gate.py`](osc_mcp/gate.py), in two steps
+with the person's reply between them.
+
+### 1. `osc_prepare_write` (reads only, sends nothing)
+
+```text
+osc_prepare_write(
+  method="PATCH",
+  path="/api/Jobs/<jobID>",
+  job_id="<jobID>",
+  body={"siteAddress": {"suburb": "BOX HILL"}}
+)
+```
+
+It refuses, with the reason in plain words:
+
+- anything that is not one of the **14 contract-intake changes** (`APPROVED`
+  in `gate.py`): create client, person or job; update client, person or job;
+  add or update a client or job contact; complete an activity; answer an
+  activity question; add a job or activity message. Every DELETE, every
+  endpoint that emails (`EmailWorkReleases`) or re-templates
+  (`AddWorkflowTemplate`), `/Contract`, and the rest stay a person's job in OSC;
+- a record that is not tied to `job_id`: the job itself, its client, a
+  contact on the job or its client, or one of its four intake activities (Initial Contact, Follow Up Initial Contact, Create Job within Databuild, Receive EOI Approval to Proceed from Marketer), checked by name because activity numbers differ between workflow templates;
+- a target that is missing, not a single GUID, or matches more than one
+  record;
+- a field the record does not have, or a protected one: contract price
+  (DataBuild only), contract number (OSC generates it), region of an existing
+  job, DataBuild client code;
+- a completed activity, an existing contact link, or a change OSC already
+  holds (in a batch these are left out and listed instead of blocking);
+- a stale copy: the newest job in OSC is more than `OSC_STALE_AFTER_DAYS`
+  (30) days old.
+
+Otherwise it reads the current record and returns:
+
+- `confirmation_text`: the job, each change as *now X, will be Y* (clears and
+  overwrites spelled out), a note when the client or person is shared with
+  other jobs, and duplicate warnings: every job on the same lot **and suburb**
+  (all jobs on the lot number are read, since lot numbers repeat across
+  estates; the count elsewhere is a note), a client with the same name in any
+  case or the same words in another order, a person with the same name, email
+  or mobile, and a message with the same subject;
+- `would_send`: the smallest request that makes exactly those changes. Values
+  OSC already holds are dropped. Custom fields go as the record's full set with
+  the changes merged in, so none is dropped whether OSC merges or replaces the
+  list. A PUT answer carries the current note when only the state changes;
+- `confirmation_code`: six characters, valid for `OSC_APPROVAL_MINUTES` (30).
+
+With writes switched off it still returns the confirmation, but no code.
+
+### 2. The person reads the confirmation and replies
+
+### 3. `osc_confirm_write(confirmation_code, user_reply)` (the only write)
+
+- A plain yes ("yes", "ok", "go ahead", "是", "确认" ...) goes ahead. "No"
+  cancels. Anything else, such as "yes but change the lot", sends nothing.
+- The target is read again. If the record or the request differs from what
+  was confirmed, nothing is sent and a new confirmation and code come back.
+- The stored request is sent, not a new one. A code works once, and a newer
+  check of the same target replaces it.
+- The record is read back: `state: verified` only when every confirmed field
+  took and nothing else on the record changed. Otherwise the result names the
+  fields that did not take or changed unexpectedly. A dropped connection is
+  `sent_unverified`: look in OSC before trying again.
+
+`osc_cancel_write(confirmation_code)` discards a prepared change.
+
+A message is read back from OSC itself: the new message must be listed where
+it was posted, and its attachments are counted through
+`/api/Messages/Documents` (production lists messages without their documents).
+
+### Batches: one confirmation per stage
+
+`osc_prepare_changes(job_id, changes)` takes the changes of one stage in
+order, each `{method, path, body}` or `{method, path, form, files}`, and
+gives every one the checks above. The person reads one confirmation and one
+plain yes sends them all, so a contract intake asks three times (new client
+and job; the job's set-up; DataBuild done) instead of once per field.
+
+- Anything that cannot go ahead blocks the whole batch; anything OSC already
+  holds is left out and listed.
+- Two changes to the same record are refused: put them into one.
+- A later change can use an ID an earlier one creates: `{{N.clientID}}` as a
+  new job's `clientID`, `{{N.personID}}` as the person in a contact-link path.
+  `job_id` is empty only for a batch that creates a new intake's client,
+  people and job.
+- On the yes, every change is checked again before the first is sent. Each
+  later change is planned again just before it goes; the batch stops at the
+  first that fails or no longer matches what was confirmed (`state: stopped`,
+  `failed` or `sent_unverified`), the earlier ones stay done and read back,
+  and a `stopped` result carries a new confirmation for the rest.
+
+On top of the gate, the host keeps `mcp__osc-api-prod__osc_confirm_write` on
+`ask` in [`.claude/settings.json`](../../../.claude/settings.json), and the master
+switch below must be on.
+
+### Message attachments
+
+Request-email messages are multipart: `form` for `Subject`, `Body`,
+`Documents[n].description`; `files` for `Documents[n].file` mapped to an
+absolute path on the MCP server's machine. Every file must sit under an
+**upload root** (`OSC_UPLOAD_ROOTS`, `;`-separated absolute directories;
+default the checkout's git-ignored `runtime\` folder), so a stray settings or
+key file can never be attached to a job. The preview checks the file (exists,
+under a root, size) without opening it. The file is opened only when the
+change is sent, streamed through httpx and closed afterwards.
 
 ### Contract workflow integration
 
@@ -217,63 +334,12 @@ Regions, locations, statutory requirements, document types, defect categories, w
 the existing document pipeline. The
 [execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md)
 maps the Word fields to endpoints and runtime custom-field labels, and defines
-duplicate checks, recovery and read-back. DataBuild is excluded. The workflow
-does not change the write gates or automatically enable writes.
+duplicate checks, recovery and read-back. DataBuild is excluded.
 
-`osc_describe_endpoint` retains the existing response-code/content-type fields
-and adds `request_body`, `response_details` and full parameter metadata to each
-operation. `referenced_definitions` maps literal `$ref` strings to definitions,
-including nested addresses, required fields and enum choices. Follow these
-references when preparing payloads; cycles remain named references.
-`unresolved_references` lists missing or external references. No external
-reference is fetched, and schema discovery sends no business writes.
-
-Request-email messages require multipart uploads. Pass `form` for text fields
-and `files` for multipart field names mapped to absolute paths on the MCP
-server's machine. For a reviewed request email under task 11:
-
-```text
-osc_write(
-  method="POST",
-  path="/api/JobActivities/<verified-task-11-UUID>/Messages",
-  form={"Subject": "NEW JOB", "Documents[0].description": "NEW JOB"},
-  files={"Documents[0].file": "<absolute server-local request-email path>"},
-  confirm=false
-)
-```
-
-Use the exact multipart names from the endpoint schema. Do not combine `body`
-with `form`/`files`. Every file path must sit under one of the configured
-**upload roots** (`OSC_UPLOAD_ROOTS`, `;`-separated absolute directories;
-default the checkout's git-ignored `runtime\` folder) - a path anywhere else is
-refused, so a stray `.env` or key file can never be attached to a job. The
-preview (`confirm=false`) runs the same checks the send will and returns them
-under `checks`: the route exists and advertises `multipart/form-data`, each
-file is an existing regular file under a root, and its size in bytes. It
-reports problems with `ok=false` instead of promising a send that would fail,
-and it never opens a file. Confirmed uploads open the files only after every
-gate, stream them through httpx and close them afterwards. No filename is
-substituted for file content. Files and permissions are those of the MCP
-server, not the host app's computer. Transport failure can leave the outcome
-uncertain; inspect OSC before retrying.
-
-### Existing approval gates
-
-Writing to OSC changes a system of record, which the org guardrails do not allow
-without human approval. `osc_write` is gated three independent ways:
-
-1. **Disabled by default.** It refuses unless the server is started with
-   `OSC_ENABLE_WRITES=true`. With the flag off it returns a preview and sends
-   nothing - even if someone approves a prompt. The switch is set for the
-   whole checkout by the `env` block of the committed [`.mcp.json`](../../../.mcp.json)
-   (`"true"` since 24 Sep 2026) — see [Turning writes on or off](#turning-writes-on-or-off).
-2. **Approved per call.** The host keeps `mcp__osc-api__osc_write` on `ask` in
-   [`.claude/settings.json`](../../../.claude/settings.json), so every write
-   prompts and shows exactly what will be sent.
-3. **Explicit confirm.** `confirm=true` is required to send; `confirm=false`
-   (the default) returns a dry-run preview of the request.
-
-Read tools are allow-listed so queries flow without prompts.
+`osc_describe_endpoint` returns `request_body`, `response_details`, full
+parameter metadata and `referenced_definitions` (literal `$ref` to
+definition). `unresolved_references` lists missing or external references. No
+external reference is fetched.
 
 ### Turning writes on or off
 
@@ -281,50 +347,54 @@ Read tools are allow-listed so queries flow without prompts.
 
 1. the `env` block of the committed `.mcp.json` at the repo root — the MCP
    host passes it to the server process as a real environment variable;
-2. the git-ignored `.env` beside this package — read by `osc_mcp.config` only
-   for variables the real environment does **not** already set.
+2. the git-ignored `production.env` beside this package — read by
+   `osc_mcp.config` only for variables the real environment does **not**
+   already set.
 
-So the `.mcp.json` value always wins, and `.env.example` is documentation that
-nothing reads. On 14 Sep 2026 the flag was flipped in `.env.example` alone;
-every session until 24 Sep 2026 kept reporting `enable_writes: false` and the
-contract intake could not create OSC jobs. Since 24 Sep 2026 `.mcp.json`
-carries `"OSC_ENABLE_WRITES": "true"`.
+So the `.mcp.json` value always wins. (On 14 Sep 2026 the flag was flipped in
+`.env.example`, which nothing reads, and every session until 24 Sep 2026 kept
+reporting `enable_writes: false`.)
 
 To change it: edit `.mcp.json` on a branch, land it through a PR, pull on the
 server, then **open a new Claude Code session in the repo folder**. The server
-is started per session, so the new session is the restart — there is no
-service, machine or account to restart and no `.env` to touch. A session that
-still shows `false` after the change simply predates it (or was opened outside
-the repo root, where `.mcp.json` is not loaded).
-
-`osc_token_info` reports the effective value and its origin:
+is started per session, so the new session is the restart. `osc_token_info`
+reports the effective value and its origin:
 
 ```
-"enable_writes": true, "enable_writes_source": "env"     # from .mcp.json / real env
-"enable_writes": false, "enable_writes_source": "dotenv" # from .env - .mcp.json not applied
+"enable_writes": true, "enable_writes_source": "env"      # from .mcp.json / real env
+"enable_writes": false, "enable_writes_source": "dotenv"  # from production.env - .mcp.json not applied
 "enable_writes": false, "enable_writes_source": "default" # nowhere set
 ```
 
 ## Configuration
 
-All via environment variables - see [`.env.example`](.env.example).
+`OSC_ENVIRONMENT` must be `production` (the only value accepted; the dev copy
+was retired 13 Oct 2026). Everything else comes from `production.env` beside
+this README (template: [`production.env.example`](production.env.example)),
+or from `OSC_ENV_FILE` if set. The old `.env` is never read.
 
 | Var | Required | Purpose |
 |---|---|---|
-| `OSC_BASE_URL` | yes | API base, e.g. `https://<host>:53502`. |
-| `OSC_CLIENT_ID` / `OSC_CLIENT_SECRET` | yes | Client-credentials pair for that environment. |
+| `OSC_BASE_URL` | yes | Production API base, e.g. `https://<host>:<port>`. |
+| `OSC_CLIENT_ID` / `OSC_CLIENT_SECRET` | yes | Production client-credentials pair. |
 | `OSC_SWAGGER_URL` | no | OpenAPI spec URL for introspection; must match the API version. |
-| `OSC_SCOPES` | no | Space-separated scopes to request (e.g. `Basic Orders`). |
-| `OSC_VERIFY_TLS` | no | `false` for internal/self-signed dev; `true` for prod with a valid cert. |
-| `OSC_ENABLE_WRITES` | no | Master write switch; default `false`. Set in the committed `.mcp.json` `env` block (`"true"` since 24 Sep 2026), which overrides `.env`. |
-| `OSC_TIMEOUT` | no | Per-request timeout (seconds), default 30. |
-| `OSC_UPLOAD_ROOTS` | no | `;`-separated absolute directories a multipart upload may read from; default the checkout's git-ignored `runtime\` folder. |
+| `OSC_SCOPES` | no | Space-separated scopes; the intake needs `Basic WorkReleasingAndCompletion`. |
+| `OSC_VERIFY_TLS` | no | Default `true`. `false` only if IT confirms an internal certificate. |
+| `OSC_ENABLE_WRITES` | no | Master write switch; default `false`. Set in the committed `.mcp.json` `env` block, which overrides `production.env`. |
+| `OSC_TIMEOUT` | no | Per-request timeout (seconds), default 30 (`.mcp.json` sets 120). |
+| `OSC_UPLOAD_ROOTS` | no | `;`-separated absolute directories an attachment may be read from; default the checkout's git-ignored `runtime\` folder. |
+| `OSC_STALE_AFTER_DAYS` | no | Writes refused when the newest job is older than this; default 30. |
+| `OSC_APPROVAL_MINUTES` | no | Life of a confirmation code; default 30. |
+| `OSC_API_VERSION` | no | Sent as the `api-version` header on every call, the token request included; default `7.3`. The production API answers HTTP 400 ("The 'api-version' header must be included") without it. The retired dev install never asked for it. |
+
+The tools never show the host: `osc_token_info` reports `target`, a short hash
+of the base URL, and httpx request logging is kept at warning level.
 
 ## Install & register (Windows server, `pwsh`)
 
-The server is **registered at project scope** by the committed
-[`.mcp.json`](../../../.mcp.json) at the repo root, pre-approved via
-`enabledMcpjsonServers` in `.claude/settings.json` — so every session started
+The server is **registered at project scope** as `osc-api-prod` by the
+committed [`.mcp.json`](../../../.mcp.json) at the repo root, pre-approved via
+`enabledMcpjsonServers` in `.claude/settings.json`, so every session started
 in this repo sees it and there is no `claude mcp add` to run. Details and
 history in [docs/mcp-servers.md](../../../docs/mcp-servers.md).
 
@@ -337,44 +407,41 @@ Set-Location "Z:\CLAUDE CODE\transpire-claude-code\shared\mcp\osc-api"
 python -m venv .venv          # or `uv venv` where uv is installed
 .\.venv\Scripts\python.exe -m pip install -e .
 
-# 2. Put the OSC_* values in a .env beside this README (copy .env.example).
-#    Values come from the company password store - never a doc, commit,
-#    or prompt.
+# 2. Create production.env: the script asks for the address, spec URL, client ID
+#    and secret (typed hidden), writes the file from production.env.example and
+#    runs the read-only selftest. Values come from the company password store -
+#    never a doc, commit, issue or chat.
+.\new-production-env.ps1 -CheckJob <contract number>
 
-# 3. Confirm - read-only selftest, then the registration itself
-.\.venv\Scripts\python.exe -m osc_mcp.selftest
+# 3. The registration itself
 claude mcp list   # "Pending approval" only means this account hasn't accepted
                   # the workspace trust dialog yet; sessions still load it
 ```
 
-Then in an interactive session, run `/mcp` and check `osc-api` is connected, and
-try `osc_token_info` to confirm the credential and its granted scope.
+Then in an interactive session, run `/mcp` and check `osc-api-prod` is
+connected, and try `osc_token_info`: `environment` is `production` and
+`live_check.live` is true.
 
-A checkout at a different path (e.g. a dev clone) won't match the committed
-command path; if it ever needs a live server, register there manually with
-`claude mcp add osc-api -- <its-venv-python> -m osc_mcp.server`.
-
-## Pointing at production
-
-Register a **second** server named `osc-api-prod` (keep the names distinct so a
-workflow can't hit prod while someone thinks they're on dev), with the prod
-`OSC_BASE_URL`, prod credentials, the prod `OSC_SWAGGER_URL`, and
-`OSC_VERIFY_TLS=true`. Leave `OSC_ENABLE_WRITES=false` until a write workflow has
-been reviewed, and add `mcp__osc-api-prod__osc_write` to `ask` before first use.
-
-## Local smoke test (no MCP host needed)
-
-Synthetic regression tests (no network, credentials or client records):
+## Tests (no MCP host, no network)
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-These cover schema references, required fields, multipart encoding and binary
-content, rejected uploads and write gates. Live write acceptance still requires
-an approved test job on the intended environment; read-only verification does
-not prove contract-number generation or business validation on creates.
+Run from this folder with the venv python. `tests/fake_osc.py` is a stateful
+stand-in for OSC (synthetic data; PATCH keeps omitted fields, and replaces the
+custom-field list whole, the worst case for losing data).
+`tests/test_write_gate.py` covers the gate end to end: the confirmation's
+wording and current values, only approved fields sent and everything else
+kept, cancel, no reply, unclear replies, expired and reused codes, re-confirming
+when the record or request changes, wrong-job and ambiguous targets, refused
+routes and protected fields, the stale-copy check, attachments and send
+failures. `tests/test_contract_support.py` covers spec introspection and
+configuration.
 
-`python -m osc_mcp.selftest` runs `osc_token_info` and a couple of read calls
-directly against the configured environment, using the same `OSC_*` env vars.
-Use it to verify configuration before registering the server.
+Live acceptance still needs an agreed job on production: the tests do not
+prove contract-number generation or OSC's own validation on creates.
+
+`python -m osc_mcp.selftest [contract number]` runs read-only calls against
+production: environment, scope, the live-data check, the intake lookups and,
+given a contract number, that job's identity.

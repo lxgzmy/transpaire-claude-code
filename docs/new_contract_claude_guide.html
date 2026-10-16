@@ -202,7 +202,7 @@
      something it made up. It saves the finished documents into the job folder and
      hands you a review sheet. Every OnSite Companion change waits for your Yes, and
      nothing is ever sent, signed or issued without you.</p>
-  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 11 September 2026</span>
+  <span class="who">Everyday guide &middot; Contract Administration &middot; updated 15 October 2026</span>
 </div>
 
 <p class="custom"><b>It uses the real template, every time.</b> Claude opens the same
@@ -307,7 +307,9 @@
 
 <div class="card" style="--c:var(--navy)">
   <div class="hd"><span class="num">2</span><h3>It sets the job up in OnSite Companion</h3></div>
-  <p class="when">New from 11 September 2026. Each change is shown to you first and waits for your Yes.</p>
+  <p class="when">Since 13 October 2026 these changes go into the OnSite Companion you
+     use every day. Before that date they went to a test copy you could not see, so
+     anything Claude said it had entered in OSC before 13 October is not there.</p>
   <div class="say">
     <span class="lbl">What it does in OSC</span>
     <ul>
@@ -322,9 +324,49 @@
           primary, and adds the sales and marketer contacts</li>
     </ul>
   </div>
-  <p class="back"><b>You get back:</b> each OSC change before it is sent and a
-     read-back after it, plus the job&rsquo;s contract number, which becomes the job
-     number for the folder and the documents.</p>
+  <div class="say">
+    <span class="lbl">You are asked at most three times, once per stage</span>
+    <ul>
+      <li><b>New client and job.</b> After the lot search, one check covers both.</li>
+      <li><b>Setting up the job.</b> One check covers the job details, the contacts,
+          activities 1 and 2, the NEW JOB email on the job and task 11, and, on a new
+          job, the job folder on <code>Z:</code>.</li>
+      <li><b>DataBuild done.</b> When you say so, one check covers activity 6.</li>
+      <li>Everything else (reading the email, the searches, the documents) goes
+          ahead without asking.</li>
+    </ul>
+  </div>
+  <div class="say">
+    <span class="lbl">Each check looks like this</span>
+    <p style="font-family:Consolas,monospace;font-size:.9em;margin:.4em 0">
+      Job: 26999 - LOT 12 SAMPLE STREET, TESTVILLE NSW 2000<br>
+      2 changes, made in this order:<br>
+      1. Job details<br>
+      &nbsp;&nbsp;&nbsp;- Site address, suburb: now &ldquo;TESTVILLE&rdquo;, will be &ldquo;BOX HILL&rdquo;<br>
+      2. Activity 1 &ldquo;Initial Contact&rdquo; is marked complete<br>
+      &nbsp;&nbsp;&nbsp;- Completion date: now empty, will be 15 Oct 2026<br>
+      Nothing else on these records changes.<br>
+      Already in OnSite Companion, so left out: activity 2 is already complete.<br>
+      Reply &ldquo;yes&rdquo; to make all 2 changes, or &ldquo;no&rdquo; to leave OnSite Companion as it is.</p>
+    <ul>
+      <li>Check the job number and address first. If it is the wrong job, say no.</li>
+      <li>&ldquo;now&rdquo; is what OSC holds today; &ldquo;will be&rdquo; is what it changes to.
+          &ldquo;will be cleared&rdquo; means the value is removed.</li>
+      <li>A <b>Warning</b> line needs your eye: another job on the same lot and suburb,
+          or a client or person who may already be in OSC. If it is the same buyer or
+          job, say no and tell Claude which one to use.</li>
+      <li>Reply <b>yes</b> to make every change in the list, or <b>no</b> to leave OSC
+          alone. If you want something different, say what; Claude shows you a new
+          check, and nothing changes until you say yes to that one.</li>
+      <li>Then click <b>Allow</b> on the approval box. It shows the same
+          confirmation code as the check.</li>
+    </ul>
+  </div>
+  <p class="back"><b>You get back:</b> after each yes, Claude reads every change back
+     from OSC and tells you it is done, or exactly what did not take. If something in
+     the list changed in OSC part-way, Claude stops there, the changes before it stay
+     done, and you get a new check for the rest. You also get the job&rsquo;s contract
+     number, which becomes the job number for the folder and the documents.</p>
   <p class="tip"><b>DataBuild is still yours.</b> Claude never opens it, and never puts
      the contract price into OSC (the price lives in DataBuild only). Enter the job in
      DataBuild as you do now, then tell Claude &ldquo;DataBuild done&rdquo; and it
@@ -367,10 +409,13 @@
      and its PDF, saved per the four rules above, plus a list of exactly what changed
      against the blank template so you can see it touched the fields and nothing
      else.</p>
-  <p class="tip"><b>Signatures, dates, initials and money are left empty.</b> Always.
-     Signing is yours and Michael&rsquo;s. Price excluding GST, GST, contract price
-     and deposit come from DataBuild and are typed only when you give Claude the
-     exact figures. The progress payment schedule is never filled by Claude.</p>
+  <p class="tip"><b>Signatures, dates and initials are left empty.</b> Always.
+     Signing is yours and Michael&rsquo;s. <b>NSW build contract money (from 15
+     October 2026):</b> Claude works out the price excluding GST, the GST, the
+     deposit and every progress payment from the contract price, the same way the
+     signed contracts do, and shows the sums in its report. Check them. If DataBuild
+     has different figures, give them to Claude and they are used instead. On QLD
+     contracts the money is still typed only when you give Claude the figures.</p>
 </div>
 
 <div class="card" style="--c:var(--amber)">
@@ -379,8 +424,8 @@
   <div class="say">
     <span class="lbl">Typical flags</span>
     <ul>
-      <li>&ldquo;Garage side isn&rsquo;t in the email or the plans, it needs
-          confirming&rdquo;</li>
+      <li>&ldquo;Corner block: Sample Road and Example Street on the site plan; the
+          driveway street couldn&rsquo;t be read, confirm the garage side&rdquo;</li>
       <li>&ldquo;The plans haven&rsquo;t arrived, so house size is blank&rdquo;</li>
       <li>&ldquo;This job already has inclusions, so the new inclusions went to the
           testing folder; the build contract went into the job folder&rdquo;</li>
@@ -406,17 +451,19 @@
         one; against the EOI form when there is not (the report flags &ldquo;no ID
         in the request&rdquo;). If it says the EOI was typed into the chat rather
         than read, check those names twice.</li>
-    <li><b>Key the money from DataBuild.</b> Contract price, GST, deposit and the
-        progress payment schedule are never filled automatically.</li>
+    <li><b>Check the money.</b> On an NSW contract, read the contract figures in
+        the report (GST, deposit, each progress payment) against DataBuild. On a QLD
+        contract, give Claude the DataBuild figures or type them in.</li>
     <li><b>Finish the OSC job.</b> Do the DataBuild entry yourself and tell Claude
         it is done, so activity 6 gets ticked. Type in any Client Notes the report
         lists.</li>
     <li><b>Fill what is still blank.</b> Owner address, every purchaser&rsquo;s
         mobile and email (DocuSign needs all of them), DP number, land address and
         any guarantor details stay empty until someone supplies them.</li>
-    <li><b>Dual key and plans.</b> The auxiliary dwelling inclusions text has to be
-        written by a person; house size and garage side wait for the plans; confirm
-        the building period category.</li>
+    <li><b>Dual key and plans.</b> On a Sydney auxiliary job, check the AUX
+        DWELLING upgrade lines as closely as the main ones; outside Sydney the
+        auxiliary dwelling text is still yours to write. House size and garage side
+        wait for the plans; confirm the building period category.</li>
     <li><b>Check the report&rsquo;s route lines</b> so you know which documents are
         in the job folder and which are in the testing folder waiting to be moved
         across. Claude never issues, sends or signs anything.</li>
@@ -429,8 +476,7 @@
     <thead><tr><th>What you have</th><th>What to do</th></tr></thead>
     <tbody>
       <tr><td>Owner contacts, DP number, land address, guarantor, house size, garage
-              side, and the DataBuild figures (price excluding GST, GST, contract
-              price, deposit)</td>
+              side, and on NSW any DataBuild figure that differs from Claude&rsquo;s</td>
           <td><b>Tell Claude the values in the same chat and ask it to run the job
               again.</b> Say them plainly: &ldquo;Lot 142: owner mobile is &hellip;,
               second owner email is &hellip;, DP number is &hellip;, garage side is
@@ -438,8 +484,21 @@
               already has the document, the new version lands in the testing folder
               (rule 3). Check it, move the old one into <code>SS</code>, copy the new
               one across.</td></tr>
-      <tr><td>Progress payment schedule, special conditions, auxiliary dwelling
-              inclusions text, a building period different from the template</td>
+      <tr><td>QLD DataBuild figures: contract price, GST, deposit and progress
+              payments</td>
+          <td><b>Give them to Claude whenever you have them</b>, before or after the
+              run. Type them in the chat, or paste a screenshot of the DataBuild
+              screen. Claude reads a screenshot&rsquo;s numbers back to you and uses
+              them once you say they are right. Nothing waits for them: the rest of
+              the job is done without them. Claude fills item 2 and the progress
+              payments (Part B) with your figures exactly as you gave them, and tells
+              you if anything does not add up. If the documents are already saved,
+              only the build contract is filled again, and it lands in the testing
+              folder (rule 3): check it, move the old one into <code>SS</code>, copy
+              the new one across.</td></tr>
+      <tr><td>Special conditions, a contract change the
+              request did not approve on its own line, auxiliary dwelling inclusions
+              text outside Sydney, a building period different from the template</td>
           <td><b>Edit the <code>.docx</code> in Word yourself.</b> Claude will never
               write these. Type them in, then save a fresh PDF (File, Save As, PDF)
               so the Word file and the PDF stay together under the same names. Move
@@ -461,14 +520,22 @@
         fills the company&rsquo;s template or it stops. The one thing it writes per
         job is the Sydney UPGRADED INCLUSIONS section, and there the words come from
         the Standard Variation spreadsheet; it shows you the row it picked and how
-        sure it is, and anything it could not match is marked for your approval.</li>
+        sure it is, and anything it could not match is marked for your approval.
+        <b>Approved changes (from 15 October 2026):</b> when the request marks a
+        change &ldquo;Approved&rdquo; on the same line, Claude makes three kinds
+        itself: a new late-payment interest rate, striking a whole NSW contract
+        clause, and adding or removing words in a preliminary agreement clause the
+        request quotes. The report lists each one as applied or refused, with the
+        request line. Anything else the request asks to change is listed for you
+        to do.</li>
     <li><b>Never</b> guess a number that goes in a contract. Price, house size and
         garage side are either sourced or flagged for you. The preliminary
         agreement fee is the standard amount unless the request names another.</li>
     <li><b>Never</b> sign, initial or date anything, and never send an email or
         issue anything to DocuSign.</li>
     <li><b>Never</b> change OnSite Companion without showing you the change first
-        and getting your Yes, and never open DataBuild.</li>
+        and getting your yes, and never change anything outside the new-job set-up
+        (no deleting, no emails from OSC, no contract price). Never open DataBuild.</li>
     <li><b>Never</b> overwrite a file that is already in a job folder. A document
         the job already has is re-run into the testing folder for you to check and
         move across; only documents the job does not have yet are saved straight in.</li>
@@ -491,12 +558,15 @@
               (Box Hill and Gables, North Kellyville, or everywhere else), the red
               Bathroom 2 and air-conditioning notes are dealt with, the upgrades
               from the request are written into UPGRADED INCLUSIONS in the Standard
-              Variation wording, and the whole document is black. It then re-levels
+              Variation wording, and everything is black except the blue package
+              headings. It then re-levels
               the two columns in Word and checks its own work (labels level,
               headings at the top of their pages, no blank page, nothing red or
               highlighted) before it will save. The report lists every upgrade line
               with the spreadsheet row it used and a confidence mark; check the
-              medium and low ones.</td></tr>
+              medium and low ones. <b>Auxiliary jobs (from 15 October 2026):</b> the
+              same for both dwellings, with the MAIN DWELLING and AUX DWELLING
+              upgrades each written into their own section.</td></tr>
       <tr><td>Preliminary agreement</td>
           <td><b>Filled in</b>, when the job needs one. Claude asks whether the job
               needs it. The standard fee is used unless the request names a
@@ -506,8 +576,10 @@
               page, the owner block, the land details and the signature names on the
               team&rsquo;s Word version of the licensed NSW or QLD contract, and
               exports the PDF (45 pages for NSW, 37 for QLD). The report names the
-              template it used. Prices, GST, deposit and progress payments always stay
-              yours; they come from DataBuild. Read it against the licensed HIA PDF
+              template it used. On NSW it also works out the GST, deposit and
+              progress payments from the contract price and shows the sums; on QLD it
+              fills them from the DataBuild figures you give it, whenever you have
+              them. Read it against the licensed HIA PDF
               before it is issued.</td></tr>
       <tr><td>Plans, general conditions, colour options</td>
           <td>Not produced. Listed as a checklist so nothing is forgotten from the
@@ -528,7 +600,7 @@
       <tr><td>Give Claude the email itself: drag it from Outlook into the chat, or into the job folder</td><td>The EOI form&rsquo;s typed values, the ID and the plans all come out of the attachments. The mail connection alone can pass on the text and pictures, not PDFs</td></tr>
       <tr><td>Give the owner contacts and land details up front</td><td>Address, mobiles, emails, DP number and land address go straight onto the build contract instead of being blanks to fill later</td></tr>
       <tr><td>Wait for the plans if you can</td><td>House size and garage side come off the plans and nowhere else</td></tr>
-      <tr><td>Say if it is a dual key or auxiliary dwelling</td><td>The standard inclusions do not cover the second dwelling. It flags this, but confirming saves a round trip</td></tr>
+      <tr><td>Say if it is a dual key or auxiliary dwelling</td><td>It needs the auxiliary template, and each upgrade has to be marked for the main or the second dwelling. Saying so up front saves a round trip</td></tr>
       <tr><td>Give the job number if you have it</td><td>Lot numbers repeat across estates; job numbers do not</td></tr>
       <tr><td>Read the flags before the document</td><td>The flags tell you whether the document is usable yet</td></tr>
     </tbody>
@@ -548,12 +620,20 @@
               the switch reached it (or opened outside the
               <code>transpire-claude-code</code> folder) still sees it off. Close the
               chat, start a new one in that folder and run again &mdash; that is the
-              whole fix; nobody has to restart a server or a computer. Writes have
-              been on since 24 September 2026. If a brand-new chat still says off,
+              whole fix; nobody has to restart a server or a computer. If a brand-new
+              chat still says off,
               tell the team: the switch lives in the project&rsquo;s settings file
               and is changed through a reviewed change, not from a chat. Meanwhile
               Claude keeps the OSC changes as a draft and still produces the
               documents.</td></tr>
+      <tr><td>It shows the check again and asks once more</td>
+          <td>Someone changed that record in OSC after you said yes, or the change
+              itself is different now. Nothing was sent. Read the new check and
+              answer it.</td></tr>
+      <tr><td>It says OSC looks like an out-of-date copy</td>
+          <td>Claude will not write to an OSC whose newest job is over a month old,
+              because that means it is not connected to the system you use. Nothing
+              was changed. Tell the team.</td></tr>
       <tr><td>It found a job at the same lot in OSC</td>
           <td>It stops on purpose. Tell it whether that is the same job (it then
               continues with it) or a different one.</td></tr>
@@ -576,19 +656,33 @@
               unreadable here (no OCR on this server); then type the names exactly as
               on the ID and check the spelling on the finished document.</td></tr>
       <tr><td>It left garage side blank</td>
-          <td>Working as intended. It is read off the site plan drawing and Claude will
-              not guess it. Fill it in yourself, or ask Michael.</td></tr>
+          <td>Working as intended. Claude reads it off the site plan drawing and will
+              not guess. The flag names the streets it found: check the drawing, fill it
+              in yourself, or ask Michael. On a Sydney corner block or a lot with a
+              lane it writes &ldquo;Via&rdquo; and the street the driveway uses, the way
+              the team does.</td></tr>
       <tr><td>The build contract has no prices in it</td>
-          <td>Working as intended. Give Claude the DataBuild figures and re-run, or type
-              them into the Word file yourself (see &ldquo;Filling in the blanks&rdquo;).</td></tr>
+          <td>On NSW, the request had no contract price Claude could use, and the report
+              says so: give Claude the price and ask it to run the job again. On QLD
+              this is normal until you give Claude the DataBuild figures: type them in
+              the chat or paste a screenshot of the DataBuild screen, any time (see
+              &ldquo;Filling in the blanks&rdquo;). You can also type them into the
+              Word file yourself.</td></tr>
       <tr><td>It says a file is &ldquo;open in another program&rdquo;</td>
           <td>You (or someone) have the old PDF open. Close it and tell Claude to
               re-run the delivery. Nothing needs re-typing.</td></tr>
       <tr><td>It says the price on the email and the EOI disagree</td>
           <td>It stops on purpose. Don&rsquo;t pick one; get it confirmed.</td></tr>
-      <tr><td>It won&rsquo;t change the inclusions for an auxiliary dwelling</td>
-          <td>Also on purpose. Which inclusions apply to a second dwelling is a pricing
-              decision, so it goes to Michael rather than being written by Claude.</td></tr>
+      <tr><td>An upgrade landed under the wrong dwelling</td>
+          <td>Tell Claude which dwelling the line belongs to and ask it to run the job
+              again. An upgrade with no dwelling marked goes under MAIN DWELLING and
+              the report flags it.</td></tr>
+      <tr><td>The report says an amendment was REFUSED</td>
+          <td>Claude could not match it exactly: the request line had no
+              &ldquo;Approved&rdquo; of its own, the contract did not read what the
+              request said it reads, or the new wording was more than added or
+              removed words. The document keeps the template wording. Make the change
+              in Word yourself, or fix the request and run the job again.</td></tr>
       <tr><td>An upgrade line says &ldquo;custom wording, a person approves it&rdquo;</td>
           <td>The request did not match any row in the Standard Variation spreadsheet,
               so Claude drafted the line and marked it low confidence. Read it and
@@ -611,7 +705,7 @@
 </div>
 
 <footer>
-  <b><i>Transpire, build contract guide. Updated 11 September 2026.</i></b>
+  <b><i>Transpire, build contract guide. Updated 15 October 2026.</i></b>
   <i>Questions, or something in here is wrong? Tell the team. This guide is
   maintained and gets updated as the templates and the procedure change. The field
   rules behind it are in the project repo under

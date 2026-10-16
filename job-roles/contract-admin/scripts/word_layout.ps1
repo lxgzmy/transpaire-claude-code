@@ -24,11 +24,13 @@ align (every filled document): executes the plan edit_inclusions.py wrote.
 Each planned paragraph is located with Word's own Find (one call) instead of
 walking the whole cell, measured, and the left column padded or trimmed with
 blank paragraphs (a fraction of a line as paragraph spacing) until the label
-sits level with its wording within -Tolerance points; each package heading is
-pushed to the top of its page. A verification pass then re-measures every
+sits level with its wording within -Target points (the gate allows
+-Tolerance); each package heading is pushed to the top of its page. A verification pass then re-measures every
 step, and the report carries the final delta per step, the anchor
-x-positions (page-1 values, page-13 names and Date:), the page count and the
-empty pages - everything gate_inclusions.py checks. Only blank paragraphs are
+x-positions (page-1 values, page-13 names and Date:), the page count, the
+empty pages (inside the body table read column by column: Word's \page
+bookmark is wrong there) and the section 18 heading against the last NBN line
+(issue #57) - everything gate_inclusions.py checks. Only blank paragraphs are
 ever inserted or deleted, only inside the two body cells; text never changes.
 
 check: the same report without changing anything.
@@ -44,10 +46,16 @@ param(
     [string]$Save,
     [int]$BodyTable = 2,
     [double]$Tolerance = 1.5,
-    [int]$MaxIter = 80
+    # the pass levels each pair to within -Target; the gate allows -Tolerance. The
+    # margin absorbs the small shifts later edits cause - a pair left at 1.4 pt was
+    # pushed to 1.6 and failed the gate (26032, 26058 on 15 Oct 2026)
+    [double]$Target = 0.5,
+    [int]$MaxIter = 80,
+    [int]$Rounds = 4
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'word_com.ps1')   # Start-Word, Stop-Word, Drive-Path
 $wdPage = 3; $wdLeft = 5; $wdTop = 6
 $script:T0 = Get-Date
 function Say([string]$m) { Write-Host ("[{0,6:n1}s] {1}" -f ((Get-Date) - $script:T0).TotalSeconds, $m) }
@@ -132,7 +140,17 @@ function Find-Paragraph-After($doc, $scope, [int]$from, [string]$text) {
     return $null
 }
 
-function Pos($rng) { return @{ page = [int]$rng.Information($wdPage); top = [double]$rng.Information($wdTop) } }
+function Pos($rng) {
+    # page and top of the range's FIRST line, both read at its start. On a whole range
+    # Information(wdActiveEndPageNumber) gives the page of its END while the vertical position
+    # is its START: a wording paragraph running over a page break measured as "next page, at
+    # the height of its first line on this page", and its label was levelled a whole page too
+    # low (26058, 16 Oct 2026: "BASIX" at the foot of page 8, its wording from the foot of 7)
+    $s = $rng.Duplicate; $s.Collapse(1)
+    return @{ page = [int]$s.Information($wdPage); top = [double]$s.Information($wdTop) }
+}
+
+function End-Page($rng) { return [int]$rng.Information($wdPage) }   # the page a range's last line is on
 
 function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$maxIter) {
     # pad / trim the left column (or push the right heading) until this step is
@@ -144,18 +162,51 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
             $delta = (Flow (Pos $rp) $usable) - (Flow (Pos $lp) $usable)   # + : label sits above its wording
             if ([math]::Abs($delta) -le $tol) { break }
             $first = Block-First $lp
-            if ($delta -gt 0) {
+            if (-not $res.pin -and $delta -lt 0 -and $first.Range.Start -ne $lp.Paragraphs.Item(1).Range.Start) {
+                # a heading glued above this label (section 18's) starts a page, with the wording above
+                # the label on that page: deleting blanks above the heading cannot raise it - they only
+                # pull it back to the foot of the page before once enough are gone (15 Oct 2026, stranded
+                # again round after round). From here the pair is levelled from the wording side.
+                $fp = $first.Previous(1)
+                $fpage = (Pos $first.Range).page
+                if ($fp -ne $null -and (End-Page $fp.Range) -lt $fpage -and (Pos $rp).page -eq $fpage) { $res.pin = $true }
+            }
+            if ($res.pin) {
+                $actions += (Level-By-Wording $lp $rp $delta $lineH)
+            }
+            elseif ($delta -gt 0) {
                 $n = [math]::Floor($delta / $lineH)
+                # never put back the blank line just taken out: the gap it leaves is less than the
+                # line that went (a real blank is not exactly $lineH), so it is spacing. Without this a
+                # pair 0.55 pt off went "left -1, left +1" for all 80 tries, every round (16 Oct 2026,
+                # $lineH measured 12.75 against 13.3 blank lines)
+                if ($n -eq 1 -and $actions.Count -gt 0 -and $actions[-1] -match '^left -\d+$') { $n = 0 }
                 if ($n -ge 1) {
-                    for ($k = 0; $k -lt $n; $k++) { $first.Range.InsertParagraphBefore() }
+                    for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $first }
                     $actions += "left +$n"
                 } else { $first.SpaceBefore = [double]$first.SpaceBefore + $delta; $actions += ("left space +{0:n1}" -f $delta) }
             } else {
                 $sb = [double]$first.SpaceBefore
                 $prev = $first.Previous(1)
                 if ($sb -gt 0.05) { $cut = [math]::Min($sb, -$delta); $first.SpaceBefore = $sb - $cut; $actions += ("left space -{0:n1}" -f $cut) }
-                elseif ($prev -ne $null -and (Is-Blank $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
-                else { $rp.Paragraphs.Item(1).Range.InsertParagraphBefore(); $actions += 'right +1' }
+                elseif ($prev -ne $null -and (Is-Blank $prev) -and (Has-Blank-Before $prev)) {
+                    # every whole blank line the gap holds goes in one delete - one per move, each a
+                    # full relayout in Word, took 22 moves on one 26032 step (16 Oct 2026) - and never
+                    # the last blank above the block (see below)
+                    $m = [math]::Max(1, [math]::Floor(-$delta / $lineH))
+                    $top = $prev; $k = 1
+                    while ($k -lt $m) {
+                        $up = $top.Previous(1)
+                        if ($up -eq $null -or -not (Is-Blank $up) -or -not (Has-Blank-Before $up)) { break }
+                        $top = $up; $k++
+                    }
+                    $cut = $top.Range.Duplicate; $cut.End = $prev.Range.End; $cut.Delete() | Out-Null
+                    $actions += "left -$k"
+                }
+                # never the last blank between this label and the text above it: the two would be
+                # glued into one block (Block-First), and from then on levelling one moves the other -
+                # 15 Oct 2026, "Hinges & Drawer Runners" pushed a line off by the "Tiles" step below it
+                else { Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1' }
             }
             # InsertParagraphBefore grows the range to include the new blank: re-point at the text paragraph
             $lp = $lp.Paragraphs.Last.Range
@@ -165,24 +216,64 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
             $hp = Pos $rp
             $prev = Prev-Paragraph $rp
             if ($prev -eq $null) { break }
-            $pp = Pos $prev.Range
-            if ($pp.page -lt $hp.page) { break }
-            # walk back over the blank spacers to the content before them
-            $anchor = $prev; $blanks = 0
-            while ($anchor -ne $null -and (Is-Blank $anchor)) { $blanks++; $anchor = $anchor.Previous(1) }
-            $anchorPage = $(if ($anchor -eq $null) { 0 } else { (Pos $anchor.Range).page })
+            if ((End-Page $prev.Range) -lt $hp.page) { break }   # the paragraph above ends on an earlier page
+            # walk back over the blank spacers to the content before them, noting the ones that sit
+            # on the heading's page (directly above it)
+            $anchor = $prev; $blanks = 0; $spill = 0; $spillTop = $null; $onPage = $true
+            while ($anchor -ne $null -and (Is-Blank $anchor)) {
+                if ($onPage -and (End-Page $anchor.Range) -eq $hp.page) { $spill++; $spillTop = $anchor } else { $onPage = $false }
+                $blanks++; $anchor = $anchor.Previous(1)
+            }
+            $anchorPage = $(if ($anchor -eq $null) { 0 } else { End-Page $anchor.Range })
             if ($blanks -gt 0 -and $anchorPage -lt $hp.page) {
-                # the content ends on the page before: the blank just above the
-                # heading spilled onto its page - remove it, the heading moves up a line
-                $prev.Range.Delete() | Out-Null; $actions += 'right -1'
+                # the content ends on the page before: the blanks that spilled onto the heading's page
+                # go in one delete (one per move took 23 moves on 26032, 16 Oct 2026); the page before
+                # stays full of the rest, so the heading moves up to the top of its page
+                $cut = $spillTop.Range.Duplicate; $cut.End = $prev.Range.End; $cut.Delete() | Out-Null
+                $actions += "right -$spill"
             } else {
-                # content shares the heading's page: push the heading to the next page
-                $rp.Paragraphs.Item(1).Range.InsertParagraphBefore(); $actions += 'right +1'; $rp = $rp.Paragraphs.Last.Range
+                # content shares the heading's page: push the heading to the next page - the lines
+                # left on this page go in at once (one per move took 8 moves a heading)
+                $n = [math]::Max(1, [math]::Ceiling(($script:TextBottom - $hp.top) / $lineH))
+                for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $rp.Paragraphs.Item(1) }
+                $actions += "right +$n"; $rp = $rp.Paragraphs.Last.Range
             }
         }
     }
     $res._lp = $lp; $res._rp = $rp
     return $actions
+}
+
+function Level-By-Wording($lp, $rp, [double]$delta, [double]$lineH) {
+    # one move for a pinned pair (section 18's heading starts the label's page, Keep-Section18):
+    # nothing above the heading is touched. Whole lines go in or out on the wording side; a
+    # fraction goes on a paragraph that does not start a page - space before a paragraph at the
+    # top of a page does not move it by that amount (15 Oct 2026: +12.7 pt moved the heading a
+    # line and a half, -12.7 brought it back, round after round)
+    $w = $rp.Paragraphs.Item(1)
+    $lab = $lp.Paragraphs.Item(1)
+    $wPage = (Pos $w.Range).page
+    $wp = $w.Previous(1)
+    $wTop = ($wp -eq $null -or (End-Page $wp.Range) -lt $wPage)
+    if ($delta -lt 0) {
+        # the label sits below its wording: take back space put above the label, else lower the wording
+        $lsb = [double]$lab.SpaceBefore
+        if ($lsb -gt 0.05) { $cut = [math]::Min($lsb, -$delta); $lab.SpaceBefore = $lsb - $cut; return ("label space -{0:n1}" -f $cut) }
+        if ($wTop) { Insert-Blank-Before $w; return 'right +1' }   # first a line above it, then fractions work
+        $n = [math]::Floor(-$delta / $lineH)
+        if ($n -ge 1) { for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $w }; return "right +$n" }
+        $w.SpaceBefore = [double]$w.SpaceBefore - $delta; return ("right space +{0:n1}" -f (-$delta))
+    }
+    # the label sits above its wording: take back space put above the wording, then a whole blank
+    # line above it (never the one that would leave the wording starting the page), else lower the
+    # label under its heading by the fraction
+    $sb = [double]$w.SpaceBefore
+    if ($sb -gt 0.05) { $cut = [math]::Min($sb, $delta); $w.SpaceBefore = $sb - $cut; return ("right space -{0:n1}" -f $cut) }
+    if ($delta -ge 0.75 * $lineH -and -not $wTop -and (Is-Blank $wp)) {
+        $wpp = $wp.Previous(1)
+        if ($wpp -ne $null -and (End-Page $wpp.Range) -eq $wPage) { $wp.Range.Delete() | Out-Null; return 'right -1' }
+    }
+    $lab.SpaceBefore = [double]$lab.SpaceBefore + $delta; return ("label space +{0:n1}" -f $delta)
 }
 
 function Verify-Steps($results, [double]$usable, [double]$tol) {
@@ -198,7 +289,7 @@ function Verify-Steps($results, [double]$usable, [double]$tol) {
             $r.status = $(if ([math]::Abs($r.delta) -le $tol) { 'level' } else { 'OFF' })
         } else {
             $prev = Prev-Paragraph $r._rp
-            $r.status = $(if ($prev -eq $null -or (Pos $prev.Range).page -lt $rpos.page) { 'page top' } else { 'NOT AT PAGE TOP' })
+            $r.status = $(if ($prev -eq $null -or (End-Page $prev.Range) -lt $rpos.page) { 'page top' } else { 'NOT AT PAGE TOP' })
         }
         if ($r.status -notin @('level', 'page top')) { $off++ }
     }
@@ -212,7 +303,23 @@ function Prev-Paragraph($rng) {
     return $p
 }
 
+function Insert-Blank-Before($para) {
+    # a blank paragraph before $para, inserted at a collapsed point: the last
+    # paragraph of a cell (the AUXILIARY blank's 'Provisions' label) carries the
+    # end-of-cell mark, and Word refuses InsertParagraphBefore on such a range
+    $r = $para.Range.Duplicate
+    $r.Collapse(1)   # wdCollapseStart
+    $r.InsertParagraphBefore()
+}
+
 function Is-Blank($para) { return ((Clean $para.Range.Text).Trim().Length -eq 0) }
+
+function Has-Blank-Before($para) {
+    # true when the paragraph above $para is blank too (or there is none), so deleting $para
+    # still leaves a blank between the label below it and the text above
+    $pp = $para.Previous(1)
+    return ($pp -eq $null -or (Is-Blank $pp))
+}
 
 function Block-First($rng) {
     # the label and any heading glued directly above it move together
@@ -243,7 +350,7 @@ function Measure-Anchors($doc) {
                 if (-not $t.StartsWith($n)) { continue }
                 $info = [ordered]@{ anchor = $n; story = 'main'
                                     text = $t.Substring(0, [math]::Min(90, $t.Length))
-                                    page = [int]$pr.Information($wdPage); top = [math]::Round([double]$pr.Information($wdTop), 2)
+                                    page = $(($q = Pos $pr).page); top = [math]::Round($q.top, 2)
                                     label_left = (X-At $pr 0) }
                 if ($t.Length -gt $n.Length) { $info.after_label_left = (X-At $pr $n.Length) }
                 if ($t.Length -gt $n.Length + 1) { $info.after_label1_left = (X-At $pr ($n.Length + 1)) }
@@ -262,8 +369,32 @@ function Measure-Anchors($doc) {
     return $found
 }
 
-function Get-EmptyPages($doc, $pages) {
-    # a page is empty when neither its main-story text nor any text box anchored on it says anything
+function Cell-PageText($doc, $cell, [int]$first, [int]$last) {
+    # the cell's text on each page $first..$last. Pages only rise through a cell, so each page
+    # boundary is a binary search on character positions (~15 calls), then one Range.Text a page
+    $s = $cell.Range.Start; $e = $cell.Range.End
+    $bound = @{ $first = $s }
+    $lo = $s
+    for ($p = $first + 1; $p -le $last + 1; $p++) {
+        $a = $lo; $b = $e
+        while ($a -lt $b) {
+            $mid = [int][math]::Floor(($a + $b) / 2)
+            if ([int]$doc.Range($mid, $mid).Information($wdPage) -ge $p) { $b = $mid } else { $a = $mid + 1 }
+        }
+        $bound[$p] = $a; $lo = $a
+    }
+    $text = @{}
+    for ($p = $first; $p -le $last; $p++) {
+        $text[$p] = $(if ($bound[$p + 1] -gt $bound[$p]) { [string]$doc.Range($bound[$p], $bound[$p + 1]).Text } else { '' })
+    }
+    return $text
+}
+
+function Get-EmptyPages($doc, $pages, $lc, $rc) {
+    # a page is empty when nothing on it - main text, either body column, a text box - says anything.
+    # Word's \page bookmark returns the wrong range on a page inside the body table's one row: a
+    # page of nothing but padding read as text, and the gate passed it. Those pages are read
+    # column by column instead.
     $shapePages = @{}
     foreach ($sh in $doc.Shapes) {
         try {
@@ -272,12 +403,43 @@ function Get-EmptyPages($doc, $pages) {
             }
         } catch { }
     }
+    $tFirst = 0; $tLast = -1
+    if ($lc -ne $null -and $rc -ne $null) {
+        $tStart = $lc.Range.Start; $tEnd = $rc.Range.End
+        $tFirst = [int]$doc.Range($tStart, $tStart).Information($wdPage)
+        $tLast = [math]::Max([int]$doc.Range($lc.Range.End - 1, $lc.Range.End - 1).Information($wdPage),
+                             [int]$doc.Range($tEnd - 1, $tEnd - 1).Information($wdPage))
+        $lt = Cell-PageText $doc $lc $tFirst $tLast
+        $rt = Cell-PageText $doc $rc $tFirst $tLast
+    }
     $empty = New-Object System.Collections.Generic.List[int]
     $sel = $doc.ActiveWindow.Selection
     for ($p = 1; $p -le $pages; $p++) {
-        $sel.GoTo(1, 1, $p) | Out-Null
-        $t = $doc.Bookmarks.Item('\page').Range.Text
-        if (($t -replace '[\s\a]', '').Length -eq 0 -and -not $shapePages.ContainsKey($p)) { $empty.Add($p) }
+        if ($p -ge $tFirst -and $p -le $tLast) {
+            $t = $lt[$p] + $rt[$p]
+            if ($p -eq $tFirst) {
+                # anything above the table on its first page
+                $ps = $doc.GoTo(1, 1, $p).Start
+                if ($ps -lt $tStart) { $t += $doc.Range($ps, $tStart).Text }
+            }
+            if ($p -eq $tLast) {
+                # anything below the table on its last page
+                $ns = $(if ($p -lt $pages) { $doc.GoTo(1, 1, $p + 1).Start } else { $doc.Content.End })
+                if ($ns -gt $tEnd) { $t += $doc.Range($tEnd, $ns).Text }
+            }
+        } else {
+            try {
+                $sel.GoTo(1, 1, $p) | Out-Null
+                $t = $doc.Bookmarks.Item('\page').Range.Text
+            } catch {
+                # Word did not have the \page bookmark (seen once, after four correction rounds,
+                # 15 Oct 2026): read from this page's start to the next page's instead
+                $ps = $doc.GoTo(1, 1, $p).Start
+                $ns = $(if ($p -lt $pages) { $doc.GoTo(1, 1, $p + 1).Start } else { $doc.Content.End })
+                $t = $(if ($ns -gt $ps) { [string]$doc.Range($ps, $ns).Text } else { '' })
+            }
+        }
+        if (([string]$t -replace '[\s\a]', '').Length -eq 0 -and -not $shapePages.ContainsKey($p)) { $empty.Add($p) }
     }
     return $empty
 }
@@ -291,39 +453,127 @@ function Get-CellParas($cell) {
         $r = $p.Range
         $out.Add([pscustomobject]@{
             i = $i; text = (Clean $r.Text)
-            page = [int]$r.Information($wdPage); top = [math]::Round([double]$r.Information($wdTop), 2)
+            page = $(($q = Pos $r).page); top = [math]::Round($q.top, 2); end_page = (End-Page $r)
         })
         $i++
     }
     return $out
 }
 
-function Doc-Facts($doc) {
+function Keep-Section18($doc, $lc, $results, [double]$usable, [double]$lineH, [double]$target) {
+    # issue #57: "18. REGIONAL REGULATIONS" sits glued above its label in the left column, and the
+    # label is levelled with its wording on the right. When that wording starts a page, the label
+    # follows it there and the heading's lines are left at the foot of the page before (26032,
+    # 15 Oct 2026). The one right layout then: the heading starts the label's page, the label two
+    # lines under it, the wording lowered to meet the label (the gate allows a heading on a new page
+    # when the NBN wording ends at the page foot, which is the only way the wording starts a page).
+    # Blank lines go in above the heading until it starts that page; the pair is then pinned and
+    # levelled from the wording side only (Level-By-Wording), in this pass and in every correction
+    # round, so nothing pulls the heading back. Does nothing when heading and label share a page.
+    $hp = Section18-Heading $doc $lc
+    if ($hp -eq $null) { return @() }
+    $lab = Next-Text $hp
+    if ($lab -eq $null -or (Line1-Page $hp) -ge (Line1-Page $lab)) { return @() }
+    $res = @($results | Where-Object { $_.kind -eq 'pair' -and $_._lp -ne $null -and $_._lp.Start -eq $lab.Range.Start })[0]
+    if ($res -eq $null) { return @() }
+    $moved = 0
+    while ($moved -lt 6) {
+        $hp = Section18-Heading $doc $lc
+        $lab = Next-Text $hp
+        if ((Line1-Page $hp) -ge (Line1-Page $lab)) { break }
+        Insert-Blank-Before $hp; $moved++
+    }
+    $hp = Section18-Heading $doc $lc
+    $hp.SpaceBefore = 0   # it starts the page: no spacing above it
+    $res.pin = $true
+    $more = @(Adjust-Step $res $usable $lineH $target 80)
+    $res.actions = (@($res.actions, ((@("section 18 heading moved to its label's page: left +$moved") + $more) -join ', ')) | Where-Object { $_ }) -join ' | '
+    return @($moved)
+}
+
+function Section18-Heading($doc, $lc) {
+    # the "18. REGIONAL REGULATIONS" paragraph in the left column, looked up afresh each time
+    # (blank paragraphs inserted above it shift every range kept from before)
+    foreach ($pr in (Find-Runs $doc $lc.Range 'REGULATIONS')) {
+        if ((Norm (Clean $pr.Text)) -match '^\d+\.\s*REGIONAL REGULATIONS$') { return $pr.Paragraphs.Item(1) }
+    }
+    return $null
+}
+
+function Next-Text($para) {
+    # the first paragraph after $para that is not blank (the heading's label)
+    $n = $para.Next(1)
+    while ($n -ne $null -and (Is-Blank $n)) { $n = $n.Next(1) }
+    return $n
+}
+
+function Line1-Page($para) {
+    # the page of a paragraph's first line (the heading wraps to two)
+    $t = $para.Range.Duplicate; $t.Collapse(1)
+    return [int]$t.Information($wdPage)
+}
+
+function Measure-Section18($doc, $lc, $rc) {
+    # issue #57: the "18. REGIONAL REGULATIONS" heading (left column), its label, and the last
+    # line of the NBN wording above it (right column) - page and top of each, for the gate
+    $h = $null
+    foreach ($pr in (Find-Runs $doc $lc.Range 'REGULATIONS')) {
+        if ((Norm (Clean $pr.Text)) -match '^\d+\.\s*REGIONAL REGULATIONS$') { $h = $pr; break }
+    }
+    if ($h -eq $null) { return $null }
+    $hpos = Pos $h   # its first line: a heading split over a page break is stranded too
+    $out = [ordered]@{ heading_page = $hpos.page; heading_top = [math]::Round($hpos.top, 2) }
+    # the heading is the first thing on its page in the label column (moved over to its label's page)
+    $hpv = $h.Paragraphs.Item(1).Previous(1)
+    $out.heading_starts_page = ($hpv -eq $null -or [int]$hpv.Range.Information($wdPage) -lt (Line1-Page $h.Paragraphs.Item(1)))
+    $nx = $h.Paragraphs.Item(1).Next(1); $guard = 0
+    while ($nx -ne $null -and (Is-Blank $nx) -and $guard -lt 50) { $nx = $nx.Next(1); $guard++ }
+    if ($nx -ne $null) {
+        $out.label = (Clean $nx.Range.Text)
+        $out.label_page = Line1-Page $nx
+    }
+    $note = $null
+    foreach ($pr in (Find-Runs $doc $rc.Range 'unavailable')) { if ((Clean $pr.Text) -match 'NBN is unavailable') { $note = $pr } }
+    if ($note -ne $null) {
+        $last = $note.Duplicate
+        $last.SetRange($note.End - 2, $note.End - 1)   # the last character before the paragraph mark
+        $out.note_page = [int]$last.Information($wdPage)
+        $out.note_last_top = [math]::Round([double]$last.Information($wdTop), 2)
+        # the blank lines between the NBN wording and the kept area wording that sit on the NBN
+        # wording's page (the editor leaves 3), and the page the kept wording starts: with no more
+        # than those 3 on that page and the wording on the next, Word could not fit it there
+        $np = $note.Paragraphs.Item(1).Next(1); $bl = 0; $g = 0
+        while ($np -ne $null -and (Is-Blank $np) -and $g -lt 60) {
+            if ([int]$np.Range.Information($wdPage) -eq $out.note_page) { $bl++ }
+            $np = $np.Next(1); $g++
+        }
+        $out.blanks_on_note_page = $bl
+        if ($np -ne $null) {
+            $wt = Clean $np.Range.Text
+            $out.wording = $wt.Substring(0, [math]::Min(40, $wt.Length))
+            $out.wording_page = Line1-Page $np
+        }
+    }
+    return [pscustomobject]$out
+}
+
+function Doc-Facts($doc, $lc, $rc) {
     $pages = [int]$doc.ComputeStatistics(2)
     $ps = $doc.Sections.Item(1).PageSetup
     return [ordered]@{
-        pages = $pages; empty_pages = @(Get-EmptyPages $doc $pages)
+        pages = $pages; empty_pages = @(Get-EmptyPages $doc $pages $lc $rc)
         page_top = [math]::Round([double]$ps.TopMargin, 2)
         usable = [math]::Round([double]$ps.PageHeight - [double]$ps.TopMargin - [double]$ps.BottomMargin, 2)
         anchors = @(Measure-Anchors $doc)
+        section18 = $(if ($lc -ne $null) { Measure-Section18 $doc $lc $rc } else { $null })
     }
 }
 
 $word = $null
 try {
-    $word = New-Object -ComObject Word.Application
-    $word.Visible = $false
-    $word.DisplayAlerts = 0
-    $src = (Resolve-Path -LiteralPath $Docx).Path
-    if ($src.StartsWith([string][char]92 + [string][char]92)) {
-        # a UNC path opens in Protected View and Documents.Open returns nothing;
-        # map it back to the drive letter the share is mounted on
-        foreach ($d in (Get-PSDrive -PSProvider FileSystem)) {
-            if ($d.DisplayRoot -and $src.StartsWith($d.DisplayRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $src = $d.Root.TrimEnd([char]92) + $src.Substring($d.DisplayRoot.Length); break
-            }
-        }
-    }
+    $word = Start-Word
+    # a UNC path opens in Protected View and Documents.Open returns nothing (Drive-Path)
+    $src = Drive-Path (Resolve-Path -LiteralPath $Docx).Path
     $doc = $word.Documents.Open($src, $false, ($Mode -ne 'align'))
     if ($doc -eq $null) { throw "Word did not open $src (Protected View or a lock on the file) - nothing measured" }
     Say "opened $([System.IO.Path]::GetFileName($src))"
@@ -331,7 +581,7 @@ try {
         $tbl = $doc.Tables.Item($BodyTable)
         $lc = $tbl.Cell(1, 1); $rc = $tbl.Cell(1, 2)
         if ($Mode -eq 'anchors') {
-            $facts = Doc-Facts $doc
+            $facts = Doc-Facts $doc $lc $rc
             $m = [ordered]@{ docx = $doc.FullName } + $facts
             $json = $m | ConvertTo-Json -Depth 5 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
@@ -340,8 +590,9 @@ try {
         elseif ($Mode -eq 'measure') {
             $left = Get-CellParas $lc;  Say "  left cell: $($left.Count) paragraphs"
             $right = Get-CellParas $rc; Say "  right cell: $($right.Count) paragraphs"
-            $facts = Doc-Facts $doc;    Say "  pages $($facts.pages), empty $($facts.empty_pages -join ','), anchors $($facts.anchors.Count)"
-            $m = [ordered]@{ docx = $doc.FullName } + $facts + [ordered]@{ left = $left; right = $right }
+            $facts = Doc-Facts $doc $lc $rc;    Say "  pages $($facts.pages), empty $($facts.empty_pages -join ','), anchors $($facts.anchors.Count)"
+            # measure_version 2 (16 Oct 2026): page is the first line's page, end_page the last line's
+            $m = [ordered]@{ docx = $doc.FullName; measure_version = 2 } + $facts + [ordered]@{ left = $left; right = $right }
             $json = $m | ConvertTo-Json -Depth 5 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
             Say "measured"
@@ -355,6 +606,7 @@ try {
             Say "plan: $($steps.Count) steps from $([System.IO.Path]::GetFileName($Plan))"
             $ps = $doc.Sections.Item(1).PageSetup
             $usable = [double]$ps.PageHeight - [double]$ps.TopMargin - [double]$ps.BottomMargin
+            $script:TextBottom = [double]$ps.PageHeight - [double]$ps.BottomMargin   # foot of the text area, from the page's top edge
             $lineH = 13.3
             $results = New-Object System.Collections.Generic.List[object]
             $stepNo = 0
@@ -362,7 +614,8 @@ try {
             foreach ($s in $steps) {
                 $stepNo++
                 $res = [ordered]@{ kind = $s.kind; left = $s.left; left_n = $s.left_n; right = $s.right; right_n = $s.right_n
-                                   status = 'unresolved'; actions = ''; delta = $null; left_page = $null; right_page = $null }
+                                   status = 'unresolved'; actions = ''; delta = $null; left_page = $null; right_page = $null
+                                   pin = $false }
                 $rp = $null
                 if ($lastR -ge 0) { $rp = Find-Paragraph-After $doc $rc.Range $lastR $s.right }
                 if ($rp -eq $null) { $rp = Find-Paragraph $doc $rc.Range $s.right $s.right_n }
@@ -377,11 +630,14 @@ try {
                     $res.status = 'NOT FOUND'; $results.Add([pscustomobject]$res); continue
                 }
                 if ($lineH -eq 13.3 -and $lp -ne $null) {
-                    # measure a blank line once: the paragraph before the first label, if blank
+                    # measure a blank line once: two blank paragraphs one after the other above a
+                    # label, top to top - exactly one blank line. (Text above a blank measured 18.0
+                    # one run and 12.75 the next on the same document: its line spacing is not a
+                    # blank's.) Until a label has two blanks above it, 13.3 stands.
                     $pv = Prev-Paragraph $lp
                     if ($pv -ne $null -and (Is-Blank $pv)) {
                         $pp = $pv.Previous(1)
-                        if ($pp -ne $null) {
+                        if ($pp -ne $null -and (Is-Blank $pp)) {
                             $a = Pos $pp.Range; $b = Pos $pv.Range
                             if ($a.page -eq $b.page) { $d = $b.top - $a.top; if ($d -gt 8 -and $d -lt 20) { $lineH = $d } }
                         }
@@ -390,25 +646,28 @@ try {
                 $res._lp = $lp; $res._rp = $rp
                 $resObj = [pscustomobject]$res
                 $iters = $(if ($Mode -eq 'check') { 0 } else { $MaxIter })
-                $actions = @(Adjust-Step $resObj $usable $lineH $Tolerance $iters)
+                $actions = @(Adjust-Step $resObj $usable $lineH $Target $iters)
                 $resObj.actions = ($actions -join ', ')
                 $results.Add($resObj)
                 if ($stepNo % 20 -eq 0) { Say "  step $stepNo/$($steps.Count)" }
             }
             Say "steps done - verifying"
             # verification pass: final positions after all edits; a later step's padding
-            # can nudge an earlier pair, so anything still off gets another round (twice)
+            # can nudge an earlier pair, so anything still off gets another round (up to
+            # -Rounds; one round's corrections can tip a neighbour, 26032 on 15 Oct 2026)
+            if ($Mode -eq 'align') { $null = Keep-Section18 $doc $lc $results $usable $lineH $Target }
             $off = Verify-Steps $results $usable $Tolerance
             $round = 0
-            while ($off -gt 0 -and $Mode -eq 'align' -and $round -lt 2) {
+            while ($off -gt 0 -and $Mode -eq 'align' -and $round -lt $Rounds) {
                 $round++
                 Say "  $off step(s) off after verification - correction round $round"
                 foreach ($r in $results) {
                     if ($r.status -in @('OFF', 'NOT AT PAGE TOP')) {
-                        $more = @(Adjust-Step $r $usable $lineH $Tolerance $MaxIter)
+                        $more = @(Adjust-Step $r $usable $lineH $Target $MaxIter)
                         if ($more.Count) { $r.actions = (@($r.actions, ($more -join ', ')) | Where-Object { $_ }) -join ' | ' }
                     }
                 }
+                $null = Keep-Section18 $doc $lc $results $usable $lineH $Target   # a correction can strand it again
                 $off = Verify-Steps $results $usable $Tolerance
             }
             foreach ($r in $results) { $r.PSObject.Properties.Remove('_lp'); $r.PSObject.Properties.Remove('_rp') }
@@ -416,7 +675,7 @@ try {
                 $dst = if ($Save) { $Save } else { $src }
                 if ($dst -ne $src) { $doc.SaveAs2($dst) } else { $doc.Save() }
             } else { $dst = $src }
-            $facts = Doc-Facts $doc
+            $facts = Doc-Facts $doc $lc $rc
             $report = [ordered]@{ docx = $dst; mode = $Mode; line_height = $lineH; tolerance = $Tolerance } + $facts + [ordered]@{ steps = $results }
             $json = $report | ConvertTo-Json -Depth 6 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
@@ -433,5 +692,5 @@ try {
     }
 }
 finally {
-    if ($word) { try { $word.Quit() } catch { }; [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null }
+    Stop-Word $word
 }

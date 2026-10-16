@@ -1,0 +1,34 @@
+{
+  "_fixture": "SYNTHETIC - invented names, lot and prices. STANDARD blank (one UPGRADED INCLUSIONS section) given an item for the aux dwelling: the editor must refuse and write nothing.",
+  "_expect_error": "is for the aux dwelling but this template has one",
+  "lot_no": "9006",
+  "street": "Example Court",
+  "suburb": "LEPPINGTON NSW",
+  "estate": "",
+  "house_type": "Sample 190",
+  "house_size": "190.00 m²",
+  "facade": "Sample Façade",
+  "garage_side": "Left Hand Side",
+  "price": "650,000.00",
+  "owner_1": "Al EXAMPLE",
+  "owner_2": "",
+  "owners": "Al EXAMPLE",
+  "site_address": "9006, Example Court, LEPPINGTON NSW 2179",
+  "builders_rep": "Michael CRONK",
+  "upgrades": {
+    "area": "other",
+    "storeys": 1,
+    "bathroom2_ground": false,
+    "aircon": null,
+    "items": [
+      {
+        "dwelling": "aux",
+        "category": "Shelving",
+        "request": "Extra shelving to the granny flat",
+        "variation_row": null,
+        "wording": "Melamine shelving throughout",
+        "confidence": "low"
+      }
+    ]
+  }
+}

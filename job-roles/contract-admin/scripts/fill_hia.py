@@ -66,12 +66,15 @@ way a person typing in the value column would):
     The Land      LOT, DP NO and STREET ADDRESS: in value cells; SUBURB,
                   POSTCODE inline (STATE is prefilled NSW in the template)
     item 11       liquidated damages, replaces the $25.00 "per working day" prefill
-    item 2(a)/(b) PRICE EXCLUDING GST / GST / CONTRACT PRICE / DEPOSIT -
-                  ONLY when the job JSON carries the figures explicitly
-                  (price_excl_gst, gst_amount, price_incl_gst, deposit, all
-                  formatted "$nnn,nnn.00"). CD-5.4 stands: these come FROM
-                  DATABUILD, keyed by a person into the JSON - this script
-                  never computes, splits or infers an amount.
+    item 2(a)/(b) PRICE EXCLUDING GST / GST / CONTRACT PRICE / DEPOSIT, and
+    Part B        the Progress Payments Schedule's six stage amounts and TOTAL -
+                  worked from the request's GST-inclusive `price` by the
+                  executed contracts' convention (CD-5.4 / CD-5.6, issue #62,
+                  15 Oct 2026; contract_figures shows the arithmetic in the
+                  report). A DataBuild figure a person keys into the JSON
+                  (price_excl_gst, gst_amount, price_incl_gst, deposit,
+                  progress_1..6, progress_total) always wins; a difference is
+                  flagged. No usable price: everything stays blank, flagged.
     item 14 +     guarantor_name / guarantor_address / guarantor_suburb /
     deed          guarantor_state / guarantor_postcode - only when sourced
                   (a signed land contract or the contract order names them).
@@ -97,10 +100,14 @@ way a person typing in the value column would):
     Schedule 1   item 3 Owner(s): NAME, ADDRESS, SUBURB, STATE, POSTCODE,
                  MOBILE, EMAIL (company/trust buyer: the whole entity string
                  goes in NAME, as the executed 25163 contract does)
-    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - ONLY when the
-                 job JSON carries the figures explicitly (CD-5.4, as NSW).
-                 QC2 has no schedule deposit item: the deposit is a
-                 Schedule 2 progress row, never filled (CD-5.6)
+    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - from the figures
+                 a person gives (issue #73: QLD is never worked out; typed or
+                 read off a DataBuild screenshot, at any time, no gate)
+    Schedule 2   Part B amounts: DEPOSIT, BASE, FRAME, ENCLOSED, FIXING,
+                 PRACTICAL COMPLETION and TOTAL, from the same figures (QC2 has
+                 no item 2 deposit: the deposit is Part B's first row); the
+                 printed percentages are checked first (CD-5.6). The checks
+                 on the figures are warnings only
     item 7       guarantors - only when sourced; a guarantor also completes
                  the deed's BUILDER IS / OWNER IS lines (deed date never)
     item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE
@@ -109,8 +116,9 @@ way a person typing in the value column would):
                  ships prefilled (Michael CRONK, signed for TRANSPIRE
                  CONSTRUCTIONS PTY LTD), so builders_rep is not typed here
 
-What it NEVER fills (CD-5.4): date, interest %, builder's margin %, progress
-payment stage amounts, and any figure not explicitly present in the job JSON.
+What it NEVER fills (CD-5.4): date, interest %, builder's margin %, and any
+figure that is neither keyed in the job JSON nor (NSW) worked from its
+contract price as above. Every amount types as "$nnn,nnn.nn".
 The building and initial periods carry the template's own prefills (NSW build:
 52 weeks / 90 + 180 days; QLD build: 210 days / 90 days start / 10 days
 inclement weather) and are left untouched for the reviewer - on QLD check the
@@ -130,13 +138,36 @@ import html
 import json
 import re
 import sys
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
+
+import amendments
 
 P_RE = re.compile(r"<w:p\b[^>]*>(?:(?!</w:p>|<w:p\b).)*?</w:p>", re.S)
 # text nodes and the layout elements that separate them visually
 SEG_RE = re.compile(r"(<w:t(?: [^>]*)?>)(.*?)(</w:t>)|(<w:tab/>|<w:br/>|<w:cr/>)", re.S)
 # the QLD reflow prints its prefill as "$ 25.00" - tolerate the space
 AMOUNT_RE = re.compile(r"\$ ?[\d,]+\.\d{2}")
+# a plain amount as the job JSON keys it: "514,700.00", "$514,700", "77"
+MONEY_RE = re.compile(r"\$?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?")
+# every money key the contract types; each is typed as "$nnn,nnn.nn"
+MONEY_KEYS = ("price_excl_gst", "gst_amount", "price_incl_gst", "deposit", "liq_damages",
+              "progress_1", "progress_2", "progress_3", "progress_4", "progress_5",
+              "progress_6", "progress_total")
+
+
+def parse_money(s):
+    """Decimal from a plain amount, None for anything else (never a guess)."""
+    m = MONEY_RE.fullmatch(str(s or "").strip())
+    return Decimal(m.group(1).replace(",", "") + (m.group(2) or "")) if m else None
+
+
+def cents(d, rounding=ROUND_HALF_UP):
+    return d.quantize(Decimal("0.01"), rounding=rounding)
+
+
+def fmt_money(d):
+    return f"${cents(d):,.2f}"
 
 
 def xml_escape(s):
@@ -260,6 +291,23 @@ def fill_para(p_xml, label, value, mode, occ=1):
             return p_xml, False
         _splice(segs, m.start(), m.end(), value)
         return _rebuild(p_xml, segs), True
+    if isinstance(mode, tuple) and mode[0] == "replace_value":
+        # an approved schedule change (CD-10): the rate right after its label,
+        # which must still read the old value
+        hits = list(label_regex(label).finditer(concat))
+        m = RATE_RE.search(concat, hits[0].end()) if hits else None
+        if not m or plain_rate(m.group(0)) != mode[1]:
+            return p_xml, False
+        _splice(segs, m.start(), m.end(), value)
+        return _rebuild(p_xml, segs), True
+    if mode == "dollar_cell":
+        # a progress schedule AMOUNT cell holds a lone "$" run, condensed by
+        # 0.5 pt (w:spacing -10); the figure replaces it at normal spacing
+        if concat.strip() != "$":
+            return p_xml, False
+        i = concat.index("$")
+        _splice(segs, i, i + 1, value)
+        return re.sub(r'<w:spacing w:val="-?\d+"/>', "", _rebuild(p_xml, segs)), True
     return p_xml, False
 
 
@@ -398,8 +446,8 @@ REGIONS = {
                 ("owner_2", "Name (print):", "cell", 2),
             ]),
         ],
-        # item 2: the template ships $000,000.00-style placeholders; each is
-        # replaced ONLY when the JSON carries the DataBuild figure (CD-5.4)
+        # item 2: the template ships $000,000.00-style placeholders, filled
+        # from the contract price (CD-5.4, issue #62) or keyed DataBuild figures
         "amounts": [
             ("price_excl_gst", "PRICE EXCLUDING GST:"),
             ("gst_amount",     "GST ON THE ABOVE AMOUNT:"),
@@ -407,6 +455,20 @@ REGIONS = {
             ("deposit",        "THE DEPOSIT IS:"),
         ],
         "liq": ("liq_damages", "per working day"),
+        # Progress Payments Schedule (CD-5.6): six stage rows and a TOTAL row,
+        # each with a lone "$" AMOUNT cell. The percentages are the template's
+        # own and are checked against these before anything is typed.
+        "progress": {
+            "scope": ("Progress Payments Schedule",
+                      "The total amount must be the same as the contract price"),
+            "stages": [10, 10, 25, 25, 20, 10],
+        },
+        # approved amendments (CD-10, issue #61): the schedule values one may
+        # change, by the label they follow, and the style of the general
+        # conditions' "Clause N. Title" headings (the TOC repeats each title
+        # in another style, so the style is what picks the heading)
+        "schedule": {"interest_rate": "Interest on late payments is"},
+        "clause_style": "Heading1",
     },
     # The team's v2 Word build of the QC2 October 2020 contract (1 Sep 2026,
     # issue #8). v2 rebuilt the wrap-prone label areas as real tables: the
@@ -483,17 +545,94 @@ REGIONS = {
         # CONTRACT PRICE labels share one paragraph) and the three
         # $ 000,000.00 placeholders stack in the next column, in the same
         # order - the third element picks the nth placeholder after the
-        # label. Filled ONLY from explicitly keyed DataBuild figures
-        # (CD-5.4). No deposit item on QC2: the deposit is a Schedule 2
-        # progress row, never filled (CD-5.6).
+        # label. Filled only from the figures a person gives (CD-5.4, issue
+        # #73). No deposit item on QC2: the deposit is Part B's first row.
         "amounts": [
             ("price_excl_gst", "PRICE EXCLUDING GST:",     1),
             ("gst_amount",     "GST ON THE ABOVE AMOUNT:", 2),
             ("price_incl_gst", "THE CONTRACT PRICE IS:",   3),
         ],
+        # Schedule 2 Part B (CD-5.6, issue #73), the part the team completes:
+        # six rows and a TOTAL row, each a printed "n.00%" cell then a
+        # "$ 0.00" amount cell. Same source as item 2; the printed
+        # percentages are checked before anything is typed.
+        "part_b": {
+            "scope": ("Part B can be used where the parties agree",
+                      "The total must equal the contract price"),
+            "rows": [("deposit", "DEPOSIT", 5), ("progress_1", "BASE", 15),
+                     ("progress_2", "FRAME", 20), ("progress_3", "ENCLOSED", 25),
+                     ("progress_4", "FIXING", 20),
+                     ("progress_5", "PRACTICAL COMPLETION", 15)],
+        },
         "liq": ("liq_damages", "per day"),
+        # approved amendments (CD-10): the interest rate only; striking a QC2
+        # clause is not set up (its clause headings are not verified yet)
+        "schedule": {"interest_rate": "Rate on overdue payments"},   # prints "payments:15%"
     },
 }
+
+# an interest rate as the schedule prints it: "15%", "12.5 %"
+RATE_RE = re.compile(r"\d+(?:\.\d+)?\s?%")
+
+
+def plain_rate(s):
+    return re.sub(r"\s+", "", str(s or ""))
+
+
+def _strike_rpr(inner):
+    """<w:strike/> into an rPr's content at its schema place: after rStyle,
+    rFonts, b, bCs, i, iCs, caps, smallCaps; before everything else."""
+    if re.search(r'<w:strike(?: w:val="(?:1|true|on)")?/>', inner):
+        return inner
+    inner = re.sub(r'<w:strike w:val="[^"]*"/>', "", inner)
+    head = list(re.finditer(r"<w:(?:rStyle|rFonts|b|bCs|i|iCs|caps|smallCaps)\b[^>]*/>", inner))
+    at = head[-1].end() if head else 0
+    return inner[:at] + "<w:strike/>" + inner[at:]
+
+
+def strike_range(seg):
+    """Strike through every run that prints text in an XML range, and every
+    paragraph mark (the automatic 14.1 / (a) numbers render in the mark's
+    format). Text, numbering and section breaks are untouched. (new xml, runs)"""
+    runs = 0
+
+    def run(m):
+        nonlocal runs
+        r = m.group(0)
+        if not re.search(r"<w:t[ >]", r):
+            return r
+        runs += 1
+        rp = re.search(r"<w:rPr>(.*?)</w:rPr>", r, re.S)
+        if rp:
+            return r[:rp.start(1)] + _strike_rpr(rp.group(1)) + r[rp.end(1):]
+        op = re.match(r"<w:r\b[^>]*>", r)
+        return r[:op.end()] + "<w:rPr><w:strike/></w:rPr>" + r[op.end():]
+
+    def mark(m):
+        inner = m.group(1)
+        rp = re.search(r"<w:rPr>(.*?)</w:rPr>", inner, re.S)
+        if rp:
+            inner = inner[:rp.start(1)] + _strike_rpr(rp.group(1)) + inner[rp.end(1):]
+        else:
+            cut = min([i for i in (inner.find("<w:sectPr"), inner.find("<w:pPrChange")) if i >= 0],
+                      default=len(inner))
+            inner = inner[:cut] + "<w:rPr><w:strike/></w:rPr>" + inner[cut:]
+        return f"<w:pPr>{inner}</w:pPr>"
+
+    seg = re.sub(r"<w:r\b[^>]*>.*?</w:r>", run, seg, flags=re.S)
+    seg = re.sub(r"(<w:p\b[^>]*?(?<!/)>)(?!<w:pPr>)", r"\1<w:pPr></w:pPr>", seg)
+    seg = re.sub(r"<w:pPr>(.*?)</w:pPr>", mark, seg, flags=re.S)
+    return seg, runs
+
+
+def strike_read_back(old, new):
+    """The struck range reads the same, keeps its section breaks, and every
+    run that prints text is struck."""
+    def text(s):
+        return "".join(m.group(1) for m in re.finditer(r"<w:t(?: [^>]*)?>(.*?)</w:t>", s, re.S))
+    printing = [r for r in re.findall(r"<w:r\b[^>]*>.*?</w:r>", new, re.S) if re.search(r"<w:t[ >]", r)]
+    return (text(old) == text(new) and old.count("<w:sectPr") == new.count("<w:sectPr") and printing
+            and all(re.search(r'<w:strike(?: w:val="(?:1|true|on)")?/>', r) for r in printing))
 
 
 def derive_values(values, region):
@@ -526,9 +665,187 @@ def derive_values(values, region):
     return values
 
 
+def contract_figures(values, region):
+    """Item 2 and the progress schedule from the contract price (CD-5.4 / CD-5.6,
+    issue #62, NSW). Returns (report lines, flags) and sets the money keys a
+    person has not keyed.
+
+    The executed NSW contracts (26045, 26040) follow one convention, applied
+    here to the request's GST-inclusive price (the price the inclusions carry):
+    GST = price / 11 to the cent, price excluding GST = price - GST, deposit
+    10%, each stage = its % x price to the cent. The deposit and stage 1 round
+    DOWN so they never pass the 10% cap; the last stage takes the rounding
+    balance so the schedule always totals the price. A DataBuild figure a
+    person keys into the job JSON always wins, and any difference from the
+    calculation is flagged. A deposit_request (an amount or "n%") lower than
+    10% goes into item 2(b) with a flag; a higher one is refused. Every keyed
+    amount, in every region, types as "$nnn,nnn.nn" (a figure keyed without
+    its $ used to print bare)."""
+    lines, flags = [], []
+    for key in MONEY_KEYS:
+        raw = str(values.get(key) or "").strip()
+        if raw:
+            d = parse_money(raw)
+            if d is None:
+                flags.append(f"{key} {raw!r} is not a plain amount - typed as keyed; check it")
+            else:
+                values[key] = fmt_money(d)
+    if REGIONS[region].get("part_b"):
+        return given_figures(values, region, lines, flags)
+    prog = REGIONS[region].get("progress")
+    if not prog:
+        return lines, flags
+
+    raw_price = str(values.get("price") or "").strip()
+    req = parse_money(raw_price)
+    keyed_price = parse_money(values.get("price_incl_gst"))
+    base = keyed_price if keyed_price is not None else req
+    if base is None or base <= 0:
+        flags.append(f"contract price {raw_price!r} is not a plain amount" if raw_price
+                     else "no contract price in the job JSON")
+        flags[-1] += " - item 2 and the progress schedule are left blank for a person"
+        return lines, flags
+    if keyed_price is not None and req is not None and keyed_price != req:
+        flags.append(f"the keyed DataBuild contract price {fmt_money(keyed_price)} differs from "
+                     f"the request price {fmt_money(req)} - the DataBuild figure is used")
+
+    gst = cents(base / 11)
+    cap = cents(base / 10, ROUND_DOWN)
+    deposit = cap
+    asked = str(values.get("deposit_request") or "").strip()
+    if asked:
+        try:
+            d = (cents(base * Decimal(asked[:-1].strip()) / 100, ROUND_DOWN)
+                 if asked.endswith("%") else parse_money(asked))
+        except InvalidOperation:
+            d = None
+        if d is None:
+            flags.append(f"deposit_request {asked!r} not understood - 10% used")
+        elif d > cap:
+            flags.append(f"the requested deposit {fmt_money(d)} is over the 10% cap "
+                         f"({fmt_money(cap)}) - 10% used")
+        elif d != cap:
+            deposit = d
+            flags.append(f"the requested deposit {fmt_money(d)} is below 10%: item 2(b) carries it, "
+                         f"but the schedule's stage 1 still reads DEPOSIT 10% ({fmt_money(cap)}) - "
+                         "a person adjusts the schedule")
+    stages = [cents(base * pct / 100, ROUND_DOWN if n == 0 else ROUND_HALF_UP)
+              for n, pct in enumerate(prog["stages"][:-1])]
+    stages.append(base - sum(stages))
+    calc = {"price_incl_gst": base, "gst_amount": gst, "price_excl_gst": base - gst,
+            "deposit": deposit, "progress_total": base}
+    calc.update({f"progress_{n}": amt for n, amt in enumerate(stages, 1)})
+
+    src = "the keyed DataBuild price" if keyed_price is not None else "the request price"
+    lines += [f"contract figures (CD-5.4, issue #62): from {src} {fmt_money(base)}",
+              f"  GST              {fmt_money(base)} / 11 = {base / 11:.4f} -> {fmt_money(gst)} "
+              "(to the cent, half up)",
+              f"  excl. GST        {fmt_money(base)} - {fmt_money(gst)} = {fmt_money(base - gst)}",
+              f"  deposit          10% = {fmt_money(cap)} (rounded down, never over the 10% cap)"
+              + (f"; requested {fmt_money(deposit)}" if deposit != cap else "")]
+    for n, (pct, amt) in enumerate(zip(prog["stages"], stages), 1):
+        how = ("balance: the price less stages 1-5" if n == len(stages)
+               else "the deposit stage, rounded down" if n == 1 else "to the cent, half up")
+        lines.append(f"  stage {n} {pct:>3}%     {fmt_money(amt):>14}  ({how})")
+    lines.append(f"  TOTAL     100%     {fmt_money(sum(stages)):>14}  (= the contract price)")
+
+    for key, amt in calc.items():
+        raw = str(values.get(key) or "").strip()
+        keyed = parse_money(raw) if raw else None
+        if not raw:
+            values[key] = fmt_money(amt)
+        elif keyed is not None and keyed != amt:
+            flags.append(f"{key}: the keyed DataBuild figure {fmt_money(keyed)} is used; the "
+                         f"calculation gives {fmt_money(amt)} (difference {fmt_money(abs(keyed - amt))})")
+    # the typed figures must still agree with each other
+    final = {k: parse_money(values.get(k)) for k in calc}
+    if None not in (final["price_excl_gst"], final["gst_amount"], final["price_incl_gst"]) \
+            and final["price_excl_gst"] + final["gst_amount"] != final["price_incl_gst"]:
+        flags.append("item 2 does not add up: price excluding GST + GST is not the contract price")
+    parts = [final[f"progress_{n}"] for n in range(1, len(stages) + 1)]
+    if None not in parts and final["price_incl_gst"] is not None and sum(parts) != final["price_incl_gst"]:
+        flags.append("the progress stages do not total the contract price")
+    return lines, flags
+
+
+def given_figures(values, region, lines, flags):
+    """QLD item 2 and Schedule 2 Part B from the figures a person gives (issue #73).
+
+    Nothing is worked out. The person types the DataBuild figures, or gives a
+    screenshot that is read back to them first, whenever they have them: with
+    the request, later in the chat, or after the documents are saved (then a
+    build-contract-only run). The checks are warnings: they never stop the fill
+    and never change a figure. With no figures at all the cells stay blank and
+    the report says how to add them - that is a note, not a flag."""
+    rows = REGIONS[region]["part_b"]["rows"]
+    item2 = [("price_excl_gst", "excl. GST"), ("gst_amount", "GST"),
+             ("price_incl_gst", "contract price")]
+    keys = [k for k, _ in item2] + [k for k, _, _ in rows] + ["progress_total"]
+    if not any(str(values.get(k) or "").strip() for k in keys):
+        lines.append("contract figures (QLD, issue #73): none given - item 2 and Part B are left blank. "
+                     "Optional, at any time: give the DataBuild figures (typed, or a screenshot) and "
+                     "the build contract is filled again with them")
+        return lines, flags
+    got = {k: parse_money(values.get(k)) for k in keys}   # None: blank, or not an amount
+    price = got["price_incl_gst"]
+    if any(got[k] is not None for k, _, _ in rows) and not str(values.get("progress_total") or "").strip() \
+            and price is not None:
+        # the contract's own rule: "The total must equal the contract price stated in item 2"
+        values["progress_total"] = fmt_money(price)
+        got["progress_total"] = price
+    show = lambda k: fmt_money(got[k]) if got[k] is not None else "(blank)"
+    src = str(values.get("figures_source") or "").strip()
+    lines += [f"contract figures (QLD, issue #73): as given" + (f" ({src})" if src else "")
+              + " - nothing worked out",
+              "  item 2   " + " | ".join(f"{name} {show(k)}" for k, name in item2),
+              "  Part B   " + " | ".join(f"{name} {pct}% {show(k)}" for k, name, pct in rows)
+              + f" | TOTAL {show('progress_total')}"]
+
+    blank2 = [name for k, name in item2 if got[k] is None]
+    if len(blank2) < len(item2) and blank2:
+        flags.append(f"item 2 is part-filled: {', '.join(blank2)} left blank")
+    if None not in (got["price_excl_gst"], got["gst_amount"], price) \
+            and got["price_excl_gst"] + got["gst_amount"] != price:
+        flags.append("item 2 does not add up: price excluding GST + GST is not the contract price")
+    if got["gst_amount"] is not None and price is not None \
+            and abs(got["gst_amount"] - cents(price / 11)) > Decimal("0.01"):
+        flags.append(f"the GST {fmt_money(got['gst_amount'])} is not 1/11 of the contract price "
+                     f"({fmt_money(cents(price / 11))})")
+    req = parse_money(values.get("price"))
+    if price is not None and req is not None and price != req:
+        flags.append(f"the contract price given, {fmt_money(price)}, differs from the request "
+                     f"price {fmt_money(req)}")
+
+    parts = [got[k] for k, _, _ in rows]
+    if any(p is not None for p in parts):
+        blankb = [name for (k, name, _) in rows if got[k] is None]
+        if blankb:
+            flags.append(f"Part B is part-filled: {', '.join(blankb)} left blank")
+        base = price if price is not None else got["progress_total"]
+        if None not in parts:
+            for what, amt in (("the TOTAL", got["progress_total"]), ("the contract price", price)):
+                if amt is not None and sum(parts) != amt:
+                    flags.append(f"Part B's rows add up to {fmt_money(sum(parts))}, not {what} "
+                                 f"{fmt_money(amt)}")
+        if base is not None:
+            cap = cents(base * 5 / 100, ROUND_DOWN)
+            over = base >= 20000 and got["deposit"] is not None and got["deposit"] > cap
+            if over:
+                flags.append(f"the deposit {fmt_money(got['deposit'])} is over 5% of the contract price "
+                             f"({fmt_money(cap)}), the most the contract allows for a price of $20,000 "
+                             "or more unless the off-site work is over half the price")
+            for (k, name, pct), amt in zip(rows, parts):
+                near = base * pct / 100
+                if amt is not None and abs(amt - near) > 1 and not (k == "deposit" and over):
+                    flags.append(f"Part B {name} {fmt_money(amt)} is not {pct}% of the contract price "
+                                 f"(about {fmt_money(cents(near))}); the printed {pct}% stays as it is")
+    return lines, flags
+
+
 def run(template, job, out_path, check_only, region):
     anchors = REGIONS[region]
     values = derive_values(json.loads(Path(job).read_text(encoding="utf-8")), region)
+    fig_lines, fig_flags = contract_figures(values, region)
     xml = __import__("zipfile").ZipFile(template).read("word/document.xml").decode("utf-8")
     paras = [(m.start(), m.end(), m.group(0)) for m in P_RE.finditer(xml)]
 
@@ -624,6 +941,62 @@ def run(template, job, out_path, check_only, region):
             continue
         plan.append((hits[nth - 1], key, label, val, "replace_amount", 1))
 
+    # progress payments schedule: each percentage row's lone "$" AMOUNT cell;
+    # the template's percentages must be the ones the figures were worked from
+    prog = anchors.get("progress")
+    if prog:
+        lo, hi = scope_bounds(prog["scope"])
+        if lo is None:
+            missing_anchor.append(f"progress schedule: {prog['scope'][0]!r} not found")
+        else:
+            pcts = [i for i in range(lo, hi) if re.fullmatch(r"\d+%", ntexts[i].strip())]
+            cells = [i for i in range(lo, hi) if ntexts[i].strip() == "$"]
+            want = [f"{p}%" for p in prog["stages"]] + ["100%"]
+            got = [ntexts[i].strip() for i in pcts]
+            paired = len(cells) == len(pcts) and all(
+                p < c and (k + 1 == len(pcts) or c < pcts[k + 1])
+                for k, (p, c) in enumerate(zip(pcts, cells)))
+            if got != want or not paired:
+                missing_anchor.append(f"progress schedule: expected rows {want}, each with a lone $ "
+                                      f"amount cell; found {got} and {len(cells)} $ cell(s)")
+            else:
+                for n, i in enumerate(cells, 1):
+                    key = f"progress_{n}" if n <= len(prog["stages"]) else "progress_total"
+                    label = f"{'TOTAL' if n > len(prog['stages']) else 'stage ' + str(n)} {want[n - 1]}"
+                    val = str(values.get(key, "") or "").strip()
+                    if val:
+                        plan.append((i, key, label, val, "dollar_cell", 1))
+                    else:
+                        blank_fields.append((key, label))
+
+    # QLD Schedule 2 Part B (issue #73): each row's printed percentage, then
+    # its "$ 0.00" amount cell; the percentages must still be the template's
+    pb = anchors.get("part_b")
+    if pb:
+        lo, hi = scope_bounds(pb["scope"])
+        if lo is None:
+            missing_anchor.append(f"Part B: {pb['scope'][0]!r} not found")
+        else:
+            pcts = [i for i in range(lo, hi) if re.fullmatch(r"\d+\.\d{2}%", ntexts[i].strip())]
+            cells = [i for i in range(lo, hi) if AMOUNT_RE.fullmatch(ntexts[i].strip())]
+            rows = pb["rows"] + [("progress_total", "TOTAL", 100)]
+            want = [f"{pct}.00%" for _, _, pct in rows]
+            got = [ntexts[i].strip() for i in pcts]
+            paired = len(cells) == len(pcts) and all(
+                p < c and (k + 1 == len(pcts) or c < pcts[k + 1])
+                for k, (p, c) in enumerate(zip(pcts, cells)))
+            if got != want or not paired:
+                missing_anchor.append(f"Part B: expected rows {want}, each with a $ amount cell; "
+                                      f"found {got} and {len(cells)} amount cell(s)")
+            else:
+                for (key, name, pct), i in zip(rows, cells):
+                    label = f"Part B {name[:10]} {pct}%"
+                    val = str(values.get(key, "") or "").strip()
+                    if val:
+                        plan.append((i, key, label, val, "replace_amount", 1))
+                    else:
+                        blank_fields.append((key, label))
+
     # liquidated damages: the paragraph with both halves of the item
     key, label = anchors["liq"]
     val = str(values.get(key, "") or "").strip()
@@ -635,6 +1008,62 @@ def run(template, job, out_path, check_only, region):
         plan.append((idx, key, label, val, "replace_amount", 1))
     else:
         blank_fields.append((key, label))
+
+    # approved per-job amendments (CD-10, issue #61): checked here, applied
+    # with the fills; a refused one is reported and the template wording stays
+    am_lines, range_edits, struck = [], [], []
+    for aid, am, approval, why in amendments.for_document(values, "build_contract", job):
+        kind, line = am.get("kind"), amendments.norm(am.get("request_line"))
+        if approval and kind == "schedule":
+            field = am.get("field")
+            label = anchors.get("schedule", {}).get(field)
+            hits = [i for i, t in enumerate(ntexts) if label and label_regex(label).search(t)]
+            old_m = (RATE_RE.match(ntexts[hits[0]][label_regex(label).search(ntexts[hits[0]]).end():].lstrip(" :\t"))
+                     if len(hits) == 1 else None)
+            old, frm, to = plain_rate(old_m and old_m.group(0)), plain_rate(am.get("from")), plain_rate(am.get("to"))
+            if not label:
+                why = f"{field!r} is not a schedule value the run changes (only the interest rate)"
+            elif len(hits) != 1 or not old_m:
+                why = f"the {field} line ({label!r}) is not where the template should have it"
+            elif not re.fullmatch(r"\d+(?:\.\d+)?%", to):
+                why = f"the new value {am.get('to')!r} is not a rate like 12%"
+            elif old != frm:
+                why = f"the contract reads {old}; the request changes it from {frm or '(not stated)'}"
+            else:
+                plan.append((hits[0], f"amendment {aid}", label, to, ("replace_value", old), 1))
+                am_lines.append((aid, f"{field}: {old} -> {to} (para {hits[0]})", approval, line))
+                continue
+        elif approval and kind == "strike_clause":
+            style = anchors.get("clause_style")
+            n = str(am.get("clause") or "").strip()
+            heads = [k for k, (_, _, p) in enumerate(paras) if style and f'<w:pStyle w:val="{style}"/>' in p]
+            target = [k for k in heads if n.isdigit() and re.match(rf"\s*Clause\s+{n}\.(?!\d)", ptexts[k])]
+            title = re.sub(r"[^a-z0-9]+", " ", str(am.get("title") or "").lower()).strip()
+            if not style:
+                why = f"striking a clause is not set up for the {region} contract yet"
+            elif len(target) != 1:
+                why = f"Clause {n or '?'} heading found {len(target)} times in the general conditions"
+            elif title and title not in re.sub(r"[^a-z0-9]+", " ", ptexts[target[0]].lower()):
+                why = f"Clause {n} is {ptexts[target[0]].strip()!r}, not {am.get('title')!r}"
+            elif not any(k > target[0] for k in heads):
+                why = f"no clause heading after Clause {n} to end the range"
+            else:
+                k = target[0]
+                nxt = min(h for h in heads if h > k)
+                s, e = paras[k][0], paras[nxt][0]
+                seg, runs = strike_range(xml[s:e])
+                if not strike_read_back(xml[s:e], seg):
+                    print(f"AMENDMENT {aid}: READ-BACK FAILED striking Clause {n} - nothing written")
+                    return 1
+                refs = sum(1 for j, t in enumerate(ntexts) if not k <= j < nxt
+                           and re.search(rf"\bClause\s+{n}\b(?!\.\d)", t))
+                range_edits.append((s, e, seg))
+                struck.append((s, e, xml[s:e]))
+                am_lines.append((aid, f"Clause {n} struck through: {ptexts[k].strip()} (paras {k}-{nxt - 1}, "
+                                      f"{runs} runs; its {refs} mention(s) elsewhere - contents, cross-"
+                                      f"references - left for the reviewer)", approval, line))
+                continue
+        am_lines.append((aid, f"REFUSED - {why}; a person makes this change", None, line))
 
     print(f"template : {Path(template).name}")
     print(f"region   : {region}")
@@ -652,6 +1081,20 @@ def run(template, job, out_path, check_only, region):
         print(f"{key:<18} {idx:>5}  {label:<18} {val[:40]}")
     for key, label in blank_fields:
         print(f"{key:<18} {'-':>5}  {label:<18} (no value - left blank)")
+    if fig_lines or fig_flags:
+        print()
+        for line in fig_lines:
+            print(line)
+        for flag in fig_flags:
+            print(f"FLAG: {flag}")
+    if am_lines or amendments.for_person(values):
+        print()
+        for aid, what, approval, line in am_lines:
+            state = "REFUSED" if approval is None else ("APPLIES" if check_only else "APPLIED")
+            print(f"AMENDMENT {aid} {state}: {what.replace('REFUSED - ', '')}")
+            print(f"    request: {line!r}" + (f" | approval: {approval}" if approval else ""))
+        for item in amendments.for_person(values):
+            print(f"AMENDMENT WITH A PERSON: {item}")
     if missing_anchor:
         print()
         for msg in missing_anchor:
@@ -665,7 +1108,7 @@ def run(template, job, out_path, check_only, region):
     # apply, back-to-front so offsets stay valid; all fills for one
     # paragraph compose on the same XML before it is spliced back once,
     # and cell edits land in the same descending pass
-    edits = list(cell_edits)
+    edits = list(cell_edits) + range_edits
     by_para = {}
     for idx, key, label, val, mode, occ in plan:
         by_para.setdefault(idx, []).append((key, label, val, mode, occ))

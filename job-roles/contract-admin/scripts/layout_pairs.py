@@ -63,8 +63,10 @@ def pairs_from_measure(measure, tol=TOL):
 
 def headings(measure, names=("INTERNAL TURNKEY PACKAGE", "EXTERNAL TURNKEY PACKAGE", "UPGRADED INCLUSIONS")):
     """Right-column paragraphs that must start a page, with their index."""
+    # the AUXILIARY blanks split UPGRADED INCLUSIONS into "– MAIN DWELLING" / "– AUX DWELLING"
     return [{"right_i": r["i"], "right": norm(r["text"])}
-            for r in measure["right"] if norm(r["text"]) in names]
+            for r in measure["right"] if norm(r["text"]) in names
+            or any(norm(r["text"]).startswith(n + " ") and norm(r["text"]).endswith("DWELLING") for n in names)]
 
 
 def ordinal(paras, idx, key=lambda p: norm(p["text"])):

@@ -27,6 +27,9 @@ from fill_inclusions import editor_notes_left  # noqa: E402
 
 BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\INCLUSIONS"
              r"\1. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - STANDARD 19.08.2026 NMA.docx")
+# fixtures with "_blank": "auxiliary" run on the split MAIN / AUX DWELLING blank (CD-9.11)
+AUX_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\INCLUSIONS"
+                 r"\3. Sydney INTEGRITY RANGE + Turnkey Inclusions - NCC 2022 - AUXILIARY 19.08.2026 NMA.docx")
 FIXTURES = HERE.parent / "fixtures" / "inclusions-upgrades"
 STATE = HERE.parents[2] / "runtime" / "contract-admin" / "state" / "layout"
 OUT = HERE.parents[2] / "runtime" / "contract-admin" / "reports" / "_regress_edit"
@@ -42,6 +45,21 @@ def labels_and_groups(docx):
     labels, groups = ed.upgraded_section(cols)
     return cols, [ed.norm(ed.ptext(cols.left[i])) for i in labels], \
         [[ed.norm(ed.ptext(cols.right[k])) for k in range(s, e)] for s, e in groups]
+
+
+def section_map(cols):
+    """{dwelling: (labels, groups)} - "single" on the STANDARD blank, "main"/"aux" on the AUXILIARY one."""
+    out = {}
+    for s in ed.upgraded_sections(cols):
+        out[s["dwelling"]] = ([ed.norm(ed.ptext(cols.left[i])) for i in s["labels"]],
+                              [[ed.norm(ed.ptext(cols.right[k])) for k in range(a, b)] for a, b in s["groups"]])
+    return out
+
+
+def group_of(sections, dwelling, label, n=1):
+    labels, groups = sections[dwelling]
+    hits = [k for k, l in enumerate(labels) if l == label]
+    return groups[hits[n - 1]] if len(hits) >= n else []
 
 
 def check(name, cond, problems):
@@ -60,28 +78,40 @@ def main():
     layout = "--layout" in sys.argv
     only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
     OUT.mkdir(parents=True, exist_ok=True)
-    # the driver caches the blank's measurement under the template's own name
-    blank_measure = STATE / f"{BLANK.stem}.measure.json"
-    if not blank_measure.exists():
-        print(f"FAIL - no blank measurement at {blank_measure}; run word_layout.ps1 -Mode measure on the blank first "
-              f"(draft_contract.py does this itself on the first run against a blank)")
-        return 1
     failures = 0
     for fx in sorted(FIXTURES.glob("*.json")):
         if only and fx.stem != only:
             continue
         job = json.loads(fx.read_text(encoding="utf-8"))
         up = job["upgrades"]
+        blank = AUX_BLANK if job.get("_blank") == "auxiliary" else BLANK
+        # the driver caches the blank's measurement under the template's own name
+        blank_measure = STATE / f"{blank.stem}.measure.json"
+        if not blank_measure.exists():
+            print(f"== {fx.stem}: FAIL - no blank measurement at {blank_measure}; run word_layout.ps1 -Mode "
+                  f"measure on the blank first (draft_contract.py does this itself on the first run against a blank)")
+            failures += 1
+            continue
         filled, edited = OUT / f"{fx.stem}.filled.docx", OUT / f"{fx.stem}.edited.docx"
         report, plan = OUT / f"{fx.stem}.edit.txt", OUT / f"{fx.stem}.plan.json"
+        edited.unlink(missing_ok=True)
         problems = []
-        r = run(HERE / "fill_inclusions.py", "--template", BLANK, "--job", fx, "--out", filled)
+        r = run(HERE / "fill_inclusions.py", "--template", blank, "--job", fx, "--out", filled)
         if not filled.exists():
             print(f"== {fx.stem}: FAIL - fill did not run: {r.stderr[:200]}")
             failures += 1
             continue
-        r = run(HERE / "edit_inclusions.py", "--docx", filled, "--job", fx, "--blank", BLANK,
+        r = run(HERE / "edit_inclusions.py", "--docx", filled, "--job", fx, "--blank", blank,
                 "--blank-measure", blank_measure, "--out", edited, "--report", report, "--plan", plan)
+        if job.get("_expect_error"):
+            # a refusal fixture: the editor must stop with this message and write nothing
+            check("editor refused", r.returncode != 0, problems)
+            check("refusal names the cause", job["_expect_error"] in (r.stdout + r.stderr), problems)
+            check("nothing written", not edited.exists(), problems)
+            status = "PASS" if not problems else "FAIL - " + "; ".join(problems)
+            print(f"== {fx.stem}: {status}")
+            failures += bool(problems)
+            continue
         check("editor exit 0", r.returncode == 0 and edited.exists(), problems)
         if not edited.exists():
             print(f"== {fx.stem}: FAIL - {problems}\n{r.stdout[-600:]}{r.stderr[-400:]}")
@@ -94,7 +124,35 @@ def main():
         want_label, want_word = ed.AREAS[up["area"]]
         check("one regional label, the right one", left == [want_label], problems)
         check("one regional wording, the right one", right == [want_word], problems)
-        check("all runs black", not (set(re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', xml)) - {"000000"}), problems)
+        heads = [m for m in ed.P_RE.finditer(xml) if ed.is_package_heading(ed.ptext(m.group(0)))]
+        rest = ed.P_RE.sub(lambda m: "" if ed.is_package_heading(ed.ptext(m.group(0))) else m.group(0), xml)
+        check("black except the package headings (#58)",
+              not (set(re.findall(r'<w:color w:val="([0-9A-Fa-f]{6})"', rest)) - {"000000"}), problems)
+        check("package headings keep the template's blue (#58)",
+              len(heads) >= 3 and all('w:val="00B0F0"' in m.group(0) for m in heads), problems)
+        # one blank line between the NBN wording and section 18 (#57): three blanks above the kept wording
+        kw = next(i for i, p in enumerate(cols.right) if want_word.lower() in ed.ptext(p).lower())
+        above = 0
+        while ed.is_blank(cols.right[kw - above - 1]):
+            above += 1
+        check(f"{ed.REGIONAL_RIGHT_BLANKS} blank paragraphs above the section 18 wording (#57)",
+              above == ed.REGIONAL_RIGHT_BLANKS, problems)
+        end = kw + 1
+        while not ed.is_blank(cols.right[end]):
+            end += 1
+        after = 0
+        while ed.is_blank(cols.right[end + after]):
+            after += 1
+        check(f"{ed.REGIONAL_AFTER_BLANKS} blank paragraphs between the section 18 wording and section 19",
+              after == ed.REGIONAL_AFTER_BLANKS, problems)
+
+        def foot(paras):
+            n = 0
+            while n < len(paras) and ed.is_blank(paras[len(paras) - 1 - n]):
+                n += 1
+            return n
+        check(f"at most {ed.TABLE_END_BLANKS} blank paragraph at the foot of each column (no padding page)",
+              max(foot(cols.left), foot(cols.right)) <= ed.TABLE_END_BLANKS, problems)
         check("no highlight", "<w:highlight" not in xml, problems)
         check("no editor notes", not editor_notes_left(xml), problems)
         check("labels == groups", len(labels) == len(groups), problems)
@@ -127,6 +185,34 @@ def main():
             check("Cabinetry group grew to 3 lines", len(groups[labels.index("Cabinetry")]) == 3, problems)
         if fx.stem.startswith("north-kellyville"):
             check("custom label appended last", labels[-1] == up["items"][0]["category"], problems)
+        if job.get("_blank") == "auxiliary":
+            secs = section_map(cols)
+            check("two sections, main then aux", list(secs) == ["main", "aux"], problems)
+            check("labels == groups per section", all(len(l) == len(g) for l, g in secs.values()), problems)
+        if fx.stem == "aux-main-and-aux":
+            check("main ceiling height: two lines",
+                  group_of(secs, "main", "Ceiling Height") == up["items"][0]["wording"].split("\n"), problems)
+            el = group_of(secs, "main", "Electrical Allowances")
+            check("main electrical: power point added last", el and el[-1] == up["items"][2]["wording"], problems)
+            pl = group_of(secs, "aux", "Plumbing")
+            check("aux plumbing: one line replaced", up["items"][4]["wording"] in pl
+                  and not any("Base Single Bowl" in l for l in pl), problems)
+            check("aux air con: new label appended last", secs["aux"][0][-1] == "Air Conditioning"
+                  and secs["aux"][1][-1] == [up["items"][5]["wording"]], problems)
+            check("aux split system not under MAIN",
+                  not any(up["items"][5]["wording"] in g for g in secs["main"][1]), problems)
+            check("main alfresco label and wording removed", "Alfresco" not in secs["main"][0]
+                  and not any("Alfresco area" in l for g in secs["main"][1] for l in g), problems)
+            check("aux ceiling height placed first (before Architrave)", secs["aux"][0][:2] == ["Ceiling Height", "Architrave"], problems)
+            check("main air con rewritten", group_of(secs, "main", "Air Conditioning")[:1]
+                  == [up["aircon"].split("\n")[0]], problems)
+            check("cell never ends on text", ed.is_blank(cols.left[-1]) and ed.is_blank(cols.right[-1]), problems)
+        if fx.stem == "aux-no-dwelling":
+            check("no-dwelling item flagged", "no 'dwelling' given" in text, problems)
+            check("main benchtops replaced", group_of(secs, "main", "Benchtops")[:1] == [up["items"][0]["wording"]],
+                  problems)
+            check("aux benchtops untouched", group_of(secs, "aux", "Benchtops") == ["20mm stone bench tops throughout"],
+                  problems)
         if layout:
             aligned = OUT / f"{fx.stem}.aligned.docx"
             aligned.write_bytes(edited.read_bytes())

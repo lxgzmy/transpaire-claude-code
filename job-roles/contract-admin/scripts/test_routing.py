@@ -15,7 +15,9 @@ root at a scratch folder, and asserts that:
      nothing is copied first),
   5. non-contract files in the job folder (the request email, plans) never
      make anything a test,
-  6. the legacy "- TEST UNAPPROVED TEMPLATE" output is no longer delivered.
+  6. the legacy "- TEST UNAPPROVED TEMPLATE" output is no longer delivered,
+  7. a build-contract-only delivery (issue #73) ships the build contract
+     alone, even with the earlier run's other documents in the workdir.
 
 Scratch lives under runtime\contract-admin\state\ (git-ignored, on Z:) and is
 removed at the end.
@@ -142,6 +144,23 @@ def main():
     touch(workdir / f"PREVIEW_BUILD CONTRACT_{suffix}{dc.LEGACY_TEST_BC_TAG}.pdf")
     finals = dc.collect_finals(workdir, VALUES)
     check({k for _, _, k in finals} == {"INCLUSIONS"}, "legacy tagged build contract not delivered")
+
+    # 7: a build-contract-only run (issue #73, QLD figures given after the
+    # save): the job folder holds all three, the workdir still has the first
+    # run's inclusions and prelim - only the build contract refreshes.
+    workdir, job_dir = fresh()
+    make_docs(workdir, ("INCLUSIONS", "PRELIMINARY AGREEMENT", "BUILD CONTRACT"))
+    for kind in ("INCLUSIONS", "PRELIMINARY AGREEMENT", "BUILD CONTRACT"):
+        touch(job_dir / f"{kind}_{suffix}.docx")
+    existing = dc.existing_contract_docs(job_dir)
+    prod, test = dc.deliver_routed(workdir, VALUES, job_dir, existing, kinds=["BUILD CONTRACT"])
+    tdir = dc.TEST_ROOT / workdir.name
+    check(not prod and {k for _, _, k in test} == {"BUILD CONTRACT"},
+          "build-contract-only: only the build contract is delivered")
+    check((tdir / f"BUILD CONTRACT_{suffix}.docx").exists()
+          and not (tdir / f"INCLUSIONS_{suffix}.docx").exists()
+          and not (tdir / f"PRELIMINARY AGREEMENT_{suffix}.docx").exists(),
+          "build-contract-only: the refilled contract refreshes to template-testing, nothing else")
 
     check_write_routes_and_company()
 

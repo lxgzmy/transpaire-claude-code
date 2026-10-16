@@ -7,8 +7,10 @@
 > Workflow 1 was built draft-only and then retired (18 Aug 2026) in favour of
 > `/new-contract-template`; Workflow 1 below is kept as the design record. Its
 > OSC steps (1, 3, 4, 5, 7) were integrated into `/new-contract-template` on
-> 11 Sep 2026 through the `osc-api` MCP (issue #34), each write approved by a
-> person; activity 6 is ticked only after the DataBuild entry is confirmed.
+> 11 Sep 2026 (issue #34). Since 13 Oct 2026 they write to the production OnSite
+> Companion through the `osc-api-prod` MCP, every change confirmed by a person in
+> plain words before it is sent (one confirmation per intake stage since
+> 15 Oct 2026); activity 6 is ticked only after the DataBuild entry is confirmed.
 > The **DataBuild integration was closed 23 Aug 2026** — DataBuild
 > confirmed it provides no API access, so the adapter/tier design below is
 > superseded and kept only as the record (see the Key Research Finding for
@@ -116,7 +118,7 @@ runtime state / evidence live outside git under
 5. Activities 1, 2, 6 completed; request email attached to JOB and Item 11 with `NEW JOB` subject (uppercase enforced).
 6. DataBuild handoff: email Lisa (draft); the price double-check when her confirmation lands stays manual (JD-6.2 — no DataBuild integration exists).
 7. Contact details: client (primary/secondary rules), SALES and `MARKETER_ cc in all emails` relationships.
-8. Plan arrival (Item 12): update street/design/facade/inclusions per PLANS, garage side mapping (else escalate to Michael).
+8. Plan arrival (Item 12): update street/design/facade/inclusions per PLANS, garage side read off the rendered site plan (left/right, or `Via <street or lane>` on a Sydney corner or lane lot; unclear → flagged for the reviewer, who may ask Michael).
 
 ### Workflow 2 — Variation Stage 1
 
@@ -145,6 +147,6 @@ when DataBuild confirmed no API access — there is nothing to validate.)*
 ## Key Risks
 
 - OSC automation surface unproven — UI automation of a legacy VB app can be brittle (window titles, modal dialogs, grid controls); mitigate with pywinauto/UIA (not pure pixel clicking), per-step verification screenshots, and resumable state.
-- DataBuild figures reach the workflow only through a person keying them (CD-5.4) — a typo there flows into the contract data sheet; the JD-6.2 price double-check is the control.
+- DataBuild figures reach the workflow only through a person keying them (CD-5.4) — a typo there flows into the contract data sheet; the JD-6.2 price double-check is the control. Since 15 Oct 2026 the NSW item 2 and progress figures are worked from the request price (issue #62), and a keyed figure that differs from them is flagged, which also catches most typos.
 - On-prem compliance — orchestrator, MCP servers and all data stay on the client's server; only Graph/DocuSign cloud APIs are called for their own data.
 - Claude Code on Windows Server 2022 runs natively; UI automation requires an unlocked interactive session (console session or persistent RDP with disconnect-keeps-session policy) — needs IT setup. See [02-windows-server-setup.md](02-windows-server-setup.md).

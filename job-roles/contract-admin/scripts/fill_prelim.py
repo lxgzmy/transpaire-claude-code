@@ -91,7 +91,11 @@ RESI_LABEL = "(Current Residential Address)"
 CONS_LABEL = "(For Construction Address)"
 FEE_TEXT = "$30,000."
 RESI_PAD, CONS_PAD = 1, 5  # spaces between label and value (corrected 26032/26052)
-SIG_LEAD = {"owner_1": "  ", "owner_2": "  ", "builders_rep": "   "}
+# One lead for every signing name, so the client's and the builder's names
+# start at the same edge (issue #60, 14 Oct 2026 review: "align client's name
+# and builder's name"). The corrected 26032/26052 agreements carried a third,
+# hand-typed space before Michael CRONK; regress_prelim.py folds space runs.
+SIG_LEAD = {"owner_1": "  ", "owner_2": "  ", "builders_rep": "  "}
 # Calibri 12 for the typed signature names (comparison sheet; team-confirmed
 # 28 Aug 2026, over both the blank's 8-9pt and the corrected docs' 10-11pt)
 SIG_RPR = ('<w:rPr><w:rFonts w:ascii="Calibri" w:eastAsia="Calibri"'
@@ -419,6 +423,95 @@ def fill(xml, values, report):
     return xml
 
 
+def clause_paragraphs(xml, n):
+    """[(start, end, p_xml)] of clause n's body: the paragraphs after the n-th
+    numbered top-level Heading1 up to the next top-level Heading1 (the
+    template numbers 1-2 under one list and 3 onwards under another, so the
+    count of numbered headings is the clause number), and that heading's text."""
+    paras = [(m.start(), m.end(), m.group(0)) for m in P_RE.finditer(xml)]
+
+    def top_heading(p):
+        lvl = re.search(r'<w:ilvl w:val="(\d+)"/>', p)
+        return '<w:pStyle w:val="Heading1"/>' in p and (not lvl or lvl.group(1) == "0")
+
+    numbered = [k for k, (_, _, p) in enumerate(paras) if top_heading(p) and "<w:numId " in p]
+    if not 1 <= n <= len(numbered):
+        return [], ""
+    k = numbered[n - 1]
+    end = next((j for j in range(k + 1, len(paras)) if top_heading(paras[j][2])), len(paras))
+    return paras[k + 1:end], run_text(paras[k][2])
+
+
+def apply_prelim_amendment(xml, am):
+    """One approved prelim_words amendment (CD-10, issue #61): the clause
+    paragraph that becomes the quoted one (`expect`) by adding or removing
+    words only. Returns (xml, what) or (None, reason)."""
+    import difflib
+    import amendments
+    try:
+        n = int(str(am.get("clause")).strip())
+    except ValueError:
+        return None, f"clause {am.get('clause')!r} is not a clause number"
+    body, heading = clause_paragraphs(xml, n)
+    if not body:
+        return None, f"clause {n} not found"
+    want = amendments.norm(am.get("expect")).split()
+    raw_want = re.findall(r"\S+", str(am.get("expect")))
+    fits, already = [], False
+    for start, end, p in body:
+        runs = [(m.start(), m.end(), m.group(0)) for m in RUN_RE.finditer(p)]
+        text, offsets = joined_index(runs)
+        spans = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
+        have = [amendments.norm(text[a:b]) for a, b in spans]
+        if have == want:
+            already = True
+            continue
+        ops = difflib.SequenceMatcher(None, have, want, autojunk=False).get_opcodes()
+        kept = sum(i2 - i1 for tag, i1, i2, _, _ in ops if tag == "equal")
+        if have and kept >= 0.6 * len(have) and all(t in ("equal", "insert", "delete") for t, *_ in ops):
+            fits.append((start, end, p, runs, text, offsets, spans, ops))
+    if already and not fits:
+        return xml, f"clause {n} already reads as requested - nothing to change"
+    if len(fits) != 1:
+        return None, (f"no paragraph in clause {n} becomes the quoted one by adding or removing words"
+                      if not fits else f"{len(fits)} paragraphs in clause {n} could become the quoted one")
+    start, end, p, runs, text, offsets, spans, ops = fits[0]
+    edits, added, removed = [], [], []   # (position, delete length, insert) in the paragraph text
+    for tag, i1, i2, j1, j2 in ops:
+        if tag == "insert":
+            words = " ".join(raw_want[j1:j2])
+            added.append(words)
+            edits.append((spans[i1][0], 0, words + " ") if i1 < len(spans) else (spans[-1][1], 0, " " + words))
+        elif tag == "delete":
+            a, b = spans[i1][0], spans[i2 - 1][1]
+            removed.append(text[a:b])
+            if b < len(text) and text[b] == " ":
+                b += 1
+            elif a > 0 and text[a - 1] == " ":
+                a -= 1
+            edits.append((a, b - a, ""))
+    new_runs = [r for _, _, r in runs]
+    for pos, dlen, ins in sorted(edits, reverse=True):
+        lo = run_at(offsets, pos)
+        hi = run_at(offsets, max(pos, pos + dlen - 1))
+        if any(len(T_RE.findall(new_runs[i])) != 1 or re.search(r"<w:(?:tab|br|cr)/>", new_runs[i])
+               for i in range(lo, hi + 1)):
+            return None, f"clause {n}: the words to change share a run with a tab or break - a person edits it"
+        for i in range(hi, lo - 1, -1):
+            t = run_text(new_runs[i])
+            a = max(pos - offsets[i], 0)
+            b = min(pos + dlen - offsets[i], len(t))
+            new_runs[i] = set_run_text(new_runs[i], t[:a] + (ins if i == lo else "") + t[b:])
+    new_p = p
+    for (s, e, _), r in sorted(zip(runs, new_runs), key=lambda x: -x[0][0]):
+        new_p = new_p[:s] + r + new_p[e:]
+    got = [amendments.norm(w) for w in re.findall(r"\S+", "".join(run_text(r) for r in new_runs))]
+    if got != want:
+        return None, f"clause {n}: the edited paragraph does not read as the quoted one - nothing changed"
+    what = "; ".join([f"added {w!r}" for w in added] + [f"removed {w!r}" for w in removed])
+    return xml[:start] + new_p + xml[end:], f"clause {n} ({heading.strip()}): {what}"
+
+
 def write_docx(template, out, xml):
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -464,6 +557,19 @@ def main():
 
     report = []
     new_xml = fill(xml, values, report)
+    # approved per-job amendments (CD-10, issue #61) on the filled agreement;
+    # a refused one is reported and the template wording stays
+    import amendments
+    am_lines = []
+    for aid, am, approval, why in amendments.for_document(values, "prelim", args.job):
+        what = why
+        if approval:
+            out_xml, what = apply_prelim_amendment(new_xml, am)
+            if out_xml is None:
+                approval = None
+            else:
+                new_xml = out_xml
+        am_lines.append((aid, what, approval, amendments.norm(am.get("request_line"))))
 
     print(f"template : {Path(args.template).name}")
     print(f"job      : {Path(args.job).name}")
@@ -495,6 +601,12 @@ def main():
     if problems:
         print(f"WARNING: no anchor found for: {', '.join(problems)}")
         print("The template may have changed. Do not issue this document - check it.")
+    for aid, what, approval, line in am_lines:
+        state = "REFUSED" if approval is None else ("APPLIES" if args.check else "APPLIED")
+        print(f"AMENDMENT {aid} {state}: {what}" + ("; a person makes this change" if approval is None else ""))
+        print(f"    request: {line!r}" + (f" | approval: {approval}" if approval else ""))
+    if am_lines:
+        print()
 
     if args.check:
         print("(--check: nothing written)")

@@ -5,7 +5,7 @@ r"""Draw a DocuSign template's or draft's tabs onto a job's PDFs, for a person t
                                    --out <folder under runtime\>
 
 The six templates' tabs are fixed to a page and an x/y position, not anchored
-(CD-10.5), so a tab lands where the template's placeholder had its line. This
+(CD-11.5), so a tab lands where the template's placeholder had its line. This
 tool shows where that is on the job's own PDF: one PNG per page that holds a
 tab, each tab drawn as a box with its type and role, plus a summary of every
 tab that falls past the document's last page (it would be missing in the

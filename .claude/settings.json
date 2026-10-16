@@ -4,15 +4,18 @@
     "pr": ""
   },
   "enabledMcpjsonServers": [
-    "osc-api",
+    "osc-api-prod",
     "docusign-upload"
   ],
   "permissions": {
     "allow": [
-      "mcp__osc-api__osc_token_info",
-      "mcp__osc-api__osc_list_endpoints",
-      "mcp__osc-api__osc_describe_endpoint",
-      "mcp__osc-api__osc_get",
+      "mcp__osc-api-prod__osc_token_info",
+      "mcp__osc-api-prod__osc_list_endpoints",
+      "mcp__osc-api-prod__osc_describe_endpoint",
+      "mcp__osc-api-prod__osc_get",
+      "mcp__osc-api-prod__osc_prepare_write",
+      "mcp__osc-api-prod__osc_prepare_changes",
+      "mcp__osc-api-prod__osc_cancel_write",
       "mcp__docusign-demo__getUserInfo",
       "mcp__docusign-demo__getTemplates",
       "mcp__docusign-demo__getEnvelopes",
@@ -23,8 +26,7 @@
       "mcp__docusign-upload-prod__docusign_draft_preview"
     ],
     "ask": [
-      "mcp__osc-api__osc_write",
-      "mcp__osc-api-prod__osc_write",
+      "mcp__osc-api-prod__osc_confirm_write",
       "mcp__docusign-demo__createEnvelope",
       "mcp__docusign-demo__updateEnvelope",
       "mcp__docusign-demo__updateEnvelopeRecipients",
@@ -45,6 +47,11 @@
     ],
     "deny": [
       "mcp__docusign-demo__createEnvelopeFromTemplate",
+      "mcp__osc-api__osc_token_info",
+      "mcp__osc-api__osc_list_endpoints",
+      "mcp__osc-api__osc_describe_endpoint",
+      "mcp__osc-api__osc_get",
+      "mcp__osc-api__osc_write",
       "Read(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",
       "Read(Z:\\COMPANY GENERAL INFORMATION\\TRANSPIRE PASSWORDS & SET UP WORKFLOW\\**)",
       "Edit(Z:/COMPANY GENERAL INFORMATION/TRANSPIRE PASSWORDS & SET UP WORKFLOW/**)",

@@ -1,4 +1,4 @@
-r"""Build the DocuSign draft payload for a job (CD-10, 13 Oct 2026).
+r"""Build the DocuSign draft payload for a job (CD-11, 13 Oct 2026).
 
     python docusign_payload.py --job <workdir>/job.json --job-dir "<CONTRACT DOCUMENTATION>"
                                [--region NSW|QLD] [--server docusign-upload|docusign-upload-prod]
@@ -65,7 +65,7 @@ OWNER_KEYS = ("owner_1", "owner_2", "owner_3")
 # The kinds the docusign-upload server takes, in envelope order (CD-7.2 names).
 UPLOAD_KINDS = ("BUILD CONTRACT", "INCLUSIONS", "PRELIMINARY AGREEMENT", "PLANS")
 
-# The two docusign-upload servers (CD-10.1). The sandbox one reads documents only from
+# The two docusign-upload servers (CD-11.1). The sandbox one reads documents only from
 # the checkout's runtime/docusign-sandbox, so it only ever gets synthetic jobs; a real
 # job's folder needs the production one, registered at Go-Live.
 SANDBOX_SERVER = "docusign-upload"

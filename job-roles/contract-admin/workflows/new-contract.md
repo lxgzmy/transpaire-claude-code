@@ -43,8 +43,8 @@ forwarded marketer → sales manager → contract admin.
 | Client ID documents | Attachment — optional (24 Sep 2026) | Name spelling when present (CD-0.3); absent → EOI names, flagged |
 | Inclusions document | Attachment or `Z:` | Which template the sender intends (CD-0.4) |
 | Blank template | `Z:\PROCEDURES & FORMS\CONTRACTS\` | The document itself (CD-1) |
-| PLANS | Job folder / drafting | House size, garage side (CD-2.7, CD-2.9) |
-| DataBuild | — | GST split, progress payments (CD-5.4, CD-5.6) |
+| PLANS | Job folder / drafting | House size, garage side read off the rendered site plan: left/right, or `Via <street or lane>` on a Sydney corner or lane lot (CD-2.7, CD-2.9; `site_streets.py`, `pdf_page.ps1`) |
+| DataBuild | — | Keyed figures that override the NSW figures worked from the price; the QLD GST split (CD-5.4, CD-5.6) |
 | Estate information | `Z:\ESTATES INFORMATION\<state>\<region>\<estate>\` | Lot-specific facts |
 
 ## Phase 1 — Draft the documents
@@ -55,6 +55,9 @@ The workflow now includes the OSC setup in Word items 1–9. Follow the
 [OSC execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md)
 after reading the request and before the document steps below. It contains
 the field-to-API map, lookup rules, example multipart call and recovery protocol.
+OSC changes go to the person a stage at a time (15 Oct 2026), one confirmation
+each: stage 1 is Word 1–4 (client and job), stage 2 is Word 5–9 plus a new job
+folder, and stage 3 is activity 6 once the DataBuild entry is done.
 
 | Sequence | Action |
 |---|---|
@@ -66,7 +69,9 @@ the field-to-API map, lookup rules, example multipart call and recovery protocol
 | Document handoff | Use verified job number/folder and original field sources in the existing document pipeline. |
 
 DataBuild is excluded by the 11 September 2026 scope instruction: no integration,
-handoff email or waiting for its completion. This does not change `CD-5.4`.
+handoff email or waiting for its completion. The NSW contract figures are
+worked from the request price (CD-5.4, issue #62), so the documents do not
+wait for DataBuild either.
 An existing document refresh verifies identity without replaying OSC writes.
 Save OSC IDs, source references and per-operation verification separately in
 `osc-state.json` in server runtime. A timeout requires reconciliation before
@@ -77,11 +82,11 @@ retrying; disabled writes produce a draft, never a success claim.
 | 1 | Read the whole chain + attachments; read the EOI (form fields or image); a missing client ID is flagged, not a stop | Claude | CD-0 |
 | 2 | Locate the verified job folder (all lifecycle levels); route **each document separately** based on whether that document type exists, and check for any cancelled twin. Confirm the required template from the job's documents where present; unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-7.7, CD-1.6 |
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
-| 4 | Assemble field values with a source per field; flag what the plans have to supply. **Sydney:** also the `upgrades` block — area, storeys, Bathroom 2, air con, and one item per upgrade line with the Standard Variation row chosen (`variation_list.py --search`), the house wording and a confidence flag; a request with no row is a custom item at low confidence | Claude | CD-2, CD-3, CD-9 |
+| 4 | Assemble field values with a source per field; flag what the plans have to supply. Contract changes the request approves on their own line go into `amendments`, verbatim (CD-10: interest rate, a struck NSW clause, prelim clause words); every other change into `amendments_for_person`. **Sydney:** also the `upgrades` block — area, storeys, Bathroom 2, air con, and one item per upgrade line with the Standard Variation row chosen (`variation_list.py --search`), the house wording and a confidence flag; a request with no row is a custom item at low confidence | Claude | CD-2, CD-3, CD-9 |
 | 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, **Sydney inclusions content edit + Word layout pass + quality gate** (CD-9, 10 Sep 2026 — section 18 area, notes, `UPGRADED INCLUSIONS` items, black throughout; both columns re-levelled; a gate FAIL blocks the save), blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (standard $30,000 fee unless the request names another, CD-4.3); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
-| 6 | Draft the build contract **data sheet** (the person-keyed values: price split and Part B as `FROM DATABUILD` placeholders — never computed — guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
-| 7 | Report destination + mode, field table, flags, and — Sydney — the `edit_inclusions.txt` items table (request → row → wording → confidence) and the gate verdict; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill/edit/gate reports, layout plan + align report, diffs, timings) | Claude | CD-9.10 |
-| 8 | **DocuSign draft**, only when the build contract routed PRODUCTION: `docusign_payload.py` writes the tool arguments (template by region × buyer type, buyers from the job, subject/message, `JobNo`) and lists the job's PDFs under their CD-7.2 names; Claude checks the connection, previews (template by name, page counts, existing `JobNo` envelope) and calls `docusign_create_draft`, which creates the draft with `status: created` and the job's own PDFs. The approval prompt is the gate. Tabs carry onto documents with the template's page count; others go in untagged and flagged for staff. No production server yet, or any stop: no draft, reason reported; any fallback is open (CD-10.8) | Claude (via the `docusign-upload` MCP: `docusign-upload-prod` for a real job, `docusign-upload` sandbox for synthetic jobs) | CD-10 |
+| 6 | Draft the build contract **data sheet** (NSW: the contract figures block from `fill_buildcontract.txt`, worked from the price, CD-5.4; QLD: the figures as the person gave them with their FLAGs, or "not given yet - optional, any time", issue #73; guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
+| 7 | Report destination + mode, field table, flags, each amendment APPLIED or REFUSED with its request line (CD-10), and — Sydney — the `edit_inclusions.txt` items table (request → row → wording → confidence) and the gate verdict; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill/edit/gate reports, layout plan + align report, diffs, timings) | Claude | CD-9.10 |
+| 8 | **DocuSign draft**, only when the build contract routed PRODUCTION: `docusign_payload.py` writes the tool arguments (template by region × buyer type, buyers from the job, subject/message, `JobNo`) and lists the job's PDFs under their CD-7.2 names; Claude checks the connection, previews (template by name, page counts, existing `JobNo` envelope) and calls `docusign_create_draft`, which creates the draft with `status: created` and the job's own PDFs. The approval prompt is the gate. Tabs carry onto documents with the template's page count; others go in untagged and flagged for staff. No production server yet, or any stop: no draft, reason reported; any fallback is open (CD-11.8) | Claude (via the `docusign-upload` MCP: `docusign-upload-prod` for a real job, `docusign-upload` sandbox for synthetic jobs) | CD-11 |
 
 ## Phase 2 — Issue and execute (human)
 
@@ -110,8 +115,8 @@ permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
 and bounded by CD-7.6/7.7's per-document routing (8 Sep 2026): a document the
 job already holds refreshes only to the test folder, a document it does not
 hold yet saves into the job folder, and production saves never overwrite. What stays with a person, permanently: every
-outward-facing act — email, signature, sending a DocuSign envelope (the run creates only a draft, behind the approval prompt on the create call, CD-10) — plus approval of each OSC
-write through the integrated MCP procedure, resolving
+outward-facing act — email, signature, sending a DocuSign envelope (the run creates only a draft, behind the approval prompt on the create call, CD-11) — plus approval of every OSC
+write through the integrated MCP procedure (one confirmation per stage), resolving
 flagged fields, aux inclusions wording, and promoting test/amendment output
 into a job folder.
 
@@ -147,7 +152,7 @@ the job already exists in production.
 - Build contract data sheet (CD-5)
 - Pack checklist: general conditions, concept plan, consumer guide, colour options
 - Fill report + blank-vs-filled diff as the evidence bundle
-- DocuSign draft envelope with the job's own PDFs (production once `docusign-upload-prod` is connected; until then the payload only), with `docusign_envelope.json` / `docusign_payload.txt` / `docusign_result.json` in the evidence bundle (CD-10)
+- DocuSign draft envelope with the job's own PDFs (production once `docusign-upload-prod` is connected; until then the payload only), with `docusign_envelope.json` / `docusign_payload.txt` / `docusign_result.json` in the evidence bundle (CD-11)
 
 ## Where this sits in the full chain
 
