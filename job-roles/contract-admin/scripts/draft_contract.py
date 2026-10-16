@@ -134,6 +134,17 @@ STAGED_HIA = {
 COMPANY_TAILS = ("PTY LTD", "PTY LIMITED", "LTD", "LIMITED", "PTY. LTD.")
 
 
+def is_company_owner(name):
+    """True when the owner is a company or trust (CD-3.9), by the same tail
+    test owner_token uses for the filename token."""
+    up = " ".join(str(name).upper().replace(".", "").split())
+    up = up.split(" ATF ")[0]
+    for tail in COMPANY_TAILS:
+        if f" {tail.replace('.', '')} " in f" {up} ":
+            return True
+    return up.endswith("TRUST")
+
+
 def owner_token(name):
     """The filename token for one owner: surname, or a company's leading word.
 
@@ -150,10 +161,7 @@ def owner_token(name):
     """
     up = " ".join(name.upper().replace(".", "").split())
     up = up.split(" ATF ")[0]  # trustee-for clause never feeds the filename
-    for tail in COMPANY_TAILS:
-        if f" {tail.replace('.', '')} " in f" {up} ":
-            return up.split()[0]
-    if up.endswith("TRUST"):
+    if is_company_owner(name):
         return up.split()[0]
     return name.split(" ATF ")[0].split()[-1].upper()
 
@@ -207,6 +215,23 @@ def route_kind(kind, existing, job_dir, workdir):
     if existing.get(kind):
         return "TEST", TEST_ROOT / workdir.name
     return "PRODUCTION", Path(job_dir)
+
+
+def write_routes(workdir, routes):
+    """Record each document kind's decided route so later steps (the DocuSign
+    draft, step 8) can read it without re-deriving it after the save - after
+    the save the job folder holds the document, so a recomputation would say
+    TEST for what was in fact a PRODUCTION first draft."""
+    out = Path(workdir) / "routes.txt"
+    lines = [f"{kind}\t{mode}\t{dest}" for kind, (mode, dest) in routes.items()]
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out
+
+
+def clear_routes(workdir):
+    """Remove a stale routes.txt at the start of a --job-dir run, so step 8
+    never reads the route of an earlier run that did not deliver."""
+    (Path(workdir) / "routes.txt").unlink(missing_ok=True)
 
 
 def collect_finals(workdir, values):
@@ -433,6 +458,8 @@ def main():
         sys.exit("ERROR: workdir is inside Z:\\PROJECTS - the workdir is scratch space. The only "
                  "write into a job folder is the final pair, via --job-dir routing.")
     workdir.mkdir(parents=True, exist_ok=True)
+    if args.job_dir:
+        clear_routes(workdir)
 
     if args.deliver:
         if args.template or args.prelim or args.real_dir or args.job_dir:
@@ -493,6 +520,7 @@ def main():
     if not args.template and not args.prelim and not args.build_contract_only:
         if mode:
             deliver_routed(workdir, values, job_dir, existing)
+            write_routes(workdir, routes)  # only after a delivery that did not stop
             return 0
         sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim "
                  "(add --job-dir to save in the same pass)")
@@ -715,6 +743,7 @@ def main():
         def do_deliver():
             prod, test = deliver_routed(workdir, values, job_dir, existing,
                                         kinds=wanted if args.build_contract_only else None)
+            write_routes(workdir, routes)  # only after a delivery that did not stop
             kinds = lambda fs: ", ".join(sorted({k.lower() for _, _, k in fs})) or "none"
             print(f"  delivered : job folder <- {kinds(prod)}; template-testing <- {kinds(test)}")
             return True
