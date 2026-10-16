@@ -176,6 +176,11 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
             }
             elseif ($delta -gt 0) {
                 $n = [math]::Floor($delta / $lineH)
+                # never put back the blank line just taken out: the gap it leaves is less than the
+                # line that went (a real blank is not exactly $lineH), so it is spacing. Without this a
+                # pair 0.55 pt off went "left -1, left +1" for all 80 tries, every round (16 Oct 2026,
+                # $lineH measured 12.75 against 13.3 blank lines)
+                if ($n -eq 1 -and $actions.Count -gt 0 -and $actions[-1] -eq 'left -1') { $n = 0 }
                 if ($n -ge 1) {
                     for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $first }
                     $actions += "left +$n"
@@ -602,11 +607,14 @@ try {
                     $res.status = 'NOT FOUND'; $results.Add([pscustomobject]$res); continue
                 }
                 if ($lineH -eq 13.3 -and $lp -ne $null) {
-                    # measure a blank line once: the paragraph before the first label, if blank
+                    # measure a blank line once: two blank paragraphs one after the other above a
+                    # label, top to top - exactly one blank line. (Text above a blank measured 18.0
+                    # one run and 12.75 the next on the same document: its line spacing is not a
+                    # blank's.) Until a label has two blanks above it, 13.3 stands.
                     $pv = Prev-Paragraph $lp
                     if ($pv -ne $null -and (Is-Blank $pv)) {
                         $pp = $pv.Previous(1)
-                        if ($pp -ne $null) {
+                        if ($pp -ne $null -and (Is-Blank $pp)) {
                             $a = Pos $pp.Range; $b = Pos $pv.Range
                             if ($a.page -eq $b.page) { $d = $b.top - $a.top; if ($d -gt 8 -and $d -lt 20) { $lineH = $d } }
                         }
