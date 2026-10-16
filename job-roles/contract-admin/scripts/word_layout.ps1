@@ -180,7 +180,7 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 # line that went (a real blank is not exactly $lineH), so it is spacing. Without this a
                 # pair 0.55 pt off went "left -1, left +1" for all 80 tries, every round (16 Oct 2026,
                 # $lineH measured 12.75 against 13.3 blank lines)
-                if ($n -eq 1 -and $actions.Count -gt 0 -and $actions[-1] -eq 'left -1') { $n = 0 }
+                if ($n -eq 1 -and $actions.Count -gt 0 -and $actions[-1] -match '^left -\d+$') { $n = 0 }
                 if ($n -ge 1) {
                     for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $first }
                     $actions += "left +$n"
@@ -189,7 +189,20 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 $sb = [double]$first.SpaceBefore
                 $prev = $first.Previous(1)
                 if ($sb -gt 0.05) { $cut = [math]::Min($sb, -$delta); $first.SpaceBefore = $sb - $cut; $actions += ("left space -{0:n1}" -f $cut) }
-                elseif ($prev -ne $null -and (Is-Blank $prev) -and (Has-Blank-Before $prev)) { $prev.Range.Delete() | Out-Null; $actions += 'left -1' }
+                elseif ($prev -ne $null -and (Is-Blank $prev) -and (Has-Blank-Before $prev)) {
+                    # every whole blank line the gap holds goes in one delete - one per move, each a
+                    # full relayout in Word, took 22 moves on one 26032 step (16 Oct 2026) - and never
+                    # the last blank above the block (see below)
+                    $m = [math]::Max(1, [math]::Floor(-$delta / $lineH))
+                    $top = $prev; $k = 1
+                    while ($k -lt $m) {
+                        $up = $top.Previous(1)
+                        if ($up -eq $null -or -not (Is-Blank $up) -or -not (Has-Blank-Before $up)) { break }
+                        $top = $up; $k++
+                    }
+                    $cut = $top.Range.Duplicate; $cut.End = $prev.Range.End; $cut.Delete() | Out-Null
+                    $actions += "left -$k"
+                }
                 # never the last blank between this label and the text above it: the two would be
                 # glued into one block (Block-First), and from then on levelling one moves the other -
                 # 15 Oct 2026, "Hinges & Drawer Runners" pushed a line off by the "Tiles" step below it
@@ -204,17 +217,26 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
             $prev = Prev-Paragraph $rp
             if ($prev -eq $null) { break }
             if ((End-Page $prev.Range) -lt $hp.page) { break }   # the paragraph above ends on an earlier page
-            # walk back over the blank spacers to the content before them
-            $anchor = $prev; $blanks = 0
-            while ($anchor -ne $null -and (Is-Blank $anchor)) { $blanks++; $anchor = $anchor.Previous(1) }
+            # walk back over the blank spacers to the content before them, noting the ones that sit
+            # on the heading's page (directly above it)
+            $anchor = $prev; $blanks = 0; $spill = 0; $spillTop = $null; $onPage = $true
+            while ($anchor -ne $null -and (Is-Blank $anchor)) {
+                if ($onPage -and (End-Page $anchor.Range) -eq $hp.page) { $spill++; $spillTop = $anchor } else { $onPage = $false }
+                $blanks++; $anchor = $anchor.Previous(1)
+            }
             $anchorPage = $(if ($anchor -eq $null) { 0 } else { End-Page $anchor.Range })
             if ($blanks -gt 0 -and $anchorPage -lt $hp.page) {
-                # the content ends on the page before: the blank just above the
-                # heading spilled onto its page - remove it, the heading moves up a line
-                $prev.Range.Delete() | Out-Null; $actions += 'right -1'
+                # the content ends on the page before: the blanks that spilled onto the heading's page
+                # go in one delete (one per move took 23 moves on 26032, 16 Oct 2026); the page before
+                # stays full of the rest, so the heading moves up to the top of its page
+                $cut = $spillTop.Range.Duplicate; $cut.End = $prev.Range.End; $cut.Delete() | Out-Null
+                $actions += "right -$spill"
             } else {
-                # content shares the heading's page: push the heading to the next page
-                Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1'; $rp = $rp.Paragraphs.Last.Range
+                # content shares the heading's page: push the heading to the next page - the lines
+                # left on this page go in at once (one per move took 8 moves a heading)
+                $n = [math]::Max(1, [math]::Ceiling(($script:TextBottom - $hp.top) / $lineH))
+                for ($k = 0; $k -lt $n; $k++) { Insert-Blank-Before $rp.Paragraphs.Item(1) }
+                $actions += "right +$n"; $rp = $rp.Paragraphs.Last.Range
             }
         }
     }
@@ -584,6 +606,7 @@ try {
             Say "plan: $($steps.Count) steps from $([System.IO.Path]::GetFileName($Plan))"
             $ps = $doc.Sections.Item(1).PageSetup
             $usable = [double]$ps.PageHeight - [double]$ps.TopMargin - [double]$ps.BottomMargin
+            $script:TextBottom = [double]$ps.PageHeight - [double]$ps.BottomMargin   # foot of the text area, from the page's top edge
             $lineH = 13.3
             $results = New-Object System.Collections.Generic.List[object]
             $stepNo = 0
