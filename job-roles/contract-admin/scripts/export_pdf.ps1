@@ -26,6 +26,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'word_com.ps1')   # Start-Word, Stop-Word, Drive-Path
 
 if ($Out.Count -gt 0 -and $Out.Count -ne $Docx.Count) {
     Write-Error "-Out must be omitted or give one destination per -Docx ($($Docx.Count) given, $($Out.Count) outs)"
@@ -34,7 +35,8 @@ if ($Out.Count -gt 0 -and $Out.Count -ne $Docx.Count) {
 # Resolve and validate every pair BEFORE Word starts, so a bad path or an
 # overwrite refusal costs nothing.
 $jobs = for ($i = 0; $i -lt $Docx.Count; $i++) {
-    $src = (Resolve-Path -LiteralPath $Docx[$i]).Path
+    # a UNC path opens in Protected View and Documents.Open returns nothing (Drive-Path)
+    $src = Drive-Path (Resolve-Path -LiteralPath $Docx[$i]).Path
     $dst = if ($Out.Count -gt 0 -and $Out[$i]) { $Out[$i] }
            else { [System.IO.Path]::ChangeExtension($src, '.pdf') }
     if (-not [System.IO.Path]::IsPathRooted($dst)) {
@@ -53,9 +55,7 @@ $jobs = for ($i = 0; $i -lt $Docx.Count; $i++) {
 
 $word = $null
 try {
-    $word = New-Object -ComObject Word.Application
-    $word.Visible = $false
-    $word.DisplayAlerts = 0
+    $word = Start-Word
 
     $wdExportFormatPDF = 17
     $wdExportOptimizeForPrint = 0
@@ -66,6 +66,7 @@ try {
         $doc = $null
         try {
             $doc = $word.Documents.Open($job.Src, $false, $true)   # no conversion dialog, read-only
+            if ($doc -eq $null) { throw "Word did not open $($job.Src) (Protected View or a lock on the file)" }
             if ($From -gt 0 -and $To -ge $From) {
                 $doc.ExportAsFixedFormat($job.Dst, $wdExportFormatPDF, $false,
                     $wdExportOptimizeForPrint, $wdExportFromTo, $From, $To)
@@ -81,5 +82,5 @@ try {
     }
 }
 finally {
-    if ($word) { $word.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null }
+    Stop-Word $word
 }

@@ -629,10 +629,12 @@ def signature_tabs(xml, values, family):
     return "".join(out), rebuilt
 
 
-def write_docx(template, out, xml):
-    """Copy the template zip, swapping in the new document.xml."""
+def write_docx(template, out, xml, parts=None):
+    """Copy the template zip, swapping in the new document.xml (and any other
+    part given in `parts`, name -> xml)."""
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    parts = dict(parts or {}, **{"word/document.xml": xml})
     # Stage beside the output, NOT in the system temp dir - that is on C:, and
     # the org rules forbid writing client data there (repo CLAUDE.md).
     tmp_path = out.with_suffix(".partial")
@@ -641,11 +643,85 @@ def write_docx(template, out, xml):
     ) as zout:
         for item in zin.infolist():
             data = zin.read(item.filename)
-            if item.filename == "word/document.xml":
-                data = xml.encode("utf-8")
+            if item.filename in parts:
+                data = parts[item.filename].encode("utf-8")
             zout.writestr(item, data)
     shutil.move(tmp_path, out)
     return out
+
+
+# The footer's "Page <PAGE field> of 16": every inclusions blank types its own page count after
+# "of" (15, 16 or 17), so a document that runs past the blank's pages printed "Page 17 of 16"
+# (26058, 16 Oct 2026). The team corrects it by hand (26020 reads "of 18"; 26032 carries Word's
+# NUMPAGES field). The typed total becomes that field, in the typed digits' own formatting.
+PAGE_INSTR_RE = re.compile(r"<w:instrText[^>]*>\s*PAGE\s*</w:instrText>")
+FLD_END = 'w:fldCharType="end"'
+SAFE_BETWEEN_RE = re.compile(r"\s*(?:<w:proofErr [^>]*/>\s*)*")
+
+
+def footer_page_total(xml):
+    """(xml, n): every typed page total after a PAGE field made a NUMPAGES field."""
+    done = 0
+
+    def fix(pm):
+        nonlocal done
+        p = pm.group(0)
+        if not PAGE_INSTR_RE.search(p) or "NUMPAGES" in p:
+            return p
+        runs = list(RUN_RE.finditer(p))
+        at = next((i for i, r in enumerate(runs) if PAGE_INSTR_RE.search(r.group(0))), None)
+        end = next((i for i in range(at, len(runs)) if FLD_END in runs[i].group(0)), None)
+        if end is None:
+            return p
+        tail = runs[end + 1:]
+        texts = [run_text(r.group(0)) for r in tail]
+        m = re.fullmatch(r"(\s*of\s*)(\d+)\s*", "".join(texts))
+        if not m:
+            return p
+        digits, pos = [], 0
+        for r, t in zip(tail, texts):
+            a, b = pos, pos + len(t)
+            if t and a >= m.start(2) and b <= m.end(2):
+                digits.append(r)
+            elif t and a < m.end(2) and b > m.start(2):
+                return p   # a run that mixes the digits with other text: leave it, report it
+            pos = b
+        s, e = digits[0].start(), digits[-1].end()
+        # only the digit runs (and proofing marks) between s and e - never a bookmark or field
+        gaps = [p[digits[k].end():digits[k + 1].start()] for k in range(len(digits) - 1)]
+        if any(not SAFE_BETWEEN_RE.fullmatch(g) for g in gaps):
+            return p
+        rpr = re.search(r"<w:rPr>.*?</w:rPr>", digits[0].group(0), re.S)
+        rpr = rpr.group(0) if rpr else ""
+        field = (f'<w:r>{rpr}<w:fldChar w:fldCharType="begin"/></w:r>'
+                 f'<w:r>{rpr}<w:instrText xml:space="preserve"> NUMPAGES </w:instrText></w:r>'
+                 f'<w:r>{rpr}<w:fldChar w:fldCharType="separate"/></w:r>'
+                 f'<w:r>{rpr}<w:t>{m.group(2)}</w:t></w:r>'
+                 f'<w:r>{rpr}<w:fldChar w:fldCharType="end"/></w:r>')
+        done += 1
+        return p[:s] + field + p[e:]
+
+    return P_RE.sub(fix, xml), done
+
+
+def footer_parts(template):
+    """{part name: new xml} for the footers whose typed page total became NUMPAGES, the
+    number of places changed, and the number of PAGE fields left with a typed total."""
+    parts, changed, left = {}, 0, 0
+    with zipfile.ZipFile(template) as z:
+        for name in z.namelist():
+            if re.fullmatch(r"word/footer\d*\.xml", name):
+                old = z.read(name).decode("utf-8")
+                new, n = footer_page_total(old)
+                if n:
+                    parts[name] = new
+                    changed += n
+                # a PAGE field still followed by a typed "of <number>"
+                left += sum(1 for pm in P_RE.finditer(new)
+                            if PAGE_INSTR_RE.search(pm.group(0)) and "NUMPAGES" not in pm.group(0)
+                            and re.search(r"\bof\s*\d", "".join(run_text(r.group(0))
+                                                                for r in RUN_RE.finditer(pm.group(0)))))
+    return parts, changed, left
 
 
 # GARAGE SIDE as the team writes it (CD-2.9 / JD-9.5, issue #59): left or right
@@ -732,6 +808,13 @@ def main():
         print("These are notes to whoever edits the template, not contract text.")
         print("A person must action and remove them before this is issued.")
 
+    footers, n_total, n_left = footer_parts(args.template)
+    if n_total:
+        print(f"footer   : the typed page total is Word's page count (NUMPAGES) in {n_total} place(s)")
+    if n_left:
+        print(f"WARNING: {n_left} footer page number(s) with a total this run does not recognise - "
+              "check 'Page n of N' against the page count before issue")
+
     if args.check:
         print("(--check: nothing written)")
         return 1 if problems else 0
@@ -740,7 +823,7 @@ def main():
         print("ERROR: --out is required unless --check is given", file=sys.stderr)
         return 2
 
-    out = write_docx(args.template, args.out, new_xml)
+    out = write_docx(args.template, args.out, new_xml, footers)
     print(f"written  : {out}")
     print("DRAFT - a person must read this against the email and plans before it goes out.")
     return 1 if problems else 0

@@ -344,12 +344,24 @@ def run_ps(script, *args):
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
+# word_layout.ps1 -Mode measure output version: 2 since 16 Oct 2026 (each paragraph's page is its
+# first line's, as its top is; end_page is its last line's). An older cache is measured again.
+MEASURE_VERSION = 2
+
+
+def measure_version(path):
+    try:
+        return int(json.loads(Path(path).read_text(encoding="utf-8-sig")).get("measure_version") or 1)
+    except (OSError, ValueError):
+        return 0
+
+
 def blank_measure_for(template):
     """The blank's Word measurement, made (3 min) when missing or older than the blank."""
     template = Path(template)
     LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
     out = LAYOUT_STATE / f"{template.stem}.measure.json"
-    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime:
+    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
         return out
     print(f"  measuring : the blank's layout through Word (first run for this blank, ~3 min) -> {out.name}")
     r = run_ps("word_layout.ps1", "-Mode", "measure", "-Docx", template, "-Out", out)

@@ -843,7 +843,8 @@ def build_plan(blank_measure, cols, regional_pair, tolerance=1.5):
         t = norm(r["text"])
         if t == UPGRADED_HEADING or not is_upgraded_heading(t):
             continue
-        if n == 0 or bR[n - 1]["page"] < r["page"]:
+        # the paragraph above ends on an earlier page (end_page since measure_version 2)
+        if n == 0 or bR[n - 1].get("end_page", bR[n - 1]["page"]) < r["page"]:
             ri = find_n(rtexts, t, 1)
             if ri >= 0:
                 steps.append({"kind": "page_top", "right": t, "right_n": 1, "_r": ri})

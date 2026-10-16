@@ -129,6 +129,13 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   (26044) repurposed the Owners Witness rows into `Name of Owner 3` /
   `Signature of Owner 3` by hand. Claude fills owners 1–2, puts every owner in
   `owners`, and flags the rest for a person. *(observed 16 Aug 2026)*
+- **CD-3.10** **Footer page total:** every inclusions blank types its own
+  page count after "Page n of" (15, 16 or 17), so a filled document that
+  runs past the blank's pages read "Page 17 of 16". The fill makes that
+  total Word's page count field (NUMPAGES), in the typed digits' own
+  formatting, as the team did by hand on 26032 (26020's person typed
+  "18"). The Sydney gate fails a typed total. *(16 Oct 2026, from the
+  26058 run that grew to 17 pages)*
 
 ## CD-4 Preliminary agreement
 
@@ -559,16 +566,26 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   STANDARD blanks, 11 in the AUXILIARY one — issue #57), and two below it
   (one blank line plus section 19's one-line heading; the blank leaves 1 to
   4 depending on which area pair was kept). When the kept wording starts a
-  page and leaves the heading at the foot of the page before, the pass
-  pushes the wording down a line and re-levels its label until heading and
-  label share a page (the heading moves with its label). The foot of the table keeps
+  page (the NBN wording then ends at the foot of the page before), the
+  label is levelled onto that page and the heading's two lines would be
+  left behind. The pass then puts the heading at the top of the label's
+  page, by blank lines above it, and levels the pair from the wording side
+  only: whole blank lines and spacing above the wording, or a fraction of
+  a line above the label under its heading. Nothing above the heading is
+  touched again, in that pass or any correction round, so it is never
+  pulled back to the page before. The foot of the table keeps
   one blank paragraph per column: the blanks pad it with 38, which landed
   on a page of their own once the upgrades ran past one page (the section
   after the table starts its own page either way). The gate fails the
   document on any miss, on an empty page (pages inside the body table read
   column by column), on a colour left outside the
   package headings, on a label line whose `Date:` is not on the tab stops,
-  or on a section 18 gap or stranded heading. *(sheet rows 1, 4, 12, 14,
+  or on a section 18 gap or stranded heading. A heading on the page after
+  the NBN wording passes only when the kept area wording could not fit
+  there: it starts that page beside its label, the heading starts it
+  too, and no more than the editor's 3 blank lines follow the NBN
+  wording on its page (Word's own placement, no free-line count: the
+  wording needs those 3 lines plus 2 of its own). *(sheet rows 1, 4, 12, 14,
   15; the 14 Oct 2026 review of job 26032)*
 - **CD-9.10** What stays human: mapping a request line to a Standard
   Variation row, and approving custom wording where no row exists. The run
