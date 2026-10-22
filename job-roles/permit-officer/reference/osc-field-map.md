@@ -17,7 +17,12 @@ The Monday report is an OSC **Executive Reporter** export (saved definition,
 "BA lodged jobs only" filter — procedure documented in the AI testing
 folder), saved as `BA REPORT - DD.MM.YYYY.xlsx` (one sheet, header row 1,
 one row per job) into the BA REPORTS archive under `Z:\ADMINISTRATION`.
-Columns:
+The definition changes: on **28 Sep 2026** it gained *Engineering Ordered*,
+*Receive Engineering*, *Review Engineering - Michael*, *Forward Engineering
+to Certifier* (E–H) and *Covenant Ordered* (J), moving "Submit all RFI
+Items" from G to L. The parser therefore locates every column by its
+header text and carries unknown columns verbatim. The letters below are the
+original (pre-28-Sep) layout, kept for the OSC mapping:
 
 | Col | Header | Kind |
 |---|---|---|
