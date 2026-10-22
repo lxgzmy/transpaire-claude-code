@@ -663,9 +663,20 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         if in_scope and not items_out and not resolved_out and job_no in state and g["date"]:
             state.pop(job_no, None)
 
+        # ---- OSC says the RFI response went back, yet items are still listed:
+        # the officer decides whether the list should close (PO-13), so flag it.
+        key = "submit_all_rfi_items"
+        if snapshot and items_out:
+            returned = [_iso_day(a["completionDate"]) for a in snapshot.get("activities", [])
+                        if re.search(COLUMN_ACTIVITY[key], a.get("description") or "", re.I)
+                        and a.get("completionDate")]
+            if returned and max(returned) >= since:
+                job_ev["flags"].append(
+                    f"OSC activity \"Return RFI Information to Certifier\" completed {max(returned)} "
+                    f"but {len(items_out)} item(s) still listed — review whether the PENDING list should close")
+
         # ---- the RFI-items cell (G on the old export, L since 28 Sep 2026)
         all_resolved_now = had_items and not items_out and resolved_out
-        key = "submit_all_rfi_items"
         if items_out:
             text = "PENDING " + ", ".join(
                 i["name"] + (f" ({i['state']})" if i["state"] else "")
@@ -734,7 +745,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
             items_rows.append([
                 (job_no, fill),
                 (i["name"], fill),
-                (("⚠ " if i.get("flagged") else "") + (i.get("assigned_to") or "?"), fill),
+                (("⚠ " if i.get("flagged") and not i.get("resolved") else "") + (i.get("assigned_to") or "?"), fill),
                 (_ddmmyyyy(i.get("date_submitted")), fill),
                 (_ddmmyyyy(i.get("date_resolved")) if i.get("resolved") else "", fill),
                 (int(i["days"]), fill),

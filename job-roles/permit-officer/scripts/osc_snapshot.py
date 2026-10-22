@@ -34,8 +34,8 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(REPO / "shared" / "mcp" / "osc-api"))
 
 try:
-    from osc_mcp.client import OSCClient  # noqa: E402
-    from osc_mcp.config import load_config  # noqa: E402
+    from osc_mcp.client import OSCClient, OSCError  # noqa: E402
+    from osc_mcp.config import ConfigError, load_config  # noqa: E402
 except ImportError as exc:  # pragma: no cover - environment guard
     sys.exit(f"cannot import the OSC client ({exc}); run this under "
              "shared\\mcp\\osc-api\\.venv\\Scripts\\python.exe")
@@ -111,7 +111,10 @@ async def snapshot_job(client, jobno):
 
 
 async def run(jobs, out_dir):
-    config = load_config()
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        raise SnapshotError(f"OSC is not configured on this checkout ({exc}); see shared/mcp/osc-api/README.md")
     client = OSCClient(config)
     try:
         live = await live_check(client, config.stale_after_days)
@@ -152,6 +155,8 @@ def main(argv):
         missing = asyncio.run(run(jobs, out))
     except SnapshotError as exc:
         sys.exit(f"stopped: {exc}")
+    except OSCError as exc:
+        sys.exit(f"stopped: OSC request failed ({exc}); nothing saved for the job in progress")
     return 1 if missing else 0
 
 

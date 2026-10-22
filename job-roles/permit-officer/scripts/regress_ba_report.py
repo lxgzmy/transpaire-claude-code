@@ -149,7 +149,8 @@ def synth_snapshot_90002():
             # insurances pending with an internal owner -> proposed-add, INTERNAL tier
             act(72, "Pay Q Leave / Long Service Levy", user="Synthetic Admin"),
             act(76, "Email Copy of Relevant Insurances to Certifier", user="Synthetic Admin"),
-            act(62, "Return RFI Information to Certifier"),
+            # the RFI response went back this week while items are still listed -> flag only
+            act(62, "Return RFI Information to Certifier", done="2026-09-05"),
         ],
         "alerts": [],
         "documents": [
@@ -315,6 +316,9 @@ def main():
         check("contributions kept + flagged (no evidence)",
               "CONTRIBUTIONS PAYABLE" in kept and kept["CONTRIBUTIONS PAYABLE"]["flagged"])
         check("insurances proposed-add", actions.get("INSURANCES") == "proposed-add", str(actions))
+        check("Return RFI complete with items still listed -> flagged, list kept",
+              any("should close" in f for f in j2["flags"]) and "submit_all_rfi_items" not in actions,
+              str(j2["flags"]))
 
         # ---- 7. ageing v0.2
         en = kept.get("ENERGY REPORT", {})
