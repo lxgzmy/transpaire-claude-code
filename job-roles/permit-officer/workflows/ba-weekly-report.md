@@ -31,10 +31,11 @@ testing folder (see `../reference/README.md`).
    works from OSC alone and improves when the mailbox lands.
 4. **Draft the new report**: mark items evidenced complete as RESOLVED
    (shown once, then dropped), keep the rest, add newly detected items, and
-   populate the four per-item columns L–O — *Assigned to*, *Date
+   write one row per item on the **Items** sheet — *Assigned to*, *Date
    submitted*, *Date resolved*, *Days outstanding* in NSW business days —
    with the YELLOW/RED flag by tier (Internal 10, Energy 10, External
-   consultants 20, Council 30; PO-11a, confirmed on issue #29).
+   consultants 20, Council 30; PO-11a, confirmed on issue #29). The main
+   sheet stays the export, column for column.
 5. **Evidence bundle**: for every removed or added item, cite the OSC
    activity/alert/document or email that justifies it. Low-confidence
    changes are flagged, not silently applied (org HITL rule).
@@ -49,19 +50,29 @@ testing folder (see `../reference/README.md`).
 - Deciding whether an RFI item is satisfied when evidence conflicts —
   flag for the officer (PO-13).
 
-## How to run (v0.2 — the pilot cycle)
+## How to run (v0.3 — the pilot cycle)
 
 Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**. Each Monday
 for 3–4 weeks:
 
-1. **Snapshot step (Claude + `osc-api-prod` MCP, read-only).** For each pilot
-   job: resolve the contract number to its `jobID`, read activities (add
-   `jobActivityID` to the `$select`), alerts and documents (queries in
-   `../reference/osc-field-map.md`), and save one JSON per job to
-   `runtime\permit-officer\state\snapshots\<jobno>.json` (shape documented in
-   `../scripts/ba_report_draft.py`). A pilot job that is not yet lodged
-   (26052 until its *Submit … for Building Approval* activity completes) is
-   not a row in the export; the draft notes it, never fabricates a row.
+0. **Base report.** Copy the officer's latest export from the BA REPORTS
+   archive under `Z:\ADMINISTRATION` into `runtime\permit-officer\reports\`
+   as `BA REPORT - dd.mm.yyyy.xlsx` (the archive's own spacing varies; the
+   date in the name is what matters).
+1. **Snapshot step (read-only, production OSC):**
+
+   ```
+   "shared\mcp\osc-api\.venv\Scripts\python.exe" ../scripts/osc_snapshot.py
+          --jobs 26029,26052,26001
+          --out runtime\permit-officer\state\snapshots
+   ```
+
+   writes one JSON per job (job, activities, alerts, documents — the
+   queries in `../reference/osc-field-map.md`) through the same client and
+   credentials the `osc-api-prod` MCP server uses, GET only, after checking
+   the connection is the live system. It prints counts and dates, never
+   names. A pilot job that is not yet lodged is not a row in the export;
+   the draft notes it, never fabricates a row.
 2. **Draft step (deterministic, no network):**
 
    ```
@@ -73,20 +84,26 @@ for 3–4 weeks:
           --jobs 26029,26052,26001
    ```
 
-   Produces the draft workbook (A–K unchanged, plus L–O per item — layout
-   in `../fixtures/ba-report-layout.md`) and the evidence bundle
-   (`…-evidence.md` / `.json`). Pilot rows are aged and coloured; every
-   other row is carried forward verbatim with L–O blank. Carried values are
-   never overwritten; an item resolves only on fresh completion evidence and
-   is shown once on a `RESOLVED` line; everything else is kept and flagged.
-   Per-item state (first seen, date submitted, assigned-to, and what the AI
-   wrote last time) persists in `state\ba-items-first-seen.json`.
-3. **Review (the officer):** correct the draft — type the real *Assigned
-   to* and *Date submitted* where the draft guessed (`⚠`, `(assumed)`) —
-   and distribute as today. **Week 1 is a data-entry week**: every carried
+   Produces the draft workbook — main sheet = the base's columns exactly
+   (located by header text, so the 28 Sep 2026 template's engineering and
+   covenant columns carry through), plus an **Items** sheet with one row
+   per outstanding item — layout in `../fixtures/ba-report-layout.md`, and
+   the evidence bundle (`…-evidence.md` / `.json`). Pilot rows are aged and
+   coloured; every other row is carried forward verbatim with no Items
+   rows. Carried values are never overwritten; an item resolves only on
+   fresh completion evidence and is shown once on a `RESOLVED` line;
+   everything else is kept and flagged. Per-item state (first seen, date
+   submitted, assigned-to, and what the AI wrote last time) persists in
+   `state\ba-items-first-seen.json`.
+3. **Review (the officer):** correct the draft on the **Items sheet** —
+   type the real *Assigned to* and *Date submitted* on the item's row where
+   the draft guessed (`⚠`, "assumed") — and keep typing the PENDING list on
+   the main sheet as today. One row per item, no merged or multi-line
+   cells. An Items row that names an item not in the PENDING list is
+   ignored and flagged. **Week 1 is a data-entry week**: every carried
    item's date is assumed from the base report and flagged until typed.
    Officer-typed values win and stick from then on, even if a later base is
-   a plain A–K export.
+   a plain export with no Items sheet.
 4. **Compare (the pilot metric):** once the officer's real Monday report
    exists,
 

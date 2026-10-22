@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """Parse a weekly BA report (.xlsx) into a row model.
 
-The report layout is documented in ``reference/osc-field-map.md`` and
-``fixtures/ba-report-layout.md``: header on row 1, one row per job, columns
-A-K from the OSC Executive Reporter export. Column G ("Submit all RFI Items")
-holds a date serial when the job's RFI response is complete, or a
-"PENDING ..." item list while in flight (optionally followed by a
-"RESOLVED ..." line naming items closed during the last cycle); E can also
-hold text (e.g. "AWAITING RFI").
+The report is the OSC Executive Reporter export (header on row 1, one row
+per job — ``reference/osc-field-map.md``, ``fixtures/ba-report-layout.md``).
+Since v0.3 columns are located **by header text, not by letter**: the export
+gained five columns on 28 Sep 2026 (Engineering Ordered, Receive
+Engineering, Review Engineering - Michael, Forward Engineering to Certifier,
+Covenant Ordered) and "Submit all RFI Items" moved from G to L. Known
+headers map to row keys; every other column is carried through verbatim in
+``row["extra"]`` so a draft reproduces the export column for column. The
+"Submit all RFI Items" column is required — a workbook without it raises.
 
-Since v0.2 the AI draft (and the officer's corrected copy of it) may carry
-four extra per-item columns L-O — Assigned to, Date submitted, Date resolved,
-Days outstanding — one line per item in the same order as G. They are read
-back only when the line counts line up with G; otherwise the row is marked
-``item_cols_misaligned`` and the drafter ignores them.
+That column holds a date serial when the job's RFI response is complete, or
+a "PENDING ..." item list while in flight (optionally followed by a
+"RESOLVED ..." line naming items closed during the last cycle). Other date
+columns can also hold text (e.g. "AWAITING RFI", "PENDING REVIEW").
+
+Per-item values (Assigned to, Date submitted, Date resolved, Days
+outstanding) live on a second sheet named **Items**, one row per item, keyed
+by Job No. + Item (v0.3; the v0.2 L-O columns on the main sheet proved
+unworkable for hand entry). An Items row is attached to the main-sheet item
+whose name matches after normalisation; rows that match nothing are
+reported in ``items_unmatched`` for the drafter to flag. The v0.2 L-O
+columns are still read when their headers are present on the main sheet
+(older drafts), with the old one-line-per-item alignment rule.
 
 Usage:
   python ba_report_parse.py REPORT.xlsx            # summary to stdout
@@ -31,32 +41,52 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
 
-# Report column -> row-model key (see reference/osc-field-map.md)
-COLUMNS = {
-    "A": "job_no",
-    "B": "marketer",
-    "C": "address",
-    "D": "submit_for_ba",
-    "E": "received_rfi",
-    "F": "received_covenant",
-    "G": "submit_all_rfi_items",
-    "H": "ba_received",
-    "I": "deposit_paid",
-    "J": "nominate_site_start",
-    "K": "site_start_physical",
-}
-DATE_KEYS = [v for k, v in COLUMNS.items() if k >= "D"]
+# Known export headers -> row-model key (matched after norm_header, so case,
+# spacing and a trailing full stop do not matter). Anything else on the
+# header row is an "extra" column, carried verbatim.
+HEADER_KEYS = [
+    ("Job No.", "job_no"),
+    ("Marketer", "marketer"),
+    ("Job Address", "address"),
+    ("Submit for BA", "submit_for_ba"),
+    ("Received RFI", "received_rfi"),
+    ("Received Covenant Approval", "received_covenant"),
+    ("Submit all RFI Items", "submit_all_rfi_items"),
+    ("BA Received", "ba_received"),
+    ("Deposit Paid", "deposit_paid"),
+    ("Nominate Site Start", "nominate_site_start"),
+    ("Site Start (Physical)", "site_start_physical"),
+]
+KEY_HEADERS = {k: h for h, k in HEADER_KEYS}
+TEXT_KEYS = ["job_no", "marketer", "address"]
+DATE_KEYS = [k for _, k in HEADER_KEYS if k not in TEXT_KEYS]
+REQUIRED_KEY = "submit_all_rfi_items"
 
-# v0.2 per-item columns (kept apart from COLUMNS so DATE_KEYS ignores them).
-ITEM_COLUMNS = {
-    "L": "assigned_to",
-    "M": "date_submitted",
-    "N": "date_resolved",
-    "O": "days_outstanding",
-}
+# Per-item fields. On the Items sheet they are columns keyed by header; on a
+# v0.2 draft they were main-sheet columns L-O, one line per item.
+ITEM_FIELDS = [
+    ("assigned to", "assigned_to"),
+    ("date submitted", "date_submitted"),
+    ("date resolved", "date_resolved"),
+    ("days outstanding", "days_outstanding"),
+]
 ITEM_HEADERS = ["Assigned to", "Date submitted", "Date resolved", "Days outstanding"]
+ITEMS_SHEET = "Items"
+ITEMS_SHEET_HEADERS = ["Job No.", "Item", "Assigned to", "Date submitted",
+                       "Date resolved", "Days outstanding", "Flag", "Notes"]
 
 EPOCH = date(1899, 12, 30)  # Excel serial epoch (1900 date system)
+
+
+def norm_header(text):
+    s = " ".join(str(text or "").split()).strip().lower()
+    return s.rstrip(".").strip()
+
+
+def norm_item(name):
+    """Item name key for matching Items-sheet rows to main-sheet items."""
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "").strip())
+    return re.sub(r"[^A-Z0-9]", "", s.upper())
 
 
 def serial_to_iso(value):
@@ -80,7 +110,7 @@ def text_to_iso(value):
     m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
     if m:
         return m.group(0)
-    if re.match(r"^\d+(\.0+)?$", s):
+    if re.match(r"^\d+(\.\d+)?$", s):
         return serial_to_iso(s)
     return None
 
@@ -121,57 +151,132 @@ def _lines(value):
     return [ln.strip() for ln in str(value).split("\n")]
 
 
-def attach_item_columns(g, cells):
-    """Zip L-O lines onto g['items'] + g['resolved'] when counts line up."""
-    present = {col: _lines(cells.get(col)) for col in ITEM_COLUMNS}
+def _set_item_field(item, key, val):
+    val = "" if val is None else str(val).strip()
+    if key in ("date_submitted", "date_resolved"):
+        item[key] = text_to_iso(val)
+    elif key == "days_outstanding":
+        m = re.match(r"^(\d+)", val)
+        item[key] = int(m.group(1)) if m else None
+    else:
+        item[key] = re.sub(r"^\W+", "", val).strip() or None  # strip ⚠ marker
+
+
+def attach_item_columns(g, cells, letters):
+    """v0.2 layout: zip main-sheet L-O lines onto items when counts line up."""
+    present = {key: _lines(cells.get(letters[key])) for key in letters}
     if not any(present.values()):
         g["item_cols_present"] = False
         return
     g["item_cols_present"] = True
     all_items = g["items"] + g["resolved"]
     n = len(all_items)
-    for col, lines in present.items():
+    for key, lines in present.items():
         if lines is not None and len(lines) != n:
             g["item_cols_misaligned"] = True
             return
     g["item_cols_misaligned"] = False
     for i, item in enumerate(all_items):
-        for col, key in ITEM_COLUMNS.items():
-            lines = present[col]
-            val = lines[i] if lines is not None else ""
-            if key in ("date_submitted", "date_resolved"):
-                item[key] = text_to_iso(val)
-            elif key == "days_outstanding":
-                m = re.match(r"^(\d+)", val)
-                item[key] = int(m.group(1)) if m else None
-            else:
-                item[key] = re.sub(r"^\W+", "", val).strip() or None  # strip ⚠ marker
+        for key, lines in present.items():
+            _set_item_field(item, key, lines[i] if lines is not None else "")
+
+
+def _header_map(raw_rows):
+    """Find the header row; return (row_index, {letter: header_text})."""
+    for idx, (_rnum, cells) in enumerate(raw_rows):
+        if any(norm_header(v).startswith("job no") for v in cells.values()):
+            return idx, {col: str(v).strip() for col, v in cells.items() if str(v).strip()}
+    return None, {}
+
+
+def _read_sheet(z, shared, part):
+    return xlsx_min.read_rows(z, part, shared)
+
+
+def parse_items_sheet(z, shared, part):
+    """Rows of the Items sheet as dicts keyed by ITEM_FIELDS + job_no/item/flag."""
+    raw_rows = _read_sheet(z, shared, part)
+    hidx, headers = _header_map(raw_rows)
+    if hidx is None:
+        return []
+    by_norm = {norm_header(h): col for col, h in headers.items()}
+    col_job = by_norm.get("job no")
+    col_item = by_norm.get("item")
+    if not col_job or not col_item:
+        return []
+    out = []
+    for _rnum, cells in raw_rows[hidx + 1:]:
+        job_no = str(cells.get(col_job, "") or "").strip()
+        name = str(cells.get(col_item, "") or "").strip()
+        if not job_no or not name:
+            continue
+        entry = {"job_no": job_no, "item": name, "flag": str(cells.get(by_norm.get("flag", ""), "") or "").strip()}
+        for header, key in ITEM_FIELDS:
+            _set_item_field(entry, key, cells.get(by_norm.get(header, ""), ""))
+        out.append(entry)
+    return out
 
 
 def parse_report(path):
-    """Return {source, rows: [...], header_warnings: [...]} for one workbook."""
+    """Return the row model for one workbook.
+
+    {source, sheet_name, columns: [{letter, header, key}], rows: [...],
+     header_warnings: [...], items_sheet: bool, items_unmatched: [...]}
+    """
     z = zipfile.ZipFile(path)
     shared = xlsx_min.load_shared(z)
     sheets = xlsx_min.sheet_parts(z)
-    raw_rows = xlsx_min.read_rows(z, sheets[0][1], shared)
-    rows = []
+    sheet_name, part = sheets[0]
+    raw_rows = _read_sheet(z, shared, part)
+    hidx, headers = _header_map(raw_rows)
+    if hidx is None:
+        raise ValueError(f"{path}: no header row (no 'Job No.' cell) on sheet {sheet_name!r}")
+
+    by_norm = {norm_header(h): col for col, h in headers.items()}
+    key_letters = {}
+    for header, key in HEADER_KEYS:
+        if norm_header(header) in by_norm:
+            key_letters[key] = by_norm[norm_header(header)]
+    if REQUIRED_KEY not in key_letters:
+        raise ValueError(f"{path}: header {KEY_HEADERS[REQUIRED_KEY]!r} not found on row {raw_rows[hidx][0]} "
+                         f"— headers seen: {list(headers.values())}")
     warnings = []
-    for rnum, cells in raw_rows:
-        job_no = (cells.get("A") or "").strip()
-        if not job_no or job_no.lower().startswith("job"):
-            if job_no.lower().startswith("job"):
-                l1 = (cells.get("L") or "").strip()
-                if l1 and not l1.lower().startswith("assigned"):
-                    warnings.append(f"row {rnum}: column L header is {l1!r}, expected 'Assigned to' — "
-                                    "L-O layout may have moved; per-item values not trusted")
-            continue  # header / blank
-        row = {"row": int(rnum)}
-        for col, key in COLUMNS.items():
-            row[key] = cells.get(col, "").strip() if isinstance(cells.get(col), str) else cells.get(col)
+    letter_key = {col: key for key, col in key_letters.items()}
+    columns = []
+    for col in sorted(headers, key=xlsx_min.col_index):
+        columns.append({"letter": col, "header": headers[col], "key": letter_key.get(col)})
+    legacy_letters = {key: by_norm[h] for h, key in ITEM_FIELDS if h in by_norm}
+    for c in columns:
+        if c["key"] is None and norm_header(c["header"]) in dict(ITEM_FIELDS):
+            c["key"] = "legacy_item_col"
+    missing = [KEY_HEADERS[k] for k in DATE_KEYS + TEXT_KEYS if k not in key_letters]
+    if missing:
+        warnings.append(f"columns not found (left blank): {', '.join(missing)}")
+    extras = [c["header"] for c in columns if c["key"] is None]
+    if extras:
+        warnings.append(f"columns carried verbatim (no rule): {', '.join(extras)}")
+    if len(legacy_letters) == len(ITEM_FIELDS):
+        warnings.append("v0.2 per-item columns found on the main sheet; read with the one-line-per-item rule")
+
+    rows = []
+    for _rnum, cells in raw_rows[hidx + 1:]:
+        job_no = str(cells.get(key_letters.get("job_no", "A"), "") or "").strip()
+        if not job_no:
+            continue  # blank / spacer row
+        row = {"row": int(_rnum), "extra": {}}
+        for key in TEXT_KEYS:
+            v = cells.get(key_letters.get(key, ""), "")
+            row[key] = v.strip() if isinstance(v, str) else v
         for key in DATE_KEYS:
-            val = row.get(key)
+            val = cells.get(key_letters.get(key, ""), "")
+            val = val.strip() if isinstance(val, str) else val
             iso = serial_to_iso(val) if val not in (None, "") else None
             row[key] = {"raw": val, "date": iso}
+        for c in columns:
+            if c["key"] is None:
+                val = cells.get(c["letter"], "")
+                val = val.strip() if isinstance(val, str) else val
+                row["extra"][c["header"]] = {"raw": val, "date": serial_to_iso(val) if val not in (None, "") else None}
         g = row["submit_all_rfi_items"]
         g["pending"] = g["date"] is None and bool(g["raw"])
         pending_text, resolved_text = split_pending_resolved(str(g["raw"])) if g["pending"] else ("", "")
@@ -179,13 +284,45 @@ def parse_report(path):
         g["resolved"] = parse_items(resolved_text) if resolved_text else []
         for r in g["resolved"]:
             r["date_resolved"] = text_to_iso(r["state"])
-        if warnings:
-            g["item_cols_present"] = False
+        if len(legacy_letters) == len(ITEM_FIELDS):
+            attach_item_columns(g, cells, legacy_letters)
         else:
-            attach_item_columns(g, cells)
+            g["item_cols_present"] = False
+        row["items_unmatched"] = []
         row["complete"] = row["ba_received"]["date"] is not None
         rows.append(row)
-    return {"source": str(path), "rows": rows, "header_warnings": warnings}
+
+    # ---- Items sheet (v0.3): one row per item, matched by job + item name
+    items_part = next((p for n, p in sheets if norm_header(n) == ITEMS_SHEET.lower()), None)
+    items_unmatched = []
+    if items_part:
+        by_job = {str(r["job_no"]): r for r in rows}
+        for entry in parse_items_sheet(z, shared, items_part):
+            row = by_job.get(entry["job_no"])
+            target = None
+            if row:
+                g = row["submit_all_rfi_items"]
+                want = norm_item(entry["item"])
+                target = next((i for i in g["items"] + g["resolved"] if norm_item(i["name"]) == want), None)
+            if target is None:
+                # A RESOLVED row whose job has since closed its RFI cell (a
+                # date instead of a PENDING list) is history, not a mistake.
+                closed = entry.get("date_resolved") or entry.get("flag", "").upper() == "RESOLVED"
+                if row and closed and not row["submit_all_rfi_items"]["pending"]:
+                    continue
+                items_unmatched.append(entry)
+                if row:
+                    row["items_unmatched"].append(entry)
+                continue
+            for _h, key in ITEM_FIELDS:
+                target[key] = entry.get(key)
+            target["items_sheet"] = True
+            row["submit_all_rfi_items"]["item_cols_present"] = True
+            row["submit_all_rfi_items"]["item_cols_misaligned"] = False
+
+    return {"source": str(path), "sheet_name": sheet_name, "columns": columns, "rows": rows,
+            "header_warnings": warnings, "items_sheet": items_part is not None,
+            "items_unmatched": items_unmatched}
 
 
 def main(argv):
@@ -198,18 +335,22 @@ def main(argv):
         out = argv[argv.index("--json") + 1]
     model = parse_report(path)
     for w in model["header_warnings"]:
-        print(f"WARNING {w}")
+        print(f"NOTE {w}")
     if out:
         Path(out).write_text(json.dumps(model, indent=2), encoding="utf-8")
         print(f"{len(model['rows'])} rows -> {out}")
     else:
         pending = [r for r in model["rows"] if r["submit_all_rfi_items"]["pending"]]
-        print(f"{path}: {len(model['rows'])} job rows, {len(pending)} with outstanding items")
+        print(f"{path}: {len(model['rows'])} job rows, {len(pending)} with outstanding items; "
+              f"columns: {', '.join(c['header'] for c in model['columns'])}; "
+              f"Items sheet: {'yes' if model['items_sheet'] else 'no'}")
         for r in pending:
             g = r["submit_all_rfi_items"]
             names = ", ".join(i["name"] for i in g["items"])
             extra = f"  [resolved: {', '.join(i['name'] for i in g['resolved'])}]" if g["resolved"] else ""
             print(f"  {r['job_no']}: {names}{extra}")
+        for e in model["items_unmatched"]:
+            print(f"  ! Items row not matched: job {e['job_no']} item {e['item']!r}")
     return 0
 
 

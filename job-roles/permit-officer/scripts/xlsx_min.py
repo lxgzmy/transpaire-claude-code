@@ -3,8 +3,9 @@
 
 No third-party packages on the server (no openpyxl), so this reads and
 writes the OOXML parts directly: sharedStrings + a worksheet, resolving
-cell values; the writer emits a single-sheet workbook with inline strings
-and a small fixed style set (see ``write_xlsx``).
+cell values; the writer emits a workbook of one or more sheets with inline
+strings and a small fixed style set (see ``write_workbook`` /
+``write_xlsx``).
 
 Usage:
   python xlsx_min.py BOOK.xlsx                 # sheet list + row/col summary
@@ -143,15 +144,8 @@ def _col_letter(n):
     return c
 
 
-def write_xlsx(path, rows, sheet_name="Sheet 1", col_widths=None):
-    """Write a single-sheet workbook.
-
-    rows: list of rows; each row is a list of cells; each cell is either a
-    plain value (str/int/float/None) or a (value, style_index) tuple using
-    the S_* constants. Numeric values are written as numbers (so Excel date
-    serials + S_DATE render as dates); everything else as inline strings.
-    col_widths: optional {column letter: width}.
-    """
+def _sheet_xml(rows, col_widths=None):
+    """Worksheet XML for one sheet (see write_workbook for the cell model)."""
     lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
              '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">']
     if col_widths:
@@ -180,28 +174,52 @@ def write_xlsx(path, rows, sheet_name="Sheet 1", col_widths=None):
                 lines.append(f'<c r="{ref}" s="{style}" t="inlineStr"><is><t xml:space="preserve">{text}</t></is></c>')
         lines.append("</row>")
     lines.append("</sheetData></worksheet>")
-    sheet_xml = "\n".join(lines)
+    return "\n".join(lines)
 
+
+def write_workbook(path, sheets):
+    """Write a workbook with one or more sheets.
+
+    sheets: list of (sheet_name, rows, col_widths) in workbook order. rows is
+    a list of rows; each row is a list of cells; each cell is either a plain
+    value (str/int/float/None) or a (value, style_index) tuple using the S_*
+    constants. Numeric values are written as numbers (so Excel date serials +
+    S_DATE render as dates); everything else as inline strings. col_widths
+    is an optional {column letter: width} per sheet.
+    """
+    if not sheets:
+        raise ValueError("a workbook needs at least one sheet")
+    overrides = "".join(
+        f'<Override PartName="/xl/worksheets/sheet{i}.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        for i in range(1, len(sheets) + 1))
     content_types = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
                      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
                      '<Default Extension="xml" ContentType="application/xml"/>'
                      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-                     '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                     + overrides +
                      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
                      '</Types>')
     root_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
                  '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
                  '</Relationships>')
+    sheet_tags = "".join(
+        f'<sheet name="{escape(name)}" sheetId="{i}" r:id="rId{i}"/>'
+        for i, (name, _rows, _w) in enumerate(sheets, 1))
     workbook = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
                 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-                f'<sheets><sheet name="{escape(sheet_name)}" sheetId="1" r:id="rId1"/></sheets></workbook>')
+                f'<sheets>{sheet_tags}</sheets></workbook>')
+    sheet_rels = "".join(
+        f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+        f'Target="worksheets/sheet{i}.xml"/>'
+        for i in range(1, len(sheets) + 1))
     wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-               '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-               '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+               + sheet_rels +
+               f'<Relationship Id="rId{len(sheets) + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
                '</Relationships>')
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", content_types)
@@ -209,13 +227,22 @@ def write_xlsx(path, rows, sheet_name="Sheet 1", col_widths=None):
         z.writestr("xl/workbook.xml", workbook)
         z.writestr("xl/_rels/workbook.xml.rels", wb_rels)
         z.writestr("xl/styles.xml", _STYLES_XML)
-        z.writestr("xl/worksheets/sheet1.xml", sheet_xml)
+        for i, (_name, rows, col_widths) in enumerate(sheets, 1):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", _sheet_xml(rows, col_widths))
+
+
+def write_xlsx(path, rows, sheet_name="Sheet 1", col_widths=None):
+    """Write a single-sheet workbook (see write_workbook for the cell model)."""
+    write_workbook(path, [(sheet_name, rows, col_widths)])
 
 
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
+    # Windows consoles default to cp1252, which cannot show the ⚠ marker.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     path = argv[0]
     n_rows = None
     sheet_no = 1

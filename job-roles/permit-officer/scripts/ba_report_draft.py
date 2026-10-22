@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
-"""Draft the Monday BA report from last week's report + OSC snapshots (v0.2).
+"""Draft the Monday BA report from last week's report + OSC snapshots (v0.3).
 
 Deterministic merge (no network): reads last week's report (carry-forward
-base, PO-10), per-job OSC snapshot JSONs saved by the MCP read step, and a
+base, PO-10), per-job OSC snapshot JSONs saved by the snapshot step, and a
 per-item state file for ageing; writes a draft .xlsx plus an evidence bundle
 to the output folder. Every change carries its evidence; anything
 low-confidence is kept and flagged, never silently applied (org HITL rule).
+
+Workbook shape (v0.3): the main sheet reproduces the base export column for
+column (columns located by header text, so the 28 Sep 2026 template with
+its engineering and covenant columns carries through verbatim); the Job No.
+cell takes the row's worst-item colour. Per-item values go on a second
+sheet, **Items** (one row per item: Job No., Item, Assigned to, Date
+submitted, Date resolved, Days outstanding, Flag, Notes), which is also
+where the officer types corrections — the drafter reads them back by Job
+No. + Item. The v0.2 L-O columns are no longer written.
 
 Ageing model (PO-11, confirmed on issue #29, 10 Sep 2026): per outstanding
 item, ASSIGNED TO, DATE SUBMITTED, DATE RESOLVED and DAYS OUTSTANDING in
@@ -15,8 +24,8 @@ resolved item is shown once (the Monday after it resolves) with its date and
 frozen count, then drops. Six defaults are assumed until the owner confirms
 them on #29 — see ASSIGNEE_TIER and rules/approval-workflow.md.
 
-Snapshot JSON shape (one file per job, ``<jobno>.json``, saved by the
-workflow's MCP read step — see workflows/ba-weekly-report.md):
+Snapshot JSON shape (one file per job, ``<jobno>.json``, written by
+``osc_snapshot.py`` — see workflows/ba-weekly-report.md):
 
   {
     "retrievedAtUtc": "...", "contractNumber": "<jobno>", "jobID": "<guid>",
@@ -34,7 +43,7 @@ Usage:
                             [--jobs 26029,26052,26001]
 
 --jobs restricts ageing, snapshot expectations and evidence detail to the
-pilot rows; every other row is carried forward verbatim with L-O blank.
+pilot rows; every other row is carried forward verbatim with no Items rows.
 """
 import argparse
 import json
@@ -45,7 +54,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_parse import EPOCH, ITEM_HEADERS, parse_report, serial_to_iso, text_to_iso
+from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_report, serial_to_iso, text_to_iso
 from nsw_holidays import business_days
 
 # ------------------------------------------------------------------ ageing config
@@ -122,11 +131,13 @@ FAMILIES = [
      "done_activities": [], "pending_activities": [],
      "done_docs": [r"10\.7(?!.*(APPLICATION|REQUEST|RECEIPT))"],
      "submitted_docs": [r"10\.7.*(APPLICATION|REQUEST|RECEIPT)"]},
+    # The report says SYDNEY WATER or SYD WATER; OSC files the approval as
+    # "APPROVAL - SYD WATER ..." (observed on a pilot job, 19 Oct 2026 base).
     {"key": "SYDNEY WATER", "tier": "COUNCIL",
-     "match": r"\b(SYDNEY WATER|TAP.?IN)\b",
+     "match": r"\b(SYD(NEY)? WATER|TAP.?IN)\b",
      "done_activities": [], "pending_activities": [],
-     "done_docs": [r"SYDNEY WATER.*APPROV", r"TAP.?IN.*APPROV"],
-     "submitted_docs": [r"(SYDNEY WATER|TAP.?IN).*(APPLICATION|RECEIPT)"]},
+     "done_docs": [r"SYD(NEY)? WATER.*APPROV", r"APPROVAL.*SYD(NEY)? WATER", r"TAP.?IN.*APPROV"],
+     "submitted_docs": [r"(SYD(NEY)? WATER|TAP.?IN).*(APPLICATION|RECEIPT)"]},
     {"key": "ALTOGETHER", "tier": "COUNCIL",
      "match": r"\bALTOGETHER\b",
      "done_activities": [], "pending_activities": [],
@@ -188,11 +199,20 @@ FAMILIES = [
 # carried item already covers the family.
 PROPOSE_FROM_PENDING = {"ENGINEERING", "COVENANT", "INSURANCES"}
 
-ITEM_COLUMN_LETTERS = ["L", "M", "N", "O"]
-
-
 def _iso_day(s):
     return (s or "")[:10]
+
+
+def _date_or_text(val):
+    """A main-sheet cell: numeric (an Excel serial) as a date, else text."""
+    if val is None or val == "":
+        return ("", xlsx_min.S_WRAP)
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return (float(val), xlsx_min.S_DATE)
+    s = str(val).strip()
+    if re.match(r"^\d+(\.\d+)?$", s):
+        return (float(s), xlsx_min.S_DATE)
+    return (s, xlsx_min.S_WRAP)
 
 
 def _ddmmyyyy(iso):
@@ -428,7 +448,7 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     """Fill assigned_to / tier / date_submitted / days / flag on one item.
 
     ``entry`` is the state dict for the item (mutated). ``item`` carries any
-    officer values read back from last week's L-O columns.
+    officer values read back from last week's Items sheet (or v0.2 L-O columns).
     """
     fam = family_of(item["name"])
     flags = []
@@ -524,11 +544,15 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     evidence = {"asof": asof, "prev_report": str(prev_path), "since": since,
                 "pilot_jobs": sorted(pilot) if pilot else None,
                 "jobs": [], "notes": list(prev.get("header_warnings", []))}
-    header = ["Job No.", "Marketer", "Job Address", "Submit for BA",
-              "Received RFI", "Received Covenant Approval", "Submit all RFI Items",
-              "BA Received", "Deposit Paid", "Nominate Site Start",
-              "Site Start (Physical)"] + ITEM_HEADERS
-    out_rows = [[(h, xlsx_min.S_HEADER) for h in header]]
+    # The draft reproduces the base's columns exactly (located by header
+    # text); v0.2's per-item columns L-O are dropped from the main sheet in
+    # favour of the Items sheet.
+    columns = [c for c in prev["columns"] if c["key"] != "legacy_item_col"]
+    if len(columns) != len(prev["columns"]):
+        evidence["notes"].append("v0.2 per-item columns on the base's main sheet are not carried; "
+                                 "per-item values now live on the Items sheet")
+    out_rows = [[(c["header"], xlsx_min.S_HEADER) for c in columns]]
+    items_rows = [[(h, xlsx_min.S_HEADER) for h in ITEMS_SHEET_HEADERS]]
     seen_jobs = set()
 
     for row in prev["rows"]:
@@ -543,10 +567,6 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 snapshot = json.loads(snap_path.read_text(encoding="utf-8"))
             else:
                 job_ev["flags"].append("no snapshot — row carried forward untouched")
-
-        cells = [(job_no, xlsx_min.S_WRAP),
-                 (row["marketer"], xlsx_min.S_WRAP),
-                 (row["address"], xlsx_min.S_WRAP)]
 
         date_keys = ["submit_for_ba", "received_rfi", "received_covenant",
                      "submit_all_rfi_items", "ba_received", "deposit_paid",
@@ -589,6 +609,10 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                     for it in g["items"]:
                         for k in ("assigned_to", "date_submitted", "date_resolved", "days_outstanding"):
                             it.pop(k, None)
+                for um in row.get("items_unmatched", []):
+                    job_ev["flags"].append(
+                        f"Items sheet row \"{um['item']}\" matches no item in the PENDING list — "
+                        "not used; add the item to the main sheet or correct the name")
                 if g.get("resolved"):
                     job_ev["changes"].append(
                         {"item": ", ".join(i["name"] for i in g["resolved"]),
@@ -639,59 +663,84 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         if in_scope and not items_out and not resolved_out and job_no in state and g["date"]:
             state.pop(job_no, None)
 
-        # ---- G text
+        # ---- the RFI-items cell (G on the old export, L since 28 Sep 2026)
         all_resolved_now = had_items and not items_out and resolved_out
-        for key in date_keys:
-            val = values[key]
-            if key == "submit_all_rfi_items" and items_out:
-                text = "PENDING " + ", ".join(
-                    i["name"] + (f" ({i['state']})" if i["state"] else "")
-                    for i in items_out)
-                if resolved_out:
-                    text += "\nRESOLVED " + ", ".join(
-                        f"{i['name']} ({_ddmmyyyy(i['date_resolved'])})" for i in resolved_out)
-                cells.append((text, xlsx_min.S_RED))
-            elif key == "submit_all_rfi_items" and all_resolved_now:
-                matched, complete, _ = activity_state(snapshot or {}, COLUMN_ACTIVITY[key])
-                comp = [_iso_day(a["completionDate"]) for a in (snapshot or {}).get("activities", [])
-                        if re.search(COLUMN_ACTIVITY[key], a.get("description") or "", re.I)
-                        and a.get("completionDate")]
-                if matched and complete and comp:
-                    cells.append((float(iso_to_serial(max(comp))), xlsx_min.S_DATE))
-                    job_ev["changes"].append({"column": key, "action": "filled", "value": max(comp),
-                                              "evidence": "all items resolved; OSC Return RFI activity complete"})
-                else:
-                    cells.append(("", xlsx_min.S_FLAGGED))
-                    job_ev["flags"].append("all items resolved but OSC has no Return RFI completion — G left blank")
-            elif isinstance(val, (int, float)) or (isinstance(val, str) and val.replace(".", "", 1).isdigit()):
-                cells.append((float(val), xlsx_min.S_DATE))
+        key = "submit_all_rfi_items"
+        if items_out:
+            text = "PENDING " + ", ".join(
+                i["name"] + (f" ({i['state']})" if i["state"] else "")
+                for i in items_out)
+            if resolved_out:
+                text += "\nRESOLVED " + ", ".join(
+                    f"{i['name']} ({_ddmmyyyy(i['date_resolved'])})" for i in resolved_out)
+            g_cell = (text, xlsx_min.S_RED)
+        elif all_resolved_now:
+            matched, complete, _ = activity_state(snapshot or {}, COLUMN_ACTIVITY[key])
+            comp = [_iso_day(a["completionDate"]) for a in (snapshot or {}).get("activities", [])
+                    if re.search(COLUMN_ACTIVITY[key], a.get("description") or "", re.I)
+                    and a.get("completionDate")]
+            if matched and complete and comp:
+                g_cell = (float(iso_to_serial(max(comp))), xlsx_min.S_DATE)
+                job_ev["changes"].append({"column": key, "action": "filled", "value": max(comp),
+                                          "evidence": "all items resolved; OSC Return RFI activity complete"})
             else:
-                cells.append((val, xlsx_min.S_WRAP))
-
-        # ---- L-O per-item columns
-        ordered = items_out + resolved_out
-        if ordered:
-            worst = ""
-            for i in items_out:
-                if i["flag"] == "RED":
-                    worst = "RED"
-                elif i["flag"] == "YELLOW" and worst != "RED":
-                    worst = "YELLOW"
-            fill = {"RED": xlsx_min.S_REDFILL, "YELLOW": xlsx_min.S_YELLOW}.get(worst, xlsx_min.S_WRAP)
-            if fill == xlsx_min.S_WRAP and any(i.get("flagged") for i in ordered):
-                fill = xlsx_min.S_FLAGGED
-            col_l = "\n".join(("⚠ " if i.get("flagged") else "") + (i.get("assigned_to") or "?") for i in ordered)
-            col_m = "\n".join(_ddmmyyyy(i.get("date_submitted")) for i in ordered)
-            col_n = "\n".join(_ddmmyyyy(i.get("date_resolved")) if i.get("resolved") else "" for i in ordered)
-            col_o = "\n".join(
-                f"{i['days']} RESOLVED" if i.get("resolved")
-                else f"{i['days']} {i['flag']}" + (" (assumed)" if i.get("assumed") else "")
-                for i in ordered)
-            cells += [(col_l, fill), (col_m, fill), (col_n, fill), (col_o, fill)]
+                g_cell = ("", xlsx_min.S_FLAGGED)
+                job_ev["flags"].append("all items resolved but OSC has no Return RFI completion — G left blank")
         else:
-            cells += [("", xlsx_min.S_WRAP)] * 4
+            g_cell = _date_or_text(values[key])
 
+        # ---- row fill: the worst open item (PO-11a, row-level colour per #29)
+        ordered = items_out + resolved_out
+        worst = ""
+        for i in items_out:
+            if i["flag"] == "RED":
+                worst = "RED"
+            elif i["flag"] == "YELLOW" and worst != "RED":
+                worst = "YELLOW"
+        row_fill = {"RED": xlsx_min.S_REDFILL, "YELLOW": xlsx_min.S_YELLOW}.get(worst, xlsx_min.S_WRAP)
+        if row_fill == xlsx_min.S_WRAP and any(i.get("flagged") for i in ordered):
+            row_fill = xlsx_min.S_FLAGGED
+
+        # ---- main-sheet cells, in the base's column order
+        cells = []
+        for c in columns:
+            k = c["key"]
+            if k == "job_no":
+                cells.append((job_no, row_fill))
+            elif k in ("marketer", "address"):
+                cells.append((row[k], xlsx_min.S_WRAP))
+            elif k == "submit_all_rfi_items":
+                cells.append(g_cell)
+            elif k in values:
+                cells.append(_date_or_text(values[k]))
+            else:  # extra column: carried verbatim
+                cells.append(_date_or_text(row["extra"].get(c["header"], {}).get("raw")))
         out_rows.append(cells)
+
+        # ---- Items sheet: one row per item, coloured by its own flag
+        for i in ordered:
+            if i.get("resolved"):
+                fill, flag_text = xlsx_min.S_WRAP, "RESOLVED"
+            else:
+                fill = {"RED": xlsx_min.S_REDFILL, "YELLOW": xlsx_min.S_YELLOW}[i["flag"]]
+                flag_text = i["flag"]
+            notes = []
+            if i.get("assumed"):
+                notes.append("date submitted assumed — please correct")
+            if i.get("flagged") and not i.get("resolved"):
+                notes.append("verify")
+            if i.get("evidence"):
+                notes.append(str(i["evidence"]))
+            items_rows.append([
+                (job_no, fill),
+                (i["name"], fill),
+                (("⚠ " if i.get("flagged") else "") + (i.get("assigned_to") or "?"), fill),
+                (_ddmmyyyy(i.get("date_submitted")), fill),
+                (_ddmmyyyy(i.get("date_resolved")) if i.get("resolved") else "", fill),
+                (int(i["days"]), fill),
+                (flag_text, fill),
+                ("; ".join(notes), xlsx_min.S_FLAGGED if i.get("flagged") else xlsx_min.S_WRAP),
+            ])
         job_ev["outstanding"] = items_out
         job_ev["resolved"] = resolved_out
         evidence["jobs"].append(job_ev)
@@ -706,10 +755,15 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = date.fromisoformat(asof).strftime("%d.%m.%Y")
     draft_path = out_dir / f"BA REPORT DRAFT - {stamp}.xlsx"
-    widths = {"A": 9, "B": 16, "C": 34, "D": 11, "E": 11, "F": 12, "G": 44,
-              "H": 11, "I": 11, "J": 11, "K": 11,
-              "L": 22, "M": 13, "N": 13, "O": 18}
-    xlsx_min.write_xlsx(draft_path, out_rows, sheet_name="Sheet 1", col_widths=widths)
+    width_by_key = {"job_no": 9, "marketer": 16, "address": 34, "submit_all_rfi_items": 44}
+    widths = {}
+    for n, c in enumerate(columns, 1):
+        widths[xlsx_min._col_letter(n)] = width_by_key.get(c["key"], 12)
+    items_widths = {"A": 9, "B": 34, "C": 22, "D": 14, "E": 13, "F": 10, "G": 11, "H": 48}
+    xlsx_min.write_workbook(draft_path, [
+        (prev.get("sheet_name") or "Sheet 1", out_rows, widths),
+        (ITEMS_SHEET, items_rows, items_widths),
+    ])
 
     ev_json = out_dir / f"BA REPORT DRAFT - {stamp}-evidence.json"
     ev_json.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
