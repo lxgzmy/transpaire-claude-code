@@ -14,7 +14,7 @@ Proof-of-concept, read-only and draft-first. Three workflows, in build order:
    documents, carrying forward last week's report, and ageing each
    outstanding item in NSW business days with a yellow/red flag by who it is
    with (PO-11a). Spec and runbook: `workflows/ba-weekly-report.md`.
-2. **Pre-lodgement checklist** (spec written; build gated on the RFI corpus)
+2. **Pre-lodgement checklist** (spec written; RFI corpus collected, build not started)
    — before a job is lodged, predict the certifier's likely RFI items and the
    orders the permit officer must place (energy assessment, 10.7, utility
    authority), from job attributes plus past RFIs. Spec:

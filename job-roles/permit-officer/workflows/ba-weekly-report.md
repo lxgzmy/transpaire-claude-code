@@ -145,12 +145,12 @@ Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
    authorities, NSW holidays, one-cycle RESOLVED display, row-level fill)
    are listed on #29 for confirmation; each is a config change, not a
    redesign.
-3. **Mailbox access — PENDING IT.** The owner nominated the permits mailbox
-   for NSW certifier correspondence (read-only). The AI account has no
-   delegate access yet (Graph returns FORBIDDEN), so the pilot runs from OSC
-   alone. When access lands: verify with an `outlook_email_search` scoped
-   to that mailbox, then extend the snapshot with an `emails` array and add
-   `done_emails` evidence to `FAMILIES` — a separate PR.
+3. **Mailbox access — CLEARED (14 Sep 2026); wiring PENDING.** The owner
+   nominated the permits mailbox for NSW certifier correspondence, IT
+   granted the AI account read-only access, and an `outlook_email_search`
+   scoped to that mailbox was verified working on 22 Oct 2026. The pilot
+   still runs from OSC alone: extending the snapshot with an `emails`
+   array and adding `done_emails` evidence to `FAMILIES` is a separate PR.
 
 ## Success measure
 

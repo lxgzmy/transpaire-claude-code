@@ -25,9 +25,11 @@ QLD status sits in the certifier's portal, which AI cannot touch.
    issue #29, OSC-only until mailbox evidence is wired in). Draft the
    Monday report from OSC + last week's report; age each item in business
    days by tier. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11a`.
-2. **Pre-lodgement checklist** (spec written, build gated on collecting the
-   RFI corpus into the AI testing folder on `Z:`). Once per job, before
-   lodgement. Spec: `workflows/pre-lodgement-checklist.md`; rule `PO-12`.
+2. **Pre-lodgement checklist** (spec written; the RFI corpus gate cleared
+   24 Sep 2026 with eight NSW RFIs in the AI testing folder on `Z:`; the
+   trigger is still to confirm with the officer; no code yet). Once per
+   job, before lodgement. Spec: `workflows/pre-lodgement-checklist.md`;
+   rule `PO-12`.
 3. **Form pre-fill** (not started; needs blank council/certifier forms
    collected). No spec yet — write one before building.
 

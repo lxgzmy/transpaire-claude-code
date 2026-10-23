@@ -3,7 +3,7 @@
 | Spec | Status | Build gate |
 |---|---|---|
 | [ba-weekly-report.md](ba-weekly-report.md) | Pipeline v0.3 built (22 Oct 2026); pilot to restart on a clean week 1 | OSC access **cleared** (production); field map **done**; template **agreed** (issue #29) and re-based on the 28 Sep 2026 export. Mailbox access **granted** (14 Sep); mailbox evidence not yet wired into the drafter — separate PR |
-| [pre-lodgement-checklist.md](pre-lodgement-checklist.md) | Spec written | RFI corpus: two NSW RFIs in the AI testing folder (26001, 26029); 26052 and more standard forms requested |
+| [pre-lodgement-checklist.md](pre-lodgement-checklist.md) | Spec written; corpus gate cleared | Eight NSW RFIs in `Z:\AI test\Permit Officer\PAST RFIs\` (24 Sep 2026); trigger wiring still to confirm with the officer; no code yet |
 
 Form pre-fill (third automation from discovery) has no spec yet — write one
 before building.
