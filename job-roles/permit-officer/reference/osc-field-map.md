@@ -1,7 +1,8 @@
 # OSC field map — weekly BA report
 
 How each part of the weekly BA report is read from OnSite Companion through
-the `osc-api-prod` MCP (production since 13 Oct 2026; this role only reads).
+the `osc-api-prod` MCP (production since 13 Oct 2026; the report only reads,
+and the role's OSC changes are `../workflows/osc-updates.md`).
 Mapped on **4 Sep 2026** (spec v7.3) against what was then the `osc-api`
 connection, a dev copy of production frozen on 21 Aug 2026, using one NSW job
 in the report and cross-checked against that week's report row.

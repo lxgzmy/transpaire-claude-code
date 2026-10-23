@@ -6,7 +6,9 @@ repo-root `CLAUDE.md` also apply).
 
 Discovery completed 20 Aug 2026 (AI-consultation session with the permit
 officer), business-owner review 21 Aug 2026 (**NSW approvals first**).
-Proof-of-concept, read-only and draft-first. Three workflows, in build order:
+Proof-of-concept, draft-first. The workflows below read only; since 23 Oct
+2026 Claude also keeps the building-approval record in OSC on the officer's
+yes (`workflows/osc-updates.md`). Three workflows, in build order:
 
 1. **Weekly BA report pre-population** (pipeline v0.2 built; pilot cycle
    ready on jobs 26029, 26052, 26001 per issue #29) — draft the Monday

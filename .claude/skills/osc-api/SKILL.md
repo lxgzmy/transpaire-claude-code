@@ -55,11 +55,16 @@ guardrail enforced.
 There is no direct write tool. Every change goes through the gate in
 `shared/mcp/osc-api/osc_mcp/gate.py`:
 
-1. **`osc_prepare_write(method, path, job_id, body | form+files)`** sends
-   nothing. It refuses anything that is not one of the 14 contract-intake
-   changes (create/update client, person, client and job contact links, job;
-   complete an activity; answer an activity question; job or activity
-   message), any record not tied to `job_id` (the job the person is working
+1. **`osc_prepare_write(method, path, job_id, body | form+files, workflow, note)`**
+   sends nothing. It refuses anything the asking `workflow` may not change:
+   `"intake"` (the default) has the 14 contract-intake changes (create/update
+   client, person, client and job contact links, job; complete one of the four
+   intake activities; answer an activity question; job or activity message);
+   `"permit-officer"` has only ticking one of ten building-approval
+   activities and messages, on NSW jobs in pre-construction, with its own
+   checks (`job-roles/permit-officer/workflows/osc-updates.md`; every tick
+   needs a `note` saying where its date comes from). It also refuses
+   any record not tied to `job_id` (the job the person is working
    on), an ambiguous or missing target, an unknown field, or a protected one
    (contract price, contract number, region on an existing job, DataBuild
    client code). It reads the current values, keeps only the fields that
@@ -89,7 +94,14 @@ goes, and the batch stops at the first one that fails or no longer matches
 can use an ID an earlier one creates: `{{N.clientID}}` for a new job's
 client, `{{N.personID}}` in a contact-link path. `job_id` is empty only for a
 batch that creates the client, people and job of a new intake. The contract
-intake uses one batch per stage (the `new-contract-template` skill, step 1a).
+intake uses one batch per stage (the `new-contract-template` skill, step 1a);
+the Permit Officer uses one batch per job update (`workflow="permit-officer"`:
+a tick, its message and the email attached to it), and a tick earlier in the
+batch counts as the step before a later one.
+
+Every answered confirmation, yes or not, is logged with the reply as typed in
+`runtime\<role>\logs\osc-writes.jsonl` (`contract-admin` for the intake,
+`permit-officer` for the Permit Officer). Replies are read in English only.
 
 Never describe a change as made unless `osc_confirm_write` returned
 `state: verified`. A person who says no, does not answer, or asks for

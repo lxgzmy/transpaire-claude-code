@@ -683,11 +683,12 @@ class ApiVersionTests(GateTestCase):
 
 class ReplyAndConfigTests(unittest.TestCase):
     def test_reply_kinds(self):
-        for text in ("yes", "Yes.", "YES!", "yes please", "ok", "Yes, go ahead", "是", "确认", "yes ABC123"):
+        for text in ("yes", "Yes.", "YES!", "yes please", "ok", "Yes, go ahead", "yes ABC123"):
             self.assertEqual(reply_kind(text, "ABC123"), "yes", text)
-        for text in ("no", "No.", "cancel", "不要", "取消"):
+        for text in ("no", "No.", "cancel", "Cancel!"):
             self.assertEqual(reply_kind(text), "no", text)
-        for text in ("yes but change it", "yesterday", "", "y n", "sounds good but wait"):
+        # English only: anything else is not a yes, so nothing is sent
+        for text in ("yes but change it", "yesterday", "", "y n", "sounds good but wait", "oui", "si"):
             self.assertEqual(reply_kind(text), "other", text)
 
     def test_only_production_and_its_own_env_file(self):

@@ -39,9 +39,11 @@ OnSite Companion (OSC) is the primary record: job activities/milestones,
 alerts (the internal communication channel), and the per-job Document
 Manager. Claude reads OSC through the **`osc-api-prod` MCP server**
 (project-scoped, the production OnSite Companion since 13 Oct 2026 — see
-`.claude/skills/osc-api/` and `docs/mcp-servers.md`). This role only reads;
-its workflows make no OSC change. Every read is **live client data**, so treat
-it accordingly. Reads before 13 Oct 2026 came from a dev copy frozen on
+`.claude/skills/osc-api/` and `docs/mcp-servers.md`). This role reads OSC
+and, since 23 Oct 2026 (issue #ISSUE, owner sign-off), makes the listed
+building-approval changes through the confirmation gate, each on the permit
+officer's own yes: `workflows/osc-updates.md`. Every read is **live client
+data**, so treat it accordingly. Reads before 13 Oct 2026 came from a dev copy frozen on
 21 Aug 2026 and were out of date. Microsoft 365 / Outlook carries all external
 correspondence. QLD jobs: the certifier's online portal holds lodgement + all
 certifier communication (notifications land in the mailbox). NSW jobs: no
@@ -80,3 +82,8 @@ Every artefact (report draft, checklist, alert text, form fill) is a draft
 with an evidence bundle for the permit officer to review. Nothing is sent,
 lodged, uploaded, or written to OSC without explicit human approval. This
 role has **no** sanctioned auto-save exception.
+
+An OSC confirmation is answered only by the permit officer, typing the reply
+in their own Claude session. Whoever else operates Claude never answers for
+the officer, and Claude never answers its own confirmation. A named backup
+may be added here later by the same kind of sign-off.

@@ -101,6 +101,19 @@ skills are scoped to that folder and must not leak into another role.
   change the request asks for stays a person's. The NSW contract price
   split, deposit and progress payments are worked from the request price by
   a fixed rule the same day (issue #62, CD-5.4).
+- **Sanctioned exception (23 Oct 2026, issue #ISSUE, owner sign-off):** the
+  Permit Officer workflow makes three kinds of OnSite Companion change, on
+  NSW jobs in pre-construction only: tick one of ten named building-approval
+  activities complete, add a message to the job or to one of those
+  activities, and attach a certifier or council email to that message
+  exactly as received. The gate's `permit-officer` allow-list holds them
+  apart from the intake's, so neither workflow can make the other's changes
+  (`job-roles/permit-officer/workflows/osc-updates.md`). The same
+  confirmation applies: one plain-words confirmation per job update, the
+  permit officer's own plain yes, a re-check before sending, a read-back,
+  and a log of every answer. RFI judgement, portals, payments, external
+  email, staff alerts and marking an activity not applicable stay a
+  person's.
 
 ## Security posture
 
@@ -144,15 +157,18 @@ skills are scoped to that folder and must not leak into another role.
   `osc-api` connection reached only a dev copy frozen on 21 Aug 2026 and is
   retired. Every OSC change is prepared, shown to the person in plain words with
   the values it overwrites, and sent only on their plain yes, then read back
-  (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes are possible,
-  each tied to the named job. Since 15 October 2026 the changes are grouped one
+  (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes and, since
+  23 October 2026, the Permit Officer changes (issue #ISSUE) are possible, each
+  tied to the named job and to the workflow that asked for it, and every
+  answer is logged under `runtime\<role>\logs\`. Since 15 October 2026 the changes are grouped one
   confirmation per intake stage (new client and job; the job's set-up;
   DataBuild done), each change still re-checked and read back. This is not an extension of automatic
   document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
   activity 6 is completed only once that person confirms the entry. Multipart
   uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).
-  Other OSC write workflows remain subject to their own discovery and review.
+  The Permit Officer changes are the second sanctioned set (see the 23 Oct 2026
+  exception above). Other OSC write workflows remain subject to their own discovery and review.
   DataBuild automation is ruled out (23 Aug 2026): the vendor confirmed it has
   no API access, so no MCP server or integration is possible — DataBuild stays
   manual, kept in the docs as background only.

@@ -105,6 +105,10 @@ class Config:
     # refuses any request without it (HTTP 400); the retired dev install did not
     # ask for one, which is why the header was missing until 13 Oct 2026.
     api_version: str = "7.3"
+    # The git-ignored runtime folder that holds each workflow's write log
+    # (<log_root>\<role>\logs\osc-writes.jsonl). Empty means no log; load_config
+    # always fills it (OSC_LOG_ROOT or the checkout's runtime\ folder).
+    log_root: str = ""
 
     @property
     def token_url(self) -> str:
@@ -133,6 +137,7 @@ class Config:
             "api_version": self.api_version,
             # count only: a root spelled as a UNC path would name the file server
             "upload_roots": len(self.upload_roots),
+            "write_log": bool(self.log_root),
         }
 
 
@@ -160,7 +165,8 @@ def load_config() -> Config:
     OSC_UPLOAD_ROOTS (semicolon-separated absolute directories a multipart
     upload may read from; default: the checkout's runtime\\ folder),
     OSC_STALE_AFTER_DAYS (default 30), OSC_APPROVAL_MINUTES (default 30),
-    OSC_API_VERSION (the api-version header, default 7.3).
+    OSC_API_VERSION (the api-version header, default 7.3), OSC_LOG_ROOT (an
+    absolute directory for the write logs; default: the checkout's runtime\\ folder).
     """
     environment = os.environ.get("OSC_ENVIRONMENT", "production").strip().lower() or "production"
     if environment not in ENVIRONMENTS:
@@ -197,6 +203,9 @@ def load_config() -> Config:
     for root in upload_roots:
         if not os.path.isabs(root):
             raise ConfigError(f"OSC_UPLOAD_ROOTS entries must be absolute directories: {root!r}")
+    log_root = os.environ.get("OSC_LOG_ROOT", "").strip() or default_upload_root()
+    if not os.path.isabs(log_root):
+        raise ConfigError(f"OSC_LOG_ROOT must be an absolute directory: {log_root!r}")
 
     return Config(
         base_url=base_url,
@@ -213,4 +222,5 @@ def load_config() -> Config:
         stale_after_days=int(os.environ.get("OSC_STALE_AFTER_DAYS", "30")),
         approval_minutes=int(os.environ.get("OSC_APPROVAL_MINUTES", "30")),
         api_version=os.environ.get("OSC_API_VERSION", "").strip() or "7.3",
+        log_root=log_root,
     )

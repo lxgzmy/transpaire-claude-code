@@ -46,6 +46,8 @@ testable; open questions are marked ❓.
   substantially repeats the outstanding items.
 - **PO-7 — RFI intake.** On receipt: update the OSC milestones (RFI
   received) and upload the RFI document to the job, then work the item list.
+  Since 23 Oct 2026 Claude may do the tick and the filing on the officer's
+  yes (`workflows/osc-updates.md`); working the items stays the officer's.
 - **PO-8 — RFI triage.** Each RFI item is either **own-action** (the permit
   officer orders/supplies it: insurances such as home-warranty and
   long-service levies, purchase orders, the energy-efficiency assessment,
@@ -70,7 +72,10 @@ testable; open questions are marked ❓.
   Follow-up on an unanswered alert is face-to-face or email. External
   parties (engineers, energy assessor, certifier in NSW) are emailed;
   engineering emails sent *from* OSC save to the job automatically, and all
-  other external email must be dragged into OSC manually as `.msg`.
+  other external email must be dragged into OSC manually as `.msg`. Since
+  23 Oct 2026 Claude may attach such an email to an OSC message on the
+  officer's yes, once the officer has saved it under `runtime\`
+  (`workflows/osc-updates.md`); alerts stay the officer's.
 
 ## Weekly BA report
 
