@@ -32,6 +32,14 @@ or in tests), runs the parse + draft + compare steps, and asserts:
  14. v0.1 state (ISO string per item) upgrades to the v0.2 dict shape
  15. business_days boundaries and NSW holidays
  16. the draft round-trips through ba_report_parse and compare_ba_report
+ 17. review fixes (23 Oct 2026): an application or request document never
+     resolves an item, and an approval document never does while the OSC step
+     is open; an item name that fits two rules, or another engineering
+     discipline, gets no rule; DATE SUBMITTED comes from the last completed
+     step before the pending one in the same chain; timestamps are Sydney
+     dates; the state file is swapped in whole; stale or mismatched snapshots
+     are not used; commas inside brackets and line breaks split items
+     correctly; RFI-cell text that is not a PENDING list is carried verbatim
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
@@ -44,10 +52,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_draft import TIERS, build_draft, load_state, submitted_evidence
-from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_report
+from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, family_of,
+                             load_state, save_state, submitted_evidence)
+from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_items, parse_report
 from compare_ba_report import compare
-from nsw_holidays import business_days
+from nsw_holidays import business_days, covers, sydney_date
 
 ASOF = "2026-09-07"          # the Monday being drafted
 PREV = "2026-08-31"          # last week's report date (in the filename)
@@ -160,6 +169,13 @@ def synth_snapshot_90002():
             doc(2, "ENERGY APPLICATION - LOT 2", "2026-08-10"),
         ],
     }
+
+
+def write_snaps(folder, asof):
+    """The snapshot step, re-run each Monday: the same synthetic jobs, retrieved on ``asof``."""
+    for snap in (synth_snapshot_90002(), synth_snapshot_90005()):
+        snap["retrievedAtUtc"] = f"{asof}T00:00:00Z"
+        (folder / f"{snap['contractNumber']}.json").write_text(json.dumps(snap), encoding="utf-8")
 
 
 def synth_snapshot_90005():
@@ -290,8 +306,7 @@ def main():
 
         snaps = tmp / "snaps"
         snaps.mkdir()
-        (snaps / "90002.json").write_text(json.dumps(synth_snapshot_90002()), encoding="utf-8")
-        (snaps / "90005.json").write_text(json.dumps(synth_snapshot_90005()), encoding="utf-8")
+        write_snaps(snaps, ASOF)
         out = tmp / "out"
         pilot = ["90001", "90002", "90003", "90005", "90099"]
 
@@ -422,6 +437,7 @@ def main():
         check("all resolved: RFI-items cell is a date in the workbook", g5["date"] == "2026-09-04" and not g5["pending"])
 
         # ---- 3. second run: resolved line dropped, ageing grows in business days
+        write_snaps(snaps, ASOF2)
         _, _, ev2 = build_draft(draft_path, snaps, out, asof=ASOF2, state_dir=state_dir, jobs=pilot)
         j2b = {j["job_no"]: j for j in ev2["jobs"]}["90002"]
         acts2 = {(c.get("item") or c.get("column")): c["action"] for c in j2b["changes"]}
@@ -436,6 +452,7 @@ def main():
         po = parse_report(officer)
         check("officer Items sheet: typo row unmatched",
               [e["item"] for e in po["items_unmatched"]] == ["COVENANT APROVAL"], str(po["items_unmatched"]))
+        write_snaps(snaps, "2026-09-21")
         _, _, ev3 = build_draft(officer, snaps, out, asof="2026-09-21", state_dir=state_dir, jobs=pilot)
         j2c = {j["job_no"]: j for j in ev3["jobs"]}["90002"]
         k3 = {i["name"]: i for i in j2c["outstanding"]}
@@ -474,6 +491,7 @@ def main():
         # ---- sticky across a base that lacks per-item values (officer's plain export)
         plain = tmp / "BA REPORT - 21.09.2026.xlsx"
         synth_prev_report(plain)  # same rows, no Items sheet
+        write_snaps(snaps, "2026-09-28")
         _, _, ev4 = build_draft(plain, snaps, out, asof="2026-09-28", state_dir=state_dir, jobs=pilot)
         en4 = {i["name"]: i for i in {j["job_no"]: j for j in ev4["jobs"]}["90002"]["outstanding"]}.get("ENERGY REPORT", {})
         check("officer value sticks when the base has no Items sheet",
@@ -484,6 +502,127 @@ def main():
         check("compare: matched by family, missed/extra counted",
               rep["officer_items"] == 4 and rep["matched"] == 4 and rep["missed"] == 0, str(rep))
         check("compare: absent pilot job unscored", any(j["job_no"] == "90099" and not j["in_actual"] for j in rep["jobs"]))
+
+        # ---- 17. review fixes (23 Oct 2026)
+        def snap(acts=(), docs=()):
+            return {"activities": list(acts), "documents": list(docs), "alerts": []}
+
+        open_cov = [act(57, "Submit Covenant Application", done="2026-08-25"),
+                    act(58, "Receive Covenant Approval & Upload to OSC", user="Synthetic Admin")]
+        v, why, *_ = check_item({"name": "COVENANT APPROVAL"},
+                                snap(open_cov, [doc(10, "COVENANT APPLICATION FOR APPROVAL - LOT 12", "2026-09-02")]),
+                                PREV)
+        check("fix: an application document never resolves an item", v == "active", f"{v} {why}")
+        v, why, owner, *_ = check_item({"name": "COVENANT APPROVAL"},
+                                       snap(open_cov, [doc(11, "COVENANT APPROVAL - LOT 12", "2026-09-02")]), PREV)
+        check("fix: an approval document while the OSC step is open is kept and flagged, not resolved",
+              v == "conflict" and "still open" in why and owner == "Synthetic Admin", f"{v} {why} {owner}")
+        outcome = {"ENERGY REPORT REQUEST.msg": "unknown", "ENERGY REPORT - LOT 12": "complete"}
+        for desc, want in outcome.items():
+            v = check_item({"name": "ENERGY REPORT"}, snap(docs=[doc(12, desc, "2026-09-02")]), PREV)[0]
+            check(f"fix: energy document \"{desc}\" -> {want}", v == want, v)
+        outcome = {"S68 APPLICATION FOR APPROVAL": "unknown", "APPROVAL - S68 APPLICATION": "complete"}
+        for desc, want in outcome.items():
+            v = check_item({"name": "S68 APPLICATION"}, snap(docs=[doc(13, desc, "2026-09-02")]), PREV)[0]
+            check(f"fix: s68 document \"{desc}\" -> {want}", v == want, v)
+        v = check_item({"name": "CONTRIBUTIONS PAYABLE"},
+                       snap(docs=[doc(14, "S7.11 CONTRIBUTION RECEIPT", "2026-09-02")]), PREV)[0]
+        check("fix: a contributions receipt still resolves (the receipt is the outcome)", v == "complete", v)
+
+        slab_done = [act(54, "Receive Engineering - Piers, Footings & Slab Design", done="2026-09-01"),
+                     act(55, "Review Engineering - Piers, Footings & Slab Design", done="2026-09-02"),
+                     act(57, "Forward Engineers Footing/Slab Design to Private Certiifier", done="2026-09-03")]
+        v, why, *_ = check_item({"name": "HYDRAULIC ENGINEERING"}, snap(slab_done), PREV)
+        check("fix: hydraulic engineering is not resolved by the structural chain",
+              v == "unknown" and family_of("HYDRAULIC ENGINEERING") is None, f"{v} {why}")
+        check("fix: structural engineering keeps its rule",
+              (family_of("STRUCTURAL ENGINEERING") or {}).get("key") == "ENGINEERING")
+        v, why, *_ = check_item({"name": "COVENANT LANDSCAPE PLAN"}, snap(), PREV)
+        check("fix: an item that fits two rules gets none, and says which",
+              v == "unknown" and "COVENANT" in why and "LANDSCAPE" in why, why)
+
+        review = snap([act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-07-01"),
+                       act(54, "Receive Engineering - Piers, Footings & Slab Design", done="2026-08-25"),
+                       act(55, "Review Engineering - Piers, Footings & Slab Design", user="Synthetic Drafter")])
+        d, why = submitted_evidence({"name": "ENGINEERING"}, review)
+        check("fix: a pending Review dates from the Receive step, not the Order step",
+              d == "2026-08-25" and "Receive" in why, f"{d} {why}")
+        steel = snap([act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-07-01"),
+                      act(54, "Receive Engineering - Piers, Footings & Slab Design", done="2026-08-25"),
+                      act(57, "Forward Engineers Footing/Slab Design to Private Certiifier", done="2026-08-28"),
+                      act(81, "Order Engineering - Structural Steel", done="2026-08-10"),
+                      act(82, "Receive Engineering - Structural Steel", done="2026-09-01"),
+                      act(83, "Review Engineering - Strucutral Steel", user="Synthetic Drafter")])
+        d, why = submitted_evidence({"name": "ENGINEERING"}, steel)
+        check("fix: the steel chain dates from its own step (OSC's misspelling included)",
+              d == "2026-09-01" and "Structural Steel" in why, f"{d} {why}")
+        na_before = snap([act(57, "Submit Covenant Application", done="2026-08-25", na=True),
+                          act(58, "Receive Covenant Approval & Upload to OSC")])
+        check("fix: a not-applicable step before dates nothing",
+              submitted_evidence({"name": "COVENANT"}, na_before) == (None, None))
+
+        check("fix: Sydney date of a Monday 08:30 upload (Sunday evening in UTC)",
+              sydney_date("2026-09-06T22:30:00Z") == "2026-09-07")
+        check("fix: midnight-UTC completion dates keep their day", sydney_date("2026-09-01T00:00:00Z") == "2026-09-01")
+        check("fix: daylight saving (AEDT, UTC+11)",
+              sydney_date("2026-10-22T13:30:00Z") == "2026-10-23" and sydney_date("2026-10-22T12:30:00Z") == "2026-10-22")
+        monday = snap(docs=[{"documentID": "x", "description": "ENERGY REPORT - LOT 12", "version": 1,
+                             "attachedOnUtc": "2026-08-30T22:30:00Z"}])
+        check("fix: an upload on the base report's Monday morning counts as new evidence",
+              check_item({"name": "ENERGY REPORT"}, monday, PREV)[0] == "complete")
+        check("fix: the holiday table says when it runs out", covers("2027-12-31") and not covers("2028-01-25"))
+
+        items = parse_items("PENDING ENGINEERING (W/O CLIENT, DRAFTING), ENERGY REPORT\nS68 APPLICATION")
+        check("fix: commas inside brackets and line breaks split items correctly",
+              [(i["name"], i["state"]) for i in items] == [("ENGINEERING", "W/O CLIENT, DRAFTING"),
+                                                           ("ENERGY REPORT", ""), ("S68 APPLICATION", "")],
+              str(items))
+
+        sd = tmp / "state-atomic"
+        save_state(sd, {"90001": {}})
+        save_state(sd, {"90002": {}})
+        check("fix: state swapped in whole, the run before kept, no temp file left",
+              json.loads((sd / STATE_FILE).read_text(encoding="utf-8")) == {"90002": {}}
+              and json.loads((sd / STATE_PREVIOUS).read_text(encoding="utf-8")) == {"90001": {}}
+              and not list(sd.glob("*.tmp")))
+        (sd / STATE_FILE).write_text('{"9000', encoding="utf-8")
+        try:
+            load_state(sd)
+            check("fix: a cut-off state file stops the run and names the previous copy", False, "no exception")
+        except StateError as exc:
+            check("fix: a cut-off state file stops the run and names the previous copy", STATE_PREVIOUS in str(exc))
+
+        mini_base = tmp / "BA REPORT - 05.10.2026.xlsx"
+        xlsx_min.write_xlsx(mini_base, [
+            [(h, xlsx_min.S_HEADER) for h in HEADER],
+            row16("90011", "Lot 11, 11 Example St, NOWHERE NSW 0000", serial("2026-07-01"), serial("2026-07-20"),
+                  "", "PENDING COVENANT APPROVAL"),
+            row16("90012", "Lot 12, 12 Example St, NOWHERE NSW 0000", serial("2026-07-01"), serial("2026-07-20"),
+                  "", "AWAITING CERTIFIER"),
+            row16("90013", "Lot 13, 13 Example St, NOWHERE NSW 0000", serial("2026-07-01"), serial("2026-07-20"),
+                  "", "PENDING COVENANT APPROVAL")])
+        ms = tmp / "snaps-mini"
+        ms.mkdir()
+        covenant_done = {"retrievedAtUtc": "2026-09-28T00:00:00Z", "contractNumber": "90011", "state": "NSW",
+                         "activities": [act(58, "Receive Covenant Approval & Upload to OSC", done="2026-10-08")],
+                         "alerts": [], "documents": []}
+        (ms / "90011.json").write_text(json.dumps(covenant_done), encoding="utf-8")  # last week's leftover
+        (ms / "90013.json").write_text(json.dumps({**covenant_done, "retrievedAtUtc": "2026-10-12T00:00:00Z",
+                                                   "contractNumber": "90099"}), encoding="utf-8")
+        mini_out = tmp / "out-mini"
+        mpath, _, evm = build_draft(mini_base, ms, mini_out, asof="2026-10-12", state_dir=tmp / "state-mini",
+                                    jobs=["90011", "90012", "90013"])
+        jm = {j["job_no"]: j for j in evm["jobs"]}
+        check("fix: a snapshot older than the base is not used; the item is kept",
+              any("before the base report" in f for f in jm["90011"]["flags"]) and not jm["90011"]["resolved"]
+              and [i["name"] for i in jm["90011"]["outstanding"]] == ["COVENANT APPROVAL"], str(jm["90011"]["flags"]))
+        check("fix: a snapshot for another job is not used",
+              any("is for job 90099" in f for f in jm["90013"]["flags"]) and not jm["90013"]["resolved"],
+              str(jm["90013"]["flags"]))
+        cell = [r for r in parse_report(mpath)["rows"] if r["job_no"] == "90012"][0]["submit_all_rfi_items"]
+        check("fix: RFI-cell text that is not a PENDING list is carried verbatim and flagged",
+              any("not a PENDING list" in f for f in jm["90012"]["flags"]) and not jm["90012"]["outstanding"]
+              and cell["raw"] == "AWAITING CERTIFIER", f"{jm['90012']['flags']} {cell['raw']!r}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

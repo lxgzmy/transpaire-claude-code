@@ -124,6 +124,23 @@ def split_pending_resolved(g_text):
     return text[:m.start()].strip(), m.group(1).strip()
 
 
+def _split_items(text):
+    """Split on commas and line breaks outside brackets: "ENGINEERING (W/O CLIENT, DRAFTING)" is one item."""
+    parts, depth, cur = [], 0, []
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        if ch in ",\n" and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+    return parts
+
+
 def parse_items(g_text):
     """Split a 'PENDING A (REVIEW), B, C (W/O X)' cell into items.
 
@@ -133,7 +150,7 @@ def parse_items(g_text):
     text = (g_text or "").strip()
     text = re.sub(r"^(PENDING|RESOLVED)\s*", "", text, flags=re.I)
     items = []
-    for raw in re.split(r",", text):
+    for raw in _split_items(text):
         part = " ".join(raw.split())
         if not part:
             continue
@@ -278,7 +295,10 @@ def parse_report(path):
                 val = val.strip() if isinstance(val, str) else val
                 row["extra"][c["header"]] = {"raw": val, "date": serial_to_iso(val) if val not in (None, "") else None}
         g = row["submit_all_rfi_items"]
-        g["pending"] = g["date"] is None and bool(g["raw"])
+        # Only a "PENDING ..." list is items; other text ("AWAITING RFI") is carried verbatim.
+        is_text = g["date"] is None and bool(g["raw"])
+        g["pending"] = is_text and bool(re.match(r"^\s*PENDING\b", str(g["raw"]), re.I))
+        g["other_text"] = is_text and not g["pending"]
         pending_text, resolved_text = split_pending_resolved(str(g["raw"])) if g["pending"] else ("", "")
         g["items"] = parse_items(pending_text) if g["pending"] else []
         g["resolved"] = parse_items(resolved_text) if resolved_text else []
