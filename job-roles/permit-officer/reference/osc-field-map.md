@@ -190,13 +190,18 @@ column M of last week's corrected report; the **oldest** order / application
 / receipt document for the item family (`submitted_docs` in
 `ba_report_draft.py`, e.g. `… - Energy Efficiency Request.msg`, `DRIVEWAY
 APPLICATION`, `SECTION 68 APPLICATION.msg`); for activity-backed families the
-matching *Order/Request … - X* step of the pending *Receive … - X*
-activity, or the immediately preceding step when it belongs to the same
-item chain; an alert whose subject matches the family **and was raised on
+last completed step before the first pending one in the same chain (so a
+pending *Receive Engineering - X* dates from *Order Engineering - X*, and a
+pending *Review* step from the *Receive* step; the slab and structural-steel
+chains are told apart by their subject words because OSC misspells some
+steps; a not-applicable step dates nothing); an alert whose subject matches the family **and was raised on
 or after *Submit for BA*** (pre-lodgement alerts such as `LODGE FOR CC` are
 instructions, not handovers — observed on the pilot jobs); else the first
 report sighting, flagged "assumed". Documents and activities may
 legitimately predate lodgement (engineering, s10.7 ordered early, PO-5).
+Document and alert timestamps are UTC, so the drafter reads them as Sydney
+dates (an upload at 08:30 on a Monday is Sunday evening in UTC); activity
+completion dates are stored at midnight UTC and keep their day.
 `attachedOnUtc` is when the `.msg` was dragged into OSC, which lags the
 actual send (PO-9), so document-derived dates are verify-grade and the
 officer's typed value always wins.

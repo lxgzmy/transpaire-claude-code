@@ -6,8 +6,8 @@ job. This script writes those files with the same queries the role's field
 map documents (``reference/osc-field-map.md``), through the ``osc_mcp``
 client package the ``osc-api-prod`` MCP server itself uses — same
 credentials (``production.env`` beside that package, never in git), same
-host, GET requests only. Nothing here can write: the only method this
-script ever sends is GET.
+host, GET requests only. Nothing here can write: apart from the client's
+own token request (a POST to /api/Token), every call it sends is a GET.
 
 It must run under the MCP server's virtual environment, which has ``httpx``
 (the repo's Python has no third-party packages):
@@ -25,6 +25,7 @@ never names, addresses or document titles.
 import argparse
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -122,7 +123,9 @@ async def run(jobs, out_dir):
               f"newest job created {live['newest_job_created']} ({live['age_days']} days ago)")
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        missing = []
+        missing, snaps = [], []
+        # Every job is read before any file is written, so a run that stops part-way never leaves
+        # fresh files beside last week's (the drafter also refuses a snapshot older than its base).
         for jobno in jobs:
             snap = await snapshot_job(client, jobno)
             if snap is None:
@@ -131,8 +134,12 @@ async def run(jobs, out_dir):
                 continue
             snap["source"] = {"environment": config.environment, "target": config.target_fingerprint(),
                               "newest_job_created": live["newest_job_created"]}
+            snaps.append((jobno, snap))
+        for jobno, snap in snaps:
             path = out_dir / f"{jobno}.json"
-            path.write_text(json.dumps(snap, indent=2), encoding="utf-8")
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(snap, indent=2), encoding="utf-8")
+            os.replace(tmp, path)
             done = sum(1 for a in snap["activities"] if a.get("completionDate"))
             print(f"{jobno}: {snap['state']} {snap['workflowStatusName']} — "
                   f"{len(snap['activities'])} activities ({done} complete), {len(snap['alerts'])} alerts, "

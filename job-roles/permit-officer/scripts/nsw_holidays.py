@@ -8,8 +8,12 @@ Day) are listed anyway for completeness — they never affect the count.
 
 Verify each new year against the NSW Government's published list before the
 first Monday run of that year.
+
+Also turns OSC's UTC timestamps into Sydney calendar dates (``sydney_date``):
+a document dragged in at 08:30 on a Monday in Sydney is stamped Sunday
+evening in UTC.
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 NSW_PUBLIC_HOLIDAYS = {
     # 2026
@@ -42,10 +46,43 @@ NSW_PUBLIC_HOLIDAYS = {
 }
 
 
+LAST_YEAR = max(d.year for d in NSW_PUBLIC_HOLIDAYS)
+
+
+def covers(value):
+    """True while the holiday table reaches the year of ``value``; past it, counts would miss holidays."""
+    return _to_date(value).year <= LAST_YEAR
+
+
 def _to_date(value):
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value)[:10])
+
+
+def sydney_date(value):
+    """The Sydney calendar date (ISO) of an OSC timestamp; a plain date is returned as it is.
+
+    No time-zone database is needed (the server's Python has none): NSW daylight
+    saving runs from the first Sunday in October to the first Sunday in April,
+    both changes at 16:00 UTC on the Saturday before. OSC activity completion
+    dates are stored at midnight UTC, which stays the same date.
+    """
+    text = str(value or "").strip()
+    if len(text) <= 10:
+        return text
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text[:10]
+    moment = (moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+    def change(month):
+        first = datetime(moment.year, month, 1, tzinfo=timezone.utc)
+        return first + timedelta(days=(6 - first.weekday()) % 7) - timedelta(hours=8)
+
+    summer = moment >= change(10) or moment < change(4)
+    return (moment + timedelta(hours=11 if summer else 10)).date().isoformat()
 
 
 def is_business_day(d, holidays=NSW_PUBLIC_HOLIDAYS):

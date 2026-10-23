@@ -71,7 +71,8 @@ for 3–4 weeks:
    queries in `../reference/osc-field-map.md`) through the same client and
    credentials the `osc-api-prod` MCP server uses, GET only, after checking
    the connection is the live system. It prints counts and dates, never
-   names. A pilot job that is not yet lodged is not a row in the export;
+   names. It reads every job before writing any file, so a run that stops
+   part-way writes nothing. A pilot job that is not yet lodged is not a row in the export;
    the draft notes it, never fabricates a row.
 2. **Draft step (deterministic, no network):**
 
@@ -92,9 +93,18 @@ for 3–4 weeks:
    coloured; every other row is carried forward verbatim with no Items
    rows. Carried values are never overwritten; an item resolves only on
    fresh completion evidence and is shown once on a `RESOLVED` line;
-   everything else is kept and flagged. Per-item state (first seen, date
+   everything else is kept and flagged. An application or request document
+   never resolves an item, and an approval document never does while the
+   item's OSC step is still open (kept, flagged "still open"). An item name
+   that fits two evidence rules, or names an engineering discipline OSC
+   does not track (hydraulic, civil…), gets no rule and is flagged for the
+   officer. A snapshot taken before the base report, or for another job, is
+   not used (row carried, flagged). RFI-cell text that is not a `PENDING`
+   list is carried verbatim and flagged. Per-item state (first seen, date
    submitted, assigned-to, and what the AI wrote last time) persists in
-   `state\ba-items-first-seen.json`.
+   `state\ba-items-first-seen.json`, swapped in whole each run with the run
+   before kept as `ba-items-first-seen.prev.json`; an unreadable state file
+   stops the run rather than starting afresh.
 3. **Review (the officer):** correct the draft on the **Items sheet** —
    type the real *Assigned to* and *Date submitted* on the item's row where
    the draft guessed (`⚠`, "assumed") — and keep typing the PENDING list on

@@ -47,15 +47,17 @@ pilot rows; every other row is carried forward verbatim with no Items rows.
 """
 import argparse
 import json
+import os
 import re
+import shutil
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_report, serial_to_iso, text_to_iso
-from nsw_holidays import business_days
+from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_report
+from nsw_holidays import LAST_YEAR, business_days, covers, sydney_date
 
 # ------------------------------------------------------------------ ageing config
 # Business-day thresholds per tier: YELLOW while days <= threshold, RED after.
@@ -86,21 +88,37 @@ COLUMN_ACTIVITY = {
     "nominate_site_start": "Nominate Site Start Date",
 }
 
+# Wording that marks an order, application or receipt rather than the outcome.
+# A document described this way never counts as completion ("COVENANT
+# APPLICATION FOR APPROVAL", "ENERGY REPORT REQUEST") unless it is filed as an
+# approval ("APPROVAL - S68 APPLICATION"). Families whose outcome IS a receipt
+# (contributions paid) set done_exclude to None.
+NOT_AN_OUTCOME = r"\b(APPLICATION|APPLN|REQUEST|ORDER(ED)?|RECEIPT|SUBMI\w*)\b"
+
 # Outstanding-item families: how a report item name maps to OSC evidence.
+# An item name that matches more than one family, or a family's exclude, gets
+# no rule: it is kept and flagged for the officer rather than guessed.
 # done_activities: ALL must be complete/N-A for activity-based completion.
-# done_docs: ANY document description match counts as completion evidence.
+# done_docs: ANY document description match counts as completion evidence,
+# but never while one of the family's done_activities is still open.
 # pending_activities: any of these pending -> the item is active; the first
 # pending one's assigned user / service provider is "who it is with".
+# order_activities: the step that sends the item out (Order Engineering - X);
+# with the chain steps, it dates DATE SUBMITTED for the first pending step.
 # submitted_docs: order/application/receipt documents whose OLDEST attach
 # date evidences DATE SUBMITTED (verify grade — .msg files are dragged into
 # OSC after the send, PO-9).
 # tier: default tier when nothing better says who the item is with.
 FAMILIES = [
+    # The structural engineering OSC tracks (slab and structural steel chains).
+    # Other disciplines have no OSC steps, so they get no rule.
     {"key": "ENGINEERING", "tier": "EXTERNAL",
      "match": r"\bENG(INEERING)?\b",
+     "exclude": r"\b(HYDRAULIC|CIVIL|STORMWATER|DRAINAGE|GEOTECH\w*|ELECTRICAL|FIRE|TRAFFIC|ACOUSTIC|BUSHFIRE)\b",
      "done_activities": [r"Receive Engineering", r"Review Engineering", r"Forward Engineers"],
      "pending_activities": [r"Receive Engineering", r"Review Engineering",
                             r"Amend Working Drawings to Suit", r"Forward Engineers"],
+     "order_activities": [r"Order Engineering"],
      "done_docs": [], "submitted_docs": []},
     {"key": "COVENANT", "tier": "EXTERNAL",
      "match": r"\bCOV(ENANT)?\b",
@@ -172,6 +190,7 @@ FAMILIES = [
      "match": r"\b(CONTRIBUTIONS?|S64|S7\.1[12]|HPC)\b",
      "done_activities": [], "pending_activities": [],
      "done_docs": [r"(CONTRIBUTION.*(RECEIPT|PAID)|HPC.*RECEIPT|7\.1[12].*RECEIPT|S64.*(RECEIPT|PAID))"],
+     "done_exclude": None,  # the receipt IS the outcome: contributions paid
      "submitted_docs": []},
     # Families first seen on the pilot jobs (issue #29 run, 11 Sep 2026)
     {"key": "LANDSCAPE", "tier": "COUNCIL",
@@ -200,7 +219,8 @@ FAMILIES = [
 PROPOSE_FROM_PENDING = {"ENGINEERING", "COVENANT", "INSURANCES"}
 
 def _iso_day(s):
-    return (s or "")[:10]
+    """The Sydney date of an OSC timestamp (documents and alerts carry real UTC times)."""
+    return sydney_date(s)
 
 
 def _date_or_text(val):
@@ -222,11 +242,22 @@ def _ddmmyyyy(iso):
     return d.strftime("%d/%m/%Y")
 
 
+def families_of(item_name):
+    """Every family whose match fits the item name (and whose exclude does not)."""
+    up = item_name.upper()
+    return [fam for fam in FAMILIES
+            if re.search(fam["match"], up) and not (fam.get("exclude") and re.search(fam["exclude"], up))]
+
+
 def family_of(item_name):
-    for fam in FAMILIES:
-        if re.search(fam["match"], item_name.upper()):
-            return fam
-    return None
+    """The one family for an item, or None when none or several fit (the officer decides)."""
+    found = families_of(item_name)
+    return found[0] if len(found) == 1 else None
+
+
+def _is_outcome(desc, fam):
+    exclude = fam.get("done_exclude", NOT_AN_OUTCOME)
+    return not exclude or desc.startswith("APPROVAL") or not re.search(exclude, desc)
 
 
 def item_key(item_name):
@@ -256,12 +287,15 @@ def activity_state(snapshot, pattern):
     return True, not pending, (pending[0] if pending else None)
 
 
-def doc_evidence(snapshot, patterns, since_iso, oldest=False):
-    """Newest (or oldest) document matching any pattern; (doc, is_new_since)."""
+def doc_evidence(snapshot, patterns, since_iso, oldest=False, keep=None):
+    """Newest (or oldest) document matching any pattern; (doc, is_new_since).
+
+    ``keep``, when given, is a further test on the description (outcome documents only).
+    """
     best = None
     for d in snapshot.get("documents", []):
         desc = (d.get("description") or "").upper()
-        if any(re.search(p, desc) for p in patterns):
+        if any(re.search(p, desc) for p in patterns) and (keep is None or keep(desc)):
             when = d.get("attachedOnUtc") or ""
             if best is None:
                 best = d
@@ -287,15 +321,23 @@ def check_item(item, snapshot, since_iso):
     """Classify one carried item against the snapshot.
 
     Returns (verdict, evidence, owner, owner_field, evidence_date):
-      verdict in {"complete", "complete-old-evidence", "active", "unknown"}.
+      verdict in {"complete", "complete-old-evidence", "active", "conflict", "unknown"}.
+    "conflict": an outcome document is on the job while the family's OSC step
+    is still open, so the item is kept and flagged, never resolved.
     """
     fam = family_of(item["name"])
     if fam is None:
+        several = families_of(item["name"])
+        if several:
+            return ("unknown", "the item name fits more than one evidence rule ("
+                    + ", ".join(f["key"] for f in several) + ") — officer to say which", None, None, None)
         return "unknown", "no evidence rule for this item", None, None, None
     acts_seen = False
+    open_step = None
     if fam["done_activities"]:
         states = [activity_state(snapshot, p) for p in fam["done_activities"]]
         acts_seen = any(m for m, _, _ in states)
+        open_step = next((p for m, c, p in states if m and not c), None)
         if acts_seen and all(c for m, c, _ in states if m):
             done_dates = []
             for p in fam["done_activities"]:
@@ -307,10 +349,14 @@ def check_item(item, snapshot, since_iso):
             verdict = "complete" if newest >= (since_iso or "") else "complete-old-evidence"
             return verdict, ev, None, None, newest or None
     if fam["done_docs"]:
-        doc, is_new = doc_evidence(snapshot, fam["done_docs"], since_iso)
+        doc, is_new = doc_evidence(snapshot, fam["done_docs"], since_iso, keep=lambda d: _is_outcome(d, fam))
         if doc:
             ev = (f"document \"{doc.get('description')}\" v{doc.get('version')} "
                   f"attached {_iso_day(doc.get('attachedOnUtc'))}")
+            if open_step:
+                owner, field = _owner_of(open_step)
+                return ("conflict", f"{ev}, but OSC activity \"{open_step.get('description')}\" is still open",
+                        owner, field, None)
             return ("complete" if is_new else "complete-old-evidence"), ev, None, None, _iso_day(doc.get("attachedOnUtc"))
     for p in fam.get("pending_activities", []):
         matched, _, first_pending = activity_state(snapshot, p)
@@ -343,12 +389,25 @@ def propose_new_items(snapshot, carried_family_keys):
     return proposals
 
 
+def _chain_of(desc):
+    """Which item chain a step belongs to. Every job carries two engineering chains, slab and
+    structural steel, and OSC misspells some of their steps ("Strucutral"), so the chain is told
+    by its subject words, not by the exact text after " - "."""
+    up = (desc or "").upper()
+    if re.search(r"SLAB|FOOTING|PIER", up):
+        return "SLAB"
+    if re.search(r"STEEL", up):
+        return "STEEL"
+    return ""
+
+
 def submitted_evidence(item, snapshot, lodged_iso=None):
     """Best OSC evidence for DATE SUBMITTED: (iso_date, description) or (None, None).
 
     Order: oldest order/application/receipt document for the family; for
-    activity-backed families the matching Order/Request step or the
-    same-chain predecessor of the first pending activity; an alert whose
+    activity-backed families the last completed step before the first
+    pending one in the same chain (so a pending Receive step dates from its
+    Order step, and a pending Review step from the Receive step); an alert whose
     subject matches the family — alerts only count from lodgement
     (``lodged_iso``, column D) onwards, because pre-lodgement alerts such
     as "LODGE FOR CC" are instructions, not RFI-item handovers. Documents
@@ -362,29 +421,20 @@ def submitted_evidence(item, snapshot, lodged_iso=None):
         doc, _ = doc_evidence(snapshot, fam["submitted_docs"], None, oldest=True)
         if doc:
             return _iso_day(doc.get("attachedOnUtc")), f"document \"{doc.get('description')}\" attached"
+    chain = fam.get("order_activities", []) + fam.get("pending_activities", []) + fam.get("done_activities", [])
     for p in fam.get("pending_activities", []):
         matched, _, first_pending = activity_state(snapshot, p)
         if matched and first_pending:
-            desc = first_pending.get("description") or ""
             seq = first_pending.get("sequence") or 0
-            acts = snapshot.get("activities", [])
-            # (a) the matching Order/Request/Submit step for the same item
-            #     ("Receive Engineering - X" <- "Order Engineering - X")
-            if " - " in desc:
-                suffix = desc.split(" - ", 1)[1].strip().upper()
-                for a in acts:
-                    d = (a.get("description") or "")
-                    if a.get("completionDate") and " - " in d and \
-                            d.split(" - ", 1)[1].strip().upper() == suffix and \
-                            re.match(r"^(Order|Request|Submit|Send)\b", d, re.I):
-                        return _iso_day(a["completionDate"]), f"\"{d}\" completed"
-            # (b) the immediately preceding step, only if it belongs to the
-            #     same item chain (any family activity pattern)
-            chain = fam.get("pending_activities", []) + fam.get("done_activities", [])
-            for a in acts:
-                if (a.get("sequence") or 0) == seq - 1 and a.get("completionDate") and \
-                        any(re.search(q, a.get("description") or "", re.I) for q in chain):
-                    return _iso_day(a["completionDate"]), f"preceding step \"{a.get('description')}\" completed"
+            mine = _chain_of(first_pending.get("description"))
+            before = [a for a in snapshot.get("activities", [])
+                      if a.get("completionDate") and not a.get("isNotApplicable")
+                      and (a.get("sequence") or 0) < seq
+                      and _chain_of(a.get("description")) == mine
+                      and any(re.search(q, a.get("description") or "", re.I) for q in chain)]
+            if before:
+                last = max(before, key=lambda a: a.get("sequence") or 0)
+                return _iso_day(last["completionDate"]), f"step before \"{last.get('description')}\" completed"
             break
     hits = [a for a in snapshot.get("alerts", [])
             if re.search(fam["match"], (a.get("subject") or "").upper())
@@ -407,19 +457,38 @@ def _normalise_entry(v):
     return dict(v or {})
 
 
+STATE_FILE = "ba-items-first-seen.json"
+STATE_PREVIOUS = "ba-items-first-seen.prev.json"
+
+
+class StateError(RuntimeError):
+    pass
+
+
 def load_state(state_dir):
-    p = Path(state_dir) / "ba-items-first-seen.json"
+    p = Path(state_dir) / STATE_FILE
     if not p.exists():
         return {}
-    raw = json.loads(p.read_text(encoding="utf-8"))
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        # Never start afresh: officer values carried through plain-export weeks live only here.
+        raise StateError(f"{p} is not readable JSON ({exc}). Nothing was drafted. The run before last is in "
+                         f"{STATE_PREVIOUS} beside it; restore it with a person's check.") from exc
     return {job: {k: _normalise_entry(v) for k, v in (items or {}).items()}
             for job, items in raw.items()}
 
 
 def save_state(state_dir, state):
-    p = Path(state_dir) / "ba-items-first-seen.json"
+    """Write to a temp file and swap it in, so a cut-off write (an SMB drop) never leaves half a file;
+    the state before this run is kept as STATE_PREVIOUS."""
+    p = Path(state_dir) / STATE_FILE
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    if p.exists():
+        shutil.copyfile(p, p.with_name(STATE_PREVIOUS))
+    os.replace(tmp, p)
 
 
 def _resolve_sticky(report_value, entry, ai_key, val_key, src_key):
@@ -544,6 +613,9 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     evidence = {"asof": asof, "prev_report": str(prev_path), "since": since,
                 "pilot_jobs": sorted(pilot) if pilot else None,
                 "jobs": [], "notes": list(prev.get("header_warnings", []))}
+    if not covers(asof):
+        evidence["notes"].append(f"the NSW holiday table in nsw_holidays.py ends in {LAST_YEAR}, so business-day "
+                                 f"counts in {asof[:4]} miss that year's public holidays — add them first")
     # The draft reproduces the base's columns exactly (located by header
     # text); v0.2's per-item columns L-O are dropped from the main sheet in
     # favour of the Items sheet.
@@ -565,6 +637,17 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         if in_scope:
             if snap_path.exists():
                 snapshot = json.loads(snap_path.read_text(encoding="utf-8"))
+                # A snapshot step that stopped part-way leaves last week's files beside fresh ones.
+                taken = _iso_day(snapshot.get("retrievedAtUtc"))
+                if str(snapshot.get("contractNumber") or job_no) != job_no:
+                    job_ev["flags"].append(f"snapshot {snap_path.name} is for job {snapshot.get('contractNumber')} — "
+                                           "not used, row carried forward untouched")
+                    snapshot = None
+                elif not taken or taken < since:
+                    job_ev["flags"].append(f"snapshot taken {taken or 'at an unknown time'}, before the base report "
+                                           f"({since}) — not used, row carried forward untouched; re-run the "
+                                           "snapshot step")
+                    snapshot = None
             else:
                 job_ev["flags"].append("no snapshot — row carried forward untouched")
 
@@ -596,6 +679,8 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                                 f"{key}: report says {cur['date']}, OSC activity says {osc_date} — kept report value")
 
         g = row["submit_all_rfi_items"]
+        if in_scope and g.get("other_text"):
+            job_ev["flags"].append(f"the RFI-items cell reads \"{g['raw']}\", not a PENDING list — carried verbatim")
         items_out = []      # open items, in G order
         resolved_out = []   # items resolved this cycle (shown once)
         had_items = False
@@ -638,10 +723,12 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                             {"item": item["name"], "action": "resolved", "evidence": ev})
                         resolved_out.append(entry)
                         continue
-                    entry["flagged"] = verdict in ("unknown", "complete-old-evidence")
+                    entry["flagged"] = verdict in ("unknown", "complete-old-evidence", "conflict")
                     if verdict == "complete-old-evidence":
                         job_ev["flags"].append(
                             f"item \"{item['name']}\": completion evidence predates {since} ({ev}) — kept, verify")
+                    elif verdict == "conflict":
+                        job_ev["flags"].append(f"item \"{item['name']}\": {ev} — kept, verify")
                     items_out.append(entry)
                 if snapshot:
                     for prop in propose_new_items(snapshot, carried_keys):
@@ -834,9 +921,13 @@ def main(argv):
     ap.add_argument("--jobs", help="comma-separated pilot job numbers; other rows carry forward verbatim")
     args = ap.parse_args(argv)
     jobs = [j for j in (args.jobs or "").split(",") if j.strip()] or None
-    draft, ev_md, evidence = build_draft(
-        args.prev, args.snapshots, args.out,
-        asof=args.asof, state_dir=args.state, jobs=jobs)
+    try:
+        draft, ev_md, evidence = build_draft(
+            args.prev, args.snapshots, args.out,
+            asof=args.asof, state_dir=args.state, jobs=jobs)
+    except StateError as exc:
+        print(f"stopped: {exc}", file=sys.stderr)
+        return 2
     n_changes = sum(len(j["changes"]) for j in evidence["jobs"])
     n_flags = sum(len(j["flags"]) for j in evidence["jobs"])
     print(f"draft: {draft}")
