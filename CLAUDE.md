@@ -101,7 +101,7 @@ skills are scoped to that folder and must not leak into another role.
   change the request asks for stays a person's. The NSW contract price
   split, deposit and progress payments are worked from the request price by
   a fixed rule the same day (issue #62, CD-5.4).
-- **Sanctioned exception (23 Oct 2026, issue #ISSUE, owner sign-off):** the
+- **Sanctioned exception (23 Oct 2026, issue #84, owner sign-off):** the
   Permit Officer workflow makes three kinds of OnSite Companion change, on
   NSW jobs in pre-construction only: tick one of ten named building-approval
   activities complete, add a message to the job or to one of those
@@ -158,7 +158,7 @@ skills are scoped to that folder and must not leak into another role.
   retired. Every OSC change is prepared, shown to the person in plain words with
   the values it overwrites, and sent only on their plain yes, then read back
   (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes and, since
-  23 October 2026, the Permit Officer changes (issue #ISSUE) are possible, each
+  23 October 2026, the Permit Officer changes (issue #84) are possible, each
   tied to the named job and to the workflow that asked for it, and every
   answer is logged under `runtime\<role>\logs\`. Since 15 October 2026 the changes are grouped one
   confirmation per intake stage (new client and job; the job's set-up;

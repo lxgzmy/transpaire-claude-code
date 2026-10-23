@@ -227,7 +227,7 @@ these checks, enforced in code (`osc_mcp/gate.py`), not just in the skills:
    issue #34 (create or update client, person, client and job contact links,
    job; complete an activity; answer an activity question; job or activity
    message), and, under `workflow="permit-officer"` only, the Permit Officer's
-   changes of issue #ISSUE (tick one of ten building-approval activities, job or
+   changes of issue #84 (tick one of ten building-approval activities, job or
    activity message, on NSW jobs in pre-construction). Neither workflow can make
    the other's changes. Anything else, including every DELETE and every
    endpoint that emails or re-templates, is refused. Widening a list is a
@@ -284,7 +284,7 @@ only when the change is sent.
     change as shown, the reply exactly as typed, and what happened. A log
     that cannot be saved is reported with the result, never silently skipped.
 
-The Permit Officer workflow (23 Oct 2026, issue #ISSUE) uses the same batch, one
+The Permit Officer workflow (23 Oct 2026, issue #84) uses the same batch, one
 per job update: a tick, its message and the email attached to it under one
 confirmation. It refuses only what would be wrong (the step before still
 open, a date in the future in Sydney time or before the step before,

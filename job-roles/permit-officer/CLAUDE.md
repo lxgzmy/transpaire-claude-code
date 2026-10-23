@@ -40,7 +40,7 @@ alerts (the internal communication channel), and the per-job Document
 Manager. Claude reads OSC through the **`osc-api-prod` MCP server**
 (project-scoped, the production OnSite Companion since 13 Oct 2026 — see
 `.claude/skills/osc-api/` and `docs/mcp-servers.md`). This role reads OSC
-and, since 23 Oct 2026 (issue #ISSUE, owner sign-off), makes the listed
+and, since 23 Oct 2026 (issue #84, owner sign-off), makes the listed
 building-approval changes through the confirmation gate, each on the permit
 officer's own yes: `workflows/osc-updates.md`. Every read is **live client
 data**, so treat it accordingly. Reads before 13 Oct 2026 came from a dev copy frozen on

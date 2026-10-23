@@ -3,7 +3,7 @@
 Claude keeps the routine building-approval record in OnSite Companion (OSC)
 up to date for the permit officer: it ticks the step, posts the note and files
 the certifier's email, and the officer says yes once per job update. Sanctioned
-on 23 Oct 2026 (issue #ISSUE, owner sign-off; root `CLAUDE.md`). Rules `PO-7`,
+on 23 Oct 2026 (issue #84, owner sign-off; root `CLAUDE.md`). Rules `PO-7`,
 `PO-9`, `PO-13`, `PO-14`.
 
 The weekly BA report (`ba-weekly-report.md`) still writes nothing. This
