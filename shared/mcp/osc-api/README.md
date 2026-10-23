@@ -150,9 +150,10 @@ reachable the same way. Check what's registered and connected with `/mcp`.
 **`osc_get`** performs any of the **101 read** operations below.
 `osc_list_endpoints` and `osc_describe_endpoint` discover and explain any of
 them. The catalogue also lists the API's **76 write** operations for
-reference, but Claude can make **only the 14 contract-intake changes**
-(see [Write safety](#write-safety-human-in-the-loop)); the rest stay a
-person's job in OnSite Companion.
+reference, but Claude can make **only the 14 contract-intake changes** and
+**the Permit Officer's building-approval changes** (see
+[Write safety](#write-safety-human-in-the-loop)); the rest stay a person's job
+in OnSite Companion.
 
 > **Note — some writes are outward-facing or irreversible.** `EmailWorkReleases`
 > actually **sends an email** to a service provider; `Complete`, `NotApplicable`
@@ -236,14 +237,20 @@ osc_prepare_write(
 
 It refuses, with the reason in plain words:
 
-- anything that is not one of the **14 contract-intake changes** (`APPROVED`
-  in `gate.py`): create client, person or job; update client, person or job;
-  add or update a client or job contact; complete an activity; answer an
-  activity question; add a job or activity message. Every DELETE, every
+- anything the asking workflow may not change (`WORKFLOWS` in `gate.py`).
+  `workflow="intake"` (the default) has the **14 contract-intake changes**:
+  create client, person or job; update client, person or job; add or update a
+  client or job contact; complete an activity; answer an activity question;
+  add a job or activity message. `workflow="permit-officer"` has only:
+  complete one of ten building-approval activities, and add a job or
+  activity message, on NSW jobs in `3. Pre-Construction` (or `20. Test Job`),
+  with the extra checks in `job-roles/permit-officer/workflows/osc-updates.md`
+  (the step before done, Sydney-time dates, no completion questions, a `note`
+  on every tick). Every DELETE, every
   endpoint that emails (`EmailWorkReleases`) or re-templates
   (`AddWorkflowTemplate`), `/Contract`, and the rest stay a person's job in OSC;
 - a record that is not tied to `job_id`: the job itself, its client, a
-  contact on the job or its client, or one of its four intake activities (Initial Contact, Follow Up Initial Contact, Create Job within Databuild, Receive EOI Approval to Proceed from Marketer), checked by name because activity numbers differ between workflow templates;
+  contact on the job or its client, or one of the workflow's activities on the job (the intake's four: Initial Contact, Follow Up Initial Contact, Create Job within Databuild, Receive EOI Approval to Proceed from Marketer; the Permit Officer's ten), checked by name because activity numbers differ between workflow templates;
 - a target that is missing, not a single GUID, or matches more than one
   record;
 - a field the record does not have, or a protected one: contract price
@@ -383,6 +390,7 @@ or from `OSC_ENV_FILE` if set. The old `.env` is never read.
 | `OSC_ENABLE_WRITES` | no | Master write switch; default `false`. Set in the committed `.mcp.json` `env` block, which overrides `production.env`. |
 | `OSC_TIMEOUT` | no | Per-request timeout (seconds), default 30 (`.mcp.json` sets 120). |
 | `OSC_UPLOAD_ROOTS` | no | `;`-separated absolute directories an attachment may be read from; default the checkout's git-ignored `runtime\` folder. |
+| `OSC_LOG_ROOT` | no | Absolute directory for the write logs (`<root>\<role>\logs\osc-writes.jsonl`, one line per answered confirmation with the reply as typed); default the checkout's git-ignored `runtime\` folder. |
 | `OSC_STALE_AFTER_DAYS` | no | Writes refused when the newest job is older than this; default 30. |
 | `OSC_APPROVAL_MINUTES` | no | Life of a confirmation code; default 30. |
 | `OSC_API_VERSION` | no | Sent as the `api-version` header on every call, the token request included; default `7.3`. The production API answers HTTP 400 ("The 'api-version' header must be included") without it. The retired dev install never asked for it. |
@@ -436,7 +444,11 @@ wording and current values, only approved fields sent and everything else
 kept, cancel, no reply, unclear replies, expired and reused codes, re-confirming
 when the record or request changes, wrong-job and ambiguous targets, refused
 routes and protected fields, the stale-copy check, attachments and send
-failures. `tests/test_contract_support.py` covers spec introspection and
+failures. `tests/test_permit_officer.py` covers the Permit Officer workflow:
+its own allow-list, NSW pre-construction jobs only, the step before, Sydney-time
+dates (no time-zone database on the server), completion questions, warnings
+inside the one confirmation, a batch re-asked under the same workflow, and the
+write log. `tests/test_contract_support.py` covers spec introspection and
 configuration.
 
 Live acceptance still needs an agreed job on production: the tests do not

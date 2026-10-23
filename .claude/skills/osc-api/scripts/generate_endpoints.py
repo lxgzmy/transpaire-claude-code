@@ -52,7 +52,7 @@ def main() -> None:
         "",
         "`[WRITE]` marks operations that change the system of record — those go",
         "through `osc_prepare_write` (or `osc_prepare_changes`) and `osc_confirm_write`, and only the",
-        "contract-intake changes the gate approves are possible (see SKILL.md).",
+        "contract-intake and Permit Officer changes the gate approves are possible (see SKILL.md).",
         "",
     ]
 

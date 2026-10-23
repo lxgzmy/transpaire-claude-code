@@ -44,7 +44,8 @@ testing folder (see `../reference/README.md`).
 
 ## Explicitly out of scope
 
-- Writing anything to OSC.
+- Writing anything to OSC. The report only reads; the officer's OSC
+  record-keeping through Claude is its own workflow (`osc-updates.md`).
 - Reading or operating the QLD certifier portal (PO-14) — portal-only facts
   stay manual and are marked as such in the draft.
 - Deciding whether an RFI item is satisfied when evidence conflicts —
@@ -141,7 +142,7 @@ Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
 1. **OSC access — CLEARED.** The `osc-api-prod` MCP server reads the
    production OnSite Companion (since 13 Oct 2026; before that the reads came
    from a dev copy frozen on 21 Aug 2026; see `.claude/skills/osc-api/`). This
-   workflow makes no OSC change. Still
+   workflow makes no OSC change (`osc-updates.md` does, on the officer's yes). Still
    required before code: a **field-mapping pass** against real jobs —
    how to enumerate BA-stage jobs (the Executive Reporter filter's
    equivalent), activity completion semantics, alert recipients and

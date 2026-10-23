@@ -223,14 +223,18 @@ Config        OSC_* settings in the git-ignored production.env; nothing in the r
 Writing changes the system of record staff work from, so every change passes
 these checks, enforced in code (`osc_mcp/gate.py`), not just in the skills:
 
-1. **Approved changes only.** The 14 contract-intake changes of issue #34
-   (create or update client, person, client and job contact links, job;
-   complete an activity; answer an activity question; job or activity message).
-   Anything else, including every DELETE and every endpoint that emails or
-   re-templates, is refused. Widening the list is a reviewed code change.
+1. **Approved changes only, per workflow.** The 14 contract-intake changes of
+   issue #34 (create or update client, person, client and job contact links,
+   job; complete an activity; answer an activity question; job or activity
+   message), and, under `workflow="permit-officer"` only, the Permit Officer's
+   changes of issue #84 (tick one of ten building-approval activities, job or
+   activity message, on NSW jobs in pre-construction). Neither workflow can make
+   the other's changes. Anything else, including every DELETE and every
+   endpoint that emails or re-templates, is refused. Widening a list is a
+   reviewed code change.
 2. **Tied to the job.** Each change names the job it is for (`job_id`), and the
    gate checks the record belongs to it: the job itself, its client, a contact
-   on it, or one of its four intake activities, checked by name (activity numbers differ between workflow templates). A missing, unknown or ambiguous target
+   on it, or one of the asking workflow's activities on it (the intake's four, the Permit Officer's ten), checked by name (activity numbers differ between workflow templates). A missing, unknown or ambiguous target
    (no match, or more than one) is refused.
 3. **Protected fields.** Contract price (DataBuild only), contract number
    (OSC generates it), region of an existing job, and the DataBuild client code
@@ -273,6 +277,21 @@ that fails or no longer matches, with a new confirmation for the rest.
 Message attachments add a tenth: a file is read only from a directory listed in
 `OSC_UPLOAD_ROOTS` (default the checkout's git-ignored `runtime\` folder), and
 only when the change is sent.
+
+11. **Write log.** Every answered confirmation, sent or not, is one line in
+    `runtime\<role>\logs\osc-writes.jsonl` (`OSC_LOG_ROOT`; `contract-admin`
+    for the intake, `permit-officer` for the Permit Officer): the job, each
+    change as shown, the reply exactly as typed, and what happened. A log
+    that cannot be saved is reported with the result, never silently skipped.
+
+The Permit Officer workflow (23 Oct 2026, issue #84) uses the same batch, one
+per job update: a tick, its message and the email attached to it under one
+confirmation. It refuses only what would be wrong (the step before still
+open, a date in the future in Sydney time or before the step before,
+completion questions, two open activities of the same name, a QLD or
+non-pre-construction job); a back-dated tick, a payment tick and a BA tick
+while the RFI is still out are single lines inside that confirmation.
+`job-roles/permit-officer/workflows/osc-updates.md` has the run.
 
 ### Credentials
 
