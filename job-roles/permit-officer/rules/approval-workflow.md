@@ -101,12 +101,17 @@ testable; open questions are marked ❓.
 
   Every open item is yellow or red; there is no unflagged state. The
   earlier single 5-day default from the discovery meeting is superseded.
-  Six defaults are **assumed until the owner confirms them** (asked on #29):
-  Certifier → External consultants; Client → Internal; water authorities
-  (Sydney Water, Altogether) → Council; business days exclude NSW public
-  holidays; a resolved item stays on the report for one cycle (the Monday
-  after it resolves) then drops; the fill colour on a job row shows the
-  worst open item, with each item's own flag written as text.
+  Six defaults were **confirmed by the permit officer on 17 Sep 2026**
+  (asked on #29): Certifier → External consultants; Client → Internal;
+  water authorities (Sydney Water, Altogether) → Council; business days
+  exclude NSW public holidays; a resolved item stays on the report for one
+  cycle (the Monday after it resolves) then drops; the fill colour on a job
+  row shows the worst open item, with each item's own flag written as text
+  (per-item colour was declined as too convoluted for the main sheet; since
+  v0.3 the one-row-per-item **Items** sheet carries it instead, and the
+  main sheet stays the export column for column). Still open with the
+  officer (issue #79): whether the engineering and covenant columns added
+  to the export on 28 Sep 2026 are aged like RFI items or carried verbatim.
 
 ## Pre-lodgement checklist
 
