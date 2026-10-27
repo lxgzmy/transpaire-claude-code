@@ -470,6 +470,9 @@ class Plan:
     workflow: str = INTAKE
     # Activities an earlier change in the same batch completes (name -> date): they count as done.
     earlier: dict[str, str] = field(default_factory=dict)
+    # A create's duplicate search, kept to find the new record when OSC's answer does not name it:
+    # (path, filter, GET body, page size, the IDs it found just before sending).
+    created_search: tuple[str, str, Any, int, frozenset[str]] | None = None
 
     @property
     def fingerprint(self) -> str:
@@ -1061,8 +1064,10 @@ class Gate:
                 raise GateError(f"{label(part)} must be given (an empty group is fine where nothing is sourced).")
         # Case-insensitive, and every word of the name in any order: OSC holds clients that differ
         # only by case, and "Given SURNAME & Given SURNAME" is typed in either order.
-        rows = await self._find("/api/Clients", f"tolower(name) eq '{_q(name.lower())}'", "clients", top=50)
+        flt = f"tolower(name) eq '{_q(name.lower())}'"
+        rows = await self._find("/api/Clients", flt, "clients", top=50)
         exact = {str(r.get("clientID")).lower() for r in rows}
+        plan.created_search = ("/api/Clients", flt, None, 50, frozenset(exact))
         words = [w for w in re.split(r"[\s,&]+", name.lower()) if len(w) > 1 and w not in NAME_FILLER][:4]
         similar = []
         if len(words) >= 2:
@@ -1089,9 +1094,10 @@ class Gate:
             if not isinstance(body.get(part), dict):
                 raise GateError(f"{label(part)} must be given (an empty group is fine where nothing is sourced).")
         given, surname = str(body.get("givenName") or "").strip(), str(body.get("surname") or "").strip()
-        rows = await self._find("/api/Persons", f"tolower(givenName) eq '{_q(given.lower())}' and "
-                                                f"tolower(surname) eq '{_q(surname.lower())}'", "people", top=50)
+        flt = f"tolower(givenName) eq '{_q(given.lower())}' and tolower(surname) eq '{_q(surname.lower())}'"
+        rows = await self._find("/api/Persons", flt, "people", top=50)
         plan.reads["same_name"] = sorted(str(r.get("personID")).lower() for r in rows)
+        plan.created_search = ("/api/Persons", flt, None, 50, frozenset(plan.reads["same_name"]))
         whole = " ".join(x for x in (given, surname) if x)
         if rows:
             plan.warnings.append(f"OnSite Companion already has {len(rows)} person(s) called \"{whole}\". "
@@ -1143,12 +1149,15 @@ class Gate:
         if lot:
             # Every job on the lot number, cancelled ones included. Lot numbers repeat across estates
             # (one is on 28 production jobs, 15 Oct 2026), so a short page could hide the real twin.
-            rows = await self._find("/api/Jobs", f"siteAddress/lotNumber eq '{_q(lot)}'", "jobs on the same lot",
-                                    {"shouldShowMyJobsOnly": False}, top=LOT_PAGE)
+            flt = f"siteAddress/lotNumber eq '{_q(lot)}'"
+            rows = await self._find("/api/Jobs", flt, "jobs on the same lot", {"shouldShowMyJobsOnly": False},
+                                    top=LOT_PAGE)
             if len(rows) >= LOT_PAGE:
                 raise GateError(f"More than {LOT_PAGE - 1} jobs use lot {lot}, so they could not all be checked "
                                 "for a duplicate. A person creates this job in OnSite Companion.")
             plan.reads["same_lot"] = sorted(str(r.get("jobID")).lower() for r in rows)
+            plan.created_search = ("/api/Jobs", flt, {"shouldShowMyJobsOnly": False}, LOT_PAGE,
+                                   frozenset(plan.reads["same_lot"]))
             suburb = str(site.get("suburb") or "").strip().upper()
             here = [r for r in rows if not suburb
                     or str((r.get("siteAddress") or {}).get("suburb") or "").strip().upper() == suburb]
@@ -1522,10 +1531,37 @@ class Gate:
             return {"ok": False, "sent": True, "state": "failed", "status": res.get("status"), "data": res.get("data"),
                     "result_text": f"OnSite Companion refused the change (HTTP {res.get('status')}). Nothing "
                                    f"was changed. {str(detail)[:300]}".strip()}
-        verification = await self._verify(plan, res.get("data"))
-        return {"ok": verification["verified"], "sent": True, "status": res.get("status"), "data": res.get("data"),
+        data, searched = res.get("data"), False
+        key = CREATED_ID.get(plan.rule.kind) if plan.rule else None
+        if key:
+            # Production's answer to a create did not name the new record the way the gate expected
+            # (job 26059, 23 Oct 2026), so every new record read back as unverified: take the ID in
+            # whatever form the answer gives it, else find the one new record by the plan's own search.
+            new_id = _created_id(res, key)
+            if not new_id:
+                new_id, searched = await self._find_created(plan, key), True
+            data = {key: new_id} if new_id else data
+        verification = await self._verify(plan, data)
+        if searched and verification["verified"]:
+            verification["text"] += (" OnSite Companion's reply did not include the new record's ID, so it was "
+                                     "found by searching: the one new record that matches.")
+        return {"ok": verification["verified"], "sent": True, "status": res.get("status"), "data": data,
                 "state": "verified" if verification["verified"] else "sent_unverified",
                 "verification": verification, "result_text": verification["text"]}
+
+    async def _find_created(self, plan: Plan, key: str) -> str | None:
+        """The ID of the record a create just made, when OSC's answer does not name it: the plan's
+        duplicate search run again, less the IDs it found just before sending. Only exactly one new
+        record counts - none or several and the change stays unverified."""
+        if not plan.created_search:
+            return None
+        path, flt, body, top, before = plan.created_search
+        try:
+            rows = await self._find(path, flt, "the new record", body, top=top)
+        except GateError:
+            return None
+        new = {str(r.get(key)).lower() for r in rows if GUID.fullmatch(str(r.get(key) or ""))} - before
+        return new.pop() if len(new) == 1 else None
 
     # ---- read-back ------------------------------------------------------
     async def _verify(self, plan: Plan, data: Any) -> dict[str, Any]:
@@ -1669,6 +1705,17 @@ class Gate:
                 f"The message was sent{where}, but the read-back found a problem ({'; '.join(problems)}). "
                 "Check it in OnSite Companion before sending it again.")
         return {"verified": ok, "message_id": message_id, "attachments": len(documents), "text": text}
+
+
+def _created_id(res: dict[str, Any], key: str) -> str | None:
+    """The new record's ID from OSC's answer to a create, in whatever form it comes: its ID field
+    (any letter case), the ID on its own, or the Location header's last path segment."""
+    data = res.get("data")
+    candidates = ([v for k, v in data.items() if k.lower() == key.lower()] if isinstance(data, dict)
+                  else [data])
+    candidates += [str(res.get("text") or "").strip().strip('"'),
+                   str(res.get("location") or "").rstrip("/").rsplit("/", 1)[-1]]
+    return next((str(c) for c in candidates if GUID.fullmatch(str(c or ""))), None)
 
 
 def _swap(text: str, ids: dict[str, str]) -> str:

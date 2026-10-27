@@ -604,6 +604,81 @@ class BatchTests(GateTestCase):
         self.assertEqual(f.writes, [])
 
 
+class CreateReplyTests(GateTestCase):
+    """Production did not answer a create the way this fake did (job 26059, 23 Oct 2026): every new
+    client, person and job was made but read back as "sent, not verified", which stopped its stage, so
+    the person confirmed five times instead of three. Whatever the answer looks like, the new record is
+    found, read back field by field and used by the changes after it - or, when that cannot be done
+    with certainty, the stage still stops."""
+
+    async def batch(self, changes, job_id=""):
+        return await server.osc_prepare_changes(job_id, changes)
+
+    def stage_one(self, surname="NEWBUYER", lot="77"):
+        site = {"line1": "NEW ROAD", "suburb": "BOX HILL", "state": "NSW", "postcode": "2765"}
+        if lot:
+            site["lotNumber"] = lot
+        return [
+            {"method": "POST", "path": "/api/Clients",
+             "body": {"name": f"Jamie {surname}", "postalAddress": {"line1": "5 HOME STREET", "suburb": "TESTVILLE",
+                                                                    "state": "NSW", "postcode": "2000"},
+                      "workAddress": {}, "workContactDetails": {}}},
+            {"method": "POST", "path": "/api/Jobs",
+             "body": {"clientID": "{{1.clientID}}", "regionID": self.fake.region_nsw,
+                      "workflowTemplateID": self.fake.template, "siteAddress": site}},
+        ]
+
+    async def test_a_new_intake_takes_one_yes_per_stage_whatever_the_create_answer(self):
+        f = self.fake
+        for n, mode in enumerate(("id", "pascal", "bare", "location", "empty")):
+            with self.subTest(create_reply=mode):
+                f.create_reply = mode
+                surname = f"NEWBUYER{'ABCDE'[n]}"
+                stage_one = await self.batch(self.stage_one(surname, lot=str(71 + n)))
+                done = await server.osc_confirm_write(stage_one["confirmation_code"], "yes")
+                self.assertTrue(done["ok"], done)
+                self.assertEqual([c["state"] for c in done["changes"]], ["verified", "verified"])
+                client_id, job_id = done["created"]["{{1.clientID}}"], done["created"]["{{2.jobID}}"]
+                self.assertEqual(f.clients[client_id]["name"], f"Jamie {surname}")
+                self.assertEqual(f.jobs[job_id]["clientID"], client_id)
+                if mode == "empty":
+                    self.assertIn("found by searching", done["changes"][0]["result_text"])
+                stage_two = await self.batch([
+                    {"method": "POST", "path": "/api/Persons",
+                     "body": {"givenName": "Jamie", "surname": surname,
+                              "personalContactDetails": {"email": f"jamie.{n}@example.invalid"},
+                              "personalAddress": {}, "postalAddress": {}, "workAddress": {}, "workContactDetails": {}}},
+                    {"method": "POST", "path": f"/api/Clients/{client_id}/Contacts/{{{{1.personID}}}}",
+                     "body": {"relationship": "Client Contact", "isPrimaryContact": True}},
+                ], job_id=job_id)
+                done = await server.osc_confirm_write(stage_two["confirmation_code"], "yes")
+                self.assertTrue(done["ok"], done)
+                person_id = done["created"]["{{1.personID}}"]
+                self.assertEqual(f.persons[person_id]["surname"], surname)
+                self.assertIn((client_id, person_id), {(c["clientID"], c["personID"]) for c in f.client_contacts})
+
+    async def test_two_new_records_that_match_are_never_guessed_between(self):
+        f = self.fake
+        f.create_reply = "empty"
+
+        def someone_else_adds_the_same_client(route, new_id):
+            if route == "Clients":
+                f.add_client("Jamie NEWBUYER")
+        f.create_hook = someone_else_adds_the_same_client
+        out = await self.batch(self.stage_one())
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "sent_unverified")
+        self.assertEqual(len(f.writes), 1, "the job is not sent without a client the gate is sure of")
+
+    async def test_a_new_job_with_no_lot_number_is_not_guessed_either(self):
+        self.fake.create_reply = "empty"
+        out = await self.batch(self.stage_one(lot=None))
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual([c["state"] for c in result["changes"]], ["verified", "sent_unverified"])
+
+
 class DuplicateCheckTests(GateTestCase):
     async def test_client_names_match_whatever_the_case_or_order(self):
         body = {"postalAddress": {}, "workAddress": {}, "workContactDetails": {}}

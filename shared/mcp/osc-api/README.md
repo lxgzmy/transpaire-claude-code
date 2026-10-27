@@ -444,7 +444,14 @@ wording and current values, only approved fields sent and everything else
 kept, cancel, no reply, unclear replies, expired and reused codes, re-confirming
 when the record or request changes, wrong-job and ambiguous targets, refused
 routes and protected fields, the stale-copy check, attachments and send
-failures. `tests/test_permit_officer.py` covers the Permit Officer workflow:
+failures, and new records read back whatever OSC's answer to the create
+looks like (its ID field in any case, the ID alone, a Location header, or
+nothing - then the one new record the plan's duplicate search finds; two
+new matches, or a job with no lot number, stay unverified). That last one
+is from the first live intake (job 26059, 23 Oct 2026): production's answers
+named nothing the gate could read, so each new client, person and job read
+back as unverified and stopped its stage - five confirmations, not three.
+`tests/test_permit_officer.py` covers the Permit Officer workflow:
 its own allow-list, NSW pre-construction jobs only, the step before, Sydney-time
 dates (no time-zone database on the server), completion questions, warnings
 inside the one confirmation, a batch re-asked under the same workflow, and the

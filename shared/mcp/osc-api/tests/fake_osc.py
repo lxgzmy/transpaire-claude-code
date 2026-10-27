@@ -35,12 +35,24 @@ def _now(days_ago: int = 0) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+class Reply:
+    """A reply that is not a plain JSON body: the body as given (None: empty) and any headers."""
+
+    def __init__(self, body=None, headers=None):
+        self.body, self.headers = body, headers or {}
+
+
 class FakeOSC:
     def __init__(self, newest_job_days_ago: int = 1):
         self.writes: list[dict] = []      # every write that reached the API
         self.patch_hook = None            # optional f(kind, record) run after a PATCH (to simulate faults)
         self.fail_write = None            # optional f(write) -> HTTP status to refuse that write with
         self.keep_documents = True        # False: a message is saved but its attachment is lost
+        # How a create answers: "id" {"clientID": ...}; "pascal" {"ClientID": ...}; "bare" the ID as a
+        # JSON string; "location" an empty body and a Location header; "empty" nothing that names it.
+        # Production's 23 Oct 2026 answers named nothing the gate could read (job 26059).
+        self.create_reply = "id"
+        self.create_hook = None           # optional f(kind, new_id) run after a create (to simulate faults)
         self.numbers = itertools.count(26100)
         self.region_nsw, self.region_qld = _id(), _id()
         self.regions = [{"regionID": self.region_nsw, "description": "SYDNEY01", "isActive": True},
@@ -266,6 +278,20 @@ class FakeOSC:
             else:
                 target[key] = value
 
+    def _created(self, key, new_id, route):
+        if self.create_hook:
+            self.create_hook(route, new_id)
+        mode = self.create_reply
+        if mode == "pascal":
+            return 201, {key[0].upper() + key[1:]: new_id}
+        if mode == "bare":
+            return 201, new_id
+        if mode == "location":
+            return 201, Reply(headers={"Location": f"{CONTEXT_HOST}/api/{route}/{new_id}"})
+        if mode == "empty":
+            return 201, Reply()
+        return 201, {key: new_id}
+
     def _write(self, method, path, parts, body, form, files):
         p = [x.lower() for x in parts]
         if method == "PATCH" and p[:2] == ["api", "jobs"] and len(p) == 3:
@@ -290,17 +316,17 @@ class FakeOSC:
         if method == "POST" and p == ["api", "clients"]:
             cid = self.add_client(body["name"])
             self._merge(self.clients[cid], body)
-            return 201, {"clientID": cid}
+            return self._created("clientID", cid, "Clients")
         if method == "POST" and p == ["api", "persons"]:
             pid = self.add_person(body.get("givenName"), body.get("surname"))
             self._merge(self.persons[pid], body)
-            return 201, {"personID": pid}
+            return self._created("personID", pid, "Persons")
         if method == "POST" and p == ["api", "jobs"]:
             site = body["siteAddress"]
             jid = self.add_job(body["clientID"], str(next(self.numbers)), site.get("lotNumber"), site.get("line1"),
                                site.get("suburb"), site.get("postcode"), days_ago=0)
             self.jobs[jid]["customFieldValues"] = copy.deepcopy(body.get("customFieldValues") or [])
-            return 201, {"jobID": jid}
+            return self._created("jobID", jid, "Jobs")
         if method in ("POST", "PATCH") and p[:2] == ["api", "clients"] and len(p) == 5 and p[3] == "contacts":
             rows = [c for c in self.client_contacts if c["clientID"] == parts[2] and c["personID"] == parts[4]]
             if method == "POST":
@@ -383,6 +409,9 @@ def transport(fake: FakeOSC) -> httpx.MockTransport:
         status, data = _dispatch(fake, request.method, request.url.path, dict(request.url.params),
                                  request.headers.get("content-type", ""), content,
                                  {k.lower(): v for k, v in request.headers.items()})
+        if isinstance(data, Reply):
+            return httpx.Response(status, content=b"" if data.body is None else json.dumps(data.body).encode(),
+                                  headers=data.headers)
         return httpx.Response(status, json=data)
     return httpx.MockTransport(handler)
 
@@ -397,10 +426,17 @@ def serve(fake: FakeOSC) -> tuple[ThreadingHTTPServer, str]:
             status, data = _dispatch(fake, self.command, url.path, dict(parse_qsl(url.query)),
                                      self.headers.get("content-type", ""), content,
                                      {k.lower(): v for k, v in self.headers.items()})
-            out = json.dumps(data).encode()
+            headers = {}
+            if isinstance(data, Reply):
+                data, headers = data.body, data.headers
+                out = b"" if data is None else json.dumps(data).encode()
+            else:
+                out = json.dumps(data).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(out)))
+            for name, value in headers.items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(out)
 
