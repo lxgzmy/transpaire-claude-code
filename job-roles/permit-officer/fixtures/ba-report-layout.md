@@ -55,18 +55,23 @@ them to their own rows.
 Rows are in main-sheet order: pending items first (in PENDING order), then
 engineering and covenant when they are tracked from their columns but not
 on the RFI list (PO-11b), then the items resolved this cycle. Non-pilot jobs
-have no rows.
+have no rows. The header row stays in view while scrolling (frozen).
 
 The officer's base is a plain export with no Items sheet, so her changes
 are read from **last week's draft as she left it** (`--edited`), compared
-cell by cell with the same draft as written: a new *Assigned to*, a typed
-*Date submitted* (an emptied one means not yet submitted), a *Date
-resolved*, and her *Notes*. Rows are matched by **Job No. + Item** (names
-compared after dropping the parenthetical and punctuation,
-case-insensitively), then by evidence family, so a renamed item ("SEW
-EJECTION" to "SEWER EJECTION") keeps her values. A change to an item that
-has since left her report is noted, not used. Officer-typed values win and
-stick from then on. On the 22.10.2026 draft, the first she edited, Notes
+cell by cell with the same draft as delivered (`outputs\delivered\`): a new
+*Assigned to*, a typed *Date submitted* (an emptied one means not yet
+submitted), a *Date resolved*, and her *Notes*. A date typed as 12.10.2026,
+12-10-2026 or 12/10/26 is read; one that cannot be read ("TBC") is reported
+and not used, never taken as emptied. Rows are matched by **Job No. + Item**
+(names compared after dropping the parenthetical and punctuation,
+case-insensitively); failing that, by evidence family only for a genuine
+rename (a similar name that is new this week, "SEW EJECTION" to "SEWER
+EJECTION"), and a rename never carries her *Date resolved*. A change to an
+item that has since left her report, or whose list has closed, is noted, not
+used. Officer-typed values win and stick from then on; they follow the item
+when a second item of its family joins or leaves the list, and a resolved
+engineering or covenant cycle stays closed until a newer step is dated. On the 22.10.2026 draft, the first she edited, Notes
 held the draft's text too; her own words are taken out of it once.
 
 A base that does carry an Items sheet (an officer-edited draft filed as the

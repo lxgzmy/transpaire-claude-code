@@ -57,7 +57,21 @@ testing folder (see `../reference/README.md`).
 ## How to run (v0.4 — the pilot, from week 1 on Monday 2 November 2026)
 
 Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**. Each Monday
-for 3–4 weeks:
+for 3–4 weeks, from the repo root:
+
+```
+python job-roles\permit-officer\scripts\ba_weekly_run.py --dry-run
+python job-roles\permit-officer\scripts\ba_weekly_run.py
+```
+
+It does steps 0 to 2 below and delivers the draft and its evidence note to
+the drop folder. It stops, with nothing half done, when last week's export
+is not in the archive yet (it never falls back to an older one), when the
+snapshot fails, or when the drop folder already holds a different draft for
+that Monday (she may have started on it; `--force` only once you know it can
+go). It keeps a copy of what it delivered in `outputs\delivered\`, so next
+week her edits are read against exactly what she was given. The steps, for
+reference or to run by hand:
 
 0. **Base report.** Copy the officer's latest export from the BA REPORTS
    archive under `Z:\ADMINISTRATION` into `runtime\permit-officer\reports\`
@@ -145,21 +159,22 @@ for 3–4 weeks:
 ### Week 1 restart (Monday 2 November 2026, agreed with the officer 27 Oct)
 
 The first week starts clean: nothing from the September test is carried,
-only the corrections she typed on the 22.10.2026 preview.
+only the corrections she typed on the 22.10.2026 preview. From the repo
+root, check first, then run:
 
-1. Rename the September-test state:
-   `state\ba-items-first-seen.json` → `state\ba-items-first-seen.september-test.json`
-   (and its `.prev.json`, if present). Nothing is deleted.
-2. Base: her 26.10.2026 export (`reports\BA REPORT - 26.10.2026.xlsx`).
-3. Snapshot as in step 1, then draft with
-   `--edited "runtime\permit-officer\reports\BA REPORT DRAFT - 22.10.2026 (officer-edited).xlsx"`
-   and `--drafted "runtime\permit-officer\outputs\BA REPORT DRAFT - 22.10.2026.xlsx"`.
-4. Deliver the draft and its evidence to the drop folder.
+```
+python job-roles\permit-officer\scripts\ba_weekly_run.py --asof 2026-11-02 --restart september-test --dry-run
+python job-roles\permit-officer\scripts\ba_weekly_run.py --asof 2026-11-02 --restart september-test
+```
 
-Rehearsed on 27 Oct 2026 against that base and a same-day production
-snapshot: all 13 of her changed rows were read back. Her renamed item kept
-its values, and the main sheet differed from her export only where OSC
-filled a blank BA Received.
+`--restart` renames the state to `ba-items-first-seen.september-test.json`
+(nothing is deleted). Her 22.10.2026 edits are read from the drop folder
+against `outputs\BA REPORT DRAFT - 22.10.2026.xlsx`.
+
+Rehearsed on 27 Oct 2026 with the real archive, a copy of the drop folder
+and state, and a same-day production snapshot: all 13 of her changed rows
+were read back. Her renamed item kept its values, and the main sheet
+differed from her export only where OSC filled a blank BA Received.
 
 Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
 

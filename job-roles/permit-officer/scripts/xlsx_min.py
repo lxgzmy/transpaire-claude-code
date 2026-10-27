@@ -144,10 +144,14 @@ def _col_letter(n):
     return c
 
 
-def _sheet_xml(rows, col_widths=None):
+def _sheet_xml(rows, col_widths=None, freeze_rows=0):
     """Worksheet XML for one sheet (see write_workbook for the cell model)."""
     lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
              '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">']
+    if freeze_rows:  # header rows stay in view while scrolling (sheetViews precedes cols)
+        lines.append(f'<sheetViews><sheetView workbookViewId="0"><pane ySplit="{freeze_rows}" '
+                     f'topLeftCell="A{freeze_rows + 1}" activePane="bottomLeft" state="frozen"/>'
+                     '</sheetView></sheetViews>')
     if col_widths:
         lines.append("<cols>")
         for col, width in sorted(col_widths.items(), key=lambda kv: col_index(kv[0])):
@@ -180,7 +184,7 @@ def _sheet_xml(rows, col_widths=None):
 def write_workbook(path, sheets):
     """Write a workbook with one or more sheets.
 
-    sheets: list of (sheet_name, rows, col_widths) in workbook order. rows is
+    sheets: list of (sheet_name, rows, col_widths[, freeze_rows]) in workbook order. rows is
     a list of rows; each row is a list of cells; each cell is either a plain
     value (str/int/float/None) or a (value, style_index) tuple using the S_*
     constants. Numeric values are written as numbers (so Excel date serials +
@@ -207,7 +211,7 @@ def write_workbook(path, sheets):
                  '</Relationships>')
     sheet_tags = "".join(
         f'<sheet name="{escape(name)}" sheetId="{i}" r:id="rId{i}"/>'
-        for i, (name, _rows, _w) in enumerate(sheets, 1))
+        for i, (name, *_) in enumerate(sheets, 1))
     workbook = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
                 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
@@ -227,8 +231,8 @@ def write_workbook(path, sheets):
         z.writestr("xl/workbook.xml", workbook)
         z.writestr("xl/_rels/workbook.xml.rels", wb_rels)
         z.writestr("xl/styles.xml", _STYLES_XML)
-        for i, (_name, rows, col_widths) in enumerate(sheets, 1):
-            z.writestr(f"xl/worksheets/sheet{i}.xml", _sheet_xml(rows, col_widths))
+        for i, (_name, rows, col_widths, *rest) in enumerate(sheets, 1):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", _sheet_xml(rows, col_widths, *rest))
 
 
 def write_xlsx(path, rows, sheet_name="Sheet 1", col_widths=None):

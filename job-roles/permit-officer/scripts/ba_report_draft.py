@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draft the Monday BA report from last week's report + OSC snapshots (v0.3).
+"""Draft the Monday BA report from last week's report + OSC snapshots (v0.4).
 
 Deterministic merge (no network): reads last week's report (carry-forward
 base, PO-10), per-job OSC snapshot JSONs saved by the snapshot step, and a
@@ -12,9 +12,12 @@ column (columns located by header text, so the 28 Sep 2026 template with
 its engineering and covenant columns carries through verbatim); the Job No.
 cell takes the row's worst-item colour. Per-item values go on a second
 sheet, **Items** (one row per item: Job No., Item, Assigned to, Date
-submitted, Date resolved, Days outstanding, Flag, Notes), which is also
-where the officer types corrections — the drafter reads them back by Job
-No. + Item. The v0.2 L-O columns are no longer written.
+submitted, Date resolved, Days outstanding, Flag, Notes, Draft notes), which
+is also where the officer types corrections. Her base is a plain export, so
+v0.4 reads them from last week's draft as she left it (``--edited``) and
+keeps them; Notes is her own column. Engineering and covenant are also
+tracked from their export columns (PO-11b). The v0.2 L-O columns are no
+longer written.
 
 Ageing model (PO-11, confirmed on issue #29, 10 Sep 2026): per outstanding
 item, ASSIGNED TO, DATE SUBMITTED, DATE RESOLVED and DAYS OUTSTANDING in
@@ -293,8 +296,18 @@ def item_keys(names):
     return [f"{k}: {norm_item(n)}" if fams.count(k) > 1 else k for k, n in zip(fams, names)]
 
 
+def _alike(a, b):
+    """Two names mostly made of the same words (at least half of all their words shared):
+    "SEW EJECTION PUMP APPROVAL" and "SEWER EJECTION PUMP APPROVAL" are, "S68 APPLICATION" and
+    "S68 APPROVAL" are not."""
+    wa, wb = (set(re.findall(r"[A-Z0-9]+(?:\.[A-Z0-9]+)*", re.sub(r"\([^)]*\)", "", s.upper()))) for s in (a, b))
+    return bool(wa and wb) and len(wa & wb) / len(wa | wb) >= 0.5
+
+
 def _edit_text(e):
     parts = []
+    if e.get("note"):
+        parts.append(f"note \"{e['note'][:80]}{'...' if len(e['note']) > 80 else ''}\"")
     if "assigned_to" in e:
         parts.append(f"assigned to \"{e['assigned_to']}\"" if e["assigned_to"] else "assigned-to cleared")
     if "date_submitted" in e:
@@ -302,8 +315,8 @@ def _edit_text(e):
                      else "date submitted emptied (not yet submitted)")
     if e.get("date_resolved"):
         parts.append(f"resolved {_ddmmyyyy(e['date_resolved'])}")
-    if "note" in e:
-        parts.append("note updated" if e["note"] else "note cleared")
+    if "note" in e and not e["note"]:
+        parts.append("note cleared")
     return "your Items sheet: " + ", ".join(parts)
 
 
@@ -449,11 +462,17 @@ def column_cycle(key, row, snapshot):
         return None
     since, step = max(dated)
     closed, closed_raw = _column_date(row, spec["closing"])
+    not_applicable = bool(re.match(r"^\s*(N/?A|NOT APPLICABLE)\b", str(closed_raw or ""), re.I))
     if snapshot:
-        osc = [_iso_day(a["completionDate"]) for a in snapshot.get("activities", [])
-               if re.search(spec["closing_activity"], a.get("description") or "", re.I)
-               and a.get("completionDate") and not a.get("isNotApplicable")]
+        steps_osc = [a for a in snapshot.get("activities", [])
+                     if re.search(spec["closing_activity"], a.get("description") or "", re.I)]
+        osc = [_iso_day(a["completionDate"]) for a in steps_osc
+               if a.get("completionDate") and not a.get("isNotApplicable")]
         closed = max([d for d in [closed] + osc if d], default=None)
+        not_applicable = not_applicable or (bool(steps_osc) and all(a.get("isNotApplicable") for a in steps_osc))
+    if not_applicable:
+        return {"since": since, "done_on": since, "not_applicable": True,
+                "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}, marked not applicable"}
     done_on = closed if closed and closed >= since else None
     if done_on:
         after = f"{spec['closed']} {_ddmmyyyy(done_on)}"
@@ -638,10 +657,13 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     if item.get("date_submitted"):
         entry.pop("not_submitted", None)
     column_since = item.get("column_since")
-    if column_since and entry.get("date_source") == "officer" and (entry.get("date_submitted") or "") < column_since:
-        # a newer step in the item's columns starts a new cycle; her date was for the last one
-        entry.update(date_source=None, date_submitted=None)
-        entry.pop("not_submitted", None)
+    if column_since and entry.get("date_source") == "officer":
+        # Her date (or "not yet submitted") belongs to the cycle current when she gave it; only a
+        # newer step in the item's columns starts a new cycle and replaces it.
+        if column_since > entry.setdefault("date_cycle", column_since):
+            entry.update(date_source=None, date_submitted=None)
+            entry.pop("not_submitted", None)
+            entry.pop("date_cycle", None)
     if entry.get("not_submitted"):
         submitted, dsrc = None, "officer: not yet submitted"
     else:
@@ -675,6 +697,7 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     else:
         flag = "YELLOW" if days <= threshold else "RED"
 
+    entry["item"] = norm_item(item["name"])  # which item a shared-family entry belongs to
     item.update({"assigned_to": assigned, "assigned_source": src, "tier": tier,
                  "threshold": threshold, "date_submitted": submitted,
                  "date_source": dsrc, "days": days, "flag": flag,
@@ -707,6 +730,7 @@ def apply_officer_edit(entry, edit, source):
         else:  # cleared: back to what the evidence says
             entry.update(assigned_to=None, assigned_source=None, ai_assigned_to=None)
     if "date_submitted" in edit:
+        entry.pop("date_cycle", None)  # set again from the item's columns when it is aged
         if edit["date_submitted"]:
             entry.update(date_submitted=edit["date_submitted"], date_source="officer")
             entry.pop("not_submitted", None)
@@ -721,6 +745,22 @@ def apply_officer_edit(entry, edit, source):
         else:
             entry.pop("officer_note", None)
     entry["edited_in"] = source
+
+
+def claim_state(jstate, listed):
+    """Keep an item's state when its key changes because a second item of its evidence family joins
+    or leaves the list ("ENERGY" <-> "ENERGY: ENERGYREPORT"): the entry follows the item it belongs to."""
+    keys = {k for _, k in listed}
+    for item, key in listed:
+        if key in jstate:
+            continue
+        fam, want = item_key(item["name"]), norm_item(item["name"])
+        sharing = sum(1 for i, _ in listed if item_key(i["name"]) == fam)
+        for old in (fam, f"{fam}: {want}"):
+            owner = (jstate.get(old) or {}).get("item")
+            if old != key and old in jstate and old not in keys and (owner == want or (owner is None and sharing == 1)):
+                jstate[key] = jstate.pop(old)
+                break
 
 
 # ------------------------------------------------------------------ draft
@@ -745,15 +785,20 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                                  f"counts in {asof[:4]} miss that year's public holidays — add them first")
     # The officer's base is a plain export with no Items sheet; what she typed last week lives in
     # the draft she edited, so it is read from there and kept in the state from now on.
-    edits_by_job, edit_source = {}, None
+    edits_by_job, edit_source, last_names = {}, None, {}
     if edited:
-        drafted = Path(drafted) if drafted else Path(out_dir) / re.sub(r"\s*\(officer-edited\)", "", Path(edited).name)
+        name = re.sub(r"\s*\(officer-edited\)", "", Path(edited).name)
+        # the copy kept when it was delivered (a later re-run of that Monday may have replaced the other)
+        drafted = Path(drafted) if drafted else next(
+            (c for c in (Path(out_dir) / "delivered" / name, Path(out_dir) / name) if c.exists()),
+            Path(out_dir) / name)
         if not drafted.exists():
             raise DraftInputError(f"the draft as written ({drafted}) is needed to tell the officer's changes from "
                                   "the draft's own values; pass --drafted")
         found = officer_edits(edited, drafted)
         for e in found["edits"]:
             edits_by_job.setdefault(e["job_no"], []).append(e)
+        last_names = found["drafted_names"]
         edit_source = Path(edited).name
         evidence["notes"].append(f"the officer's Items-sheet changes read from {edit_source}: "
                                  f"{len(found['edits'])} row(s) changed")
@@ -793,7 +838,8 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                                            "snapshot step")
                     snapshot = None
             else:
-                job_ev["flags"].append("no snapshot — row carried forward untouched")
+                job_ev["flags"].append("no snapshot — no fresh OSC evidence this week; items aged from the report "
+                                       "and your Items sheet only")
 
         date_keys = ["submit_for_ba", "received_rfi", "received_covenant",
                      "submit_all_rfi_items", "ba_received", "deposit_paid",
@@ -853,9 +899,12 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                          "evidence": "shown last cycle as RESOLVED; not carried"})
                 keys = item_keys([i["name"] for i in g["items"]])
                 listed = list(zip(g["items"], keys))
-                for k in sorted({k for k in keys if ": " in k}):
-                    job_ev["flags"].append(f"two or more items share the {k.split(': ')[0]} evidence rule; "
-                                           "each keeps its own dates")
+                if in_scope:
+                    claim_state(jstate, listed)
+                for k in sorted({k.split(": ")[0] for k in keys if ": " in k}):
+                    job_ev["changes"].append({"item": k, "action": "shared-rule",
+                                              "evidence": f"two or more items share the {k} evidence rule; "
+                                                          "each keeps its own dates"})
 
         # ---- the engineering and covenant columns (aged at 10 business days, the officer 27 Oct 2026)
         cycles = {}
@@ -869,25 +918,47 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
 
         # ---- the officer's edits from last week's draft, matched by name, else by evidence family
         targets = [(i["name"], k) for i, k in listed] + [(fkey, fkey) for fkey in unlisted]
+        this_week = {norm_item(n) for n, _ in targets}
         for e in edits_by_job.get(job_no, []) if in_scope else []:
+            e = dict(e)
             hit = [k for n, k in targets if norm_item(n) == norm_item(e["item"])]
+            renamed = None
+            if not hit and norm_item(e["item"]) not in this_week:
+                # A rename ("SEW" -> "SEWER EJECTION"): the only item of the same evidence family that
+                # is new this week. Never another item that was already on last week's draft.
+                fam = [(n, k) for n, k in targets if item_key(n) == item_key(e["item"])
+                       and norm_item(n) not in last_names.get(job_no, set()) and _alike(n, e["item"])]
+                if len(fam) == 1:
+                    renamed, hit = fam[0][0], [fam[0][1]]
+            for field in ("date_submitted_unreadable", "date_resolved_unreadable"):
+                if e.get(field):
+                    label = "Date submitted" if field.startswith("date_submitted") else "Date resolved"
+                    job_ev["flags"].append(f"your {label} \"{e[field]}\" on \"{e['item']}\" could not be read as a "
+                                           "date, so it was not used — please type it as dd/mm/yyyy")
             if len(hit) != 1:
-                hit = [k for n, k in targets if item_key(n) == item_key(e["item"])]
-            if len(hit) != 1:
-                if e["was_resolved"] or e.get("date_resolved"):  # history: the item had already closed
+                closed = (e["was_resolved"] or e.get("date_resolved") or not g["pending"]
+                          or row["ba_received"]["date"])
+                if closed:  # history: the item, its list or the approval stage had already closed
                     job_ev["changes"].append({"item": e["item"], "action": "officer-edit-noted",
-                                              "evidence": _edit_text(e) + " (item closed, kept for the record)"})
+                                              "evidence": _edit_text(e) + " (closed, kept for the record)"})
                 else:
                     job_ev["flags"].append(f"your Items-sheet change to \"{e['item']}\" was not used: the item is "
                                            "no longer on the report")
                 continue
+            if renamed and e.pop("date_resolved", None):
+                job_ev["flags"].append(f"your Date resolved on \"{e['item']}\" was not carried to \"{renamed}\" "
+                                       "(a different name this week) — type it again if that item is finished")
             apply_officer_edit(jstate.setdefault(hit[0], {}), e, edit_source)
-            job_ev["changes"].append({"item": e["item"], "action": "officer-edit", "evidence": _edit_text(e)})
+            job_ev["changes"].append({"item": e["item"] + (f" -> {renamed}" if renamed else ""),
+                                      "action": "officer-edit", "evidence": _edit_text(e)})
 
         for item, key in listed:
             st = jstate.setdefault(key, {})
             fam = family_of(item["name"])
             cyc = cycles.get(fam["key"]) if fam and fam.get("columns") else None
+            off = st.get("officer_resolved")
+            if off and (st.get("resolved_shown") or (cyc and off < cyc["since"])):
+                st.pop("officer_resolved", None)  # an old resolution: shown already, or for an earlier cycle
             if st.get("officer_resolved"):
                 verdict, ev, owner, owner_field, ev_date = (
                     "complete", f"resolved on your Items sheet ({_ddmmyyyy(st['officer_resolved'])})",
@@ -924,22 +995,31 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
 
         for fkey in unlisted:
             cyc, st = cycles[fkey], jstate.get(fkey) or {}
-            if st.get("cycle_since") != cyc["since"]:  # first sight, or a new cycle in the columns
-                if (st.get("officer_resolved") or "") < cyc["since"]:
-                    st.pop("officer_resolved", None)
-                st.pop("resolved_shown", None)
-            closed_on = st.get("officer_resolved") or cyc["done_on"]
+            if not st.get("cycle_since") or cyc["since"] > st["cycle_since"]:
+                # first sight, or a step dated later than the cycle on record: a new cycle. (A step
+                # whose date turns to text moves "since" back; that is still the same cycle.)
+                for k in ("officer_resolved", "closed_on"):
+                    if (st.get(k) or "") < cyc["since"]:
+                        st.pop(k, None)
+                if not (st.get("officer_resolved") or st.get("closed_on")):
+                    st.pop("resolved_shown", None)
+                    st.pop("tracking", None)
+                st["cycle_since"] = cyc["since"]
+            since_on = st["cycle_since"]
+            closed_on = st.get("officer_resolved") or st.get("closed_on") or cyc["done_on"]
             if closed_on and (st.get("resolved_shown") or not (st.get("tracking") or st.get("officer_resolved"))):
+                if st.get("tracking") or st.get("officer_resolved") or st.get("closed_on"):
+                    jstate[fkey] = st
                 continue  # already shown as resolved, or finished before it was ever tracked
             st = jstate.setdefault(fkey, st)
-            st["cycle_since"] = cyc["since"]
             rec = {"name": fkey, "state": "", "key": fkey, "column": True, "flagged": False, "resolved": False,
-                   "column_since": cyc["since"], "column_detail": cyc["detail"], "evidence": cyc["detail"]}
+                   "column_since": since_on, "column_detail": cyc["detail"], "evidence": cyc["detail"]}
             if closed_on:
                 how = ("resolved on your Items sheet" if st.get("officer_resolved")
+                       else "marked not applicable" if cyc.get("not_applicable")
                        else f"closed in the {COLUMN_CYCLES[fkey]['label']}")
                 rec.update(resolved=True, date_resolved=closed_on, evidence=f"{how} ({_ddmmyyyy(closed_on)})")
-                st["resolved_shown"] = True
+                st.update(resolved_shown=True, closed_on=closed_on)
                 job_ev["changes"].append({"item": fkey, "action": "resolved", "evidence": rec["evidence"]})
                 col_resolved.append(rec)
                 continue
@@ -959,9 +1039,18 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 job_ev["flags"].append(f"item \"{item['name']}\": {f}")
         for item in resolved_out:
             jstate.pop(item["key"], None)
+            if item["key"] in COLUMN_CYCLES and in_scope:
+                # its columns may never show the close (OSC does not re-date a forward), so the
+                # closed cycle is remembered and the item is not tracked again until a newer step
+                cyc = cycles.get(item["key"])
+                jstate[item["key"]] = {"cycle_since": cyc["since"] if cyc else None, "resolved_shown": True,
+                                       "closed_on": item["date_resolved"]}
         if in_scope and g["date"] and not items_out:
             for k in [k for k in jstate if k not in COLUMN_CYCLES]:
                 jstate.pop(k)  # the RFI list has closed; column items keep their history
+        if in_scope and row["ba_received"]["date"]:
+            for k in [k for k in jstate if k in COLUMN_CYCLES]:
+                jstate.pop(k)  # building approval received: the column history is finished with
         if in_scope and not jstate:
             state.pop(job_no, None)
 
@@ -992,13 +1081,15 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
             comp = [_iso_day(a["completionDate"]) for a in (snapshot or {}).get("activities", [])
                     if re.search(COLUMN_ACTIVITY[key], a.get("description") or "", re.I)
                     and a.get("completionDate")]
-            if matched and complete and comp:
+            if matched and complete and comp and max(comp) >= since:
                 g_cell = (float(iso_to_serial(max(comp))), xlsx_min.S_DATE)
                 job_ev["changes"].append({"column": key, "action": "filled", "value": max(comp),
                                           "evidence": "all items resolved; OSC Return RFI activity complete"})
             else:
-                g_cell = ("", xlsx_min.S_FLAGGED)
-                job_ev["flags"].append("all items resolved but OSC has no Return RFI completion — G left blank")
+                g_cell = ("RESOLVED " + ", ".join(f"{i['name']} ({_ddmmyyyy(i['date_resolved'])})"
+                                                  for i in resolved_out), xlsx_min.S_FLAGGED)
+                job_ev["flags"].append("all items resolved, but OSC shows no Return RFI date this week — the cell "
+                                       "lists what resolved; type the date the response went back")
         else:
             g_cell = _date_or_text(values[key])
 
@@ -1083,7 +1174,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     items_widths = {"A": 9, "B": 34, "C": 22, "D": 14, "E": 13, "F": 10, "G": 14, "H": 40, "I": 48}
     xlsx_min.write_workbook(draft_path, [
         (prev.get("sheet_name") or "Sheet 1", out_rows, widths),
-        (ITEMS_SHEET, items_rows, items_widths),
+        (ITEMS_SHEET, items_rows, items_widths, 1),
     ])
 
     ev_json = out_dir / f"BA REPORT DRAFT - {stamp}-evidence.json"

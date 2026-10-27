@@ -41,6 +41,8 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      dates; the state file is swapped in whole; stale or mismatched snapshots
      are not used; commas inside brackets and line breaks split items
      correctly; RFI-cell text that is not a PENDING list is carried verbatim
+ 19. the review of v0.4: every finding as a scenario over four weeks
+ 20. the Monday run in one command (base found, edits read, never overwrite)
  18. the officer's answers (27 Oct 2026) and the week-1 restart: the
      engineering and covenant columns are tracked on the Items sheet at 10
      business days (from the latest dated step, re-opened by a revision) and
@@ -58,14 +60,15 @@ import shutil
 import sys
 import tempfile
 import zipfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
 from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, family_of,
                              load_state, save_state, submitted_evidence)
-from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_items, parse_report
+from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
+from ba_weekly_run import RunError, find_base, run
 from compare_ba_report import compare
 from nsw_holidays import business_days, covers, sydney_date
 
@@ -356,7 +359,7 @@ def officer_round_trip(tmp, check):
           amd.get("tier") == "COUNCIL" and amd.get("threshold") == 60
           and rop.get("tier") == "COUNCIL" and rop.get("threshold") == 30, f"{amd} {rop}")
     check("officer: two items under one evidence rule keep their own dates",
-          any("each keeps its own dates" in f for f in j1["90024"]["flags"])
+          any("each keeps its own dates" in c["evidence"] for c in j1["90024"]["changes"])
           and len(load_state(tmp / "state-sept")["90024"]) == 2, str(j1["90024"]["flags"]))
 
     # her week: retype on the draft's Items sheet (Excel saves a typed date as a serial)
@@ -446,6 +449,179 @@ def officer_round_trip(tmp, check):
     check("week 3: a newer review date re-opens engineering from that date",
           o4.get("date_submitted") == "2026-11-10" and o4.get("days") == business_days("2026-11-10", "2026-11-16"),
           str(o4))
+
+
+def review_v04_checks(tmp, check):
+    """19. The review of v0.4 (27 Oct 2026): each finding as a scenario, over four synthetic weeks."""
+    def t(iso, frac=0.0):
+        return serial(iso) + frac
+
+    weeks = ["2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09"]   # base report dates
+    eng_a = (t("2026-07-30"), t("2026-10-08", 0.6), t("2026-10-08", 0.6), t("2026-09-28"))
+
+    def rows(w):
+        """The officer's export in week w (0 = the 19 Oct base)."""
+        g31 = ("PENDING S68 APPLICATION, SEW EJECTION PUMP APPROVAL" if w == 0
+               else "PENDING S68 APPROVAL, SEWER EJECTION PUMP APPROVAL")
+        g32 = "PENDING ENGINEERING (REVIEW)" if w <= 1 else "PENDING INSURANCES"
+        g33 = "PENDING INSURANCES, ENGINEERING (REVISION)" if w >= 2 else "PENDING INSURANCES"
+        eng33 = (eng_a[0], eng_a[1], t("2026-10-30", 0.5), eng_a[3]) if w >= 2 else eng_a
+        g36 = "PENDING ENERGY REPORT, NATHERS CERTIFICATE" if w <= 1 else "PENDING ENERGY REPORT"
+        g39 = "PENDING INSURANCES" if w == 0 else t("2026-10-23")
+        eng40 = (eng_a[0], t("2026-10-01"), t("2026-10-08") if w <= 1 else "PENDING REVIEW", eng_a[3])
+        r = lambda job, g, eng=("", "", "", ""), cov="", cov_ord="": row16(
+            job, f"Lot {job[-2:]}, {job[-2:]} Sample Road, NOWHERE NSW 0000", t("2026-07-01"), t("2026-07-20"),
+            cov, g, eng=eng, cov_ord=cov_ord)
+        return [[(h, xlsx_min.S_HEADER) for h in HEADER],
+                r("90031", g31), r("90032", g32, eng_a), r("90033", g33, eng33),
+                r("90034", "PENDING INSURANCES", (t("2026-04-24"), t("2026-10-12", 0.5), t("2026-10-12", 0.5),
+                                                 t("2026-07-06"))),
+                r("90035", "PENDING INSURANCES", cov_ord=t("2026-10-09")),
+                r("90036", g36), r("90037", "PENDING DRIVEWAY APPLICATION, WATER METER APPLICATION"),
+                r("90038", "PENDING INSURANCES", cov="N/A", cov_ord=t("2026-10-09")),
+                r("90039", g39), r("90040", "PENDING INSURANCES", eng40), r("90041", "PENDING ROP APPROVAL")]
+
+    jobs = [f"900{n}" for n in range(31, 42)]
+    snaps, out, state = tmp / "snaps-v04", tmp / "out-v04", tmp / "state-v04"
+    snaps.mkdir()
+
+    def week(w, edited=None):
+        base = tmp / f"BA REPORT - {weeks[w][8:]}.{weeks[w][5:7]}.{weeks[w][:4]}.xlsx"
+        xlsx_min.write_xlsx(base, rows(w))
+        asof = (date.fromisoformat(weeks[w]) + timedelta(days=7)).isoformat()
+        for job in jobs:
+            acts = [act(62, "Return RFI Information to Certifier", done="2026-08-01")] if job == "90041" else []
+            (snaps / f"{job}.json").write_text(json.dumps({"retrievedAtUtc": f"{asof}T00:00:00Z", "contractNumber": job,
+                                                           "activities": acts, "alerts": [], "documents": []}),
+                                               encoding="utf-8")
+        draft, _, ev = build_draft(base, snaps, out, asof=asof, state_dir=state, jobs=jobs, edited=edited)
+        return draft, {j["job_no"]: j for j in ev["jobs"]}
+
+    def open_(j, name):
+        return {i["name"]: i for i in j["outstanding"]}.get(name, {})
+
+    d1, w1 = week(0)
+    check("v0.4 review: a covenant marked N/A is not tracked", not open_(w1["90038"], "COVENANT"), str(w1["90038"]))
+    e1 = tmp / "BA REPORT DRAFT - 26.10.2026 (officer-edited).xlsx"
+    edit_draft(d1, e1, {
+        ("90031", "S68 APPLICATION"): {"C": "Synthetic Shire Council", "E": "22/10/2026"},
+        ("90031", "SEW EJECTION PUMP APPROVAL"): {"C": "Synthetic Water Authority", "E": "23/10/2026"},
+        ("90032", "ENGINEERING"): {"E": "20/10/2026"},
+        ("90033", "ENGINEERING"): {"E": "19/10/2026"},
+        ("90034", "ENGINEERING"): {"D": "24/04/2026"},
+        ("90035", "COVENANT"): {"D": ""},
+        ("90036", "ENERGY REPORT"): {"C": "Synthetic Assessor", "D": "01/10/2026", "H": "energy note"},
+        ("90037", "DRIVEWAY APPLICATION"): {"D": "TBC"},
+        ("90037", "WATER METER APPLICATION"): {"D": "12.10.2026"},
+        ("90039", "INSURANCES"): {"C": "Synthetic Officer"},
+        ("90040", "ENGINEERING"): {"E": "19/10/2026"},
+        ("90041", "ROP APPROVAL"): {"E": "21/10/2026"},
+    })
+    d2, w2 = week(1, edited=e1)
+    s68 = open_(w2["90031"], "S68 APPROVAL")
+    # application resolved, approval now awaited: her edit stays with the application, kept for the record
+    check("v0.4 review 1: her Date resolved on one item never lands on a different one",
+          s68 and not w2["90031"]["resolved"] and s68.get("assigned_to") != "Synthetic Shire Council"
+          and any(c["item"] == "S68 APPLICATION" and c["action"] == "officer-edit-noted"
+                  for c in w2["90031"]["changes"]), str(w2["90031"]))
+    sewer = open_(w2["90031"], "SEWER EJECTION PUMP APPROVAL")
+    check("v0.4 review 1: a genuine rename keeps her assignee but not her resolution (said so)",
+          sewer.get("assigned_to") == "Synthetic Water Authority"
+          and any("not carried" in f for f in w2["90031"]["flags"]), str(sewer))
+    check("v0.4 review 3: a listed engineering item she resolved closes (shown once)",
+          [i["name"] for i in w2["90032"]["resolved"]] == ["ENGINEERING"], str(w2["90032"]))
+    e34 = open_(w2["90034"], "ENGINEERING")
+    check("v0.4 review 4: her date older than the latest column step is kept",
+          e34.get("date_submitted") == "2026-04-24" and e34.get("date_source") == "officer", str(e34))
+    c35 = open_(w2["90035"], "COVENANT")
+    check("v0.4 review 4: an emptied date on a column row means not yet submitted",
+          c35.get("flag") == "NOT SUBMITTED" and c35.get("days") is None, str(c35))
+    check("v0.4 review 6: an unreadable date is reported, not taken as 'not submitted'",
+          any("TBC" in f and "could not be read" in f for f in w2["90037"]["flags"])
+          and open_(w2["90037"], "DRIVEWAY APPLICATION").get("flag") != "NOT SUBMITTED"
+          and open_(w2["90037"], "WATER METER APPLICATION").get("date_submitted") == "2026-10-12", str(w2["90037"]))
+    check("v0.4 review 11: a change to an item whose list has closed is kept quietly",
+          not any("not used" in f for f in w2["90039"]["flags"])
+          and any(c["action"] == "officer-edit-noted" for c in w2["90039"]["changes"]), str(w2["90039"]))
+    cell41 = [r for r in parse_report(d2)["rows"] if r["job_no"] == "90041"][0]["submit_all_rfi_items"]["raw"]
+    check("v0.4 review 12b: all items closed with only an old Return RFI date: the cell says what resolved",
+          cell41 == "RESOLVED ROP APPROVAL (21/10/2026)"
+          and any("no Return RFI date this week" in f for f in w2["90041"]["flags"]), repr(cell41))
+
+    d3, w3 = week(2, edited=tmp / "nothing-edited.xlsx" if False else None)
+    def names(j):
+        return {i["name"] for i in j["outstanding"] + j["resolved"]}
+
+    check("v0.4 review 3: once closed, it does not come back as a column row",
+          "ENGINEERING" not in names(w3["90032"]), str(w3["90032"]))
+    rev = open_(w3["90033"], "ENGINEERING (REVISION)") or open_(w3["90033"], "ENGINEERING")
+    check("v0.4 review 2: an old resolution never closes a new cycle listed later",
+          rev and not w3["90033"]["resolved"] and rev.get("date_submitted") == "2026-10-30", str(w3["90033"]))
+    en36 = open_(w3["90036"], "ENERGY REPORT")
+    check("v0.4 review 5: her values follow the item when the other item of its family drops off",
+          en36.get("assigned_to") == "Synthetic Assessor" and en36.get("date_submitted") == "2026-10-01"
+          and en36.get("officer_note") == "energy note", str(en36))
+    check("v0.4 review 12a: a step date turning to text does not show a closed cycle again",
+          [i["name"] for i in w2["90040"]["resolved"]] == ["ENGINEERING"] and "ENGINEERING" not in names(w3["90040"]),
+          str(w3["90040"]))
+    check("v0.4 review 8: her own sentence keeps words the draft also uses",
+          own_words("council to verify the corrected plans, re-verifying Friday",
+                    "date submitted assumed — please correct; verify")
+          == "council to verify the corrected plans, re-verifying Friday")
+    check("v0.4 review 10: an impossible date is no date, and typed forms are read",
+          text_to_iso("2026-02-30") is None and text_to_iso("12/10/26") == "2026-10-12"
+          and text_to_iso("12-10-2026") == "2026-10-12")
+    with zipfile.ZipFile(d3) as z:
+        items_xml = z.read("xl/worksheets/sheet2.xml").decode()
+    check("Items sheet keeps its header row in view", 'state="frozen"' in items_xml)
+
+
+def weekly_run_checks(tmp, check):
+    """20. The Monday run in one command, on synthetic folders (the snapshot step replaced)."""
+    archive, drop, rt = tmp / "archive", tmp / "drop", tmp / "rt"
+    for d in (archive, drop):
+        d.mkdir()
+    synth_prev_report(archive / "BA REPORT- 19.10.2026.xlsx")
+    synth_prev_report(archive / "BA REPORT -26.10.2026.xlsx")
+    synth_prev_report(archive / "BA REPORT - 1.07.2024.xlsx")
+    (archive / "~$BA REPORT - 26.10.2026.xlsx").write_bytes(b"lock")
+    d, p = find_base(archive, date(2026, 11, 2))
+    check("run: base = the export before Monday, whatever its spacing", p.name == "BA REPORT -26.10.2026.xlsx")
+    try:
+        find_base(archive, date(2026, 11, 16))
+        check("run: an export older than a week is never used in its place", False, "no error")
+    except RunError as exc:
+        check("run: an export older than a week is never used in its place", "not in the archive yet" in str(exc))
+
+    def fake_snapshot(folder, jobs):
+        folder.mkdir(parents=True, exist_ok=True)
+        snap = synth_snapshot_90002()
+        snap["retrievedAtUtc"] = "2026-10-26T00:00:00Z"
+        (folder / "90002.json").write_text(json.dumps(snap), encoding="utf-8")
+
+    first = run(date(2026, 10, 26), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    name = "BA REPORT DRAFT - 26.10.2026.xlsx"
+    check("run: draft and note delivered, and the delivered copy kept for next week",
+          (drop / name).exists() and (drop / name.replace(".xlsx", "-evidence.md")).exists()
+          and (rt / "outputs" / "delivered" / name).exists(), str(first.get("delivered")))
+    edit_draft(drop / name, drop / name, {("90002", "ENERGY REPORT"): {"C": "Synthetic Assessor"}})
+    (rt / "state" / STATE_FILE).write_text(json.dumps({}), encoding="utf-8")
+    second = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot,
+                 restart="september-test")
+    en = {i["name"]: i for i in {j["job_no"]: j for j in second["evidence"]["jobs"]}["90002"]["outstanding"]}
+    check("run: her edit in the drop folder is read the next Monday; --restart sets the state aside",
+          en.get("ENERGY REPORT", {}).get("assigned_to") == "Synthetic Assessor"
+          and (rt / "state" / "ba-items-first-seen.september-test.json").exists(), str(en.get("ENERGY REPORT")))
+    name2 = "BA REPORT DRAFT - 02.11.2026.xlsx"
+    edit_draft(drop / name2, drop / name2, {("90002", "ENERGY REPORT"): {"H": "her note"}})
+    try:
+        run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+        check("run: a draft she may be editing is never overwritten", False, "no error")
+    except RunError as exc:
+        check("run: a draft she may be editing is never overwritten", "nothing was delivered" in str(exc))
+    before = (drop / name2).read_bytes()
+    plan = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, dry_run=True, force=True)
+    check("run: --dry-run changes nothing", plan.get("dry_run") and (drop / name2).read_bytes() == before)
 
 
 def main():
@@ -604,7 +780,9 @@ def main():
         check("state: dict per item with first_seen + ai_* mirrors",
               e.get("first_seen") == PREV and e.get("ai_assigned_to") == "COUNCIL"
               and e.get("ai_date_submitted") == PREV, str(e))
-        check("state: resolved item removed", "ENGINEERING" not in state.get("90002", {}))
+        check("state: a resolved engineering item leaves only a closed-cycle record",
+              set(state.get("90002", {}).get("ENGINEERING", {})) == {"cycle_since", "resolved_shown", "closed_on"},
+              str(state.get("90002", {}).get("ENGINEERING")))
 
         # ---- 16 + 10. round trip + workbook shape
         reparsed = parse_report(draft_path)
@@ -823,6 +1001,8 @@ def main():
               and cell["raw"] == "AWAITING CERTIFIER", f"{jm['90012']['flags']} {cell['raw']!r}")
 
         officer_round_trip(tmp, check)
+        review_v04_checks(tmp, check)
+        weekly_run_checks(tmp, check)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
