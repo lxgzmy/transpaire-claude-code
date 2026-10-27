@@ -253,8 +253,9 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   the HIA build contract is a filled `.docx` **plus** its `.pdf` export, like
   the other documents. **Blocked until a current fillable HIA Word template
   exists on the drive**: the `SS\` Word versions stay forbidden (CD-1.3), the
-  live blanks are flat PDFs with no form fields (CD-5.1), the server cannot
-  fill a flat PDF, and `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR
+  live blanks are PDFs - NSW's flat with no form fields (CD-5.1), SEQ's a
+  fillable form (26 text fields in object streams, seen correctly only from
+  27 Oct 2026) - the pipeline fills Word templates, not PDFs, and `HIA BUILD CONTRACT 30.07.2026 - DONT USE UNTIL MCR
   APPROVES.pdf` stays off-limits until MCR approves regardless of licensing.
   **Unblocked 8 Sep 2026 by business instruction**: the staged interim Word
   templates (CD-5.2b) fill real contracts until an approved blank replaces
