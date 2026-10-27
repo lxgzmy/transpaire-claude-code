@@ -613,6 +613,9 @@ def weekly_run_checks(tmp, check):
           en.get("ENERGY REPORT", {}).get("assigned_to") == "Synthetic Assessor"
           and (rt / "state" / "ba-items-first-seen.september-test.json").exists(), str(en.get("ENERGY REPORT")))
     name2 = "BA REPORT DRAFT - 02.11.2026.xlsx"
+    again = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    check("run: the same Monday can be re-run while she has not opened the draft",
+          len(again.get("delivered", [])) == 2)
     edit_draft(drop / name2, drop / name2, {("90002", "ENERGY REPORT"): {"H": "her note"}})
     try:
         run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
