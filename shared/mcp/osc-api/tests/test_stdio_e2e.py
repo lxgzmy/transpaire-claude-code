@@ -34,10 +34,14 @@ class StdioEndToEnd(unittest.IsolatedAsyncioTestCase):
         env_file = Path(self.folder.name) / "production.env"
         env_file.write_text(f"OSC_BASE_URL={base_url}\nOSC_CLIENT_ID=synthetic\nOSC_CLIENT_SECRET=synthetic\n"
                             f"OSC_UPLOAD_ROOTS={self.folder.name}\n", encoding="utf-8")
+        # The write log goes to the throwaway folder too: left to its default it
+        # lands in the checkout's real runtime\contract-admin\logs\osc-writes.jsonl,
+        # labelled production, beside the record of real changes.
         self.params = StdioServerParameters(
             command=sys.executable, args=["-m", "osc_mcp.server"],
             env={**os.environ, "PYTHONPATH": str(PACKAGE), "OSC_ENV_FILE": str(env_file),
-                 "OSC_ENVIRONMENT": "production", "OSC_ENABLE_WRITES": "true", "OSC_TIMEOUT": "20"})
+                 "OSC_ENVIRONMENT": "production", "OSC_ENABLE_WRITES": "true", "OSC_TIMEOUT": "20",
+                 "OSC_LOG_ROOT": self.folder.name})
 
     async def asyncTearDown(self):
         self.http.shutdown()
@@ -115,6 +119,11 @@ class StdioEndToEnd(unittest.IsolatedAsyncioTestCase):
                     "body": {"x": 1}}))
                 self.assertFalse(refused["ok"])
                 self.assertEqual(len(f.writes), 2)
+
+        # every answered confirmation (no, yes, the batch's yes) is logged in the throwaway folder
+        log = Path(self.folder.name) / "contract-admin" / "logs" / "osc-writes.jsonl"
+        replies = [json.loads(line)["reply"] for line in log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(replies, ["no", "yes", "yes"])
 
 
 if __name__ == "__main__":
