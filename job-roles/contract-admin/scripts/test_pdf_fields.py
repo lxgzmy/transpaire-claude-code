@@ -11,11 +11,15 @@ Synthetic values only. Builds two PDFs in memory - no client data, no files:
      re-defines two fields with new values - the CURRENT revision must win and
      --history must still show the old one.
 
-Also checks that pdf_text.py's hex-string support decodes a <hex> Tj and that
-pdf_probe.py's scan sees text fields packed in an object stream.
+Also checks that pdf_text.py's hex-string support decodes a <hex> Tj, that
+pdf_probe.py's scan sees text fields packed in an object stream, and that
+hia_probe.py classifies a build-contract PDF whose fields sit only in an
+object stream as FILLABLE PDF and one with no fields as FLAT PDF (27 Oct 2026:
+it called the PDFium-saved SEQ template, 26 fields, a FLAT PDF).
 """
 import io
 import re
+import shutil
 import sys
 import zlib
 from contextlib import redirect_stdout
@@ -23,6 +27,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import hia_probe  # noqa: E402
 import pdf_fields  # noqa: E402
 import pdf_probe  # noqa: E402
 import pdf_text  # noqa: E402
@@ -119,6 +124,23 @@ def main():
         check(pieces == ["Hello world"], f"pdf_text decodes a <hex> Tj (got {pieces})")
     finally:
         tmp.unlink(missing_ok=True)
+
+    print("4. hia_probe classifies a contract folder through object streams")
+    folder = HERE.parents[2] / "runtime" / "contract-admin" / "state" / "_test_hia_probe"
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True)
+    try:
+        check(b"/FT" not in data, "the packed sample has no field markers in its raw bytes")
+        (folder / "HIA BUILD CONTRACT SAMPLE.pdf").write_bytes(data)
+        (folder / "BUILD CONTRACT FLAT SAMPLE.pdf").write_bytes(build_hex_text_pdf())
+        rows = {str(rel): (status, note) for status, rel, note in hia_probe.classify(folder)}
+        packed_row = rows.get("HIA BUILD CONTRACT SAMPLE.pdf", ("-", ""))
+        check(packed_row[0] == "FILLABLE PDF" and packed_row[1].startswith("5 text field(s)"),
+              f"fields only in an object stream -> FILLABLE PDF, 5 fields (got {packed_row})")
+        check(rows.get("BUILD CONTRACT FLAT SAMPLE.pdf", ("-",))[0] == "FLAT PDF",
+              "a PDF with no fields -> FLAT PDF")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
 
     print()
     if fails:

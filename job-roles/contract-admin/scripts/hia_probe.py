@@ -56,6 +56,10 @@ import re
 import sys
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import pdf_probe  # noqa: E402  (the text-field scan that reads object streams)
+
 CONTRACTS_ROOT = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS")
 
 # Job region -> the contract-template folder its build contract comes from.
@@ -80,9 +84,11 @@ NOT_BLANK_RE = re.compile(r"GENERAL CONDITIONS|SALES CONTRACT|CONSUMER", re.I)
 
 
 def pdf_text_fields(path):
-    """Count of /FT /Tx text fields in the raw bytes (pdf_probe.py's check)."""
-    data = path.read_bytes()
-    return len(re.findall(rb"/FT\s*/Tx", data))
+    """Count of /FT /Tx text fields, compressed object streams included -
+    pdf_probe.py's scan. A raw-bytes count (until 27 Oct 2026) saw none in
+    the SEQ template the team fills in the browser (26 fields, all packed in
+    object streams) and called it a FLAT PDF."""
+    return len(re.findall(rb"/FT\s*/Tx", pdf_probe.with_object_streams(path.read_bytes())))
 
 
 def classify(folder):

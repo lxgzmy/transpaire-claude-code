@@ -89,8 +89,11 @@ or estate only**. Do not use it as a generic template.
 This is the boundary of what can be drafted here, and it should be stated to the
 user rather than worked around.
 
-`NSW BUILD CONTRACT.pdf` and the SEQ HIA contract are flat PDFs — no form
-fields at all (probed: `AcroForm` present but zero text fields, zero widgets).
+`NSW BUILD CONTRACT.pdf` is a flat PDF — no form fields at all. The SEQ HIA
+contract (`... Template Updated 30.07.26.pdf`) is a fillable form — 26 text
+fields, 42 widgets, packed in object streams, which an older raw-bytes probe
+missed (corrected 27 Oct 2026); the team fills it in the browser. Either way
+the pipeline fills Word templates only, never a PDF.
 The completed article in a job folder runs to ~90 pages, roughly double the
 blank, because it is the **assembled pack**: contract, general conditions,
 inclusions and concept plan together, per the manual's "Add your contract
