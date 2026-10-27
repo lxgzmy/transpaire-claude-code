@@ -20,16 +20,24 @@ region it asserts that
      the template wording stays,
   4a. NSW: the Progress Payments Schedule rows carry the stage amounts worked
      from the contract price, keyed DataBuild figures win and a difference is
-     flagged; QLD is never worked out: with no figures given item 2 and
-     Schedule 2 Part B keep their placeholders, figures a person gives fill
-     item 2 and every Part B row as given, and figures that disagree are
-     still typed, each disagreement flagged (issue #73), and
+     flagged; QLD (27 Oct 2026 review, reversing issue #73's "never worked
+     out"): item 2 and every Schedule 2 Part B row are worked from the
+     request price - the figures the executed 26059 contract's HIA form
+     gave - figures a person gives are typed as given and the rest worked
+     from their contract price, figures that disagree are still typed, each
+     disagreement flagged, and with no price and no figures the placeholders
+     stay, flagged,
   5. in both regions: each cell-mode value sits in the empty value cell
      beside its label (asserted row-by-row on the filled tables - the
      page-spill fix depends on values never landing in the narrow label
      cells), and the e-sign anchor strings survive the fill (QLD:
      /bs1/\builder_sig, /i1/\signer1_sig, four /na/ at source; NSW: the
-     two witness /na/).
+     two witness /na/), and
+  6. QLD (27 Oct 2026 review): item 11's STREET ADDRESS carries the job's
+     estate in brackets after the street, and the owner's signature NAME is
+     typed at a tab stop at the builder's prefilled name's x and size - an
+     x read off the template's own column section, so a revised template
+     fails here instead of misaligning the names.
 
 Both staged templates are the team's own Word builds plus a sanctioned
 interim repair each: NSW = the 21 Aug 2026 build + the v1.1 TABLES interim
@@ -121,19 +129,25 @@ SYNTH = {
             "owner_address": "9 Example Road",
             "owner_suburb": "EXAMPLETON", "owner_state": "QLD", "owner_postcode": "4998",
             "owner_mobile": "0400 000 002", "owner_email": "regress@example.invalid",
-            "sp_rp": "SP999999", "land_street": "Sample Street",
+            "sp_rp": "SP999999", "land_street": "Sample Street", "estate": "Sample Estate",
             "land_suburb": "SAMPLEVILLE", "land_state": "QLD", "land_postcode": "4999",
             "liq_damages": "$88.00",
             "guarantor_name": "Guaran TESTGUARANTOR",
             "guarantor_address": "9 Guarantee Grove",
             "guarantor_suburb": "EXAMPLETON", "guarantor_state": "QLD",
             "guarantor_postcode": "4997",
-            # issue #73: figures a person gives, item 2 only here (Part B in
-            # "QLD figures given"); QC2 has no item 2 deposit
+            # figures a person gives, item 2 only here; Part B is worked
+            # from their contract price. QC2 has no item 2 deposit
             "price_excl_gst": "$636,363.64", "gst_amount": "$63,636.36",
             "price_incl_gst": "$700,000.00",
         },
-        "gone": ["$ 25.00", "$ 000,000.00"],
+        "gone": ["$ 25.00", "$ 000,000.00", "$ 0.00"],
+        "part_b": [("5.00%", "$35,000.00"), ("15.00%", "$105,000.00"), ("20.00%", "$140,000.00"),
+                   ("25.00%", "$175,000.00"), ("20.00%", "$140,000.00"), ("15.00%", "$105,000.00"),
+                   ("100.00%", "$700,000.00")],
+        "no_flags": ["FLAG:"],
+        # the owner's signature NAME at the builder's name's x and size
+        "sig_name": "Testfirst TESTSURNAME & Second TESTOWNER",
         # v2's structural contract: each cell-mode value must land in the
         # value cell beside its label, never inside the label's narrow cell
         # (rows checked by membership in the filled document's tables)
@@ -155,7 +169,8 @@ SYNTH = {
             # the land rows, tables since the v2.1 LAND TABLES interim
             # (3 Sep 2026 - the last narrow area, the residual spill's home)
             ["LOT", "902", "SP/RP", "SP999999"],
-            ["STREET ADDRESS:", "Sample Street"],
+            # the estate in brackets after the street (27 Oct 2026 review)
+            ["STREET ADDRESS:", "Sample Street (Sample Estate)"],
         ],
         # e-sign anchor codes are at source in v2 and must survive a fill
         # (counted on space-stripped text: Word may split a code across runs)
@@ -249,18 +264,30 @@ SYNTH = {
         "flags": ["AMENDMENT Q1 APPLIED: interest_rate: 15% -> 12%",
                   "AMENDMENT Q2 REFUSED: striking a clause is not set up for the QLD contract yet"],
     },
-    # issue #73: QLD is never worked out - a request price alone leaves item 2
-    # and Part B blank, with a note (not a flag) saying the figures can come later
-    "QLD no figures": {
+    # 27 Oct 2026 review: QLD item 2 and Part B from the request price alone,
+    # the way the team's HIA form works them out (reverses issue #73's blank)
+    "QLD price only": {
         "region": "QLD",
         "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
                    "price": "456,789.00"},
+        "expect": ["$415,262.73", "$41,526.27", "$456,789.00"],
+        "gone": ["$ 000,000.00", "$ 0.00"],
+        "part_b": [("5.00%", "$22,839.45"), ("15.00%", "$68,518.35"), ("20.00%", "$91,357.80"),
+                   ("25.00%", "$114,197.25"), ("20.00%", "$91,357.80"), ("15.00%", "$68,518.35"),
+                   ("100.00%", "$456,789.00")],
+        "flags": ["contract figures (QLD, CD-5.4): from the request price $456,789.00"],
+        "no_flags": ["FLAG:"],
+    },
+    # no price and no figures: item 2 and Part B keep their placeholders, flagged
+    "QLD no price": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME"},
         "expect": [],
         "gone": [],
         "kept": ["$ 000,000.00", "$ 0.00"],
-        "flags": ["contract figures (QLD, issue #73): none given"],
-        "no_flags": ["FLAG:"],
+        "flags": ["FLAG: no contract price in the job JSON - item 2 and Part B are left blank for a person"],
     },
     # issue #73: the figures a person gives (here as read off a DataBuild
     # screenshot) fill item 2 and every Part B row; the TOTAL is the contract
@@ -279,11 +306,14 @@ SYNTH = {
         "part_b": [("5.00%", "$22,839.45"), ("15.00%", "$68,518.35"), ("20.00%", "$91,357.80"),
                    ("25.00%", "$114,197.25"), ("20.00%", "$91,357.80"), ("15.00%", "$68,518.35"),
                    ("100.00%", "$456,789.00")],
-        "flags": ["as given (DataBuild screenshot, read back) - nothing worked out"],
+        "flags": ["contract figures (QLD): given (DataBuild screenshot, read back), typed as given: "
+                  "excl. GST, GST, contract price, DEPOSIT, BASE, FRAME, ENCLOSED, FIXING, "
+                  "PRACTICAL COMPLETION"],
         "no_flags": ["FLAG:"],
     },
     # issue #73: figures that disagree are still typed as given - every check
-    # is a warning, never a stop and never a correction
+    # is a warning, never a stop and never a correction. The row not given
+    # (PRACTICAL COMPLETION) is worked from the contract price given
     "QLD figures off": {
         "region": "QLD",
         "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
@@ -296,14 +326,14 @@ SYNTH = {
         "expect": ["$41,000.00", "$460,000.00"],
         "gone": [],
         "part_b": [("5.00%", "$46,000.00"), ("15.00%", "$69,000.00"), ("20.00%", "$92,000.00"),
-                   ("25.00%", "$115,000.00"), ("20.00%", "$92,000.00"), ("15.00%", "$ 0.00"),
+                   ("25.00%", "$115,000.00"), ("20.00%", "$92,000.00"), ("15.00%", "$69,000.00"),
                    ("100.00%", "$460,000.00")],
         "flags": ["FLAG: item 2 does not add up",
                   "FLAG: the GST $41,000.00 is not 1/11 of the contract price ($41,818.18)",
                   "FLAG: the contract price given, $460,000.00, differs from the request price $456,789.00",
-                  "FLAG: Part B is part-filled: PRACTICAL COMPLETION left blank",
+                  "FLAG: Part B's rows add up to $483,000.00, not the TOTAL $460,000.00",
                   "FLAG: the deposit $46,000.00 is over 5% of the contract price ($23,000.00)"],
-        "no_flags": ["DEPOSIT $46,000.00 is not 5%"],
+        "no_flags": ["DEPOSIT $46,000.00 is not 5%", "part-filled"],
     },
 }
 
@@ -419,13 +449,78 @@ def run(name, spec, tmp):
         print(f"  {region}: FAIL - e-sign anchor count wrong after fill "
               f"(anchor: found): {bad}")
         return False
+    if "sig_name" in spec:
+        why = sig_name_check(out, spec["sig_name"])
+        if why:
+            print(f"  {name}: FAIL - signature NAME: {why}")
+            return False
     extra = (f", {len(want_rows)} cell rows + {len(spec.get('anchors', {}))} "
              f"anchor codes verified" if want_rows else "")
     print(f"  {name}: PASS ({len(expect)} values filled, XML valid, "
           f"{len(spec['gone'])} prefill(s) replaced{extra}"
           + (", progress schedule verified" if "progress" in spec else "")
-          + (", Part B verified" if "part_b" in spec else "") + ")")
+          + (", Part B verified" if "part_b" in spec else "")
+          + (", owner NAME lined up with the builder's" if "sig_name" in spec else "") + ")")
     return True
+
+
+def sig_tab_mode():
+    """fill_hia's QLD owner signature NAME mode: ("tab_at", x in twips, size);
+    (None, None, None) when it has none."""
+    sys.path.insert(0, str(HERE))
+    import fill_hia
+    return next((f[2] for _, fields in fill_hia.REGIONS["QLD"]["groups"] for f in fields
+                 if isinstance(f[2], tuple) and f[2][0] == "tab_at"), (None, None, None))
+
+
+def sig_name_check(path, name):
+    """"" when the owner's name is a tab-led run at fill_hia's QLD tab stop and
+    size, on the one paragraph that carries that tab stop."""
+    _, pos, size = sig_tab_mode()
+    if pos is None:
+        return "fill_hia types the owner's name with no tab stop of its own"
+    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+    stop = f'<w:tab w:val="left" w:pos="{pos}"/>'
+    paras = [p for p in re.findall(r"<w:p\b[^>]*>(?:(?!</w:p>|<w:p\b).)*?</w:p>", xml, re.S) if stop in p]
+    if len(paras) != 1:
+        return f"{len(paras)} paragraph(s) carry the {pos} tw tab stop - expected the owner NAME line alone"
+    run = re.search(r"<w:r><w:rPr>(.*?)</w:rPr><w:tab/><w:t[^>]*>(.*?)</w:t></w:r>", paras[0], re.S)
+    if not run or html.unescape(run.group(2)) != name or f'<w:sz w:val="{size}"/>' not in run.group(1):
+        return f"the owner's name is not a tab-led {size / 2:g} pt run on that line"
+    return ""
+
+
+def builder_name_geometry():
+    """The QLD build's builder NAME (prefilled Michael CRONK) sits in a
+    two-column section after a column break: its x from the margin is the
+    first column's width + the gap + the name paragraph's own indent, at its
+    style's size. fill_hia's owner NAME tab stop and size must be exactly
+    those, or the two names stop lining up (27 Oct 2026 review)."""
+    template = SYNTH["QLD"]["template"]
+    if not template.exists():
+        print(f"  QLD builder NAME geometry: SKIP - no staged template at {template}")
+        return None
+    z = zipfile.ZipFile(template)
+    xml = z.read("word/document.xml").decode("utf-8")
+    k = xml.find("<w:t>Michael</w:t>")
+    p = xml[xml.rfind("<w:p ", 0, k):xml.find("</w:p>", k)] if k >= 0 else ""
+    style = re.search(r'<w:pStyle w:val="(\w+)"/>', p)
+    ind = re.search(r'<w:ind w:left="(\d+)"/>', p)
+    cols = re.search(r'<w:cols w:num="2"[^>]*><w:col w:w="(\d+)" w:space="(\d+)"/>', xml[k:]) if k >= 0 else None
+    st = z.read("word/styles.xml").decode("utf-8")
+    sdef = style and re.search(rf'<w:style [^>]*w:styleId="{style.group(1)}".*?</w:style>', st, re.S)
+    size = sdef and re.search(r'<w:sz w:val="(\d+)"/>', sdef.group(0))
+    if not (p and '<w:br w:type="column"/>' in p and ind and cols and size):
+        print("  QLD builder NAME geometry: FAIL - the builder's name is no longer a column-break "
+              "paragraph with its own indent and style size in a two-column section")
+        return False
+    x = int(cols.group(1)) + int(cols.group(2)) + int(ind.group(1))
+    _, pos, want = sig_tab_mode()
+    ok = (x, int(size.group(1))) == (pos, want)
+    print(f"  QLD builder NAME geometry: " + (f"PASS ({x} tw from the margin, {want / 2:g} pt)" if ok else
+          f"FAIL - the builder's name sits at {x} tw, {int(size.group(1)) / 2:g} pt; fill_hia types the "
+          f"owner's at {pos} tw, size {want}"))
+    return ok
 
 
 def struck_check(path, n):
@@ -491,29 +586,53 @@ def contract_figures_unit():
     v, lines, f = figs({"price": "TBC"})
     if lines or v.get("deposit") or not any("left blank for a person" in x for x in f):
         fails.append(f"unusable price: {lines} {v} {f}")
-    # QLD (issue #73): never worked out - a price alone is a note, not a flag
-    v, lines, f = figs({"price": "514,700.00", "liq_damages": "100.00"}, "QLD")
-    if len(lines) != 1 or "none given" not in lines[0] or f or "gst_amount" in v \
-            or v["liq_damages"] != "$100.00":
-        fails.append(f"QLD no figures: {lines} {f} {v}")
-    # item 2 part-given; Part B rows without a TOTAL take the contract price
+    # QLD (27 Oct 2026 review): worked from the request price - these are
+    # the figures the HIA form gave on the executed 26059 contract
+    qld = ("price_excl_gst", "gst_amount", "price_incl_gst", "deposit", "progress_1", "progress_2",
+           "progress_3", "progress_4", "progress_5", "progress_total")
+    v, lines, f = figs({"price": "467,200.00", "liq_damages": "100.00"}, "QLD")
+    if [v.get(k) for k in qld] != ["$424,727.27", "$42,472.73", "$467,200.00", "$23,360.00", "$70,080.00",
+                                   "$93,440.00", "$116,800.00", "$93,440.00", "$70,080.00", "$467,200.00"] \
+            or f or v["liq_damages"] != "$100.00":
+        fails.append(f"QLD from the request price: {[v.get(k) for k in qld]} {f}")
+    # an odd-cent price: the deposit rounds down (never over 5%), practical
+    # completion takes the balance, so Part B totals the price to the cent
+    v, lines, f = figs({"price": "456,789.15"}, "QLD")
+    rows = [fill_hia.parse_money(v.get(k)) for k in qld[3:9]]
+    if v.get("deposit") != "$22,839.45" or v.get("progress_5") != "$68,518.38" or None in rows \
+            or sum(rows) != fill_hia.parse_money("456,789.15") or f:
+        fails.append(f"QLD odd-cent price: {[v.get(k) for k in qld]} {f}")
+    # no price and no figures: nothing typed, flagged
+    v, lines, f = figs({"price": "TBC"}, "QLD")
+    if lines or "gst_amount" in v or not any("left blank for a person" in x for x in f):
+        fails.append(f"QLD unusable price: {lines} {v} {f}")
+    # figures given are typed as given and the rest are worked from their
+    # contract price; consistent figures raise no flag
     v, lines, f = figs({"price_incl_gst": "300,000.00", "gst_amount": "27,272.73",
                         "deposit": "15,000", "progress_1": "45,000.00"}, "QLD")
-    if v.get("progress_total") != "$300,000.00" or "price_excl_gst" in v \
-            or not any("item 2 is part-filled: excl. GST" in x for x in f) \
-            or "Part B is part-filled: FRAME, ENCLOSED, FIXING, PRACTICAL COMPLETION left blank" not in f:
+    if (v.get("price_excl_gst"), v.get("progress_2"), v.get("progress_5"), v.get("progress_total")) \
+            != ("$272,727.27", "$60,000.00", "$45,000.00", "$300,000.00") or f \
+            or not any("typed as given: GST, contract price, DEPOSIT, BASE" in x for x in lines):
         fails.append(f"QLD part-given: {v} {f}")
     # a price under $20,000 is not held to the 5% deposit
     v, lines, f = figs({"price_incl_gst": "11,000.00", "deposit": "1,100.00"}, "QLD")
     if any("over 5%" in x for x in f) or not any("DEPOSIT $1,100.00 is not 5%" in x for x in f):
         fails.append(f"QLD small price: {f}")
+    # the estate goes in brackets after the street on QLD item 11, once
+    d = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate"}, "QLD")
+    d2 = fill_hia.derive_values({"land_street": "Sample Street (Sample Estate)",
+                                 "estate": "Sample Estate"}, "QLD")
+    d3 = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate"}, "NSW")
+    if (d["land_street"], d2["land_street"], d3["land_street"]) != (
+            "Sample Street (Sample Estate)", "Sample Street (Sample Estate)", "Sample Street"):
+        fails.append(f"QLD estate: {d['land_street']!r} / {d2['land_street']!r} / NSW {d3['land_street']!r}")
     print("  contract figures (#62): " + ("PASS" if not fails else "FAIL - " + "; ".join(fails)))
     return not fails
 
 
 def main():
     print("regress_hia: fill_hia.py vs the staged HIA templates (synthetic values)")
-    results = [legacy_key_split(), contract_figures_unit()]
+    results = [legacy_key_split(), contract_figures_unit(), builder_name_geometry()]
     with tempfile.TemporaryDirectory(dir=STAGED.parent if STAGED.parent.is_dir() else None) as tmp:
         for region, spec in SYNTH.items():
             results.append(run(region, spec, tmp))

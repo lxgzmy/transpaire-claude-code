@@ -100,25 +100,30 @@ way a person typing in the value column would):
     Schedule 1   item 3 Owner(s): NAME, ADDRESS, SUBURB, STATE, POSTCODE,
                  MOBILE, EMAIL (company/trust buyer: the whole entity string
                  goes in NAME, as the executed 25163 contract does)
-    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - from the figures
-                 a person gives (issue #73: QLD is never worked out; typed or
-                 read off a DataBuild screenshot, at any time, no gate)
+    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - worked from the
+                 request's GST-inclusive `price` the way the HIA form the team
+                 fills works them out (27 Oct 2026 review, reversing issue #73's
+                 "never worked out"); figures a person gives from DataBuild,
+                 typed or read off a screenshot, at any time, still win
     Schedule 2   Part B amounts: DEPOSIT, BASE, FRAME, ENCLOSED, FIXING,
-                 PRACTICAL COMPLETION and TOTAL, from the same figures (QC2 has
-                 no item 2 deposit: the deposit is Part B's first row); the
-                 printed percentages are checked first (CD-5.6). The checks
-                 on the figures are warnings only
+                 PRACTICAL COMPLETION and TOTAL, worked from the same price
+                 (QC2 has no item 2 deposit: the deposit is Part B's first
+                 row); the printed percentages are checked first (CD-5.6).
+                 The checks on the figures are warnings only
     item 7       guarantors - only when sourced; a guarantor also completes
                  the deed's BUILDER IS / OWNER IS lines (deed date never)
-    item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE
+    item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE;
+                 a job's `estate` goes in brackets after the street (27 Oct
+                 2026 review)
     item 15      late completion damages, replaces the $25.00 "per day." prefill
-    signatures   owner name on the Owner NAME line only - the builder line
-                 ships prefilled (Michael CRONK, signed for TRANSPIRE
+    signatures   owner name on the Owner NAME line only, at the x and size of
+                 the builder's name below it (27 Oct 2026 review) - the builder
+                 line ships prefilled (Michael CRONK, signed for TRANSPIRE
                  CONSTRUCTIONS PTY LTD), so builders_rep is not typed here
 
 What it NEVER fills (CD-5.4): date, interest %, builder's margin %, and any
-figure that is neither keyed in the job JSON nor (NSW) worked from its
-contract price as above. Every amount types as "$nnn,nnn.nn".
+figure that is neither keyed in the job JSON nor worked from its contract
+price as above. Every amount types as "$nnn,nnn.nn".
 The building and initial periods carry the template's own prefills (NSW build:
 52 weeks / 90 + 180 days; QLD build: 210 days / 90 days start / 10 days
 inclement weather) and are left untouched for the reviewer - on QLD check the
@@ -236,12 +241,12 @@ def _rebuild(p_xml, segs):
     return p_xml
 
 
-def insert_value_run(p_xml, segs, offset, value, tab=False):
+def insert_value_run(p_xml, segs, offset, value, tab=False, rpr=None):
     """Insert the typed value as its OWN run right after the label text at
     `offset`, in the label's face minus bold/italic/underline (STRIP_RE) -
     the way the completed contracts key regular-weight values beside bold
-    printed labels. Mode "tab" leads with a tab (the line's value column)
-    instead of the two-space gap."""
+    printed labels - or in `rpr` when given. Mode "tab" leads with a tab
+    (the line's value column) instead of the two-space gap."""
     pos, seg, off_in = 0, None, 0
     for s in segs:
         ln = len(s["text"])
@@ -257,7 +262,8 @@ def insert_value_run(p_xml, segs, offset, value, tab=False):
     if run is None:
         return p_xml, False
     rpr_m = RPR_RE.search(run.group(0))
-    rpr = STRIP_RE.sub("", rpr_m.group(0)) if rpr_m else ""
+    if rpr is None:
+        rpr = STRIP_RE.sub("", rpr_m.group(0)) if rpr_m else ""
     lead = "<w:tab/>" if tab else ""
     text = value if tab else f"  {value}"
     new_run = f'<w:r>{rpr}{lead}<w:t xml:space="preserve">{xml_escape(text)}</w:t></w:r>'
@@ -285,6 +291,24 @@ def fill_para(p_xml, label, value, mode, occ=1):
             return p_xml, False
         return insert_value_run(p_xml, segs, hits[occ - 1].end(), value,
                                 tab=(mode == "tab"))
+    if isinstance(mode, tuple) and mode[0] == "tab_at":
+        # a value that must line up with a name typeset elsewhere on the
+        # page: its own tab stop at that name's x (twips from the margin) and
+        # that name's size (half-points) in the paragraph's own font. A
+        # paragraph that already sets tab stops is a revised template
+        _, pos, size = mode
+        hits = list(label_regex(label).finditer(concat))
+        ppr = re.search(r"<w:pPr>(.*?)</w:pPr>", p_xml, re.S)
+        # w:tabs goes first in the pPr, so nothing the schema orders ahead
+        # of it may be there already (the paragraph mark's own rPr aside)
+        if len(hits) < occ or not ppr or re.search(
+                r"<w:(?:pStyle|keepNext|keepLines|pageBreakBefore|framePr|widowControl|numPr"
+                r"|suppressLineNumbers|pBdr|shd|tabs)\b", ppr.group(1).split("<w:rPr>")[0]):
+            return p_xml, False
+        p_xml, ok = insert_value_run(p_xml, segs, hits[occ - 1].end(), value, tab=True,
+                                     rpr=f'<w:rPr><w:sz w:val="{size}"/><w:szCs w:val="{size}"/></w:rPr>')
+        return p_xml.replace("<w:pPr>", f'<w:pPr><w:tabs><w:tab w:val="left" w:pos="{pos}"/></w:tabs>',
+                             1), ok
     if mode == "replace_amount":
         m = AMOUNT_RE.search(concat)
         if not m:
@@ -525,9 +549,14 @@ REGIONS = {
             ]),
             # Signatures: the owner NAME line only (occurrence 2 is the
             # witness, left for a person) - the builder's line ships
-            # prefilled with Michael CRONK in this build
+            # prefilled with Michael CRONK in this build, in a two-column
+            # section: a 1206 tw first column + 497 tw gap, then Heading 5's
+            # 516 tw indent puts the name 2219 tw in from the margin, at 12 pt.
+            # The owner's name types at a tab stop there, at that size, so the
+            # two names line up (27 Oct 2026 review; typed two spaces after
+            # the label at 10 pt it sat well left of the builder's)
             (("has read and understood this contract", "Michael CRONK"), [
-                ("_sch1_owner", "NAME", "after", 1),
+                ("_sch1_owner", "NAME", ("tab_at", 2219, 24), 1),
             ]),
             # Deed of guarantee and indemnity - completed only when the job
             # has a sourced guarantor; the deed date is never filled
@@ -545,8 +574,9 @@ REGIONS = {
         # CONTRACT PRICE labels share one paragraph) and the three
         # $ 000,000.00 placeholders stack in the next column, in the same
         # order - the third element picks the nth placeholder after the
-        # label. Filled only from the figures a person gives (CD-5.4, issue
-        # #73). No deposit item on QC2: the deposit is Part B's first row.
+        # label. Worked from the contract price, figures a person gives
+        # winning (CD-5.4, 27 Oct 2026 review). No deposit item on QC2: the
+        # deposit is Part B's first row.
         "amounts": [
             ("price_excl_gst", "PRICE EXCLUDING GST:",     1),
             ("gst_amount",     "GST ON THE ABOVE AMOUNT:", 2),
@@ -555,7 +585,8 @@ REGIONS = {
         # Schedule 2 Part B (CD-5.6, issue #73), the part the team completes:
         # six rows and a TOTAL row, each a printed "n.00%" cell then a
         # "$ 0.00" amount cell. Same source as item 2; the printed
-        # percentages are checked before anything is typed.
+        # percentages are checked before anything is typed, and the amounts
+        # are worked from these same percentages.
         "part_b": {
             "scope": ("Part B can be used where the parties agree",
                       "The total must equal the contract price"),
@@ -658,6 +689,14 @@ def derive_values(values, region):
         values["land_suburb"] = parts[0]
         if len(parts) == 2 and parts[1].isdigit() and not values.get("land_postcode"):
             values["land_postcode"] = parts[1]
+    # QLD item 11 STREET ADDRESS: an estate goes in brackets after the street,
+    # as on the cover and in the job folder name (27 Oct 2026 review; the
+    # executed SEQ estate contracts key it there). Already there: left alone
+    if region == "QLD":
+        street = str(values.get("land_street") or "").strip()
+        estate = str(values.get("estate") or "").strip().strip("()").strip()
+        if street and estate and estate.lower() not in street.lower():
+            values["land_street"] = f"{street} ({estate})"
     # the deed is only in play when the job actually has a guarantor
     if (values.get("guarantor_name") or "").strip():
         values.setdefault("_deed_builder", "TRANSPIRE CONSTRUCTIONS PTY LTD")
@@ -667,8 +706,8 @@ def derive_values(values, region):
 
 def contract_figures(values, region):
     """Item 2 and the progress schedule from the contract price (CD-5.4 / CD-5.6,
-    issue #62, NSW). Returns (report lines, flags) and sets the money keys a
-    person has not keyed.
+    issue #62, NSW; QLD's item 2 and Part B go to part_b_figures). Returns
+    (report lines, flags) and sets the money keys a person has not keyed.
 
     The executed NSW contracts (26045, 26040) follow one convention, applied
     here to the request's GST-inclusive price (the price the inclusions carry):
@@ -691,7 +730,7 @@ def contract_figures(values, region):
             else:
                 values[key] = fmt_money(d)
     if REGIONS[region].get("part_b"):
-        return given_figures(values, region, lines, flags)
+        return part_b_figures(values, region, lines, flags)
     prog = REGIONS[region].get("progress")
     if not prog:
         return lines, flags
@@ -768,23 +807,57 @@ def contract_figures(values, region):
     return lines, flags
 
 
-def given_figures(values, region, lines, flags):
-    """QLD item 2 and Schedule 2 Part B from the figures a person gives (issue #73).
+def part_b_figures(values, region, lines, flags):
+    """QLD item 2 and Schedule 2 Part B from the contract price (27 Oct 2026
+    review of job 26059, reversing issue #73's "nothing is worked out").
 
-    Nothing is worked out. The person types the DataBuild figures, or gives a
-    screenshot that is read back to them first, whenever they have them: with
-    the request, later in the chat, or after the documents are saved (then a
-    build-contract-only run). The checks are warnings: they never stop the fill
-    and never change a figure. With no figures at all the cells stay blank and
-    the report says how to add them - that is a note, not a flag."""
+    The executed SEQ contracts take one figure, the GST-inclusive contract
+    price, and the HIA form the team fills works out the rest from it: price
+    excluding GST = price / 1.1, GST the remainder, each Part B row its printed
+    % of the price, TOTAL the price. The run does the same from the request's
+    `price`, to the cent: GST = price / 11 half up (the same cents as the
+    form's, for any price in cents), the deposit rounded down so it never
+    passes the 5% the contract allows, practical completion the rounding
+    balance so Part B always totals the price. Figures a person gives from
+    DataBuild - typed, or a screenshot read back to them first, at any time -
+    are typed as given and the rest are worked from their contract price when
+    they give one. The checks are warnings: they never stop the fill and never
+    change a figure. No usable price and no figures: the cells stay blank,
+    flagged."""
     rows = REGIONS[region]["part_b"]["rows"]
     item2 = [("price_excl_gst", "excl. GST"), ("gst_amount", "GST"),
              ("price_incl_gst", "contract price")]
     keys = [k for k, _ in item2] + [k for k, _, _ in rows] + ["progress_total"]
-    if not any(str(values.get(k) or "").strip() for k in keys):
-        lines.append("contract figures (QLD, issue #73): none given - item 2 and Part B are left blank. "
-                     "Optional, at any time: give the DataBuild figures (typed, or a screenshot) and "
-                     "the build contract is filled again with them")
+    given = [k for k in keys if str(values.get(k) or "").strip()]
+    raw_price = str(values.get("price") or "").strip()
+    keyed_price = parse_money(values.get("price_incl_gst"))
+    base = keyed_price if keyed_price is not None else parse_money(raw_price)
+    if base is not None and base > 0:
+        gst = cents(base / 11)
+        amts = [cents(base * pct / 100, ROUND_DOWN if key == "deposit" else ROUND_HALF_UP)
+                for key, _, pct in rows[:-1]]
+        amts.append(base - sum(amts))
+        calc = {"price_incl_gst": base, "gst_amount": gst, "price_excl_gst": base - gst,
+                "progress_total": base}
+        calc.update({key: amt for (key, _, _), amt in zip(rows, amts)})
+        src = "the contract price given" if keyed_price is not None else "the request price"
+        lines += [f"contract figures (QLD, CD-5.4): from {src} {fmt_money(base)}",
+                  f"  GST              {fmt_money(base)} / 11 = {base / 11:.4f} -> {fmt_money(gst)} "
+                  "(to the cent, half up)",
+                  f"  excl. GST        {fmt_money(base)} - {fmt_money(gst)} = {fmt_money(base - gst)}"]
+        for n, ((key, name, pct), amt) in enumerate(zip(rows, amts)):
+            how = ("balance: the price less the rows above" if n == len(rows) - 1
+                   else "rounded down, never over the 5% cap" if key == "deposit"
+                   else "to the cent, half up")
+            lines.append(f"  {name[:20]:<20} {pct:>3}% {fmt_money(amt):>14}  ({how})")
+        lines.append(f"  {'TOTAL':<20} 100% {fmt_money(base):>14}  (= the contract price)")
+        for key, amt in calc.items():
+            if key not in given:
+                values[key] = fmt_money(amt)
+    elif not given:
+        flags.append((f"contract price {raw_price!r} is not a plain amount" if raw_price
+                      else "no contract price in the job JSON")
+                     + " - item 2 and Part B are left blank for a person")
         return lines, flags
     got = {k: parse_money(values.get(k)) for k in keys}   # None: blank, or not an amount
     price = got["price_incl_gst"]
@@ -794,12 +867,14 @@ def given_figures(values, region, lines, flags):
         values["progress_total"] = fmt_money(price)
         got["progress_total"] = price
     show = lambda k: fmt_money(got[k]) if got[k] is not None else "(blank)"
-    src = str(values.get("figures_source") or "").strip()
-    lines += [f"contract figures (QLD, issue #73): as given" + (f" ({src})" if src else "")
-              + " - nothing worked out",
-              "  item 2   " + " | ".join(f"{name} {show(k)}" for k, name in item2),
-              "  Part B   " + " | ".join(f"{name} {pct}% {show(k)}" for k, name, pct in rows)
-              + f" | TOTAL {show('progress_total')}"]
+    if given:
+        src = str(values.get("figures_source") or "").strip()
+        names = dict(item2 + [(k, n) for k, n, _ in rows] + [("progress_total", "TOTAL")])
+        lines += [f"contract figures (QLD): given" + (f" ({src})" if src else "")
+                  + ", typed as given: " + ", ".join(names[k] for k in given),
+                  "  item 2   " + " | ".join(f"{name} {show(k)}" for k, name in item2),
+                  "  Part B   " + " | ".join(f"{name} {pct}% {show(k)}" for k, name, pct in rows)
+                  + f" | TOTAL {show('progress_total')}"]
 
     blank2 = [name for k, name in item2 if got[k] is None]
     if len(blank2) < len(item2) and blank2:
