@@ -10,8 +10,8 @@ Proof-of-concept, draft-first. The workflows below read only; since 23 Oct
 2026 Claude also keeps the building-approval record in OSC on the officer's
 yes (`workflows/osc-updates.md`). Three workflows, in build order:
 
-1. **Weekly BA report pre-population** (pipeline v0.2 built; pilot cycle
-   ready on jobs 26029, 26052, 26001 per issue #29) — draft the Monday
+1. **Weekly BA report pre-population** (pipeline v0.4; pilot on jobs
+   26029, 26052, 26001 per issue #29, week 1 on 2 Nov 2026) — draft the Monday
    building-approval status report by reading OSC job activities, alerts and
    documents, carrying forward last week's report, and ageing each
    outstanding item in NSW business days with a yellow/red flag by who it is

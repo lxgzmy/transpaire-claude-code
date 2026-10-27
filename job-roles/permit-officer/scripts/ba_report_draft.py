@@ -56,7 +56,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, parse_report
+from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, norm_item, officer_edits, parse_report
 from nsw_holidays import LAST_YEAR, business_days, covers, sydney_date
 
 # ------------------------------------------------------------------ ageing config
@@ -72,6 +72,8 @@ ASSIGNEE_TIER = [
     (r"\b(ENERGY|BASIX|NATHERS|ASSESSOR)\b", "ENERGY"),
     (r"\b(CERTIFIER|PCA|PRIVATE CERT\w*)\b", "EXTERNAL"),                 # ASSUMED (#29 q1)
     (r"\b(ENGINEER\w*|SURVEY\w*|CONSULT\w*|HYDRAULIC|STRUCTURAL|GEOTECH\w*)\b", "EXTERNAL"),
+    # The officer's own label, e.g. "Water Services Coordinator (External)" (22.10 Items sheet)
+    (r"\b(EXTERNAL|WATER SERVICES? CO-?ORDINATOR)\b", "EXTERNAL"),
     (r"\b(COUNCIL|SHIRE|CITY OF)\b", "COUNCIL"),
     (r"\b(SYDNEY WATER|ALTOGETHER|HUNTER WATER|WATER AUTHORITY|TAP.?IN)\b", "COUNCIL"),  # ASSUMED (#29 q2)
 ]
@@ -105,6 +107,11 @@ NOT_AN_OUTCOME = r"\b(APPLICATION|APPLN|REQUEST|ORDER(ED)?|RECEIPT|SUBMI\w*)\b"
 # pending one's assigned user / service provider is "who it is with".
 # order_activities: the step that sends the item out (Order Engineering - X);
 # with the chain steps, it dates DATE SUBMITTED for the first pending step.
+# threshold: business days before RED for this item whoever has it, in place
+# of the tier's (the officer, 27 Oct 2026: engineering and covenant 10, an
+# amended DA about 60).
+# columns: the item is also tracked from the export's own columns, listed or
+# not (COLUMN_CYCLES below).
 # submitted_docs: order/application/receipt documents whose OLDEST attach
 # date evidences DATE SUBMITTED (verify grade — .msg files are dragged into
 # OSC after the send, PO-9).
@@ -112,7 +119,7 @@ NOT_AN_OUTCOME = r"\b(APPLICATION|APPLN|REQUEST|ORDER(ED)?|RECEIPT|SUBMI\w*)\b"
 FAMILIES = [
     # The structural engineering OSC tracks (slab and structural steel chains).
     # Other disciplines have no OSC steps, so they get no rule.
-    {"key": "ENGINEERING", "tier": "EXTERNAL",
+    {"key": "ENGINEERING", "tier": "EXTERNAL", "threshold": 10, "columns": True,
      "match": r"\bENG(INEERING)?\b",
      "exclude": r"\b(HYDRAULIC|CIVIL|STORMWATER|DRAINAGE|GEOTECH\w*|ELECTRICAL|FIRE|TRAFFIC|ACOUSTIC|BUSHFIRE)\b",
      "done_activities": [r"Receive Engineering", r"Review Engineering", r"Forward Engineers"],
@@ -120,7 +127,7 @@ FAMILIES = [
                             r"Amend Working Drawings to Suit", r"Forward Engineers"],
      "order_activities": [r"Order Engineering"],
      "done_docs": [], "submitted_docs": []},
-    {"key": "COVENANT", "tier": "EXTERNAL",
+    {"key": "COVENANT", "tier": "EXTERNAL", "threshold": 10, "columns": True,
      "match": r"\bCOV(ENANT)?\b",
      "done_activities": [r"Receive Covenant Approval"],
      "pending_activities": [r"Submit Covenant Application", r"Receive Covenant Approval",
@@ -210,13 +217,26 @@ FAMILIES = [
      "submitted_docs": []},
     {"key": "LODGEMENT", "tier": "INTERNAL",
      "match": r"\b(LODGEMENT|LODGE)\b",
+     "exclude": r"\bAMENDED\s+DA\b",  # lodging an amended DA is part of that item
      "done_activities": [], "pending_activities": [],
      "done_docs": [], "submitted_docs": []},
+    # Named by the officer on 27 Oct 2026: both sit with Council. Document
+    # patterns follow the house naming (APPROVAL - X, X APPLICATION, X
+    # RECEIPT); no ROP or amended-DA document has been seen yet.
+    {"key": "ROP", "tier": "COUNCIL",
+     "match": r"\b(ROP|ROAD\s+OPENING)\b",
+     "done_activities": [], "pending_activities": [],
+     "done_docs": [r"(ROP|ROAD\s+OPENING).*(APPROV|PERMIT)", r"APPROVAL\s*-\s*(ROP|ROAD\s+OPENING)"],
+     "submitted_docs": [r"(ROP|ROAD\s+OPENING).*(APPLICATION|RECEIPT)"]},
+    {"key": "AMENDED DA", "tier": "COUNCIL", "threshold": 60,
+     "match": r"\bAMENDED\s+(DA|DEVELOPMENT\s+APPLICATION)\b",
+     "done_activities": [], "pending_activities": [],
+     # "AMENDED DA - SIGNED CONSENT" is the owner's consent to lodge (filed the day it went in on
+     # a pilot job, 28 Sep 2026), so it dates the submission and never counts as the approval.
+     "done_docs": [r"AMENDED\s+(DA|DEVELOPMENT).*(APPROV|DETERMINATION)",
+                   r"APPROVAL\s*-\s*AMENDED\s+(DA|DEVELOPMENT)"],
+     "submitted_docs": [r"AMENDED\s+(DA|DEVELOPMENT).*(APPLICATION|RECEIPT|LODG|SIGNED\s+CONSENT)"]},
 ]
-
-# Pending activities that justify PROPOSING a new outstanding item when no
-# carried item already covers the family.
-PROPOSE_FROM_PENDING = {"ENGINEERING", "COVENANT", "INSURANCES"}
 
 def _iso_day(s):
     """The Sydney date of an OSC timestamp (documents and alerts carry real UTC times)."""
@@ -263,6 +283,28 @@ def _is_outcome(desc, fam):
 def item_key(item_name):
     fam = family_of(item_name)
     return fam["key"] if fam else item_name.upper()
+
+
+def item_keys(names):
+    """State keys for one job's items: the evidence family (so "SEW EJECTION" and "SEWER EJECTION"
+    stay one item from week to week), unless two items share a family, when each keeps its own by
+    name, so one item's dates never overwrite another's."""
+    fams = [item_key(n) for n in names]
+    return [f"{k}: {norm_item(n)}" if fams.count(k) > 1 else k for k, n in zip(fams, names)]
+
+
+def _edit_text(e):
+    parts = []
+    if "assigned_to" in e:
+        parts.append(f"assigned to \"{e['assigned_to']}\"" if e["assigned_to"] else "assigned-to cleared")
+    if "date_submitted" in e:
+        parts.append(f"date submitted {_ddmmyyyy(e['date_submitted'])}" if e["date_submitted"]
+                     else "date submitted emptied (not yet submitted)")
+    if e.get("date_resolved"):
+        parts.append(f"resolved {_ddmmyyyy(e['date_resolved'])}")
+    if "note" in e:
+        parts.append("note updated" if e["note"] else "note cleared")
+    return "your Items sheet: " + ", ".join(parts)
 
 
 def tier_for(text):
@@ -368,25 +410,59 @@ def check_item(item, snapshot, since_iso):
     return "unknown", "no completion evidence found", None, None, None
 
 
-def propose_new_items(snapshot, carried_family_keys):
-    """Pending BA-relevant activities with no carried item -> proposals."""
-    proposals = []
-    for fam in FAMILIES:
-        if fam["key"] not in PROPOSE_FROM_PENDING or fam["key"] in carried_family_keys:
-            continue
-        for p in fam.get("pending_activities", []):
-            matched, _, first_pending = activity_state(snapshot, p)
-            if matched and first_pending:
-                owner, field = _owner_of(first_pending)
-                proposals.append({
-                    "name": fam["key"],
-                    "state": "PROPOSED",
-                    "owner": owner,
-                    "owner_field": field,
-                    "evidence": f"OSC activity \"{first_pending.get('description')}\" pending",
-                })
-                break
-    return proposals
+# The engineering and covenant columns the export gained on 28 Sep 2026, aged
+# like RFI items at 10 business days (the officer, 27 Oct 2026). Each is a
+# chain of steps: in flight from its latest dated step until the closing step
+# is dated on or after it. Engineering goes round again when a revision is
+# received or reviewed after the last forward, which OSC does not re-date, so
+# the officer's Date resolved closes a cycle too. Header text is matched by
+# its start ("Review Engineering - <reviewer>"); OSC's own closing step is
+# read as well, being fresher than the base export.
+COLUMN_CYCLES = {
+    "ENGINEERING": {"steps": {"engineering ordered": "ordered", "receive engineering": "received",
+                              "review engineering": "reviewed"},
+                    "closing": "forward engineering", "closed": "forwarded to the certifier",
+                    "closing_activity": r"^Forward Engineers Footing/Slab Design", "label": "engineering columns"},
+    "COVENANT": {"steps": {"covenant ordered": "ordered"}, "closing": "received covenant approval",
+                 "closed": "approved", "closing_activity": r"^Receive Covenant Approval",
+                 "label": "covenant columns"},
+}
+
+
+def _column_date(row, header_start):
+    """(ISO date or None, raw text) of the base column whose header starts with ``header_start``."""
+    if header_start == "received covenant approval":
+        cell = row["received_covenant"]
+        return cell["date"], cell["raw"]
+    for header, cell in row["extra"].items():
+        if " ".join(header.lower().split()).startswith(header_start):
+            return cell["date"], cell["raw"]
+    return None, None
+
+
+def column_cycle(key, row, snapshot):
+    """The tracked chain behind an item's columns: {since, done_on, detail} or None when never started."""
+    spec = COLUMN_CYCLES[key]
+    steps = [(word, _column_date(row, name)[0]) for name, word in spec["steps"].items()]
+    dated = [(d, word) for word, d in steps if d]
+    if not dated:
+        return None
+    since, step = max(dated)
+    closed, closed_raw = _column_date(row, spec["closing"])
+    if snapshot:
+        osc = [_iso_day(a["completionDate"]) for a in snapshot.get("activities", [])
+               if re.search(spec["closing_activity"], a.get("description") or "", re.I)
+               and a.get("completionDate") and not a.get("isNotApplicable")]
+        closed = max([d for d in [closed] + osc if d], default=None)
+    done_on = closed if closed and closed >= since else None
+    if done_on:
+        after = f"{spec['closed']} {_ddmmyyyy(done_on)}"
+    elif closed:
+        after = f"not {spec['closed']} since (last {_ddmmyyyy(closed)})"
+    else:
+        after = f"not {spec['closed']} yet" + (f" ({str(closed_raw).strip()})" if str(closed_raw or "").strip() else "")
+    return {"since": since, "done_on": done_on,
+            "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}, {after}"}
 
 
 def _chain_of(desc):
@@ -462,6 +538,10 @@ STATE_PREVIOUS = "ba-items-first-seen.prev.json"
 
 
 class StateError(RuntimeError):
+    pass
+
+
+class DraftInputError(RuntimeError):
     pass
 
 
@@ -544,7 +624,8 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     if tier is None:
         if fam:
             tier = fam["tier"]
-            if assigned:
+            # A person's name the officer typed is hers to give; it just has no tier of its own.
+            if assigned and src != "officer":
                 flags.append(f"assignee \"{assigned}\" not recognised — tier from item type ({tier})")
         else:
             tier = "INTERNAL"
@@ -552,13 +633,26 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     if not assigned:
         flags.append("assigned-to unknown")
 
-    # ---- date submitted
-    submitted, dsrc = _resolve_sticky(item.get("date_submitted"), entry,
-                                      "ai_date_submitted", "date_submitted", "date_source")
+    # ---- date submitted: the officer's date (or her "not yet submitted"), else the item's
+    # columns, else OSC evidence, else last week's value, else the first sighting (assumed)
+    if item.get("date_submitted"):
+        entry.pop("not_submitted", None)
+    column_since = item.get("column_since")
+    if column_since and entry.get("date_source") == "officer" and (entry.get("date_submitted") or "") < column_since:
+        # a newer step in the item's columns starts a new cycle; her date was for the last one
+        entry.update(date_source=None, date_submitted=None)
+        entry.pop("not_submitted", None)
+    if entry.get("not_submitted"):
+        submitted, dsrc = None, "officer: not yet submitted"
+    else:
+        submitted, dsrc = _resolve_sticky(item.get("date_submitted"), entry,
+                                          "ai_date_submitted", "date_submitted", "date_source")
     echo = submitted if (submitted and dsrc is None) else None
-    if dsrc != "officer":
+    if not (dsrc or "").startswith("officer"):
         submitted, dsrc = None, None
-        if snapshot:
+        if column_since:
+            submitted, dsrc = column_since, item.get("column_detail")
+        elif snapshot:
             ev_date, ev_desc = submitted_evidence(item, snapshot, submit_for_ba_iso)
             if ev_date:
                 submitted, dsrc = ev_date, f"osc: {ev_desc}"
@@ -570,19 +664,25 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
             flags.append("date submitted assumed from first report sighting — officer to correct")
     entry.setdefault("first_seen", since)
 
-    # ---- days + flag
+    # ---- days + flag (an item not yet submitted counts no days)
+    threshold = (fam or {}).get("threshold") or TIERS[tier]
     end = item.get("date_resolved") if item.get("resolved") else asof
-    days = business_days(submitted, end) if end else 0
+    days = business_days(submitted, end) if (end and submitted) else None
     if item.get("resolved"):
         flag = ""
+    elif days is None:
+        flag = "NOT SUBMITTED"
     else:
-        flag = "YELLOW" if days <= TIERS[tier] else "RED"
+        flag = "YELLOW" if days <= threshold else "RED"
 
     item.update({"assigned_to": assigned, "assigned_source": src, "tier": tier,
-                 "threshold": TIERS[tier], "date_submitted": submitted,
+                 "threshold": threshold, "date_submitted": submitted,
                  "date_source": dsrc, "days": days, "flag": flag,
                  "assumed": dsrc.startswith("assumed") if dsrc else False})
     item["age_flags"] = flags
+    if (item.get("flagged") and item.get("verdict") == "unknown" and (dsrc or "").startswith("officer")
+            and item.get("evidence") in ("no completion evidence found", "no evidence rule for this item")):
+        item["flagged"] = False  # she has dated the item herself; OSC having no evidence yet is no news
     if flags:
         item["flagged"] = True
 
@@ -592,14 +692,41 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     if src != "officer":
         entry["assigned_to"] = assigned
         entry["assigned_source"] = src
-    if dsrc != "officer":
+    if not (dsrc or "").startswith("officer"):
         entry["date_submitted"] = submitted
         entry["date_source"] = dsrc
     return item
 
 
+def apply_officer_edit(entry, edit, source):
+    """Fold one Items-sheet edit (ba_report_parse.officer_edits) into the item's state: her values
+    stick until she changes them again."""
+    if "assigned_to" in edit:
+        if edit["assigned_to"]:
+            entry.update(assigned_to=edit["assigned_to"], assigned_source="officer")
+        else:  # cleared: back to what the evidence says
+            entry.update(assigned_to=None, assigned_source=None, ai_assigned_to=None)
+    if "date_submitted" in edit:
+        if edit["date_submitted"]:
+            entry.update(date_submitted=edit["date_submitted"], date_source="officer")
+            entry.pop("not_submitted", None)
+        else:  # she emptied the date: the item has not gone out yet
+            entry.update(date_submitted=None, date_source="officer", not_submitted=True)
+    if edit.get("date_resolved"):
+        entry["officer_resolved"] = edit["date_resolved"]
+        entry.pop("resolved_shown", None)
+    if "note" in edit:
+        if edit["note"]:
+            entry["officer_note"] = edit["note"]
+        else:
+            entry.pop("officer_note", None)
+    entry["edited_in"] = source
+
+
 # ------------------------------------------------------------------ draft
-def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, jobs=None):
+def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, jobs=None, edited=None, drafted=None):
+    """``edited``: last week's draft as the officer left it (her Items-sheet changes are read from it,
+    compared with ``drafted``, the same draft as written; default: that file in ``out_dir``)."""
     asof = asof or date.today().isoformat()
     prev = parse_report(prev_path)
     prev_date = None
@@ -616,6 +743,23 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     if not covers(asof):
         evidence["notes"].append(f"the NSW holiday table in nsw_holidays.py ends in {LAST_YEAR}, so business-day "
                                  f"counts in {asof[:4]} miss that year's public holidays — add them first")
+    # The officer's base is a plain export with no Items sheet; what she typed last week lives in
+    # the draft she edited, so it is read from there and kept in the state from now on.
+    edits_by_job, edit_source = {}, None
+    if edited:
+        drafted = Path(drafted) if drafted else Path(out_dir) / re.sub(r"\s*\(officer-edited\)", "", Path(edited).name)
+        if not drafted.exists():
+            raise DraftInputError(f"the draft as written ({drafted}) is needed to tell the officer's changes from "
+                                  "the draft's own values; pass --drafted")
+        found = officer_edits(edited, drafted)
+        for e in found["edits"]:
+            edits_by_job.setdefault(e["job_no"], []).append(e)
+        edit_source = Path(edited).name
+        evidence["notes"].append(f"the officer's Items-sheet changes read from {edit_source}: "
+                                 f"{len(found['edits'])} row(s) changed")
+        for u in found["unmatched"]:
+            evidence["notes"].append(f"edited Items row {u['row']} ({u['job_no']} \"{u['item']}\") matches no "
+                                     "drafted row — not used")
     # The draft reproduces the base's columns exactly (located by header
     # text); v0.2's per-item columns L-O are dropped from the main sheet in
     # favour of the Items sheet.
@@ -681,8 +825,12 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         g = row["submit_all_rfi_items"]
         if in_scope and g.get("other_text"):
             job_ev["flags"].append(f"the RFI-items cell reads \"{g['raw']}\", not a PENDING list — carried verbatim")
-        items_out = []      # open items, in G order
-        resolved_out = []   # items resolved this cycle (shown once)
+        jstate = state.setdefault(job_no, {}) if in_scope else {}
+        items_out = []      # open RFI items, in the cell's order
+        resolved_out = []   # RFI items resolved this cycle (shown once)
+        col_out = []        # open items tracked from their columns only (Items sheet, never the RFI cell)
+        col_resolved = []
+        listed = []         # (item, state key) for the RFI cell's items
         had_items = False
         if in_scope and g["pending"] and (values["submit_all_rfi_items"] in (None, "") or g["raw"]):
             filled_by_osc = values["submit_all_rfi_items"] not in (None, "") and \
@@ -703,51 +851,118 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                         {"item": ", ".join(i["name"] for i in g["resolved"]),
                          "action": "resolved-line-dropped",
                          "evidence": "shown last cycle as RESOLVED; not carried"})
-                carried_keys = set()
-                for item in g["items"]:
-                    fam = family_of(item["name"])
-                    if fam:
-                        carried_keys.add(fam["key"])
-                    if snapshot:
-                        verdict, ev, owner, owner_field, ev_date = check_item(item, snapshot, since)
-                    else:
-                        verdict, ev, owner, owner_field, ev_date = "unknown", "no snapshot", None, None, None
-                    entry = {"name": item["name"], "state": item["state"],
-                             "owner": owner, "owner_field": owner_field,
-                             "assigned_to": item.get("assigned_to"),
-                             "date_submitted": item.get("date_submitted"),
-                             "evidence": ev, "flagged": False, "resolved": False}
-                    if verdict == "complete":
-                        entry.update({"resolved": True, "date_resolved": ev_date or asof})
-                        job_ev["changes"].append(
-                            {"item": item["name"], "action": "resolved", "evidence": ev})
-                        resolved_out.append(entry)
-                        continue
-                    entry["flagged"] = verdict in ("unknown", "complete-old-evidence", "conflict")
-                    if verdict == "complete-old-evidence":
-                        job_ev["flags"].append(
-                            f"item \"{item['name']}\": completion evidence predates {since} ({ev}) — kept, verify")
-                    elif verdict == "conflict":
-                        job_ev["flags"].append(f"item \"{item['name']}\": {ev} — kept, verify")
-                    items_out.append(entry)
-                if snapshot:
-                    for prop in propose_new_items(snapshot, carried_keys):
-                        items_out.append({**prop, "flagged": True, "resolved": False})
-                        job_ev["changes"].append(
-                            {"item": prop["name"], "action": "proposed-add",
-                             "evidence": prop["evidence"]})
+                keys = item_keys([i["name"] for i in g["items"]])
+                listed = list(zip(g["items"], keys))
+                for k in sorted({k for k in keys if ": " in k}):
+                    job_ev["flags"].append(f"two or more items share the {k.split(': ')[0]} evidence rule; "
+                                           "each keeps its own dates")
+
+        # ---- the engineering and covenant columns (aged at 10 business days, the officer 27 Oct 2026)
+        cycles = {}
+        if in_scope and not row["ba_received"]["date"]:
+            for fkey in COLUMN_CYCLES:
+                cyc = column_cycle(fkey, row, snapshot)
+                if cyc:
+                    cycles[fkey] = cyc
+        listed_families = {item_key(i["name"]) for i, _ in listed}
+        unlisted = [fkey for fkey in cycles if fkey not in listed_families]
+
+        # ---- the officer's edits from last week's draft, matched by name, else by evidence family
+        targets = [(i["name"], k) for i, k in listed] + [(fkey, fkey) for fkey in unlisted]
+        for e in edits_by_job.get(job_no, []) if in_scope else []:
+            hit = [k for n, k in targets if norm_item(n) == norm_item(e["item"])]
+            if len(hit) != 1:
+                hit = [k for n, k in targets if item_key(n) == item_key(e["item"])]
+            if len(hit) != 1:
+                if e["was_resolved"] or e.get("date_resolved"):  # history: the item had already closed
+                    job_ev["changes"].append({"item": e["item"], "action": "officer-edit-noted",
+                                              "evidence": _edit_text(e) + " (item closed, kept for the record)"})
+                else:
+                    job_ev["flags"].append(f"your Items-sheet change to \"{e['item']}\" was not used: the item is "
+                                           "no longer on the report")
+                continue
+            apply_officer_edit(jstate.setdefault(hit[0], {}), e, edit_source)
+            job_ev["changes"].append({"item": e["item"], "action": "officer-edit", "evidence": _edit_text(e)})
+
+        for item, key in listed:
+            st = jstate.setdefault(key, {})
+            fam = family_of(item["name"])
+            cyc = cycles.get(fam["key"]) if fam and fam.get("columns") else None
+            if st.get("officer_resolved"):
+                verdict, ev, owner, owner_field, ev_date = (
+                    "complete", f"resolved on your Items sheet ({_ddmmyyyy(st['officer_resolved'])})",
+                    None, None, st["officer_resolved"])
+            elif snapshot:
+                verdict, ev, owner, owner_field, ev_date = check_item(item, snapshot, since)
+            else:
+                verdict, ev, owner, owner_field, ev_date = "unknown", "no snapshot", None, None, None
+            if cyc and cyc["done_on"] and verdict != "complete":
+                if verdict in ("active", "conflict"):
+                    verdict, ev = "conflict", f"{cyc['detail']}, but {ev}"
+                else:
+                    verdict = "complete" if cyc["done_on"] >= since else "complete-old-evidence"
+                    ev, ev_date = cyc["detail"], cyc["done_on"]
+            rec = {"name": item["name"], "state": item["state"], "key": key, "verdict": verdict,
+                   "owner": owner, "owner_field": owner_field,
+                   "assigned_to": item.get("assigned_to"),
+                   "date_submitted": item.get("date_submitted"),
+                   "evidence": ev, "flagged": False, "resolved": False}
+            if cyc and not cyc["done_on"]:
+                rec.update(column_since=cyc["since"], column_detail=cyc["detail"], evidence=f"{cyc['detail']}; {ev}")
+            if verdict == "complete":
+                rec.update({"resolved": True, "date_resolved": ev_date or asof})
+                job_ev["changes"].append({"item": item["name"], "action": "resolved", "evidence": ev})
+                resolved_out.append(rec)
+                continue
+            rec["flagged"] = verdict in ("unknown", "complete-old-evidence", "conflict")
+            if verdict == "complete-old-evidence":
+                job_ev["flags"].append(
+                    f"item \"{item['name']}\": completion evidence predates {since} ({ev}) — kept, verify")
+            elif verdict == "conflict":
+                job_ev["flags"].append(f"item \"{item['name']}\": {ev} — kept, verify")
+            items_out.append(rec)
+
+        for fkey in unlisted:
+            cyc, st = cycles[fkey], jstate.get(fkey) or {}
+            if st.get("cycle_since") != cyc["since"]:  # first sight, or a new cycle in the columns
+                if (st.get("officer_resolved") or "") < cyc["since"]:
+                    st.pop("officer_resolved", None)
+                st.pop("resolved_shown", None)
+            closed_on = st.get("officer_resolved") or cyc["done_on"]
+            if closed_on and (st.get("resolved_shown") or not (st.get("tracking") or st.get("officer_resolved"))):
+                continue  # already shown as resolved, or finished before it was ever tracked
+            st = jstate.setdefault(fkey, st)
+            st["cycle_since"] = cyc["since"]
+            rec = {"name": fkey, "state": "", "key": fkey, "column": True, "flagged": False, "resolved": False,
+                   "column_since": cyc["since"], "column_detail": cyc["detail"], "evidence": cyc["detail"]}
+            if closed_on:
+                how = ("resolved on your Items sheet" if st.get("officer_resolved")
+                       else f"closed in the {COLUMN_CYCLES[fkey]['label']}")
+                rec.update(resolved=True, date_resolved=closed_on, evidence=f"{how} ({_ddmmyyyy(closed_on)})")
+                st["resolved_shown"] = True
+                job_ev["changes"].append({"item": fkey, "action": "resolved", "evidence": rec["evidence"]})
+                col_resolved.append(rec)
+                continue
+            st["tracking"] = True
+            if snapshot:
+                _, _, rec["owner"], rec["owner_field"], _ = check_item({"name": fkey}, snapshot, since)
+            job_ev["changes"].append({"item": fkey, "action": "tracked-from-columns", "evidence": cyc["detail"]})
+            col_out.append(rec)
 
         # ---- ageing (pilot rows only)
-        jstate = state.setdefault(job_no, {}) if in_scope else {}
         submit_iso = row["submit_for_ba"]["date"]
-        for item in items_out + resolved_out:
-            entry = jstate.setdefault(item_key(item["name"]), {})
+        for item in items_out + resolved_out + col_out + col_resolved:
+            entry = jstate.setdefault(item["key"], {})
             age_item(item, entry, snapshot, asof, since, submit_iso)
+            item["officer_note"] = entry.get("officer_note")
             for f in item.get("age_flags", []):
                 job_ev["flags"].append(f"item \"{item['name']}\": {f}")
         for item in resolved_out:
-            jstate.pop(item_key(item["name"]), None)
-        if in_scope and not items_out and not resolved_out and job_no in state and g["date"]:
+            jstate.pop(item["key"], None)
+        if in_scope and g["date"] and not items_out:
+            for k in [k for k in jstate if k not in COLUMN_CYCLES]:
+                jstate.pop(k)  # the RFI list has closed; column items keep their history
+        if in_scope and not jstate:
             state.pop(job_no, None)
 
         # ---- OSC says the RFI response went back, yet items are still listed:
@@ -788,9 +1003,10 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
             g_cell = _date_or_text(values[key])
 
         # ---- row fill: the worst open item (PO-11a, row-level colour per #29)
-        ordered = items_out + resolved_out
+        open_items = items_out + col_out
+        ordered = items_out + col_out + resolved_out + col_resolved
         worst = ""
-        for i in items_out:
+        for i in open_items:
             if i["flag"] == "RED":
                 worst = "RED"
             elif i["flag"] == "YELLOW" and worst != "RED":
@@ -815,32 +1031,39 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 cells.append(_date_or_text(row["extra"].get(c["header"], {}).get("raw")))
         out_rows.append(cells)
 
-        # ---- Items sheet: one row per item, coloured by its own flag
+        # ---- Items sheet: one row per item, coloured by its own flag; Notes are the officer's own
         for i in ordered:
             if i.get("resolved"):
                 fill, flag_text = xlsx_min.S_WRAP, "RESOLVED"
             else:
-                fill = {"RED": xlsx_min.S_REDFILL, "YELLOW": xlsx_min.S_YELLOW}[i["flag"]]
+                fill = {"RED": xlsx_min.S_REDFILL, "YELLOW": xlsx_min.S_YELLOW}.get(i["flag"], xlsx_min.S_WRAP)
                 flag_text = i["flag"]
             notes = []
+            if i.get("column") and not i.get("resolved"):
+                notes.append("tracked from its columns, not on the RFI list")
             if i.get("assumed"):
                 notes.append("date submitted assumed — please correct")
+            if i["flag"] == "NOT SUBMITTED":
+                notes.append("not yet submitted (from your Items sheet) — type the date once it goes out")
             if i.get("flagged") and not i.get("resolved"):
                 notes.append("verify")
             if i.get("evidence"):
                 notes.append(str(i["evidence"]))
+            if not i.get("resolved"):
+                notes.append(f"limit {i['threshold']} business days")
             items_rows.append([
                 (job_no, fill),
                 (i["name"], fill),
                 (("⚠ " if i.get("flagged") and not i.get("resolved") else "") + (i.get("assigned_to") or "?"), fill),
                 (_ddmmyyyy(i.get("date_submitted")), fill),
                 (_ddmmyyyy(i.get("date_resolved")) if i.get("resolved") else "", fill),
-                (int(i["days"]), fill),
+                (int(i["days"]) if i.get("days") is not None else "", fill),
                 (flag_text, fill),
+                (i.get("officer_note") or "", xlsx_min.S_WRAP),
                 ("; ".join(notes), xlsx_min.S_FLAGGED if i.get("flagged") else xlsx_min.S_WRAP),
             ])
-        job_ev["outstanding"] = items_out
-        job_ev["resolved"] = resolved_out
+        job_ev["outstanding"] = items_out + col_out
+        job_ev["resolved"] = resolved_out + col_resolved
         evidence["jobs"].append(job_ev)
 
     if pilot:
@@ -857,7 +1080,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     widths = {}
     for n, c in enumerate(columns, 1):
         widths[xlsx_min._col_letter(n)] = width_by_key.get(c["key"], 12)
-    items_widths = {"A": 9, "B": 34, "C": 22, "D": 14, "E": 13, "F": 10, "G": 11, "H": 48}
+    items_widths = {"A": 9, "B": 34, "C": 22, "D": 14, "E": 13, "F": 10, "G": 14, "H": 40, "I": 48}
     xlsx_min.write_workbook(draft_path, [
         (prev.get("sheet_name") or "Sheet 1", out_rows, widths),
         (ITEMS_SHEET, items_rows, items_widths),
@@ -874,7 +1097,9 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
              "",
              "Ageing: NSW business days from DATE SUBMITTED; YELLOW at or under the",
              "tier threshold, RED over it — " +
-             ", ".join(f"{k} {v}" for k, v in TIERS.items()) + ".",
+             ", ".join(f"{k} {v}" for k, v in TIERS.items()) + "; whoever has them, " +
+             ", ".join(f"{f['key']} {f['threshold']}" for f in FAMILIES if f.get("threshold")) + ".",
+             "Engineering and covenant are also tracked from their columns when not on the RFI list.",
              ""]
     if pilot:
         lines += [f"Pilot rows: {', '.join(sorted(pilot))} — other rows carried forward verbatim.", ""]
@@ -894,9 +1119,11 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         for i in j["outstanding"]:
             mark = " ⚠" if i.get("flagged") else ""
             lines.append(
-                f"- outstanding: {i['name']} — with {i.get('assigned_to') or '?'} "
+                f"- outstanding{' (from its columns)' if i.get('column') else ''}: {i['name']} — "
+                f"with {i.get('assigned_to') or '?'} "
                 f"[{i.get('tier')} ≤{i.get('threshold')}] — submitted {i.get('date_submitted')} "
-                f"({i.get('date_source')}) — {i.get('days')} business days {i.get('flag')}{mark} "
+                f"({i.get('date_source')}) — "
+                f"{'not counted' if i.get('days') is None else str(i['days']) + ' business days'} {i.get('flag')}{mark} "
                 f"({i.get('evidence', '')})")
         for i in j["resolved"]:
             lines.append(
@@ -919,13 +1146,15 @@ def main(argv):
     ap.add_argument("--asof", help="draft date YYYY-MM-DD (default today)")
     ap.add_argument("--state", help="state folder for per-item ageing")
     ap.add_argument("--jobs", help="comma-separated pilot job numbers; other rows carry forward verbatim")
+    ap.add_argument("--edited", help="last week's draft as the officer left it (her Items-sheet changes)")
+    ap.add_argument("--drafted", help="that draft as written (default: the same file name in --out)")
     args = ap.parse_args(argv)
     jobs = [j for j in (args.jobs or "").split(",") if j.strip()] or None
     try:
         draft, ev_md, evidence = build_draft(
             args.prev, args.snapshots, args.out,
-            asof=args.asof, state_dir=args.state, jobs=jobs)
-    except StateError as exc:
+            asof=args.asof, state_dir=args.state, jobs=jobs, edited=args.edited, drafted=args.drafted)
+    except (StateError, DraftInputError) as exc:
         print(f"stopped: {exc}", file=sys.stderr)
         return 2
     n_changes = sum(len(j["changes"]) for j in evidence["jobs"])

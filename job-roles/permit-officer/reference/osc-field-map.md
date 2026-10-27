@@ -65,6 +65,12 @@ mapped job's activity completion dates equal the report's serials exactly.
 
 ### Columns added 28 Sep 2026 (mapped 23 Oct 2026)
 
+Since 27 Oct 2026 the engineering and covenant columns are also aged on
+the Items sheet at 10 business days (PO-11b), read from the export
+itself, so the two unresolved columns below still count: their dates
+are what the officer typed as the engineering *Date submitted* on all
+three pilot jobs.
+
 | Report column | OSC job activity (description) | Status |
 |---|---|---|
 | Engineering Ordered | `Order Engineering - Piers, Footings & Slab Design` | verified (one job differed, but its OSC date was edited after the export) |
