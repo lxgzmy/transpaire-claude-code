@@ -1,4 +1,4 @@
-"""Check fill_prelim.py still reproduces the corrected preliminary agreements.
+r"""Check fill_prelim.py still reproduces the corrected preliminary agreements.
 
     python regress_prelim.py
 
@@ -36,6 +36,18 @@ as an approved prelim_words amendment (CD-10, issue #61) - the quoted
 paragraph read from the reference itself - so the fill must reproduce the
 amended document exactly, text and structure.
 
+The references are PINNED snapshots, not the live job documents: a job's
+agreement keeps changing as its deal develops (26032's was rewritten by
+staff after 15 Oct 2026 - a $37,500 fee with a payment note and new special
+conditions - which no fill reproduces, and the suite crashed on it from
+26 Oct). Each reference is a copy in runtime\contract-admin\state\
+prelim-references\<job>.docx (git-ignored: it carries client names). A
+missing snapshot is pinned from the job folder on the first run; after that,
+a job folder copy that differs from its snapshot is reported as a NOTE and
+the suite keeps the snapshot. 26032's snapshot is its agreement as of the
+13 Oct 2026 amendment check (standard fee, clause 4 as approved on 8 Oct).
+To re-baseline a reference on purpose, replace or delete its snapshot.
+
 A synthetic amendment suite on the blank then adds and removes words in one
 clause, and checks that rewording, a line with no approval marker and a line
 missing from the request text are all refused with the document unchanged.
@@ -49,9 +61,11 @@ Exit code 0 = all suites pass.
 """
 import json
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -63,6 +77,8 @@ BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
 # Resolved by job number at runtime - completed filenames carry client
 # surnames, which stay out of this repo.
 SYDNEY = Path(r"Z:\PROJECTS\SYDNEY")
+# the pinned references, <job number>.docx (git-ignored runtime state)
+SNAPSHOTS = HERE.parents[2] / "runtime" / "contract-admin" / "state" / "prelim-references"
 #            label                                glob      drop_fee  structure
 REF_JOBS = [("26032 lot 5085 (single, std fee)", "26032*", True,  True),
             ("26052 lot 2053 (two clients)",     "26052*", False, True),
@@ -101,13 +117,33 @@ RESI_LABEL = fp.RESI_LABEL
 CONS_LABEL = fp.CONS_LABEL
 
 
-def ref_doc(pattern):
+def live_doc(pattern):
     for job in SYDNEY.glob(pattern):
         hit = next((job / "CONTRACT" / "CONTRACT DOCUMENTATION")
                    .glob("PRELIMINARY AGREEMENT*.docx"), None)
         if hit:
             return hit
     return None
+
+
+def ref_doc(pattern):
+    """The job's pinned reference agreement - pinned from the job folder when
+    it has none yet. A job folder copy that has since changed is a NOTE, not
+    a failure: staff keep editing a live job's agreement."""
+    job = pattern.rstrip("*")
+    snap = SNAPSHOTS / f"{job}.docx"
+    live = live_doc(pattern)
+    if not snap.exists():
+        if not live:
+            return None
+        SNAPSHOTS.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(live, snap)
+        print(f"NOTE  {job} - reference pinned from the job folder to {snap}")
+    elif live and live.read_bytes() != snap.read_bytes():
+        when = datetime.fromtimestamp(live.stat().st_mtime).strftime("%d %b %Y %H:%M")
+        print(f"NOTE  {job} - the job folder's agreement differs from the pinned reference "
+              f"(saved {when}); the suite keeps the pinned one")
+    return snap
 
 
 def text(path):
@@ -143,17 +179,23 @@ def norm(s, plural=False, spaceless=False):
 
 
 def values_from(real):
-    """Read the fill values back out of a corrected agreement."""
+    """Read the fill values back out of a corrected agreement: (values, None),
+    or (None, the field that no longer reads) when the reference has been
+    hand-edited past what a fill produces."""
     t = text(real)
-    names = re.search(r"Constructions”\)And\s+(.+?)\s*\(“Client",
-                      t).group(1).strip()
-    parts = [p.strip() for p in names.split(" & ")] + ["", ""]
-    resi = re.search(re.escape(RESI_LABEL) + r"\s+(.+?)\s*\(For", t).group(1)
-    cons = re.search(re.escape(CONS_LABEL) + r"\s+Lot (.+?)Herein", t).group(1)
-    fee = re.search(r"pay Transpire Constructions \$([\d,]+)\.", t).group(1)
+    got = {}
+    for key, pat in (("names", r"Constructions”\)And\s+(.+?)\s*\(“Client"),
+                     ("residential address", re.escape(RESI_LABEL) + r"\s+(.+?)\s*\(For"),
+                     ("site address", re.escape(CONS_LABEL) + r"\s+Lot (.+?)Herein"),
+                     ("fee", r"pay Transpire Constructions \$([\d,]+)\.")):
+        m = re.search(pat, t)
+        if not m:
+            return None, key
+        got[key] = m.group(1).strip()
+    parts = [p.strip() for p in got["names"].split(" & ")] + ["", ""]
     return {"owner_1": parts[0], "owner_2": parts[1], "owner_3": parts[2],
-            "residential_address": resi.strip(), "site_address": cons.strip(),
-            "prelim_fee": fee, "builders_rep": "Michael CRONK"}
+            "residential_address": got["residential address"], "site_address": got["site address"],
+            "prelim_fee": got["fee"], "builders_rep": "Michael CRONK"}, None
 
 
 def run_fill(vals, out, request=None):
@@ -233,7 +275,12 @@ def main():
             print(f"FAIL  {name} - no corrected agreement found for {pattern}")
             failures += 1
             continue
-        vals = values_from(real)
+        vals, unread = values_from(real)
+        if unread:
+            print(f"FAIL  {name} - the reference's {unread} clause does not read as a fill "
+                  f"produces it ({real}); pin a reference that does")
+            failures += 1
+            continue
         # ("Clients") applies to exactly two buyers; three keep ("Client")
         plural = bool(vals["owner_2"]) and not vals.get("owner_3")
         if drop_fee:
