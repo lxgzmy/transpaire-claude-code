@@ -352,6 +352,11 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   two-owner job); QLD types the Consumer Building Guide acknowledgement
   NAME(S) on both copies (executed 25163 keys the owner at each) and leaves
   the builder line alone — the QLD build ships it prefilled (Michael CRONK).
+  Since the 27 Oct 2026 review (job 26059), QLD types the owner signature
+  name at that prefilled name's x and size (a 2219 tw tab stop, 12 pt), so
+  the two line up, and item 11's STREET ADDRESS carries the job's estate in
+  brackets after the street (`Sample Street (Sample Estate)` style, as the
+  cover and most executed SEQ estate contracts write it).
   Signatures, initials and dates stay human (CD-3.7).
 - **CD-5.4** ~~Price excluding GST, GST, total, and the fixed-price component
   all come from DataBuild. Never calculated or inferred.~~ *(manual)*
@@ -376,21 +381,29 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   The fill report and the run summary show the arithmetic. No usable price:
   item 2 and the schedule stay blank, flagged. Every amount types as
   `$nnn,nnn.nn` (a figure keyed without its `$` used to print bare).
-  **QLD is never worked out** (15 Oct 2026, issue #73, contract admin
-  feedback: no DataBuild prerequisite, the person's figures count). Item 2
-  and Schedule 2 Part B (CD-5.6) fill from the figures the person gives,
-  typed or read off a DataBuild screenshot that is read back to them
-  first. They can arrive at any time: with the request, later in the
-  chat, or after the documents are saved (a build-contract-only run, which
-  refreshes to template-testing under CD-7.7). The run never asks for them
-  or waits. With none, item 2 and Part B stay blank and the report says
-  how to add them; that is a note, not a flag. The figures are typed as
-  given and the checks only warn: item 2 adds up, the GST is 1/11 of the
-  price, the price matches the request, Part B totals the price with each
-  row at its printed %, and the deposit is within the 5% the contract
-  prints for a price of $20,000 or more. Part B's TOTAL is the contract
-  price given when it is not given itself. QC2 has no item 2 deposit; the
-  deposit is Part B's first row.
+  ~~**QLD is never worked out** (15 Oct 2026, issue #73).~~ **QLD is worked
+  out too since 27 Oct 2026** (contract admin review of job 26059: "the
+  QLD contract price still can't be filled automatically"). The executed
+  SEQ contracts take one figure, the contract price, and the HIA form the
+  team fills works out the rest from it; the run does the same from the
+  request's `price`:
+  - GST = price ÷ 11, to the cent (half up); price excluding GST = price −
+    GST (the same cents as the form's price ÷ 1.1 for any price in cents);
+  - each Schedule 2 Part B row (CD-5.6) = its printed % × price to the
+    cent: DEPOSIT 5% rounded **down** so it never passes the 5% cap,
+    PRACTICAL COMPLETION the rounding balance, TOTAL the price.
+  DataBuild figures the person gives (typed, or read off a screenshot that
+  is read back to them first) still win, at any time: with the request,
+  later in the chat, or after the documents are saved (a
+  build-contract-only run, which refreshes to template-testing under
+  CD-7.7). They are typed as given and the figures not given are worked
+  from the contract price given. The run never asks for them or waits. The
+  checks only warn: item 2 adds up, the GST is 1/11 of the price, the price
+  matches the request, Part B totals the price with each row at its printed
+  %, and the deposit is within the 5% the contract prints for a price of
+  $20,000 or more. No usable price and no figures: item 2 and Part B stay
+  blank, flagged. QC2 has no item 2 deposit; the deposit is Part B's first
+  row.
 - **CD-5.5** Building period, in contract days: single storey 180; single storey
   duplex 210; double storey 210; double storey duplex 240. *(manual)*
 - **CD-5.6** ~~Part B progress payment schedule is copied from DataBuild.~~
@@ -400,9 +413,10 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   like any other moved anchor.
   QLD: Part B (the part the team completes, with Transpire's stage
   wording) takes the DEPOSIT, BASE, FRAME, ENCLOSED, FIXING, PRACTICAL
-  COMPLETION and TOTAL amounts the person gives (CD-5.4, issue #73); its
-  printed percentages (5 / 15 / 20 / 25 / 20 / 15) are checked the same
-  way. Part A is left as printed.
+  COMPLETION and TOTAL amounts worked from the contract price, or the
+  ones the person gives (CD-5.4, 27 Oct 2026); its printed percentages
+  (5 / 15 / 20 / 25 / 20 / 15) are checked the same way. Part A is left as
+  printed.
   Consumer building guide and contract index pages are left as they are. *(manual)*
 - **CD-5.7** The completed pack is the contract, general conditions, inclusions
   and concept plan assembled together — roughly double the blank's page count.
@@ -674,7 +688,7 @@ cabinet; and any DocuSign issue to a client.
 | An approved amendment is REFUSED (old value, title or quoted paragraph does not match) | The document saves with the template wording; a person checks the request and makes the change (CD-10.5) |
 | Keyed DataBuild figure ≠ the figure worked from the price | The keyed figure is used; FLAG in the report and the run summary (CD-5.4) |
 | Request asks for a deposit over 10% | Refused, 10% used, FLAG (CD-5.4) |
-| QLD figures not given yet | Nothing is asked or waited for; item 2 and Part B stay blank with a note; the person gives them any time, typed or as a DataBuild screenshot (CD-5.4, issue #73) |
+| QLD figures not given | Nothing is asked or waited for; item 2 and Part B are worked from the request price; the person can give DataBuild figures any time, typed or as a screenshot, and those win (CD-5.4, 27 Oct 2026) |
 | QLD figures that disagree (item 2 sum, GST, request price, Part B total or %, deposit over 5%) | Typed as given; each disagreement is a FLAG for the person (CD-5.4) |
 | Garage side not clear from the rendered site plan | Leave it blank; flag the streets the site plan names for the reviewer, who confirms or asks Michael (JD-9.5) |
 | Plans not yet received | Produce the rest; state which fields are unfilled |
@@ -740,9 +754,11 @@ cabinet; and any DocuSign issue to a client.
    business. Held pending that decision.~~ **Answered 15 Oct 2026** (issue
    #62): reversed for NSW with the executed contracts' rounding - cents,
    GST half up, deposit and stage 1 rounded down, the last stage as the
-   balance, keyed DataBuild figures win with a flag. QLD is never worked
-   out: it takes the figures the person gives, any time (issue #73).
-   (CD-5.4)
+   balance, keyed DataBuild figures win with a flag. QLD followed on
+   27 Oct 2026 (the job 26059 review): worked from the request price the way
+   the team's HIA form works it, deposit rounded down, practical completion
+   the balance; the person's DataBuild figures win (this reverses issue #73's
+   "never worked out"). (CD-5.4)
 7. Review sheet item 12 asks whether the Special Conditions validity clause
    can be amended per job when the fixed period differs from six months or
    a specific end date is requested ("otherwise, this section may be a

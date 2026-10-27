@@ -100,7 +100,9 @@ skills are scoped to that folder and must not leak into another role.
   match, and reported with its request line and approval. Every other
   change the request asks for stays a person's. The NSW contract price
   split, deposit and progress payments are worked from the request price by
-  a fixed rule the same day (issue #62, CD-5.4).
+  a fixed rule the same day (issue #62, CD-5.4); QLD's item 2 and Part B
+  follow since 27 Oct 2026 (contract admin review of job 26059, reversing
+  issue #73), DataBuild figures a person gives winning in both regions.
 - **Sanctioned exception (23 Oct 2026, issue #84, owner sign-off):** the
   Permit Officer workflow makes three kinds of OnSite Companion change, on
   NSW jobs in pre-construction only: tick one of ten named building-approval
