@@ -151,8 +151,12 @@ with `job_id` empty, the client first and the job second with
 `"clientID": "{{1.clientID}}"` (or just the job, with a verified existing
 client's ID), then `osc_confirm_write` on the person's plain yes. A new
 client, person or job has no `job_id` yet; every later change passes the
-job's. The gate reads each new record back by its returned ID; persist the
-`created` IDs and the contract number immediately. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
+job's. The gate reads each new record back by its returned ID - or, when
+production's answer does not name it, by the one new record its duplicate
+search finds (27 Oct 2026; job 26059's intake needed five confirmations
+before this) - and the rest of the stage carries on; persist the
+`created` IDs and the contract number immediately. A change still reported
+"sent, not verified" is checked in OSC by a person, never re-sent. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
 GET route: read jobs via `/api/Jobs` and `$filter: "jobID eq <uuid>"` with the GET
 body above. Inspect the create response schema for its ID field; do not assume
 all create responses have the same key.
