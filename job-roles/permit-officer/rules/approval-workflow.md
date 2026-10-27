@@ -104,7 +104,9 @@ testable; open questions are marked ❓.
   | External consultants (engineer, surveyor, other consultant) | ≤ 20 | > 20 |
   | Council applications (council referral assessments often carry a 20-day minimum) | ≤ 30 | > 30 |
 
-  Every open item is yellow or red; there is no unflagged state. The
+  Every open item that has gone out is yellow or red. One not yet
+  submitted (the officer empties its *Date submitted*) shows NOT SUBMITTED
+  and counts no days until she types the date. The
   earlier single 5-day default from the discovery meeting is superseded.
   Six defaults were **confirmed by the permit officer on 17 Sep 2026**
   (asked on #29): Certifier → External consultants; Client → Internal;
@@ -114,9 +116,22 @@ testable; open questions are marked ❓.
   row shows the worst open item, with each item's own flag written as text
   (per-item colour was declined as too convoluted for the main sheet; since
   v0.3 the one-row-per-item **Items** sheet carries it instead, and the
-  main sheet stays the export column for column). Still open with the
-  officer (issue #79): whether the engineering and covenant columns added
-  to the export on 28 Sep 2026 are aged like RFI items or carried verbatim.
+  main sheet stays the export column for column).
+- **PO-11b — Engineering, covenant and two council items (answered by the
+  permit officer on 27 Oct 2026, issue #79).** The engineering and covenant
+  columns added to the export on 28 Sep 2026 are aged like RFI items, at
+  **10 business days** whoever holds them. Each is tracked from its latest
+  dated step on the export (engineering: ordered, received, reviewed;
+  covenant: ordered) until engineering is forwarded to the certifier or the
+  covenant is approved, on the Items sheet only: the main sheet and the RFI
+  list stay as she types them. An engineering revision received or reviewed
+  after the last forward starts a new cycle; OSC does not re-date the
+  forward, so her *Date resolved* closes a cycle too. Two items join the
+  vocabulary, both sitting with Council: **ROP APPROVAL** (Road Opening
+  Approval) and **AMENDED DA APPROVAL** (Amended Development Application),
+  which typically takes about 60 business days and so turns red only after
+  60. The draft no longer adds "(PROPOSED)" items to her RFI cell: she did
+  not take them up, and orders insurances once most RFI items are done.
 
 ## Pre-lodgement checklist
 

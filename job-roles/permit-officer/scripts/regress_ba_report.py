@@ -11,7 +11,8 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      RESOLVED line with date + frozen business days, then dropped next run
   4. an item with only pre-existing (older) evidence is kept and flagged
   5. an item with no evidence is kept and flagged
-  6. a pending BA-relevant activity with no carried item is proposed-add
+  6. pending OSC steps never add items to the officer's RFI cell (engineering
+     and covenant are tracked from their columns instead, see 18)
   7. ageing v0.2: business days from DATE SUBMITTED; tier from who the item
      is with (officer text > "(W/O X)" > OSC owner > item type); YELLOW at or
      under the tier threshold, RED over; "(assumed)" when the date is guessed
@@ -40,13 +41,23 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      dates; the state file is swapped in whole; stale or mismatched snapshots
      are not used; commas inside brackets and line breaks split items
      correctly; RFI-cell text that is not a PENDING list is carried verbatim
+ 18. the officer's answers (27 Oct 2026) and the week-1 restart: the
+     engineering and covenant columns are tracked on the Items sheet at 10
+     business days (from the latest dated step, re-opened by a revision) and
+     never touch the RFI cell; ROP and amended-DA items sit with Council, the
+     amended DA at 60 days; her changes on last week's draft are read back
+     (assignee, a typed, emptied or resolved date, her own Notes column)
+     against the draft as written, found again under a renamed item, and
+     kept from week to week; a fresh state carries nothing else
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
 import json
+import re
 import shutil
 import sys
 import tempfile
+import zipfile
 from datetime import date
 from pathlib import Path
 
@@ -155,7 +166,7 @@ def synth_snapshot_90002():
             act(53, "Receive Engineering - Piers, Footings & Slab Design", done="2026-09-01"),
             act(54, "Review Engineering - Piers, Footings & Slab Design", done="2026-09-02"),
             act(56, "Forward Engineers Footing/Slab Design to Private Certiifier", done="2026-09-03"),
-            # insurances pending with an internal owner -> proposed-add, INTERNAL tier
+            # insurances pending in OSC: never proposed onto the officer's RFI cell
             act(72, "Pay Q Leave / Long Service Levy", user="Synthetic Admin"),
             act(76, "Email Copy of Relevant Insurances to Certifier", user="Synthetic Admin"),
             # the RFI response went back this week while items are still listed -> flag only
@@ -246,6 +257,197 @@ def synth_officer_report_week2_legacy(path):
     xlsx_min.write_xlsx(path, rows)
 
 
+def edit_draft(src, dst, changes):
+    """The officer at work: a copy of a draft with some Items cells retyped, as Excel saves them.
+    changes: {(job, item): {column letter: new value}}."""
+    with zipfile.ZipFile(src) as z:
+        shared = xlsx_min.load_shared(z)
+        sheets = [(name, xlsx_min.read_rows(z, part, shared)) for name, part in xlsx_min.sheet_parts(z)]
+    out = []
+    for name, rows in sheets:
+        width = max(xlsx_min.col_index(c) for _, cells in rows for c in cells)
+        grid = []
+        for _rnum, cells in rows:
+            vals = [cells.get(xlsx_min._col_letter(i), "") for i in range(1, width + 2)]
+            if name == ITEMS_SHEET:
+                for col, value in changes.get((str(vals[0]), str(vals[1])), {}).items():
+                    vals[xlsx_min.col_index(col) - 1] = value
+            grid.append([v if n == 0 or not re.fullmatch(r"\d+(\.\d+)?", str(v)) else float(v)
+                         for n, v in enumerate(vals)])
+        out.append((name, grid, None))
+    xlsx_min.write_workbook(dst, out)
+
+
+def items_rows(path):
+    """{(job, item): {header: value}} from a draft's Items sheet."""
+    with zipfile.ZipFile(path) as z:
+        shared = xlsx_min.load_shared(z)
+        part = next(p for n, p in xlsx_min.sheet_parts(z) if n == ITEMS_SHEET)
+        rows = xlsx_min.read_rows(z, part, shared)
+    head = {c: str(v) for c, v in rows[0][1].items()}
+    return {(str(cells.get("A")), str(cells.get("B"))): {head[c]: v for c, v in cells.items()}
+            for _r, cells in rows[1:]}
+
+
+def officer_round_trip(tmp, check):
+    """18. The officer's answers of 27 Oct 2026 and the week-1 restart, on synthetic jobs."""
+    def t(iso, frac=0.0):
+        return serial(iso) + frac
+
+    def snaps_on(folder, asof, extra=None):
+        folder.mkdir(exist_ok=True)
+        for job in ("90021", "90022", "90023", "90024"):
+            snap = {"retrievedAtUtc": f"{asof}T00:00:00Z", "contractNumber": job, "state": "NSW",
+                    "activities": [], "alerts": [], "documents": []}
+            snap.update((extra or {}).get(job, {}))
+            (folder / f"{job}.json").write_text(json.dumps(snap), encoding="utf-8")
+
+    def base(path, rfi1, rfi2, review3=t("2026-10-08", 0.67)):
+        xlsx_min.write_xlsx(path, [
+            [(h, xlsx_min.S_HEADER) for h in HEADER],
+            row16("90021", "Lot 21, 21 Sample Road, NOWHERE NSW 0000", t("2026-06-03"), t("2026-06-26"),
+                  t("2026-09-25"), rfi1,
+                  eng=(t("2026-04-24"), t("2026-10-12", 0.49), t("2026-10-12", 0.49), t("2026-07-06")),
+                  cov_ord=t("2026-09-25")),
+            row16("90022", "Lot 22, 22 Sample Road, NOWHERE NSW 0000", t("2026-09-04"), t("2026-09-14"),
+                  "", rfi2,
+                  eng=(t("2026-08-10"), t("2026-08-10", 0.68), t("2026-10-13", 0.68), "PENDING REVIEW"),
+                  cov_ord=t("2026-10-09")),
+            row16("90023", "Lot 23, 23 Sample Road, NOWHERE NSW 0000", t("2026-08-12"), t("2026-08-26"),
+                  t("2026-08-18"), t("2026-10-21"),
+                  eng=(t("2026-07-30"), t("2026-10-08", 0.67), review3, t("2026-09-28")),
+                  cov_ord=t("2026-08-18")),
+            row16("90024", "Lot 24, 24 Sample Road, NOWHERE NSW 0000", t("2026-09-01"), t("2026-09-10"),
+                  "", "PENDING ENERGY REPORT, NATHERS CERTIFICATE")])
+
+    jobs = ["90021", "90022", "90023", "90024"]
+    snaps, out = tmp / "snaps-po", tmp / "out-po"
+    base_a = tmp / "BA REPORT - 19.10.2026.xlsx"
+    base(base_a, "PENDING AMENDED DA APPROVAL, SEW EJECTION PUMP APPROVAL, WASTE MAN PLAN, INSURANCES",
+         "PENDING ROP APPROVAL, DRIVEWAY APPLICATION, INSURANCES.")
+    snaps_on(snaps, "2026-10-26", {"90022": {"activities": [
+        act(55, "Review Engineering - Piers, Footings & Slab Design", done="2026-10-13"),
+        act(57, "Forward Engineers Footing/Slab Design to Private Certiifier", user="Synthetic Reviewer")]}})
+    d1, _, ev1 = build_draft(base_a, snaps, out, asof="2026-10-26", state_dir=tmp / "state-sept", jobs=jobs)
+    j1 = {j["job_no"]: j for j in ev1["jobs"]}
+    rows1 = items_rows(d1)
+    cells1 = {r["job_no"]: r["submit_all_rfi_items"]["raw"] for r in parse_report(d1)["rows"]}
+    check("officer: the RFI cells are hers, untouched (no PROPOSED items)",
+          cells1["90021"] == "PENDING AMENDED DA APPROVAL, SEW EJECTION PUMP APPROVAL, WASTE MAN PLAN, INSURANCES"
+          and cells1["90022"] == "PENDING ROP APPROVAL, DRIVEWAY APPLICATION, INSURANCES.", str(cells1))
+    eng21 = {i["name"]: i for i in j1["90021"]["outstanding"]}.get("ENGINEERING", {})
+    check("officer: engineering tracked from its columns, from the latest dated step, at 10 days",
+          eng21.get("column") and eng21.get("date_submitted") == "2026-10-12" and eng21.get("threshold") == 10
+          and eng21.get("days") == 10 and eng21.get("flag") == "YELLOW", str(eng21))
+    o23 = {i["name"]: i for i in j1["90023"]["outstanding"]}.get("ENGINEERING", {})
+    check("officer: a revision after the last forward is a new cycle (closed RFI list, still tracked)",
+          o23.get("date_submitted") == "2026-10-08" and o23.get("days") == 12 and o23.get("flag") == "RED", str(o23))
+    o22 = {i["name"]: i for i in j1["90022"]["outstanding"]}
+    check("officer: covenant ordered and not yet received is tracked at 10 days",
+          o22.get("COVENANT", {}).get("date_submitted") == "2026-10-09" and o22["COVENANT"]["flag"] == "RED"
+          and o22.get("ENGINEERING", {}).get("assigned_to") == "Synthetic Reviewer", str(o22))
+    check("officer: column rows say where they come from",
+          "tracked from its columns" in str(rows1[("90021", "ENGINEERING")]["Draft notes"])
+          and "engineering columns: reviewed 12/10/2026, not forwarded to the certifier since" in
+          str(rows1[("90021", "ENGINEERING")]["Draft notes"]))
+    amd = {i["name"]: i for i in j1["90021"]["outstanding"]}.get("AMENDED DA APPROVAL", {})
+    rop = {i["name"]: i for i in j1["90022"]["outstanding"]}.get("ROP APPROVAL", {})
+    check("officer: an amended DA sits with Council at 60 days, an ROP with Council at 30",
+          amd.get("tier") == "COUNCIL" and amd.get("threshold") == 60
+          and rop.get("tier") == "COUNCIL" and rop.get("threshold") == 30, f"{amd} {rop}")
+    check("officer: two items under one evidence rule keep their own dates",
+          any("each keeps its own dates" in f for f in j1["90024"]["flags"])
+          and len(load_state(tmp / "state-sept")["90024"]) == 2, str(j1["90024"]["flags"]))
+
+    # her week: retype on the draft's Items sheet (Excel saves a typed date as a serial)
+    e1 = tmp / "BA REPORT DRAFT - 26.10.2026 (officer-edited).xlsx"
+    edit_draft(d1, e1, {
+        ("90021", "AMENDED DA APPROVAL"): {"C": "Synthetic Shire Council", "D": float(serial("2026-09-28")),
+                                           "H": "the amended DA takes at least 60 business days"},
+        ("90021", "SEW EJECTION PUMP APPROVAL"): {"C": "Synthetic Shire Council"},
+        ("90021", "WASTE MAN PLAN"): {"C": "Synthetic Officer", "D": "", "H": "Not yet submitted"},
+        ("90021", "ENGINEERING"): {"C": "Synthetic Reviewer"},
+        ("90023", "ENGINEERING"): {"E": "19/10/2026", "H": "forwarded to the certifier"},
+        ("90022", "ROP APPROVAL"): {"E": "21/10/2026"},
+        ("90022", "DRIVEWAY APPLICATION"): {"C": "Synthetic Shire Council"},
+        ("90022", "ENGINEERING"): {"I": "typed into the draft's column"},
+    })
+    # week 1: her next export renames one item and drops the resolved one; a fresh state
+    base_b = tmp / "BA REPORT - 26.10.2026.xlsx"
+    base(base_b, "PENDING AMENDED DA APPROVAL, SEWER EJECTION PUMP APPROVAL, WASTE MAN PLAN, INSURANCES",
+         "PENDING INSURANCES.")
+    snaps_on(snaps, "2026-11-02")
+    week1 = tmp / "state-week1"
+    d2, _, ev2 = build_draft(base_b, snaps, out, asof="2026-11-02", state_dir=week1, jobs=jobs, edited=e1)
+    j2 = {j["job_no"]: j for j in ev2["jobs"]}
+    o21 = {i["name"]: i for i in j2["90021"]["outstanding"]}
+    rows2 = items_rows(d2)
+    a = o21.get("AMENDED DA APPROVAL", {})
+    check("week 1: her assignee and typed date win; a person's name raises no flag; 60-day limit",
+          a.get("assigned_to") == "Synthetic Shire Council" and a.get("assigned_source") == "officer"
+          and a.get("date_submitted") == "2026-09-28" and a.get("days") == business_days("2026-09-28", "2026-11-02")
+          and a.get("flag") == "YELLOW" and not a.get("age_flags"), str(a))
+    check("week 1: her note is in her Notes column, the draft's in Draft notes",
+          rows2[("90021", "AMENDED DA APPROVAL")]["Notes"] == "the amended DA takes at least 60 business days"
+          and "limit 60 business days" in rows2[("90021", "AMENDED DA APPROVAL")]["Draft notes"])
+    w = o21.get("WASTE MAN PLAN", {})
+    check("week 1: an emptied date means not yet submitted: no days, no colour",
+          w.get("flag") == "NOT SUBMITTED" and w.get("days") is None
+          and rows2[("90021", "WASTE MAN PLAN")].get("Days outstanding") in (None, "")
+          and rows2[("90021", "WASTE MAN PLAN")]["Notes"] == "Not yet submitted", str(w))
+    check("week 1: her change follows a renamed item (SEW -> SEWER EJECTION)",
+          o21.get("SEWER EJECTION PUMP APPROVAL", {}).get("assigned_to") == "Synthetic Shire Council")
+    e21 = o21.get("ENGINEERING", {})
+    check("week 1: her engineering assignee sticks to the column row",
+          e21.get("assigned_to") == "Synthetic Reviewer" and e21.get("flag") == "RED"
+          and e21.get("days") == business_days("2026-10-12", "2026-11-02"), str(e21))
+    r23 = {i["name"]: i for i in j2["90023"]["resolved"]}.get("ENGINEERING", {})
+    check("week 1: her Date resolved closes the engineering cycle the columns cannot",
+          r23.get("date_resolved") == "2026-10-19" and not j2["90023"]["outstanding"]
+          and rows2[("90023", "ENGINEERING")]["Notes"] == "forwarded to the certifier", str(r23))
+    check("week 1: a change to an open item no longer on the report is said, not used",
+          any("DRIVEWAY APPLICATION" in f and "not used" in f for f in j2["90022"]["flags"]), str(j2["90022"]["flags"]))
+    check("week 1: her resolution of an item since dropped is kept for the record, no warning",
+          not any("ROP APPROVAL" in f for f in j2["90022"]["flags"])
+          and any(c["action"] == "officer-edit-noted" and c["item"] == "ROP APPROVAL" for c in j2["90022"]["changes"]))
+    check("week 1: an item she dated herself is not flagged just for having no OSC evidence",
+          not a.get("flagged") and not w.get("flagged"), f"{a.get('flagged')} {w.get('flagged')}")
+    check("week 1: typing into Draft notes changes nothing",
+          rows2[("90022", "ENGINEERING")].get("Notes") in (None, ""))
+    st = load_state(week1)
+    check("week 1: the fresh state holds only this run (nothing from the old state)",
+          not any(e.get("first_seen", "9999") < "2026-10-26" for job in st.values() for e in job.values()), str(st))
+
+    # week 2: she clears her amended-DA note; everything else she typed sticks
+    e2 = tmp / "BA REPORT DRAFT - 02.11.2026 (officer-edited).xlsx"
+    edit_draft(d2, e2, {("90021", "AMENDED DA APPROVAL"): {"H": ""}})
+    base_c = tmp / "BA REPORT - 02.11.2026.xlsx"
+    base(base_c, "PENDING AMENDED DA APPROVAL, SEWER EJECTION PUMP APPROVAL, WASTE MAN PLAN, INSURANCES",
+         "PENDING INSURANCES.")
+    snaps_on(snaps, "2026-11-09")
+    d3, _, ev3 = build_draft(base_c, snaps, out, asof="2026-11-09", state_dir=week1, jobs=jobs, edited=e2)
+    j3 = {j["job_no"]: j for j in ev3["jobs"]}
+    rows3 = items_rows(d3)
+    check("week 2: a cleared note is gone; her other notes and values stay",
+          rows3[("90021", "AMENDED DA APPROVAL")].get("Notes") in (None, "")
+          and rows3[("90021", "WASTE MAN PLAN")]["Notes"] == "Not yet submitted"
+          and {i["name"]: i for i in j3["90021"]["outstanding"]}["WASTE MAN PLAN"]["flag"] == "NOT SUBMITTED"
+          and {i["name"]: i for i in j3["90021"]["outstanding"]}["ENGINEERING"]["assigned_to"] == "Synthetic Reviewer")
+    check("week 2: an engineering cycle she resolved is not shown again",
+          not j3["90023"]["outstanding"] and not j3["90023"]["resolved"], str(j3["90023"]))
+
+    # week 3: revised engineering reviewed again -> a new cycle opens
+    base_d = tmp / "BA REPORT - 09.11.2026.xlsx"
+    base(base_d, "PENDING AMENDED DA APPROVAL, SEWER EJECTION PUMP APPROVAL, WASTE MAN PLAN, INSURANCES",
+         "PENDING INSURANCES.", review3=t("2026-11-10", 0.4))
+    snaps_on(snaps, "2026-11-16")
+    _, _, ev4 = build_draft(base_d, snaps, out, asof="2026-11-16", state_dir=week1, jobs=jobs)
+    o4 = {i["name"]: i for i in {j["job_no"]: j for j in ev4["jobs"]}["90023"]["outstanding"]}.get("ENGINEERING", {})
+    check("week 3: a newer review date re-opens engineering from that date",
+          o4.get("date_submitted") == "2026-11-10" and o4.get("days") == business_days("2026-11-10", "2026-11-16"),
+          str(o4))
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="ba-regress-"))
     failures = []
@@ -330,7 +532,8 @@ def main():
               "ENERGY REPORT" in kept and kept["ENERGY REPORT"]["flagged"])
         check("contributions kept + flagged (no evidence)",
               "CONTRIBUTIONS PAYABLE" in kept and kept["CONTRIBUTIONS PAYABLE"]["flagged"])
-        check("insurances proposed-add", actions.get("INSURANCES") == "proposed-add", str(actions))
+        check("no (PROPOSED) items are added to the RFI cell",
+              "INSURANCES" not in actions and "INSURANCES" not in kept, str(actions))
         check("Return RFI complete with items still listed -> flagged, list kept",
               any("should close" in f for f in j2["flags"]) and "submit_all_rfi_items" not in actions,
               str(j2["flags"]))
@@ -348,12 +551,6 @@ def main():
         check("contributions: date assumed from first sighting, 5 days YELLOW (assumed)",
               co.get("date_submitted") == PREV and co.get("days") == 5 and co.get("flag") == "YELLOW"
               and co.get("assumed") is True, str(co))
-        ins = kept.get("INSURANCES", {})
-        check("insurances: OSC user -> INTERNAL tier, owner named",
-              ins.get("assigned_to") == "Synthetic Admin" and ins.get("tier") == "INTERNAL", str(ins))
-        check("insurances: no handover evidence -> date assumed, flagged",
-              ins.get("date_submitted") == PREV and ins.get("assumed") is True and ins.get("flag") == "YELLOW",
-              str(ins))
         # date-submitted evidence: Order -> Receive pairing, same-chain predecessor, unrelated ignored
         mini = {"activities": [
             act(46, "Order Engineering - Structural Steel", done="2026-08-20", sp="Synth Eng"),
@@ -378,7 +575,7 @@ def main():
             {"alertID": "x1", "subject": "LODGE FOR CC", "createdBy": "Synth", "createdOnUtc": "2026-01-28T00:00:00Z"},
             {"alertID": "x2", "subject": "Re: LODGEMENT - amended", "createdBy": "Synth", "createdOnUtc": "2026-08-20T00:00:00Z"},
         ]}
-        d4, _ = submitted_evidence({"name": "AMENDED DA LODGEMENT"}, mini4, lodged_iso="2026-06-03")
+        d4, _ = submitted_evidence({"name": "DA LODGEMENT"}, mini4, lodged_iso="2026-06-03")
         check("date evidence: pre-lodgement alerts ignored, later alert used", d4 == "2026-08-20", str(d4))
         check("thresholds are the confirmed tiers",
               TIERS == {"INTERNAL": 10, "ENERGY": 10, "EXTERNAL": 20, "COUNCIL": 30})
@@ -422,7 +619,7 @@ def main():
               and x2["Engineering Ordered"]["date"] == "2026-07-02", str(x2))
         g2 = [r for r in reparsed["rows"] if r["job_no"] == "90002"][0]["submit_all_rfi_items"]
         check("draft RFI cell: pending items readable, RESOLVED line split off",
-              g2["pending"] and [i["name"] for i in g2["items"]] == ["ENERGY REPORT", "CONTRIBUTIONS PAYABLE", "INSURANCES"]
+              g2["pending"] and [i["name"] for i in g2["items"]] == ["ENERGY REPORT", "CONTRIBUTIONS PAYABLE"]
               and [i["name"] for i in g2["resolved"]] == ["ENGINEERING"]
               and g2["resolved"][0]["date_resolved"] == "2026-09-03", str(g2))
         check("draft Items sheet: present and read back by job + item",
@@ -500,7 +697,8 @@ def main():
         # ---- compare scorecard
         rep = compare(draft_path, officer, ["90002", "90003", "90099"])
         check("compare: matched by family, missed/extra counted",
-              rep["officer_items"] == 4 and rep["matched"] == 4 and rep["missed"] == 0, str(rep))
+              rep["officer_items"] == 4 and rep["matched"] == 3 and rep["missed"] == 1
+              and rep["jobs"][0]["missed"] == ["INSURANCES"], str(rep))
         check("compare: absent pilot job unscored", any(j["job_no"] == "90099" and not j["in_actual"] for j in rep["jobs"]))
 
         # ---- 17. review fixes (23 Oct 2026)
@@ -623,6 +821,8 @@ def main():
         check("fix: RFI-cell text that is not a PENDING list is carried verbatim and flagged",
               any("not a PENDING list" in f for f in jm["90012"]["flags"]) and not jm["90012"]["outstanding"]
               and cell["raw"] == "AWAITING CERTIFIER", f"{jm['90012']['flags']} {cell['raw']!r}")
+
+        officer_round_trip(tmp, check)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -72,8 +72,11 @@ ITEM_FIELDS = [
 ]
 ITEM_HEADERS = ["Assigned to", "Date submitted", "Date resolved", "Days outstanding"]
 ITEMS_SHEET = "Items"
+# "Notes" is the officer's own column, carried week to week as typed; "Draft notes" is the
+# drafter's evidence and prompts, rewritten each run (27 Oct 2026: the officer wrote her notes
+# into the single Notes column of the 22.10 draft, which the next run would have overwritten).
 ITEMS_SHEET_HEADERS = ["Job No.", "Item", "Assigned to", "Date submitted",
-                       "Date resolved", "Days outstanding", "Flag", "Notes"]
+                       "Date resolved", "Days outstanding", "Flag", "Notes", "Draft notes"]
 
 EPOCH = date(1899, 12, 30)  # Excel serial epoch (1900 date system)
 
@@ -227,10 +230,75 @@ def parse_items_sheet(z, shared, part):
         name = str(cells.get(col_item, "") or "").strip()
         if not job_no or not name:
             continue
-        entry = {"job_no": job_no, "item": name, "flag": str(cells.get(by_norm.get("flag", ""), "") or "").strip()}
+        entry = {"job_no": job_no, "item": name, "flag": str(cells.get(by_norm.get("flag", ""), "") or "").strip(),
+                 "row": int(_rnum), "notes": str(cells.get(by_norm.get("notes", ""), "") or "").strip(),
+                 "draft_notes": str(cells.get(by_norm.get("draft notes", ""), "") or "").strip(),
+                 "own_notes_column": "draft notes" in by_norm}
         for header, key in ITEM_FIELDS:
             _set_item_field(entry, key, cells.get(by_norm.get(header, ""), ""))
         out.append(entry)
+    return out
+
+
+# The drafter's own wording in a v0.3 "Notes" cell (before the officer had a column of her own).
+DRAFT_NOTE_PHRASES = [r"date submitted (assumed|corrected)", r"please correct", r"\bverify\b",
+                      r"no evidence rule for this item", r"no completion evidence found", r"\bcorrected\b"]
+
+
+def own_words(edited, drafted):
+    """The officer's words in a Notes cell that first held only the draft's text: the draft's own
+    pieces and stock phrases are taken out, the separators left behind are tidied."""
+    text = " " + str(edited or "") + " "
+    for piece in sorted((p.strip() for p in str(drafted or "").split(";")), key=len, reverse=True):
+        if piece:
+            text = text.replace(piece, " ")
+    for phrase in DRAFT_NOTE_PHRASES:
+        text = re.sub(phrase, " ", text, flags=re.I)
+    text = re.sub(r"(\s*(;|—|–|\s-\s)\s*)+", "; ", text)
+    return text.strip(" ;—–-")
+
+
+def _items_sheet(path):
+    with zipfile.ZipFile(path) as z:
+        shared = xlsx_min.load_shared(z)
+        part = next((p for n, p in xlsx_min.sheet_parts(z) if norm_header(n) == ITEMS_SHEET.lower()), None)
+        return parse_items_sheet(z, shared, part) if part else []
+
+
+def officer_edits(edited_path, drafted_path):
+    """What the officer changed on a draft's Items sheet, compared cell by cell with the draft as written.
+
+    Returns {"edits": [...], "unmatched": [...]}. Each edit has job_no, item, row and only the
+    fields she changed: assigned_to ("" = cleared), date_submitted (None = cleared, meaning not
+    yet submitted), date_resolved, note ("" = cleared). An edited row is matched to the drafted
+    row by job and item name, else by row number on the same job.
+    """
+    drafted = _items_sheet(drafted_path)
+    by_name = {(r["job_no"], norm_item(r["item"])): r for r in drafted}
+    by_row = {(r["job_no"], r["row"]): r for r in drafted}
+    out = {"edits": [], "unmatched": []}
+    for e in _items_sheet(edited_path):
+        d = by_name.get((e["job_no"], norm_item(e["item"]))) or by_row.get((e["job_no"], e["row"]))
+        if d is None:
+            out["unmatched"].append({"job_no": e["job_no"], "item": e["item"], "row": e["row"]})
+            continue
+        edit = {"job_no": e["job_no"], "item": e["item"], "row": e["row"],
+                "was_resolved": d.get("flag", "").upper() == "RESOLVED"}
+        if (e.get("assigned_to") or "") != (d.get("assigned_to") or ""):
+            edit["assigned_to"] = e.get("assigned_to") or ""
+        if e.get("date_submitted") != d.get("date_submitted"):
+            edit["date_submitted"] = e.get("date_submitted")
+        if e.get("date_resolved") and e.get("date_resolved") != d.get("date_resolved"):
+            edit["date_resolved"] = e["date_resolved"]
+        if e["own_notes_column"]:
+            if e["notes"] != d.get("notes", ""):
+                edit["note"] = e["notes"]
+        elif e["notes"] != d.get("notes", ""):
+            words = own_words(e["notes"], d.get("notes", ""))
+            if words:
+                edit["note"] = words
+        if len(edit) > 4:
+            out["edits"].append(edit)
     return out
 
 
@@ -271,7 +339,7 @@ def parse_report(path):
         warnings.append(f"columns not found (left blank): {', '.join(missing)}")
     extras = [c["header"] for c in columns if c["key"] is None]
     if extras:
-        warnings.append(f"columns carried verbatim (no rule): {', '.join(extras)}")
+        warnings.append(f"columns carried verbatim on the main sheet: {', '.join(extras)}")
     if len(legacy_letters) == len(ITEM_FIELDS):
         warnings.append("v0.2 per-item columns found on the main sheet; read with the one-line-per-item rule")
 

@@ -26,7 +26,7 @@ has, in the base's order, under the base's sheet name. Known headers:
 | Deposit Paid | date | filled from OSC when blank |
 | Nominate Site Start | date | filled from OSC when blank |
 | Site Start (Physical) | date | carried |
-| *anything else* (since 28 Sep 2026: Engineering Ordered, Receive Engineering, Review Engineering - Michael, Forward Engineering to Certifier, Covenant Ordered) | date-time serial or text ("PENDING REVIEW") | carried verbatim, listed in the evidence note |
+| *anything else* (since 28 Sep 2026: Engineering Ordered, Receive Engineering, Review Engineering - Michael, Forward Engineering to Certifier, Covenant Ordered) | date-time serial or text ("PENDING REVIEW") | carried verbatim, listed in the evidence note; the engineering and covenant columns are also aged on the Items sheet (PO-11b) |
 
 A workbook without a "Submit all RFI Items" header is refused outright.
 Date cells are written as Excel serials with a `dd/mm/yyyy` format; text
@@ -46,21 +46,33 @@ them to their own rows.
 | B | Item | the item name as it appears in the PENDING list (without the parenthetical state) |
 | C | Assigned to | who it is with; `⚠ ` prefix = low confidence, `?` = unknown |
 | D | Date submitted | `dd/mm/yyyy` |
-| E | Date resolved | `dd/mm/yyyy`, blank while open |
-| F | Days outstanding | NSW business days (a number) |
-| G | Flag | `YELLOW`, `RED` or `RESOLVED` |
-| H | Notes | why the row needs eyes ("date submitted assumed — please correct", "verify") and the evidence |
+| E | Date resolved | `dd/mm/yyyy`, blank while open; the officer typing one closes the item |
+| F | Days outstanding | NSW business days (a number); blank while not yet submitted |
+| G | Flag | `YELLOW`, `RED`, `NOT SUBMITTED` or `RESOLVED` |
+| H | Notes | **the officer's own**: carried week to week exactly as she typed it, until she changes or clears it |
+| I | Draft notes | the draft's: why the row needs eyes ("date submitted assumed — please correct", "verify"), the evidence, the item's limit; rewritten every run |
 
 Rows are in main-sheet order: pending items first (in PENDING order), then
-the items resolved this cycle. Non-pilot jobs have no rows.
+engineering and covenant when they are tracked from their columns but not
+on the RFI list (PO-11b), then the items resolved this cycle. Non-pilot jobs
+have no rows.
 
-The drafter reads the Items sheet back by **Job No. + Item** (names compared
-after dropping the parenthetical and punctuation, case-insensitively), so
-the officer may retype a name as long as it still names the same item. An
-Items row that matches nothing in that job's PENDING list is **not used**
-and is flagged in the evidence note — to add an item, add it to the
-PENDING list on the main sheet. Officer-typed values win and stick from then
-on, even if a later base is a plain export with no Items sheet.
+The officer's base is a plain export with no Items sheet, so her changes
+are read from **last week's draft as she left it** (`--edited`), compared
+cell by cell with the same draft as written: a new *Assigned to*, a typed
+*Date submitted* (an emptied one means not yet submitted), a *Date
+resolved*, and her *Notes*. Rows are matched by **Job No. + Item** (names
+compared after dropping the parenthetical and punctuation,
+case-insensitively), then by evidence family, so a renamed item ("SEW
+EJECTION" to "SEWER EJECTION") keeps her values. A change to an item that
+has since left her report is noted, not used. Officer-typed values win and
+stick from then on. On the 22.10.2026 draft, the first she edited, Notes
+held the draft's text too; her own words are taken out of it once.
+
+A base that does carry an Items sheet (an officer-edited draft filed as the
+base) is still read the old way: an Items row that matches nothing in that
+job's PENDING list is **not used** and is flagged in the evidence note — to
+add an item, add it to the PENDING list on the main sheet.
 
 Older v0.2 drafts (L–O on the main sheet) are still read with the old
 one-line-per-item rule when those four headers are present; a draft built

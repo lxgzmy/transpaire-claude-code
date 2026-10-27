@@ -30,17 +30,20 @@ testing folder (see `../reference/README.md`).
    the certifier during the week. Mailbox evidence is additive — the draft
    works from OSC alone and improves when the mailbox lands.
 4. **Draft the new report**: mark items evidenced complete as RESOLVED
-   (shown once, then dropped), keep the rest, add newly detected items, and
-   write one row per item on the **Items** sheet — *Assigned to*, *Date
-   submitted*, *Date resolved*, *Days outstanding* in NSW business days —
-   with the YELLOW/RED flag by tier (Internal 10, Energy 10, External
-   consultants 20, Council 30; PO-11a, confirmed on issue #29). The main
-   sheet stays the export, column for column.
+   (shown once, then dropped), keep the rest, track engineering and
+   covenant from their columns (PO-11b), and write one row per item on the
+   **Items** sheet — *Assigned to*, *Date submitted*, *Date resolved*, *Days
+   outstanding* in NSW business days — with the YELLOW/RED flag by tier
+   (Internal 10, Energy 10, External consultants 20, Council 30; PO-11a,
+   confirmed on issue #29) or by the item's own limit (engineering and
+   covenant 10, an amended DA 60; PO-11b). The main sheet and the RFI list
+   stay hers: the export, column for column, plus RESOLVED lines.
 5. **Evidence bundle**: for every removed or added item, cite the OSC
    activity/alert/document or email that justifies it. Low-confidence
    changes are flagged, not silently applied (org HITL rule).
-6. **Human review**: the permit officer corrects the draft; the corrected
-   version becomes next week's carry-forward base.
+6. **Human review**: the permit officer corrects the draft's Items sheet;
+   her changes are read back the next Monday and kept from then on, while
+   her own export stays the base.
 
 ## Explicitly out of scope
 
@@ -51,7 +54,7 @@ testing folder (see `../reference/README.md`).
 - Deciding whether an RFI item is satisfied when evidence conflicts —
   flag for the officer (PO-13).
 
-## How to run (v0.3 — the pilot cycle)
+## How to run (v0.4 — the pilot, from week 1 on Monday 2 November 2026)
 
 Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**. Each Monday
 for 3–4 weeks:
@@ -59,7 +62,9 @@ for 3–4 weeks:
 0. **Base report.** Copy the officer's latest export from the BA REPORTS
    archive under `Z:\ADMINISTRATION` into `runtime\permit-officer\reports\`
    as `BA REPORT - dd.mm.yyyy.xlsx` (the archive's own spacing varies; the
-   date in the name is what matters).
+   date in the name is what matters). Copy last week's draft as she left it
+   in the drop folder (`Z:\AI test\Permit Officer\BA Report test`) into the
+   same folder as `BA REPORT DRAFT - dd.mm.yyyy (officer-edited).xlsx`.
 1. **Snapshot step (read-only, production OSC):**
 
    ```
@@ -84,6 +89,7 @@ for 3–4 weeks:
           --out runtime\permit-officer\outputs
           --state runtime\permit-officer\state
           --jobs 26029,26052,26001
+          --edited "runtime\permit-officer\reports\BA REPORT DRAFT - dd.mm.yyyy (officer-edited).xlsx"
    ```
 
    Produces the draft workbook — main sheet = the base's columns exactly
@@ -106,15 +112,17 @@ for 3–4 weeks:
    `state\ba-items-first-seen.json`, swapped in whole each run with the run
    before kept as `ba-items-first-seen.prev.json`; an unreadable state file
    stops the run rather than starting afresh.
-3. **Review (the officer):** correct the draft on the **Items sheet** —
-   type the real *Assigned to* and *Date submitted* on the item's row where
-   the draft guessed (`⚠`, "assumed") — and keep typing the PENDING list on
-   the main sheet as today. One row per item, no merged or multi-line
-   cells. An Items row that names an item not in the PENDING list is
-   ignored and flagged. **Week 1 is a data-entry week**: every carried
-   item's date is assumed from the base report and flagged until typed.
-   Officer-typed values win and stick from then on, even if a later base is
-   a plain export with no Items sheet.
+   `--edited` reads her changes from last week's draft (compared with the
+   draft as written, found in `--out` by the same name, or `--drafted`).
+3. **Review (the officer):** correct the draft on the **Items sheet**, in
+   the drop folder, and save it there — and keep typing the PENDING list on
+   the main sheet as today. Type the real *Assigned to* and *Date
+   submitted* where the draft guessed (`⚠`, "assumed"); empty *Date
+   submitted* for an item that has not gone out yet (NOT SUBMITTED, no
+   days counted); type *Date resolved* to close an item; write anything
+   she wants kept in *Notes* (hers, carried week to week); *Draft notes*
+   are rewritten every run. One row per item, no merged or multi-line
+   cells. Her values win and stick from then on.
 4. **Compare (the pilot metric):** once the officer's real Monday report
    exists,
 
@@ -129,11 +137,29 @@ for 3–4 weeks:
    matched / missed / extra items per pilot job and the "% correctly
    pre-populated" headline (criterion ≥ 90 %). Record the officer's review
    time (target < 30 min) and "unapproved writes: 0" by hand in that file.
-5. **Next base:** the officer files the copy they want as next week's base
-   into `runtime\permit-officer\reports\`, **keeping the
+5. **Next base:** her next export from the archive (step 0), **keeping the
    `BA REPORT - dd.mm.yyyy.xlsx` name** — the date in the filename is what
    the drafter uses as "since"; without it, evidence freshness falls back
    to asof − 7 days.
+
+### Week 1 restart (Monday 2 November 2026, agreed with the officer 27 Oct)
+
+The first week starts clean: nothing from the September test is carried,
+only the corrections she typed on the 22.10.2026 preview.
+
+1. Rename the September-test state:
+   `state\ba-items-first-seen.json` → `state\ba-items-first-seen.september-test.json`
+   (and its `.prev.json`, if present). Nothing is deleted.
+2. Base: her 26.10.2026 export (`reports\BA REPORT - 26.10.2026.xlsx`).
+3. Snapshot as in step 1, then draft with
+   `--edited "runtime\permit-officer\reports\BA REPORT DRAFT - 22.10.2026 (officer-edited).xlsx"`
+   and `--drafted "runtime\permit-officer\outputs\BA REPORT DRAFT - 22.10.2026.xlsx"`.
+4. Deliver the draft and its evidence to the drop folder.
+
+Rehearsed on 27 Oct 2026 against that base and a same-day production
+snapshot: all 13 of her changed rows were read back. Her renamed item kept
+its values, and the main sheet differed from her export only where OSC
+filled a blank BA Received.
 
 Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
 
