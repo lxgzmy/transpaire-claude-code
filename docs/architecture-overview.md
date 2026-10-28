@@ -26,7 +26,7 @@ CLAUDE.md            # org-wide guardrails
 README.md            # index
 ONBOARDING.md        # orientation
 .claude/
-  settings.json      # permissions (ask on C: writes + DocuSign, deny credential
+  settings.json      # permissions (ask on C: writes, prompt on DocuSign writes, deny credential
                      #   paths — see root CLAUDE.md for why C: is ask, not deny),
                      #   status line
   skills/            # every activated skill, cross-role and role-scoped alike —

@@ -91,6 +91,21 @@ skills are scoped to that folder and must not leak into another role.
   Since 15 Oct 2026 (issue #63, owner sign-off) this covers the Sydney
   AUXILIARY blanks too: the aux dwelling's upgrade lines are written under
   the same rules and checks (`contract-docs.md` CD-6.3 reversed, CD-9.11).
+- **Gated write, not an exception (13 Oct 2026):** `/new-contract-template`
+  step 8 creates a DocuSign **draft** envelope (`status: created`) with the
+  job's own PDFs after a real build-contract save, through the local
+  `docusign-upload` server's `docusign_create_draft`. That tool is under `ask`
+  per server in `.claude/settings.json`, so the create call prompts and that
+  prompt is the human approval, per call; its read-only `docusign_token_info`
+  and `docusign_draft_preview` are on `allow`. Sending stays human. A real job
+  goes only to `docusign-upload-prod`, registered at production Go-Live; until
+  then step 8 creates no draft and reports why (any fallback is an open owner
+  decision, CD-11.8). The sandbox `docusign-upload` takes synthetic jobs only.
+  Step 8 no longer calls the hosted `docusign-demo` server: every write tool
+  there stays under `ask` per tool, `createEnvelopeFromTemplate` (it sends and
+  cannot be held at draft) under `deny`, and its read-only calls
+  (`getUserInfo`, `getTemplates`, `getEnvelopes`,
+  `getEnvelopeVsAgreementSkill`) on `allow` for checks.
 - **Sanctioned exception (15 Oct 2026, issue #61, owner sign-off):** a
   contract amendment the request marks approved on its own line is applied
   by the run, in three kinds only — the late-payment interest rate, a whole

@@ -10,8 +10,9 @@ description: >
   attachments, picks the correct blank template off the Z: drive, fills it, and
   saves the finished documents in one pass, routed per document - a document
   the job folder does not hold yet goes into the job folder under Z:\PROJECTS;
-  one it already holds refreshes to the template-testing folder. Never sends,
-  signs, or issues anything.
+  one it already holds refreshes to the template-testing folder. Creates a DocuSign draft envelope
+  (never sent) after a real build contract saves; never sends, signs, or
+  issues anything.
 ---
 
 # New contract template (contract request → completed template)
@@ -418,6 +419,9 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
 | `prelim_fee` | prelim only: plain figure `"5,000"` — **only when the request names a fee**; left empty, the template's standard $30,000 stands (CD-4.3, reversed 28 Aug 2026 — do not stop or ask for a missing fee) | Request email, else standard |
 
+On a company/trust buyer, collect the guarantor's email as `guarantor_email`:
+the DocuSign Company template signs through the guarantor (CD-11.3).
+
 If the plans haven't arrived, `house_size` and `garage_side` cannot be filled.
 Say that plainly and produce the rest — do not invent them, and do not silently
 leave them blank without saying so.
@@ -542,8 +546,8 @@ Part B's `deposit` (its first row: QC2 has no item 2 deposit),
 COMPLETION) and `progress_total`, with `figures_source` saying where they
 came from (below); any
 amount types as `$nnn,nnn.nn` however it is keyed; and `guarantor_name`/
-`guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
-only when a signed source names them (these also complete the deed's
+`guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`/
+`guarantor_email` only when a signed source names them (these also complete the deed's
 BUILDER IS / OWNER IS lines; the deed date is never filled). Region
 specifics: NSW types `builders_rep` on the Builder NAME line (executed
 contracts all key Michael CRONK there) and the Attachment A checklist owner
@@ -714,7 +718,13 @@ sheet wording) → the wording written → confidence — plus the TO CONFIRM
 list, and the gate verdict line from `gate_inclusions.txt`. Say plainly
 which items are medium/low confidence or custom: those are the lines a
 person confirms before issue (CD-9.10). Send the final PDFs with `SendUserFile` so they open inline;
-the reader checks them in their own time. A requested change is simply a new
+the reader checks them in their own time.
+When the build contract routed PRODUCTION, the report also carries the step 8
+lines (server and environment, template, recipients and sources,
+template-default roles, each document carried or flagged, envelope id,
+read-back findings, and the "Before sending, in DocuSign" list) once step 8
+has run, or the reason no draft was created.
+A requested change is simply a new
 run — after a production save that document exists in the job folder, so its
 fixed version routes to the test folder and a person promotes it (old version
 to the job folder's `SS\`, CD-7.5); any document still missing from the job
@@ -743,6 +753,27 @@ REAL_/PREVIEW_ exports, job JSON, timings) into `<output folder>\temp\`. It
 refuses paths under `Z:\PROJECTS` (production saves go through `--job-dir`
 routing, which test-detects first) and refuses to overwrite unless
 `--deliver-force` (test refreshes only).
+
+### 8. DocuSign draft — only after a PRODUCTION build-contract save
+
+Follow [DocuSign draft](references/docusign-draft.md). In short:
+`docusign_payload.py` writes the tool arguments and lists the job's PDFs under
+their CD-7.2 names (it reads the driver's `routes.txt`; a TEST-routed build
+contract yields the files and no call). The local `docusign-upload` server
+then checks the connection, previews the draft (template by exact name, page
+counts, the `JobNo` duplicate check) and creates it with
+`docusign_create_draft`: status `created`, the job's own PDFs inside. The
+approval prompt on that call is the person's yes, and a decline ends the step
+as a normal outcome. The template's tabs carry onto a job document with the
+template's page count; any other document goes in untagged and the report
+flags it for staff.
+
+A real job goes only to `docusign-upload-prod` (PRODUCTION), connected at
+production Go-Live. Until then, and on any stop, no draft is created and the
+report says why. Any fallback beyond that is an open owner decision (CD-11.8);
+none is built. `docusign-upload` (SANDBOX, no legal effect) takes synthetic
+jobs under `runtime\docusign-sandbox\` only. Name the environment in the
+report every time. Rules: CD-11.
 
 ## Auxiliary and dual-key dwellings
 
@@ -779,8 +810,12 @@ three CD-10 kinds, each approved on its own line, checked word for word
 against the saved request text, applied to a draft a person reads before it
 is issued, and reported line by line.
 
-**Outward acts stay human.** Never send email, never issue to DocuSign, never sign or
-initial anything, and never write to DataBuild. OSC intake changes use only
+**Outward acts stay human.** Never send email, never send or issue a DocuSign envelope, never sign or
+initial anything, and never write to DataBuild. The one DocuSign write the
+run makes is a `created` draft through the gated `docusign_create_draft` call
+on the `docusign-upload` server (step 8, CD-11), approved at the prompt, per
+call. It is not an issue and not covered by the automatic document-save
+exception. OSC intake changes use only
 the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md):
 the production OnSite Companion, one stage at a time, every change in it
 shown to the person in plain words with the values it overwrites and sent
