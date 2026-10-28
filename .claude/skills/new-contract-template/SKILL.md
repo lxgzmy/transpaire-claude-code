@@ -526,8 +526,11 @@ them `"; "`; every purchaser's mobile and email rides on the contract for
 DocuSign (team review item 8) — NSW `dp_no`/`land_suburb`/`land_postcode`
 (legacy `land_suburb_pc` still accepted and split) or QLD `sp_rp`/
 `land_suburb`/`land_state`/`land_postcode` (`land_street` is the street
-alone: on QLD the filler adds the job's `estate` in brackets after it for
-item 11, 27 Oct 2026 review), and `liq_damages` only when the
+alone: on QLD the filler writes item 11 as `Street, (Estate)` from the
+job's `estate`, and builds the cover SITE from the same street with
+`SUBURB STATE POSTCODE` on the line below, as the team's HIA form does -
+`site_hia` is used on QLD only when the land keys are missing; 27-28 Oct
+2026 review), and `liq_damages` only when the
 job's LD is sourced to differ from the template's $25.00 prefill). On both
 team builds the fill also types the owner signature name and accepts
 **explicitly sourced** extras: DataBuild figures a person keys -
@@ -702,10 +705,10 @@ document and clause → APPLIED or REFUSED (with the reason) → approval — an
 the `amendments_for_person` list, so a person sees every change the request
 asked for. **NSW build contract:** the contract figures (price,
 GST, price excluding GST, deposit, each stage) and every FLAG the run
-summary printed under them (CD-5.4). **QLD build contract:** the figures
-as given and their FLAGs; with none given, end the report with the one
-optional line from step 5 ("QLD contract figures"), never a question
-that holds anything up. **Sydney:** also the `edit_inclusions.txt` items table —
+summary printed under them (CD-5.4). **QLD build contract:** the same -
+the figures worked from the price (item 2 and Part B), any DataBuild figures
+the person gave, and every FLAG; never a request for figures, never a
+question that holds anything up. **Sydney:** also the `edit_inclusions.txt` items table —
 one row per upgrade line: request → Standard Variation row (its normalised
 sheet wording) → the wording written → confidence — plus the TO CONFIRM
 list, and the gate verdict line from `gate_inclusions.txt`. Say plainly

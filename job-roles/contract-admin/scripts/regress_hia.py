@@ -124,7 +124,7 @@ SYNTH = {
         "values": {
             "owners": "Testfirst TESTSURNAME & Second TESTOWNER",
             "job_no": "99992", "lot_no": "902",
-            "site_hia": "Sample Street, SAMPLEVILLE QLD 4999",
+            # no site_hia: on QLD the cover SITE is built from the land keys below
             "owner_1": "Testfirst TESTSURNAME", "owner_2": "Second TESTOWNER",
             "owner_address": "9 Example Road",
             "owner_suburb": "EXAMPLETON", "owner_state": "QLD", "owner_postcode": "4998",
@@ -148,6 +148,8 @@ SYNTH = {
         "no_flags": ["FLAG:"],
         # the owner's signature NAME at the builder's name's x and size
         "sig_name": "Testfirst TESTSURNAME & Second TESTOWNER",
+        # the cover SITE on two lines, its label level with the first line
+        "two_line_row": "SITE:",
         # v2's structural contract: each cell-mode value must land in the
         # value cell beside its label, never inside the label's narrow cell
         # (rows checked by membership in the filled document's tables)
@@ -155,7 +157,8 @@ SYNTH = {
             ["OWNERS:", "Testfirst TESTSURNAME & Second TESTOWNER"],
             ["JOB:", "99992"],
             ["LOT:", "902"],
-            ["SITE:", "Sample Street, SAMPLEVILLE QLD 4999"],
+            # the team's HIA form: the street and estate, then the place on the next line
+            ["SITE:", "Sample Street, (Sample Estate) SAMPLEVILLE QLD 4999"],
             ["NAME", "Testfirst TESTSURNAME & Second TESTOWNER"],
             ["ADDRESS", "9 Example Road"],
             ["SUBURB", "EXAMPLETON", "STATE", "QLD", "POSTCODE", "4998"],
@@ -169,8 +172,8 @@ SYNTH = {
             # the land rows, tables since the v2.1 LAND TABLES interim
             # (3 Sep 2026 - the last narrow area, the residual spill's home)
             ["LOT", "902", "SP/RP", "SP999999"],
-            # the estate in brackets after the street (27 Oct 2026 review)
-            ["STREET ADDRESS:", "Sample Street (Sample Estate)"],
+            # the estate after the street, as the team writes it (27-28 Oct 2026 review)
+            ["STREET ADDRESS:", "Sample Street, (Sample Estate)"],
         ],
         # e-sign anchor codes are at source in v2 and must survive a fill
         # (counted on space-stripped text: Word may split a code across runs)
@@ -355,8 +358,8 @@ def table_rows(path):
     for tr in re.finditer(r"<w:tr\b.*?</w:tr>", xml, re.S):
         rows.append([
             re.sub(r"\s+", " ", "".join(
-                html.unescape(m.group(1)) for m in re.finditer(
-                    r"<w:t(?: [^>]*)?>(.*?)</w:t>", tc.group(0), re.S))).strip()
+                " " if m.group(0) == "<w:br/>" else html.unescape(m.group(1)) for m in re.finditer(
+                    r"<w:t(?: [^>]*)?>(.*?)</w:t>|<w:br/>", tc.group(0), re.S))).strip()
             for tc in re.finditer(r"<w:tc\b.*?</w:tc>", tr.group(0), re.S)])
     return rows
 
@@ -453,6 +456,13 @@ def run(name, spec, tmp):
         why = sig_name_check(out, spec["sig_name"])
         if why:
             print(f"  {name}: FAIL - signature NAME: {why}")
+            return False
+    if "two_line_row" in spec:
+        xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
+        k = xml.find(f">{spec['two_line_row']}<")
+        row = xml[xml.rfind("<w:tr ", 0, k):xml.find("</w:tr>", k)] if k >= 0 else ""
+        if "<w:br/>" not in row or row.count('<w:vAlign w:val="top"/>') != 2 or 'w:vAlign w:val="center"' in row:
+            print(f"  {name}: FAIL - the {spec['two_line_row']} row is not two lines with both cells top-aligned")
             return False
     extra = (f", {len(want_rows)} cell rows + {len(spec.get('anchors', {}))} "
              f"anchor codes verified" if want_rows else "")
@@ -619,13 +629,21 @@ def contract_figures_unit():
     if any("over 5%" in x for x in f) or not any("DEPOSIT $1,100.00 is not 5%" in x for x in f):
         fails.append(f"QLD small price: {f}")
     # the estate goes in brackets after the street on QLD item 11, once
-    d = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate"}, "QLD")
-    d2 = fill_hia.derive_values({"land_street": "Sample Street (Sample Estate)",
-                                 "estate": "Sample Estate"}, "QLD")
-    d3 = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate"}, "NSW")
-    if (d["land_street"], d2["land_street"], d3["land_street"]) != (
-            "Sample Street (Sample Estate)", "Sample Street (Sample Estate)", "Sample Street"):
-        fails.append(f"QLD estate: {d['land_street']!r} / {d2['land_street']!r} / NSW {d3['land_street']!r}")
+    # "Street, (Estate)" whether the JSON gives the street bare, with the estate
+    # already bracketed (with or without the comma) or mentioning it otherwise;
+    # NSW untouched. The QLD cover SITE: that street, then the place below it.
+    land = {"land_suburb": "SAMPLEVILLE", "land_state": "QLD", "land_postcode": "4999"}
+    streets = [fill_hia.derive_values({"land_street": s, "estate": "Sample Estate", **land}, "QLD")["land_street"]
+               for s in ("Sample Street", "Sample Street (Sample Estate)", "Sample Street, (sample estate)",
+                         "Sample Street, Sample Estate")]
+    nsw = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate",
+                                  "site_hia": "Sample Street, SAMPLEVILLE", **land}, "NSW")
+    cover = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate",
+                                    "site_hia": "anything", **land}, "QLD")["site_hia"]
+    if streets != ["Sample Street, (Sample Estate)"] * 3 + ["Sample Street, Sample Estate"] \
+            or (nsw["land_street"], nsw["site_hia"]) != ("Sample Street", "Sample Street, SAMPLEVILLE") \
+            or cover != "Sample Street, (Sample Estate)\nSAMPLEVILLE QLD 4999":
+        fails.append(f"QLD estate/cover: {streets} / NSW {nsw['land_street']!r} {nsw['site_hia']!r} / {cover!r}")
     print("  contract figures (#62): " + ("PASS" if not fails else "FAIL - " + "; ".join(fails)))
     return not fails
 

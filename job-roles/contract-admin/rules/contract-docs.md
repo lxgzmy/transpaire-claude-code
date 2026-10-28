@@ -355,9 +355,12 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   the builder line alone — the QLD build ships it prefilled (Michael CRONK).
   Since the 27 Oct 2026 review (job 26059), QLD types the owner signature
   name at that prefilled name's x and size (a 2219 tw tab stop, 12 pt), so
-  the two line up, and item 11's STREET ADDRESS carries the job's estate in
-  brackets after the street (`Sample Street (Sample Estate)` style, as the
-  cover and most executed SEQ estate contracts write it).
+  the two line up, and item 11's STREET ADDRESS carries the job's estate
+  after the street as `Sample Street, (Sample Estate)` - the team's own copy
+  of 26059 and the latest SEQ estate contracts. The cover SITE shows that
+  same street with `SUBURB STATE POSTCODE` on the line below, its label level
+  with the first line: on the team's HIA form one field feeds both places,
+  so every executed SEQ contract reads that way (28 Oct 2026).
   Signatures, initials and dates stay human (CD-3.7).
 - **CD-5.4** ~~Price excluding GST, GST, total, and the fixed-price component
   all come from DataBuild. Never calculated or inferred.~~ *(manual)*

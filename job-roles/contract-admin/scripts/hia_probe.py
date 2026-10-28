@@ -17,8 +17,8 @@ Classification, in the order the rules bite (CD-1.3, CD-5.1, CD-5.2a):
   SUPERSEDED   under an SS\ folder - forbidden, whatever it looks like
   OFF-LIMITS   name carries DONT USE - off-limits until MCR approves
   FLAT PDF     a .pdf with no form text fields - this server cannot fill it
-  FILLABLE PDF a .pdf WITH form text fields - new capability question; the
-               pipeline fills .docx only, so tell a person before relying on it
+  FILLABLE PDF a .pdf WITH form text fields (SEQ's HIA form, which the team
+               fills by hand) - the pipeline fills Word templates only
   CANDIDATE    a live .docx build-contract blank outside SS, not DONT USE -
                the unblock. The probe NEVER fills it: the fill step
                (fill_hia.py) must first be authored and verified against the
@@ -110,7 +110,7 @@ def classify(folder):
             n = pdf_text_fields(p)
             if n:
                 rows.append(("FILLABLE PDF", rel,
-                             f"{n} text field(s) - pipeline fills .docx only; tell a person"))
+                             f"{n} text field(s) - a PDF form; contracts are filled from the Word template"))
             else:
                 rows.append(("FLAT PDF", rel, "no form fields - cannot fill (CD-5.1)"))
         else:
@@ -148,13 +148,13 @@ def report(region):
         print(f"  hia contract: CANDIDATE - {names}. NOT filled this run: the fill "
               f"step must be authored and verified against it first (CD-5.2a).")
         return "CANDIDATE"
-    extra = (f" (a FILLABLE PDF exists - {fillable_pdfs[0]} - but the pipeline "
-             f"fills .docx only; tell a person)" if fillable_pdfs else "")
+    # A fillable PDF stays a row above (hia_status.txt), not part of the verdict
+    # line the run summary shows staff: SEQ's is the HIA form the team fills by
+    # hand, a known fact, not something for a person to act on every run.
     print(f"  hia contract: NO APPROVED BLANK - no fillable Word blank filed here; "
           f"draft_contract.py fills from the region's staged INTERIM template under "
           f"the real name (CD-5.2b, 8 Sep 2026) - review the draft against the "
-          f"licensed PDF before issue; MCR files a blank here to replace the interim"
-          f"{extra}")
+          f"licensed PDF before issue; MCR files a blank here to replace the interim")
     return "NO APPROVED BLANK"
 
 
