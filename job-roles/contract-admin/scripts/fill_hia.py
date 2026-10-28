@@ -113,7 +113,9 @@ way a person typing in the value column would):
     item 7       guarantors - only when sourced; a guarantor also completes
                  the deed's BUILDER IS / OWNER IS lines (deed date never)
     item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE;
-                 a job's `estate` goes in brackets after the street (27 Oct
+                 a job's `estate` goes after the street as "Street, (Estate)",
+                 and the cover SITE shows that street with SUBURB STATE
+                 POSTCODE below it, as the team's HIA form does (27-28 Oct
                  2026 review)
     item 15      late completion damages, replaces the $25.00 "per day." prefill
     signatures   owner name on the Owner NAME line only, at the x and size of
@@ -350,10 +352,11 @@ STRIP_RE = re.compile(r"<w:(?:b|bCs|i|iCs|u)(?: [^>]*)?/>")
 def cell_value_run(label_p_xml, value):
     """A run for the empty value cell: the label run's own face minus
     bold/italic/underline, the way a typed entry renders beside a printed
-    label."""
+    label. A newline in the value is a line break (the QLD cover SITE)."""
     m = LABEL_RPR_RE.search(label_p_xml)
     rpr = STRIP_RE.sub("", m.group(1)) if m else ""
-    return f'<w:r>{rpr}<w:t xml:space="preserve">{xml_escape(value)}</w:t></w:r>'
+    text = '</w:t><w:br/><w:t xml:space="preserve">'.join(xml_escape(v) for v in value.split("\n"))
+    return f'<w:r>{rpr}<w:t xml:space="preserve">{text}</w:t></w:r>'
 
 
 def cell_slot(xml, para_end):
@@ -385,6 +388,24 @@ def cell_slot(xml, para_end):
         return None, "the value cell's paragraph does not close"
     a = cell_start + close
     return (a, a, "", ""), None
+
+
+CENTRED_RE = re.compile(r'<w:vAlign w:val="center"/>')
+
+
+def top_aligned(xml, para_start, slot_start):
+    """Edits that turn the label cell and the value cell from vertically
+    centred to top: a value on two lines (the QLD cover SITE) otherwise leaves
+    the label floating between them, where the team's form has it level with
+    the first line. A cell that is not centred is left as it is."""
+    label_cell = max(m.start() for m in re.finditer(r"<w:tc[ >]", xml[:para_start]))
+    value_cell = TC_OPEN_RE.search(xml, para_start).start()
+    edits = []
+    for lo, hi in ((label_cell, para_start), (value_cell, slot_start)):
+        m = CENTRED_RE.search(xml, lo, hi)
+        if m:
+            edits.append((m.start(), m.end(), '<w:vAlign w:val="top"/>'))
+    return edits
 
 
 # Anchor sets. Field tuples are (json key, printed label, mode[, occurrence]).
@@ -689,14 +710,25 @@ def derive_values(values, region):
         values["land_suburb"] = parts[0]
         if len(parts) == 2 and parts[1].isdigit() and not values.get("land_postcode"):
             values["land_postcode"] = parts[1]
-    # QLD item 11 STREET ADDRESS: an estate goes in brackets after the street,
-    # as on the cover and in the job folder name (27 Oct 2026 review; the
-    # executed SEQ estate contracts key it there). Already there: left alone
+    # QLD item 11 STREET ADDRESS and the cover SITE, the way the team's HIA form
+    # writes them (27-28 Oct 2026 review of job 26059): "Street, (Estate)" -
+    # the team's own copy of 26059 and the latest SEQ estate contracts - and
+    # on the cover the same street with SUBURB STATE POSTCODE on the line
+    # below, as every executed SEQ contract shows (one form field feeds both)
     if region == "QLD":
         street = str(values.get("land_street") or "").strip()
         estate = str(values.get("estate") or "").strip().strip("()").strip()
-        if street and estate and estate.lower() not in street.lower():
-            values["land_street"] = f"{street} ({estate})"
+        if street and estate:
+            typed = re.fullmatch(r"(.+?)[\s,]*\(\s*" + re.escape(estate) + r"\s*\)", street, re.I)
+            if typed:  # the estate already there in brackets: just the house comma
+                street = f"{typed.group(1).strip()}, ({estate})"
+            elif estate.lower() not in street.lower():
+                street = f"{street}, ({estate})"
+            values["land_street"] = street
+        place = " ".join(" ".join(str(values.get(k) or "") for k in ("land_suburb", "land_state",
+                                                                     "land_postcode")).split())
+        if street and place:
+            values["site_hia"] = f"{street}\n{place}"
     # the deed is only in play when the job actually has a guarantor
     if (values.get("guarantor_name") or "").strip():
         values.setdefault("_deed_builder", "TRANSPIRE CONSTRUCTIONS PTY LTD")
@@ -985,6 +1017,8 @@ def run(template, job, out_path, check_only, region):
                 s, e, before, after = slot
                 cell_edits.append(
                     (s, e, before + cell_value_run(paras[idx][2], val) + after))
+                if "\n" in val:
+                    cell_edits += top_aligned(xml, paras[idx][0], s)
                 cell_shown.append((idx, key, label, val))
                 continue
             if not val:
@@ -1153,7 +1187,7 @@ def run(template, job, out_path, check_only, region):
     print("-" * 80)
     for idx, key, label, val in sorted(
             [(i, k, l, v) for i, k, l, v, _, _ in plan] + cell_shown):
-        print(f"{key:<18} {idx:>5}  {label:<18} {val[:40]}")
+        print(f"{key:<18} {idx:>5}  {label:<18} {val.replace(chr(10), ' / ')[:40]}")
     for key, label in blank_fields:
         print(f"{key:<18} {'-':>5}  {label:<18} (no value - left blank)")
     if fig_lines or fig_flags:
