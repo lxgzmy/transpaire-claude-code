@@ -278,8 +278,8 @@ once per field:
 | Stage | One confirmation covers | When |
 |---|---|---|
 | 1. New client and job | the client (unless a verified existing one is reused) and the job, the job taking `"clientID": "{{1.clientID}}"` | New intake, after the duplicate search |
-| 2. Set up the job | job details and custom fields, purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`), the sales and marketer links, activities 1 and 2, the `NEW JOB` email on the job and on task 11, task 11's answers and completion, and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
-| 3. DataBuild done | activity 6's answers and its completion | When the person says the DataBuild entry is done |
+| 2. Set up the job | job details and custom fields, including the intake defaults that are never left blank (Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94); purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete, activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
+| 3. DataBuild done | activity 6's eight answers, all `Complete`, and its completion | When the person answers yes to *"Is the job in DataBuild yet?"*. Never ask for DataBuild details |
 
 1. `osc_prepare_changes(job_id, changes)` with the stage's changes in order
    (`job_id` empty for stage 1 only). It sends nothing. Anything OSC already

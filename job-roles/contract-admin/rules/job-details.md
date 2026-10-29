@@ -73,23 +73,42 @@ These scoped changes leave the other field rules and document pricing rules inta
 - **JD-3.2** Design Type: from the request email. **Only a granny flat
   qualifies as an Auxiliary Dwelling.**
 - **JD-3.3** Design & Façade: from the request email.
-- **JD-3.4** Property type: most jobs are **investment** (confirm from EOI).
-- **JD-3.5** Progress Payment Schedule: set per the EOI.
-- **JD-3.6** Private Certifier: **all QLD projects are marked "Buildable"**
-  (NSW rule: confirm — not stated in the manual).
+- **JD-3.4** Property type: **`Investment`**, unless the request or EOI says
+  the buyer will live in it (owner-occupier, or an Owner Occupier template):
+  then **`Owner Occupied`**. Never left blank. *(Job 26059 review, issue #94:
+  the run left it blank. The sheet says "always Investment", but 6 of the 10
+  newest OSC jobs read `Owner Occupied` (29 Oct 2026), so the exception stays.)*
+- **JD-3.5** Progress Payment Schedule: the stage names only. `CLAIM 1 - Stage`
+  to `CLAIM 6 - Stage` = `Deposit`, `Base`, `Frame`, `Enclosed`, `Fixing`,
+  `Practical Completion`; `CLAIM 7` stays blank. Every recent job in both
+  regions reads exactly this (29 Oct 2026). The sheet's "Fixed" is OSC's
+  `Fixing`. Claim amounts and percentages are contract values and stay out of
+  OSC.
+- **JD-3.6** Private Certifier: **QLD `Buildable`**; **NSW left blank**
+  (issue #94).
 - **JD-3.7** Local Council: web-search `suburb + state + Local Council`
-  (do not omit any words). If the result is ambiguous (combination of two
-  councils), check the Estimate folder for the project's storage location.
+  (do not omit any words) and enter the council's name in **CAPITALS**. If
+  the result is ambiguous (combination of two councils), check the Estimate
+  folder for the project's storage location. Never left blank: a search
+  that fails is a flag, not a skip.
 - **JD-3.8** Legal information: from the EOI.
 - **JD-3.9** Marketer fields: Company in **ALL CAPITALS**; Contact Person with
   **SURNAME IN CAPITALS**; email as given.
 - **JD-3.10** After any entry: click **Save and Refresh**.
+- **JD-3.11** Job Notes (Reporting): **`CONTRACT SENT, AWAITING EXECUTION`**
+  at intake (issue #94).
 
 ## JD-4 Job activities
 
 - **JD-4.1** Mark activities **1, 2 and 6** as completed.
 - **JD-4.2** Items 1 and 2: double-click "Completion", then OK.
 - **JD-4.3** Item 6: double-click "Completion" and tick the box in the pop-up.
+  Every question is ticked **Complete**. The only thing to ask the person is
+  whether the job is in DataBuild yet. Never ask for DataBuild details
+  (issue #94).
+- **JD-4.4** Activity 10 "Send EOI (Expression of Interest) to Marketer":
+  **N/A**. The marketer sent the EOI, so Transpire never sends one. It is N/A
+  on all of the 12 newest jobs (29 Oct 2026, issue #94).
 
 ## JD-5 Request-email attachments
 
@@ -122,7 +141,10 @@ These scoped changes leave the other field rules and document pricing rules inta
   (15 Oct 2026, the 10 newest jobs):* staff key `MARKETER_CC IN ALL EMAILS`,
   and both the sales and the marketer contact sit on the **client** (no job
   contacts at all); purchasers carry OSC's default `Client Contact`. The
-  integrated intake follows the live practice.
+  integrated intake follows the live practice. The contact is the **Marketer
+  Contact Person's own record** (the person the request names), never a
+  record for the marketing company. That person's Primary Comm is
+  **Email** (issue #94).
 - **JD-7.6** Tick the Purchaser(s) as primary contact(s) unless the marketer
   has noted otherwise.
 - **JD-7.7** Finish with **Save and Close**.

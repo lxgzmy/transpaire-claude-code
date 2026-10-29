@@ -170,7 +170,10 @@ skills are scoped to that folder and must not leak into another role.
   DataBuild done), each change still re-checked and read back. This is not an extension of automatic
   document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
-  activity 6 is completed only once that person confirms the entry. Multipart
+  activity 6 is completed only once that person confirms the entry. Since
+  29 Oct 2026 (issue #94, the job 26059 review) the intake also marks
+  activity 10 "Send EOI to Marketer" not applicable. That is the one N/A the
+  gate allows. Multipart
   uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).
   The Permit Officer changes are the second sanctioned set (see the 23 Oct 2026
   exception above). Other OSC write workflows remain subject to their own discovery and review.

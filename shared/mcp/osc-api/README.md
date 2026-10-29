@@ -238,10 +238,12 @@ osc_prepare_write(
 It refuses, with the reason in plain words:
 
 - anything the asking workflow may not change (`WORKFLOWS` in `gate.py`).
-  `workflow="intake"` (the default) has the **14 contract-intake changes**:
+  `workflow="intake"` (the default) has the **15 contract-intake changes**:
   create client, person or job; update client, person or job; add or update a
-  client or job contact; complete an activity; answer an activity question;
-  add a job or activity message. `workflow="permit-officer"` has only:
+  client or job contact; complete an activity; mark "Send EOI (Expression of
+  Interest) to Marketer" not applicable, alone (`shouldNotNALinkedActivities:
+  true`, issue #94); answer an activity question; add a job or activity
+  message. `workflow="permit-officer"` has only:
   complete one of ten building-approval activities, and add a job or
   activity message, on NSW jobs in `3. Pre-Construction` (or `20. Test Job`),
   with the extra checks in `job-roles/permit-officer/workflows/osc-updates.md`

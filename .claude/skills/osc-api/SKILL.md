@@ -57,9 +57,11 @@ There is no direct write tool. Every change goes through the gate in
 
 1. **`osc_prepare_write(method, path, job_id, body | form+files, workflow, note)`**
    sends nothing. It refuses anything the asking `workflow` may not change:
-   `"intake"` (the default) has the 14 contract-intake changes (create/update
+   `"intake"` (the default) has the 15 contract-intake changes (create/update
    client, person, client and job contact links, job; complete one of the four
-   intake activities; answer an activity question; job or activity message);
+   intake activities; mark activity "Send EOI (Expression of Interest) to
+   Marketer" not applicable; answer an activity question; job or activity
+   message);
    `"permit-officer"` has only ticking one of ten building-approval
    activities and messages, on NSW jobs in pre-construction, with its own
    checks (`job-roles/permit-officer/workflows/osc-updates.md`; every tick
