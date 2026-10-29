@@ -1,4 +1,4 @@
-"""Quality gate for a finished Sydney inclusions document. Fail = it does not ship. Stdlib only.
+"""Quality gate for a finished Sydney or SEQ inclusions document. Fail = it does not ship. Stdlib only.
 
     python gate_inclusions.py --docx <final.docx> --measure <align_report.json|measure.json>
                               --plan <layout_plan.json> [--report <gate_inclusions.txt>]
@@ -22,6 +22,11 @@ Checks (NSW inclusions feedback sheet 9.9, issue #35):
 
 The measurement comes from word_layout.ps1 (the align report carries one under
 "measure"; a plain measure JSON is accepted too). Exit 0 = PASS, 1 = FAIL.
+
+--family seq (SEQ ESSENTIALS blanks, CD-9.12, 28 Oct 2026): layout, pages,
+colour, notes, section 18 (absent there) and footer run as for Sydney; page 1
+and page 13 are Sydney's tab-stop rules, which the SEQ fill does not set, so
+they are reported as not checked.
 """
 import argparse
 import json
@@ -325,6 +330,7 @@ def main():
     ap.add_argument("--measure", required=True, help="align report (with 'measure') or a measure JSON")
     ap.add_argument("--plan", required=True)
     ap.add_argument("--report")
+    ap.add_argument("--family", default="sydney", help="template family (fill_inclusions.pick_family)")
     args = ap.parse_args()
 
     data = json.loads(Path(args.measure).read_text(encoding="utf-8"))
@@ -333,9 +339,17 @@ def main():
         measure["line_height"] = data["line_height"]
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     out = []
-    results = [check_layout(measure, plan, out), check_pages(measure, plan, out),
-               check_xml(args.docx, out), check_anchors(measure, out), check_section18(measure, out),
-               check_signature_lines(args.docx, out), check_footer_total(args.docx, out)]
+    sydney = args.family == "sydney"
+    results = [check_layout(measure, plan, out), check_pages(measure, plan, out), check_xml(args.docx, out)]
+    if sydney:
+        results.append(check_anchors(measure, out))
+    results.append(check_section18(measure, out))
+    if sydney:
+        results.append(check_signature_lines(args.docx, out))
+    else:
+        out.append(f"page 1/13: not checked - the tab-stop rules are Sydney's; the {args.family} blank's "
+                   f"layout is kept as it is")
+    results.append(check_footer_total(args.docx, out))
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"
              + ("" if verdict == "PASS" else " - the document does not ship until every FAIL above is fixed")]

@@ -1,4 +1,4 @@
-r"""Edit the content of a filled Sydney inclusions document from the job's `upgrades` block. Stdlib only.
+r"""Edit the content of a filled Sydney or SEQ inclusions document from the job's `upgrades` block. Stdlib only.
 
     python edit_inclusions.py --docx <filled.docx> --job <job.json> --blank <blank.docx>
                               --blank-measure <blank.measure.json> --out <edited.docx>
@@ -25,7 +25,9 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       chosen variation row, the final wording and a confidence flag. An item
       whose label exists replaces that label's wording (or ONE line of it with
       `replaces`, or is appended with mode "add", or leaves with its label
-      under mode "remove"); a new label is inserted at
+      under mode "remove"; mode "replace" replaces the wording even of a
+      label an earlier item wrote, as a request replacing a promotion
+      line does); a new label is inserted at
       the Standard Variation category order, with its wording level on the
       right. Choosing the row and any custom wording is a person's judgment
       (10 Sep 2026): this script applies what the job JSON says and reports
@@ -46,6 +48,13 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
   Storeys   `upgrades.storeys` (1/2) is recorded and checked against the
       wording ("First Floor" on a single storey is flagged); nothing in the
       document changes with it.
+
+SEQ ESSENTIALS blanks (contract admin review of job 26059, 28 Oct 2026; CD-9.12)
+      the item rules above apply to their PROMOTIONAL UPGRADES section. There
+      is no section 18, Bathroom 2 or air-con note there: those steps are
+      Sydney's only, and air conditioning is an ordinary item. Promotion
+      items come from promotion.py. Package headings stay at page top only
+      where the blank puts them.
 
 Nothing outside section 18, the three notes and the UPGRADED INCLUSIONS
 section may change (row 8 of the sheet): the script compares every other
@@ -68,7 +77,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from fill_inclusions import EDITOR_NOTES, pick_family  # noqa: E402
+from fill_inclusions import DELETE_PARAS, EDITOR_NOTES, pick_family  # noqa: E402
 import layout_pairs  # noqa: E402
 
 P_RE = re.compile(r"<w:p\b[^>]*>.*?</w:p>", re.S)
@@ -124,6 +133,34 @@ LABEL_TO_CATEGORY = {
     "Screens": "Screens", "Window Coverings": "Window Coverings", "Driveway & Path": "Driveway & Path",
     "Carpet": "Carpet", "Floor Tiles": "Floor Tiles", "Timber Flooring": "Timber Flooring",
 }
+# The SEQ ESSENTIALS blanks' own labels (PROMOTIONAL UPGRADES and the labels the
+# 26059 review added, 28 Oct 2026), ranked on the QLD Variation List.
+SEQ_LABEL_TO_CATEGORY = {
+    "Roof Covering": "Roofing", "Glazing": "Windows & Sliding Doors", "Entrance Door": "Entrance Door",
+    "Wardrobes": "Wardrobe Doors", "Hinges & Drawer Runners": "Cabinetry", "Handles": "Cabinetry",
+    "Shower Screens": "Showers screens", "Plumbing": "Plumbing Hardware", "Electrical": "Electrical - Lighting",
+    "Air-Conditioning": "Air-Conditioning", "Window Furnishings": "Window Coverings",
+}
+
+# Per template family: the upgraded section's heading and which Sydney-only
+# edits run. SEQ (contract admin review of job 26059, 28 Oct 2026): the
+# PROMOTIONAL UPGRADES section takes the same item rules as Sydney's UPGRADED
+# INCLUSIONS; it has no section 18, Bathroom 2 notes or air-con note, and its
+# air conditioning is an ordinary item.
+FAMILY_RULES = {
+    "sydney": {"heading": "UPGRADED INCLUSIONS", "sydney_edits": True, "labels": {}},
+    "seq": {"heading": "PROMOTIONAL UPGRADES", "sydney_edits": False, "labels": SEQ_LABEL_TO_CATEGORY},
+}
+OTHER_UPGRADE_HEADINGS = ("PROMOTIONAL UPGRADES",)   # package headings of the non-Sydney families
+
+
+def use_family(fam):
+    """Point the section helpers at one family's heading and label map."""
+    global UPGRADED_HEADING
+    rules = FAMILY_RULES[fam]
+    UPGRADED_HEADING = rules["heading"]
+    LABEL_TO_CATEGORY.update(rules["labels"])
+    return rules
 
 
 def norm(t):
@@ -598,7 +635,10 @@ def edit_items(cols, items, categories, log, flags):
             s, e = groups[li]
             lab = norm(ptext(L[labels[li]]))
             replaces = it.get("replaces")
-            if mode == "add" or (not mode and (sec["dwelling"], key(lab)) in touched):
+            # `replaces` names one line to swap, so it wins over the "label already
+            # written this run -> add" default (26059: the black shower rail and sink
+            # mixer were added beside the chrome ones the promotion had written)
+            if mode == "add" or (not mode and not replaces and (sec["dwelling"], key(lab)) in touched):
                 R[e:e] = [make_para(R[s], l) for l in lines]
                 action = f"added {len(lines)} line(s) under existing label {lab!r}"
             elif replaces:
@@ -706,7 +746,7 @@ def trim_table_end(cols, log):
 def is_package_heading(text):
     """INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS (with any '- MAIN/AUX DWELLING')."""
     t = norm(text).upper()
-    return t in PAGE_TOP_HEADINGS[:2] or t.startswith(UPGRADED_HEADING)
+    return t in PAGE_TOP_HEADINGS[:2] or t.startswith(UPGRADED_HEADING) or t in OTHER_UPGRADE_HEADINGS
 
 
 def end_cells_blank(cols, log):
@@ -759,24 +799,31 @@ def texts(paras):
     return [norm(ptext(p)) for p in paras if not is_blank(p)]
 
 
-def scope_check(blank_cols, cols, log):
-    """Everything outside the allowed regions must read exactly as the blank."""
+def scope_check(blank_cols, cols, log, dropped=()):
+    """Everything outside the allowed regions must read exactly as the blank.
+
+    `dropped`: the instruction lines fill_inclusions.py deletes for this family
+    (DELETE_PARAS - SEQ's narrow-lot line); they are gone before this runs."""
+    def kept(t):
+        return not any(n.lower() in t.lower() for n in dropped)
+
     def left_seq(c):
         L = c.left
         ls = find_idx(L, exact(LAST_STANDARD_LABEL))
-        return [t for t in texts(L[: ls + 1]) if t not in REGIONAL_LABELS]
+        return [t for t in texts(L[: ls + 1]) if t not in REGIONAL_LABELS and kept(t)]
 
     def right_seq(c):
         R = c.right
         heads = upgraded_headings(R)
         if not heads:
             raise SystemExit(f"ERROR: {UPGRADED_HEADING!r} heading not found in the right column")
-        return [t for t in texts(R[:heads[0]]) if not any(n.lower() in t.lower() for n in REGIONAL_WORDING)]
+        return [t for t in texts(R[:heads[0]])
+                if not any(n.lower() in t.lower() for n in REGIONAL_WORDING) and kept(t)]
 
     # the upgraded headings themselves are template text too: same headings, same order
     if [norm(ptext(blank_cols.right[i])) for i in upgraded_headings(blank_cols.right)] != \
             [norm(ptext(cols.right[i])) for i in upgraded_headings(cols.right)]:
-        log.append("SCOPE FAIL    : the UPGRADED INCLUSIONS headings differ from the blank")
+        log.append(f"SCOPE FAIL    : the {UPGRADED_HEADING} headings differ from the blank")
         return False
     problems = []
     for name, a, b in (("left", left_seq(blank_cols), left_seq(cols)),
@@ -826,19 +873,27 @@ def build_plan(blank_measure, cols, regional_pair, tolerance=1.5):
             continue
         steps.append({"kind": "pair", "left": pr["left"], "left_n": ln, "right": pr["right"],
                       "right_n": rn, "_r": ri})
-    # section 18: the kept pair
-    kl, kw = regional_pair
-    li, ri = ltexts.index(kl), rtexts.index(kw)
-    steps.append({"kind": "pair", "left": kl, "left_n": ordinal(ltexts, li), "right": kw,
-                  "right_n": ordinal(rtexts, ri), "_r": ri})
-    # page-top headings
-    for h in PAGE_TOP_HEADINGS:
+    # section 18: the kept pair (Sydney only)
+    if regional_pair:
+        kl, kw = regional_pair
+        li, ri = ltexts.index(kl), rtexts.index(kw)
+        steps.append({"kind": "pair", "left": kl, "left_n": ordinal(ltexts, li), "right": kw,
+                      "right_n": ordinal(rtexts, ri), "_r": ri})
+    # page-top headings: Sydney puts all three at the top of a page; another
+    # family keeps a package heading there only where its blank does
+    bR = blank_measure["right"]
+
+    def starts_page_in_blank(h):
+        n = next((n for n, r in enumerate(bR) if norm(r["text"]) == h), None)
+        return n is not None and (n == 0 or bR[n - 1].get("end_page", bR[n - 1]["page"]) < bR[n]["page"])
+    heads = PAGE_TOP_HEADINGS if regional_pair else \
+        [h for h in PAGE_TOP_HEADINGS[:2] + (UPGRADED_HEADING,) if starts_page_in_blank(h)]
+    for h in heads:
         ri = find_n(rtexts, h, 1)
         if ri >= 0:
             steps.append({"kind": "page_top", "right": h, "right_n": 1, "_r": ri})
     # the AUXILIARY blanks' MAIN / AUX DWELLING headings: kept at page top
     # wherever the blank itself starts a page with them
-    bR = blank_measure["right"]
     for n, r in enumerate(bR):
         t = norm(r["text"])
         if t == UPGRADED_HEADING or not is_upgraded_heading(t):
@@ -896,32 +951,38 @@ def main():
     job = json.loads(Path(args.job).read_text(encoding="utf-8"))
     up = job.get("upgrades") or {}
     fam, _ = pick_family(args.blank)
-    if fam != "sydney":
+    if fam not in FAMILY_RULES:
         print(f"edit_inclusions: family {fam!r} has no two-column content rules yet - nothing to do")
         return 0
+    rules = use_family(fam)
     blank_measure = json.loads(Path(args.blank_measure).read_text(encoding="utf-8"))
 
     log, flags = [], []
     if not up:
         flags.append("job JSON has no 'upgrades' block - area from the suburb, Bathroom 2 assumed not on the "
-                     "ground floor, air con assumed not requested, no upgrade items")
+                     "ground floor, air con assumed not requested, no upgrade items" if rules["sydney_edits"]
+                     else "job JSON has no 'upgrades' block - no upgrade items")
     cols = Columns(read_xml(args.docx))
     blank_cols = Columns(read_xml(args.blank))
     outside_before = cols.outside_text()
 
-    area = area_for(job, up, log)
     storeys = up.get("storeys")
     log.append(f"storeys       : {storeys if storeys in (1, 2) else 'not stated'}"
                + ("" if storeys in (1, 2) else " - say 2 when the request mentions an upper/first floor or a "
                   "ground-floor location, else read the design (sheet row 5)"))
-    bath2 = up.get("bathroom2_ground")
-    if bath2 is None:
-        flags.append("upgrades.bathroom2_ground not stated - assumed NO ground-floor Bathroom 2; confirm")
-        bath2 = False
-
-    regional_pair = edit_regional(cols, area, log)
-    edit_bathroom2(cols, bool(bath2), log)
-    edit_aircon(cols, up.get("aircon"), log)
+    regional_pair = None
+    if rules["sydney_edits"]:
+        area = area_for(job, up, log)
+        bath2 = up.get("bathroom2_ground")
+        if bath2 is None:
+            flags.append("upgrades.bathroom2_ground not stated - assumed NO ground-floor Bathroom 2; confirm")
+            bath2 = False
+        regional_pair = edit_regional(cols, area, log)
+        edit_bathroom2(cols, bool(bath2), log)
+        edit_aircon(cols, up.get("aircon"), log)
+    elif up.get("aircon"):
+        flags.append(f"upgrades.aircon is a Sydney key - on a {fam} blank give the air conditioning as an "
+                     f"item under its own label; ignored")
     items = up.get("items") or []
     try:
         import variation_list
@@ -938,10 +999,10 @@ def main():
                                       + str(r.get("variation_text", "")), re.I):
             flags.append(f"item {r['category']!r}: wording mentions an upper floor on a single-storey job")
 
-    if not scope_check(blank_cols, cols, log):
+    if not scope_check(blank_cols, cols, log, DELETE_PARAS.get(fam, ())):
         for l in log:
             print(l)
-        print("\nREFUSED: an edit reached outside section 18 / the notes / UPGRADED INCLUSIONS. Nothing written.")
+        print(f"\nREFUSED: an edit reached outside section 18 / the notes / {UPGRADED_HEADING}. Nothing written.")
         return 1
 
     xml = cols.rebuild()
@@ -970,7 +1031,7 @@ def main():
               f"{sum(1 for s in plan['steps'] if s['kind'] == 'page_top')} page-top headings); "
               f"expected pages {plan['expected_pages']}"]
     if results:
-        lines += ["", "UPGRADED INCLUSIONS items - a person confirms each row and wording before issue "
+        lines += ["", f"{UPGRADED_HEADING} items - a person confirms each row and wording before issue "
                   "(row choice and custom wording stay human, 10 Sep 2026):"]
         if ctx.get("_sheet"):
             lines.append(f"  sheet: {ctx['_sheet']}")

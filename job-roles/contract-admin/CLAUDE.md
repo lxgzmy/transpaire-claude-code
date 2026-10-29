@@ -52,7 +52,9 @@ builder). Claude assists by reading requests, applying rules, and producing
    columns level and a quality gate blocks the save on any miss. Mapping a
    request to a Standard Variation row, and any custom wording, stay a
    person's call — proposed in the job JSON, applied, reported with a
-   confidence flag.
+   confidence flag. **SEQ `PROMOTIONAL UPGRADES` the same way since 28 Oct
+   2026** (CD-9.12, contract admin review of job 26059): the named promotion
+   copied in (`promotion.py`), then the request's upgrades from the QLD sheet.
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 

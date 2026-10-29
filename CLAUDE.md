@@ -91,6 +91,9 @@ skills are scoped to that folder and must not leak into another role.
   Since 15 Oct 2026 (issue #63, owner sign-off) this covers the Sydney
   AUXILIARY blanks too: the aux dwelling's upgrade lines are written under
   the same rules and checks (`contract-docs.md` CD-6.3 reversed, CD-9.11).
+  Since 28 Oct 2026 (contract admin review of job 26059) it covers the SEQ
+  `PROMOTIONAL UPGRADES` section too: the named promotion copied in and the
+  request's upgrades written under the same rules and checks (CD-9.12).
 - **Sanctioned exception (15 Oct 2026, issue #61, owner sign-off):** a
   contract amendment the request marks approved on its own line is applied
   by the run, in three kinds only — the late-payment interest rate, a whole
