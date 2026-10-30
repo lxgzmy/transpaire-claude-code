@@ -521,8 +521,9 @@ Source: the NSW inclusions feedback sheet `NSW.INCLUSIONS.updated.9.9.xlsx`
 (issue #35, 15 rows, reviewed 10 Sep 2026) and the instruction of the same
 day to build it. It **reverses** the earlier rule that spec content ordered
 by the request is a person's edit (the skill's spec-content table, issue
-#28's "permanent" carve-out). Sydney INTEGRITY family only for now; Gunnedah
-and SEQ upgrades stay a person's edit until their templates are measured.
+#28's "permanent" carve-out). Sydney INTEGRITY family, and since 28 Oct
+2026 the SEQ ESSENTIALS family (CD-9.12); Gunnedah upgrades stay a person's
+edit until its template is measured.
 
 - **CD-9.1** The job JSON carries an `upgrades` block: `area`, `storeys`,
   `bathroom2_ground`, `aircon`, `items[]` (each: `category`, `request`,
@@ -632,6 +633,44 @@ and SEQ upgrades stay a person's edit until their templates are measured.
   main dwelling's ducted system. Both headings stay where the blank puts them
   (each starts a page) and the gate checks them. CD-9.7's scope check covers
   both sections and refuses any change to the headings themselves.
+
+- **CD-9.12** SEQ ESSENTIALS blanks *(contract admin review of job 26059,
+  28 Oct 2026)*: the run left `PROMOTIONAL UPGRADES` untouched on the reading
+  that contract wording is a person's job and Sydney the only exception; the
+  review called that the defect. SEQ follows CD-9.1, 9.5–9.10 on its
+  `PROMOTIONAL UPGRADES` section (heading kept in the template's colour,
+  last standard label `Letterbox`), with the QLD Variation List sheet.
+  CD-9.2–9.4 do not apply (no section 18, no Bathroom 2 notes, no air-con
+  note: air conditioning is an ordinary item). The edit, the layout pass and
+  the gate run on **every** SEQ job, with or without an `upgrades` block
+  (issue #94): NCC Livable Housing is kept on every Queensland job, so the
+  blank's yellow-highlighted `19.` is cleared every time, and the layout pass
+  keeps `Livable Housing` level with its first line of wording. Rules from
+  the review:
+  1. A promotion the request names is copied whole from its document
+     (`SALES INCLUSIONS - SEPTEMBER PROMOTION 2023.docx`, `promotion.py`):
+     Benchtops replace the blank's (`Benchtops – MWC ONLY` on an MWC job);
+     Hinges & Drawer Runners, Handles, Shower Screens and Mirrors before
+     Plumbing; Plumbing and Electrical lines under the existing labels;
+     Oven, Cooktop and Rangehood after Plumbing. A request that changes a
+     promotion line replaces it.
+  2. Awning windows are not written: the plans carry them.
+  3. "Both bathrooms" / "2 bathrooms" is written as the plans name the
+     rooms ("to Bathroom and Ensuite").
+  4. A credit is a standard item: its wording comes from the inclusions'
+     own pages (Carpet, page 10), narrowed to the request, under a new label.
+  5. A Standard Variation note that contradicts another request line is
+     amended to fit ("… standard range excluding tapware" when black
+     tapware is ordered).
+  The signature-page lines (Owner 1, Owner 2, Owners Witness, Builders
+  Representative, each with its `Date:`) take Sydney's two tab stops
+  (CD-9.9, #56). The SEQ blanks type those lines in the same font and text
+  box, so the owners' names start under the builder's and every `Date:` sits
+  at one x (issue #94, INCLUSIONS row 12). The gate checks them there as it
+  does on Sydney; only the page-1 tab-stop check stays Sydney's.
+  `variation_list.py` matches sheet names trimmed: the workbook
+  names the QLD sheet `QLD Variation List ` (trailing space), so no QLD run
+  had read it before.
 
 ## CD-10 Approved per-job amendments (sign-off 15 Oct 2026, issue #61)
 

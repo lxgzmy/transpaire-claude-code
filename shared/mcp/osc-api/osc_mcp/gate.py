@@ -110,6 +110,8 @@ APPROVED = (
     Rule("POST", "/api/Jobs", "create_job", "new job", needs_job=False),
     Rule("PATCH", "/api/Jobs/{JobID}", "update_job", "job"),
     Rule("POST", "/api/JobActivities/{JobActivityID}/Complete", "complete_activity", "activity"),
+    Rule("POST", "/api/JobActivities/{JobActivityID}/NotApplicable", "not_applicable_activity",
+         "not-applicable activity"),
     Rule("PUT", "/api/JobActivities/{JobActivityID}/Questions/{CompletionQuestionID}",
          "answer_question", "answer"),
     Rule("POST", "/api/Jobs/{JobID}/Messages", "job_message", "job message"),
@@ -143,6 +145,7 @@ FIELDS: dict[str, dict[str, Any]] = {
     "create_job": {**_JOB, "clientID": None, "workflowTemplateID": None},
     "update_job": _JOB,
     "complete_activity": {"completionDate": None},
+    "not_applicable_activity": {"shouldNotNALinkedActivities": None},
     "answer_question": {"completionAnswerStateID": None, "note": None},
 }
 FIELDS["update_client_link"] = FIELDS["link_client"]
@@ -202,6 +205,9 @@ LOT_PAGE = 500  # jobs read per lot-number check; reaching it means the check co
 DATABUILD_ACTIVITY = "create job within databuild"
 INTAKE_ACTIVITIES = {"initial contact", "follow up initial contact", DATABUILD_ACTIVITY,
                      "receive eoi approval to proceed from marketer"}
+# The one activity the intake marks not applicable (job 26059 review, issue #94): the marketer sent the
+# EOI, so Transpire never sends one. Staff mark it N/A on every job (the 12 newest, 29 Oct 2026).
+INTAKE_NOT_APPLICABLE = {"send eoi (expression of interest) to marketer"}
 
 
 def _activity_name(text: Any) -> str:
@@ -1186,16 +1192,17 @@ class Gate:
         plan.job_label = f"new job at {job_label({'siteAddress': site}).lstrip(' -')}"
         plan.headline = f"a new job is created for client \"{client.get('name')}\""
 
-    async def _activity_for_job(self, plan) -> dict:
+    async def _activity_for_job(self, plan, allowed: frozenset[str] | set[str] | None = None,
+                                listed: str = "") -> dict:
         activity = await self._activity(plan.params["JobActivityID"])
         self._same_id(activity.get("jobID"), plan.job_id,
                       f"That activity belongs to a different job, not {plan.job_label}.")
         # Sequence numbers differ between workflow templates (on three production jobs, 15 Oct 2026,
         # activity 2 is "m) Fixout Complete - OK to Claim"), so the activity is checked by its name.
         flow = WORKFLOWS[plan.workflow]
-        if _activity_name(activity.get("description")) not in flow.activities:
+        if _activity_name(activity.get("description")) not in (allowed or flow.activities):
             raise GateError(f"Activity {activity.get('sequence')} \"{activity.get('description')}\" is not one of "
-                            f"{flow.activity_list}. A person handles it in OnSite Companion.")
+                            f"{listed or flow.activity_list}. A person handles it in OnSite Companion.")
         plan.reads["activity"] = _strip(activity)
         return activity
 
@@ -1217,6 +1224,25 @@ class Gate:
         plan.headline = f"{name} is marked complete"
         if _activity_name(activity.get("description")) == DATABUILD_ACTIVITY:
             plan.warnings.append("say yes only if the job has been entered in DataBuild.")
+
+    async def _plan_not_applicable_activity(self, plan, job, body, form, files):
+        activity = await self._activity_for_job(
+            plan, INTAKE_NOT_APPLICABLE, "the activities the intake marks not applicable (Send EOI (Expression of "
+                                         "Interest) to Marketer)")
+        name = f"activity {activity.get('sequence')} \"{activity.get('description')}\""
+        # OSC sets the date itself; the one body field decides whether linked activities go N/A too
+        if body != {"shouldNotNALinkedActivities": True}:
+            raise GateError("Send {\"shouldNotNALinkedActivities\": true}: only this activity is marked not "
+                            "applicable, never the activities linked to it.")
+        if activity.get("isNotApplicable"):
+            raise AlreadyDone(f"{name[0].upper() + name[1:]} is already marked not applicable, so there is "
+                              "nothing to change.")
+        if activity.get("completionDate"):
+            raise GateError(f"{name[0].upper() + name[1:]} is already complete "
+                            f"({fmt_date(activity['completionDate'])}). A person decides whether it is not applicable.")
+        plan.request = {"json": dict(body)}
+        plan.changes.append(self._change("isNotApplicable", "Not applicable", False, True, False))
+        plan.headline = f"{name} is marked not applicable (the activities linked to it are left as they are)"
 
     async def _permit_officer_tick(self, plan: Plan, job: dict, activity: dict, when: str, name: str) -> None:
         """A building-approval tick: refused only when it would be wrong, otherwise a note or warning."""
@@ -1655,7 +1681,7 @@ class Gate:
             rows = await self._find("/api/Jobs/Contacts", f"jobID eq {p['JobID']} and personID eq {p['PersonID']}",
                                     "job contact")
             return rows[0] if len(rows) == 1 else None
-        if kind == "complete_activity":
+        if kind in {"complete_activity", "not_applicable_activity"}:
             return await self._activity(p["JobActivityID"])
         if kind == "answer_question":
             questions = self._rows(await self._get(f"/api/JobActivities/{p['JobActivityID']}/Questions", None,

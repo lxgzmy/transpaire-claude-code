@@ -353,6 +353,10 @@ class FakeOSC:
         if method == "POST" and p[:2] == ["api", "jobactivities"] and p[-1] == "complete":
             self.activities[parts[2]]["completionDate"] = body["completionDate"]
             return 200, {"activityID": parts[2], "completionDate": body["completionDate"]}
+        if method == "POST" and p[:2] == ["api", "jobactivities"] and p[-1] == "notapplicable":
+            # production sets the flag and fills the completion date (job 26059, 27 Oct 2026)
+            self.activities[parts[2]].update(isNotApplicable=True, completionDate=_now())
+            return 200, {"notApplicableDate": _now()}
         if method == "PUT" and p[:2] == ["api", "jobactivities"] and p[3] == "questions":
             for q in self.questions[parts[2]]:
                 if q["completionQuestionID"] == parts[4]:

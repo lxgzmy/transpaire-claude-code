@@ -24,7 +24,8 @@ a contract administrator would open, with the same fields, wording and layout.
 own.** If the right template can't be found, say so and stop. A contract that
 looks plausible but isn't the company's document is worse than no draft. The
 one place wording is written per job is the Sydney `UPGRADED INCLUSIONS`
-section (CD-9, 10 Sep 2026) — and there it comes from the company's Standard
+section (CD-9, 10 Sep 2026) and, since 28 Oct 2026, the SEQ `PROMOTIONAL
+UPGRADES` section (CD-9.12) — and there it comes from the company's Standard
 Variation workbook, normalised per CD-9.6, with the row you chose and the
 final line reported for a person to confirm. A request with no row is a
 custom item: still written, always flagged low confidence for approval. The
@@ -277,8 +278,8 @@ once per field:
 | Stage | One confirmation covers | When |
 |---|---|---|
 | 1. New client and job | the client (unless a verified existing one is reused) and the job, the job taking `"clientID": "{{1.clientID}}"` | New intake, after the duplicate search |
-| 2. Set up the job | job details and custom fields, purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`), the sales and marketer links, activities 1 and 2, the `NEW JOB` email on the job and on task 11, task 11's answers and completion, and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
-| 3. DataBuild done | activity 6's answers and its completion | When the person says the DataBuild entry is done |
+| 2. Set up the job | job details and custom fields, including the intake defaults that are never left blank (Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94); purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete, activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
+| 3. DataBuild done | activity 6's eight answers, all `Complete`, and its completion | When the person answers yes to *"Is the job in DataBuild yet?"*. Never ask for DataBuild details |
 
 1. `osc_prepare_changes(job_id, changes)` with the stage's changes in order
    (`job_id` empty for stage 1 only). It sends nothing. Anything OSC already
@@ -447,6 +448,8 @@ air conditioning and the upgrade items from the request, with the Standard
 Variation row you chose and a confidence flag per item. Its keys and rules
 are in step 5 below (CD-9); build it before running the fill, because the
 content edit, the layout pass and the gate all run inside the one command.
+**SEQ jobs carry one too** (CD-9.12, 28 Oct 2026): `storeys` and `items`
+only, the promotion's items first — see "SEQ inclusions content" in step 5.
 
 ### 5. Fill, diff, export and save — one command
 
@@ -471,8 +474,10 @@ preview stop (removed 17 Aug 2026):
    **if the lot is 12.5m wide or less a person must also delete the
    accessible-entrance block it governed** (observed: 26039/26037 deleted it,
    10m sites; 26053/26008 kept it).
-3. **Sydney inclusions content edit** (`edit_inclusions.py`, from the job's
-   `upgrades` block — CD-9, 10 Sep 2026): section 18 trimmed to the job's
+3. **Sydney and SEQ inclusions content edit** (`edit_inclusions.py`, from the job's
+   `upgrades` block — CD-9, 10 Sep 2026; SEQ's `PROMOTIONAL UPGRADES` the
+   same way since 28 Oct 2026, CD-9.12, with no section 18 / Bathroom 2 /
+   air-con note steps, on every SEQ job, with or without an `upgrades` block, since issue #94: the NCC `19.` highlight cleared, the page-13 signature lines on Sydney's tab stops). Sydney: section 18 trimmed to the job's
    area, Bathroom 2 and air-conditioning notes actioned, the upgrade items
    written into `UPGRADED INCLUSIONS` (replace / one line / add / new label
    at the Standard Variation order), every run black except the blue package
@@ -658,9 +663,51 @@ What is still a person's edit, flagged verbatim in the report:
 | "Delete NCC" / chain answers NCC **excluded** | Remove the `NCC 2022 Livable Housing` section and renumber the following sections (observed 26039/26037/26022) |
 | "NCC included" / "Leave in NCC" | Section stays — nothing to do (26053, 26008) |
 | NCC question asked, **no answer in the chain** | FLAG the open question; do not guess either way |
-| "Sep promotion" / "September Promotion pack" | Promo lines are hand-curated per job — even the promo's own items vary between jobs of the same week (26050 kept Colorbond roofing, 26039 dropped it) |
 | Plan-change bullets (relocate door, add screen…) | Drafting updates the plans; the matching inclusions lines are keyed by a person (26037) |
-| Gunnedah / SEQ upgrade bullets | Those templates have no two-column content rules yet — still keyed by a person, house wording |
+| Gunnedah upgrade bullets | That template has no two-column content rules yet — still keyed by a person, house wording |
+
+**SEQ inclusions content (contract admin review of job 26059, 28 Oct 2026 —
+CD-9.12).** The 26059 run left `PROMOTIONAL UPGRADES` as the blank had it,
+on the reading that contract wording is a person's job everywhere but
+Sydney. The review called that the defect: SEQ follows the Sydney rules. Build
+the `upgrades` block (`storeys`, `items[]` as in the table above; no `area`,
+`bathroom2_ground` or `aircon` — QLD air conditioning is an ordinary item
+under `Air-Conditioning`) in this order:
+
+1. **The promotion the request names** (e.g. "MWC Exclusive Upgrade Pack –
+   September Promotion"): run
+   `python job-roles/contract-admin/scripts/promotion.py --doc "<REGION - SEQ\INCLUSIONS\INVESTOR & FIRST HOME OWNER\SALES INCLUSIONS - SEPTEMBER PROMOTION 2023.docx>" --marketer <MWC|…> --json`
+   and put its items first. It applies the review's placement: Benchtops
+   replaces the blank's (an MWC job takes `Benchtops – MWC ONLY`); Hinges &
+   Drawer Runners, Handles, Shower Screens and Mirrors go in before
+   Plumbing; Plumbing and Electrical lines go under the existing labels;
+   Oven, Cooktop and Rangehood go after Plumbing. This reverses the earlier
+   "promo lines are hand-curated per job" row for SEQ.
+2. **Each request line**, through the **QLD** sheet
+   (`variation_list.py --region QLD --search "<line>"`), normalised per
+   CD-9.6. An item whose label exists replaces its wording; one that does
+   not is a new label at the Standard Variation order (`before` when the
+   agreed order differs). A request that changes a promotion line comes
+   after it with `mode: "replace"` (a whole label: the induction cooktop
+   replaces the promotion's gas cooktop and its gas notes) or `replaces`
+   (one line: black Mizu Drift tapware replaces the chrome sink mixer).
+
+The review's worked rulings for 26059:
+
+| Request | Written |
+|---|---|
+| Ducted air in lieu of split | `Air-Conditioning` replaced: "Reverse cycle ducted air-conditioning system." + "Note: Includes five (5) zones. Outlets are house specific." (row 299) |
+| Hybrid flooring, excludes lounge (single storey) | new `Timber Flooring` below Electrical: the single-storey row (264) + "Note: Excluding wet areas and Lounge." |
+| Induction cooktop replacing gas | `Cooktop` replaced: "Technika Venini GECE9004 900mm electric cooktop" (row 193) |
+| Awning windows (bedrooms, lounge) | nothing — windows are on the plans, not in the inclusions |
+| Shower niches "both bathrooms", toilets "2 bathrooms" | "… to Bathroom and Ensuite", as the plans name them: niche under a new `Tiling Walls`, the Kado Lux toilet under Plumbing |
+| Remove insect screens, remove blinds | `Window Furnishings` replaced: "Blinds and insect screens to be supplied and installed By Owner after handover" |
+| A **credit** (carpet to lounge in lieu of tiles) | a standard item, not an upgrade: the standard wording from inclusions pages 1–11 narrowed to the request ("… 7mm foam underlay to Lounge") under a new `Carpet` |
+| Double vanity to Ensuite, with black tapware requested | row 186, its "All items selected from Builders standard range" note made "… excluding tapware" |
+
+A request line the sheet has no row for (black hardware, door furniture) is
+still a custom item: written, `confidence` medium or low, confirmed before
+issue.
 
 `--prelim` is used only after this decision (CD-4.4), never by default
 (SEQ has no preliminary-agreement template at all — the analogous "custom plan

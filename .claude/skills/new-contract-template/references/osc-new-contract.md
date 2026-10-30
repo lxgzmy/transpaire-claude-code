@@ -197,7 +197,7 @@ sourced diff. Blank/missing EOI values mean “leave existing value alone”, no
 | Workflow start date | `startDate`, only a sourced date. Never use the screenshot's date. |
 | Contract number / region | Read and retain the verified values from creation. Do not rewrite them during field entry. |
 | Job status / contract details / locations | No general write mapping established for these screenshot controls. Report any requested change as manual unless the runtime API schema establishes the exact operation. Do not use `/Contract` to guess at a UI status change. |
-| Contract values | Excluded from OSC writes, including custom claim amounts/percentages. |
+| Contract values | Excluded from OSC writes, including custom claim amounts/percentages. The `CLAIM n - Stage` names are not values and are written (JD-3.5). |
 
 All labels below were verified against `/api/Jobs/CustomFieldSchemas`. Resolve
 IDs anew for the selected environment; never commit or reuse another
@@ -216,9 +216,24 @@ formatting. Dropdown-looking controls are not licence to invent an enum.
 
 The typo in `Total Commision incl GST` is the live schema label. Commission is
 never inferred from contract price. Fill only when explicitly sourced and
-reviewed. Do not set post-construction, utility, permit, colour or reporting
-status fields merely because they are visible in the screenshot. In particular,
-the example “contract sent” note is not an intake default.
+reviewed. Do not set post-construction, utility, permit or colour fields
+merely because they are visible in the screenshot.
+
+**Every intake writes these in stage 2, never leaving one blank** (contract
+admin review of job 26059, issue #94, 28 Oct 2026; values as staff key them on
+the newest production jobs):
+
+| Custom field | Value | Rule |
+|---|---|---|
+| `Property Type` | `Investment`, or `Owner Occupied` when the request or EOI says the buyer will live in it | JD-3.4 |
+| `Job Notes (Reporting)` | `CONTRACT SENT, AWAITING EXECUTION` | JD-3.11 |
+| `CLAIM 1 - Stage` … `CLAIM 6 - Stage` | `Deposit`, `Base`, `Frame`, `Enclosed`, `Fixing`, `Practical Completion` | JD-3.5 |
+| `Private Certifier` | QLD `Buildable`; NSW not written | JD-3.6 |
+| `Local Council` | the web search's council in CAPITALS | JD-3.7 |
+| `Marketing Company`, `Marketer Contact Person`, `Marketers Email`, `Marketers Phone No` | from the request (company in CAPITALS, contact surname in CAPITALS) | JD-3.9 |
+
+A council the search cannot settle is flagged in the report and left for a
+person. It is never skipped without a word.
 
 Custom values use `customFieldValues: [{"customFieldID": "<resolved UUID>",
 "value": "<sourced text>"}]`, listing only the fields that change. The generic
@@ -244,7 +259,8 @@ within Databuild", 2 is "Supervisor - File Break Up & Check of Purchase
 Orders" or "m) Fixout Complete - OK to Claim", and 6 and 11 are site and
 completion steps. The gate therefore accepts a completion, an answer or a
 message only on the four intake activities **by name** (the `a)` prefix
-ignored) and refuses any other activity. The expected activities are:
+ignored), a not-applicable mark only on "Send EOI (Expression of Interest)
+to Marketer", and refuses any other activity. The expected activities are:
 
 Word item 8 (and `JD-4.1`) marks activities **1, 2 and 6** complete at intake and
 ticks activity 6's questions. The contract request email is the evidence for 1
@@ -257,7 +273,8 @@ person does in issue #34's step 5, after this OSC stage.
 |---|---|---|
 | 1 | Initial Contact | Complete, `completionDate` = the day of entry (the manual's double-click sets today). |
 | 2 | Follow Up Initial Contact | Complete, same date. |
-| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5); that is stage 3, one confirmation. Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 3 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. The gate adds a warning to this completion: yes only once the job is in DataBuild. Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5); that is stage 3, one confirmation. The only question for the person is *"Is the job in DataBuild yet?"*. Never ask for DataBuild details or figures: the eight questions are ticks, not data (job 26059 review, issue #94). Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 3 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. The gate adds a warning to this completion: yes only once the job is in DataBuild. Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 10 | Send EOI (Expression of Interest) to Marketer | **Not applicable**, in stage 2: `POST /api/JobActivities/{JobActivityID}/NotApplicable` with `{"shouldNotNALinkedActivities": true}` (OSC dates it itself; `true` leaves linked activities alone). The marketer sent the EOI, so Transpire never sends one. It is N/A on all of the 12 newest jobs (JD-4.4, issue #94). It is the only activity the gate marks N/A. |
 | 11 | Receive EOI Approval to Proceed from Marketer (may carry `a)` prefix) | Attach the request email (below), then complete: the request email *is* the marketer's approval to proceed (`JD-5.2`). Answer any questions it carries the same way. |
 
 Read `/api/JobActivities/{JobActivityID}/Questions` and the completion-state
@@ -268,7 +285,7 @@ lookup. Answer each question with
 schema's date-time format. Read back completion and answers; do not repeat an
 already verified completion. Any activity other than the four intake ones
 is out of scope for this intake and is not touched (the gate refuses it).
-Activities 1, 2 and 11 carry no questions on the intake template.
+Activities 1, 2, 10 and 11 carry no questions on the intake template.
 
 The Word document requires the email under **task 11**; `JD-5.1` also requires
 it under the job. Use the two message endpoints, preserving uppercase subject
@@ -350,7 +367,16 @@ client, primary and secondary both false, and none has a job contact at all.
 `/api/Jobs/{JobID}/Contacts/{PersonID}` (additional job contacts, no primary
 flags) is not used by this intake. Link the verified existing sales and
 marketer Persons (the manual's Add From Existing); they are shared across
-many clients, which is expected, so do not create duplicates. A shared
+many clients, which is expected, so do not create duplicates. **The marketer
+contact is the person the request names as the marketer contact** (the
+`Marketer Contact Person`), found by name and email. It is never a Person
+record that carries the marketing company's name: the 26059 run linked one,
+and the review put the named person in its place (issue #94). A named
+marketer with no Person record is created from the request's name, email
+and phone. Either way, that person's `contactDetailsPrimaryCommunicationMethodID`
+is Email; an existing person whose Primary Comm is blank gets it set in the
+same stage (a shared-person change, so the confirmation says so). The
+client-contact list's Preferred Contact column shows that email. A shared
 client/person change affects other jobs, so make that scope explicit in the
 reviewed diff.
 

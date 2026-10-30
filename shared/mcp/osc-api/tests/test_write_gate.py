@@ -358,6 +358,31 @@ class RefusedTargetTests(GateTestCase):
         self.assertTrue(out["ok"], out)
         self.assertIn("Warning: say yes only if the job has been entered in DataBuild.", out["confirmation_text"])
 
+    async def test_only_send_eoi_is_marked_not_applicable(self):
+        f = self.fake
+        alone = {"shouldNotNALinkedActivities": True}
+        send = f.add_activity(f.job_id, 10, "Send EOI (Expression of Interest) to Marketer")
+        path = f"/api/JobActivities/{send}/NotApplicable"
+        # never the linked activities with it; activity 6 is never N/A; Send EOI is never completed
+        await self.assert_blocked(await self.prepare("POST", path, body={"shouldNotNALinkedActivities": False}),
+                                  "never the activities linked to it")
+        await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{f.act6}/NotApplicable",
+                                                     body=alone),
+                                  "not one of the activities the intake marks not applicable")
+        await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{send}/Complete",
+                                                     body={"completionDate": "2026-10-29"}),
+                                  "not one of the intake activities")
+        out = await self.prepare("POST", path, body=alone)
+        self.assertIn('activity 10 "Send EOI (Expression of Interest) to Marketer" is marked not applicable',
+                      out["confirmation_text"])
+        self.assertIn("- Not applicable: now no, will be yes", out["confirmation_text"])
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertEqual(result["state"], "verified", result)
+        self.assertEqual(f.writes[-1]["body"], alone)
+        again = await self.prepare("POST", path, body=alone)
+        self.assertFalse(again["ok"])
+        self.assertIn("already marked not applicable", again["confirmation_text"])
+
     async def test_completed_activity_and_existing_link_are_not_redone(self):
         f = self.fake
         await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{f.act2}/Complete",

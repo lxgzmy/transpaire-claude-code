@@ -555,7 +555,13 @@ def main():
     # an empty page never ships.
     # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
     # path since 15 Oct 2026 (CD-9.11, issue #63): each upgrades item names its dwelling.
-    if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
+    # SEQ ESSENTIALS blanks take the same path since 28 Oct 2026 (CD-9.12, the
+    # contract admin review of job 26059), with or without an upgrades block:
+    # the blank's highlighted "19." NCC number is cleared on every QLD job and
+    # the layout pass and gate level the NCC and signature lines (issue #94).
+    inc_family = pick_family(args.template)[0] if args.template else None
+    edit_inclusions_doc = inc_family in ("sydney", "seq")
+    if args.template and made.get("inclusions") and edit_inclusions_doc:
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")
             if args.job_dir:
@@ -596,7 +602,7 @@ def main():
 
             def do_gate():
                 r = run_py("gate_inclusions.py", "--docx", doc, "--measure", workdir / "layout_align.json",
-                           "--plan", plan, "--report", workdir / "gate_inclusions.txt")
+                           "--plan", plan, "--report", workdir / "gate_inclusions.txt", "--family", inc_family)
                 for line in r.stdout.splitlines():
                     if line.strip() and not line.startswith("gate_inclusions"):
                         print(f"  {line.strip()}")

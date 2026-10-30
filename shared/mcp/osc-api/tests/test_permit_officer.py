@@ -195,7 +195,7 @@ class RefusalTests(PermitOfficerTestCase):
         await self.assert_refused(await self.tick(RFI_IN, workflow="sales"), "not a workflow that can change")
         await self.assert_refused(await server.osc_prepare_write(
             "POST", f"/api/JobActivities/{self.a[RFI_IN]}/NotApplicable", self.job_id,
-            body={"shouldNotNALinkedActivities": True}, workflow=PO), "not one of the approved")
+            body={"shouldNotNALinkedActivities": True}, workflow=PO), "does not change a not-applicable activity")
 
     async def test_nsw_jobs_in_pre_construction_only(self):
         self.osc_job["siteAddress"]["state"] = "QLD"
