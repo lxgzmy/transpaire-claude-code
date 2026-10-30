@@ -556,10 +556,11 @@ def main():
     # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
     # path since 15 Oct 2026 (CD-9.11, issue #63): each upgrades item names its dwelling.
     # SEQ ESSENTIALS blanks take the same path since 28 Oct 2026 (CD-9.12, the
-    # contract admin review of job 26059) when the job JSON has an upgrades
-    # block; without one a SEQ document is saved as filled, as before.
+    # contract admin review of job 26059), with or without an upgrades block:
+    # the blank's highlighted "19." NCC number is cleared on every QLD job and
+    # the layout pass and gate level the NCC and signature lines (issue #94).
     inc_family = pick_family(args.template)[0] if args.template else None
-    edit_inclusions_doc = inc_family == "sydney" or (inc_family == "seq" and bool(values.get("upgrades")))
+    edit_inclusions_doc = inc_family in ("sydney", "seq")
     if args.template and made.get("inclusions") and edit_inclusions_doc:
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")

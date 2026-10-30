@@ -24,9 +24,9 @@ The measurement comes from word_layout.ps1 (the align report carries one under
 "measure"; a plain measure JSON is accepted too). Exit 0 = PASS, 1 = FAIL.
 
 --family seq (SEQ ESSENTIALS blanks, CD-9.12, 28 Oct 2026): layout, pages,
-colour, notes, section 18 (absent there) and footer run as for Sydney; page 1
-and page 13 are Sydney's tab-stop rules, which the SEQ fill does not set, so
-they are reported as not checked.
+colour, notes, section 18 (absent there), page 13 (the same tab stops since
+issue #94) and footer run as for Sydney; page 1 is Sydney's tab-stop rule,
+which the SEQ fill does not set, so it is reported as not checked.
 """
 import argparse
 import json
@@ -275,13 +275,13 @@ def check_footer_total(docx, out):
     return True
 
 
-def check_signature_lines(docx, out):
+def check_signature_lines(docx, out, family="sydney"):
     """Page 13 (a text box - Word cannot measure x there): the signature lines carry
     the two tab stops fill_inclusions.py sets, the owner's name follows a tab and the
     builder's name follows the label directly, so the names share one x and every
     Date: sits at one x by construction (sheet rows 14, 15)."""
     from fill_inclusions import FAMILIES, run_text as rt
-    tabs = FAMILIES["sydney"].get("tabs") or {}
+    tabs = FAMILIES[family].get("tabs") or {}
     t_name, t_date = tabs.get("sig_name"), tabs.get("sig_date")
     with zipfile.ZipFile(docx) as z:
         xml = z.read("word/document.xml").decode("utf-8")
@@ -343,12 +343,11 @@ def main():
     results = [check_layout(measure, plan, out), check_pages(measure, plan, out), check_xml(args.docx, out)]
     if sydney:
         results.append(check_anchors(measure, out))
-    results.append(check_section18(measure, out))
-    if sydney:
-        results.append(check_signature_lines(args.docx, out))
     else:
-        out.append(f"page 1/13: not checked - the tab-stop rules are Sydney's; the {args.family} blank's "
-                   f"layout is kept as it is")
+        out.append(f"page 1   : not checked - the page-1 tab stops are Sydney's; the {args.family} blank's "
+                   f"typed spacing is kept")
+    results.append(check_section18(measure, out))
+    results.append(check_signature_lines(args.docx, out, args.family))
     results.append(check_footer_total(args.docx, out))
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"

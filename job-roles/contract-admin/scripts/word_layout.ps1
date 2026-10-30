@@ -206,7 +206,15 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 # never the last blank between this label and the text above it: the two would be
                 # glued into one block (Block-First), and from then on levelling one moves the other -
                 # 15 Oct 2026, "Hinges & Drawer Runners" pushed a line off by the "Tiles" step below it
-                else { Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1' }
+                else {
+                    $w = $rp.Paragraphs.Item(1); $wp = $w.Previous(1)
+                    if (-$delta -lt $lineH -and $wp -ne $null -and (End-Page $wp.Range) -eq (Pos $w.Range).page) {
+                        # a fraction of a line lowers the wording by that fraction: a whole blank line
+                        # overshot and the label was then padded a line to follow, leaving two blank lines
+                        # between items (26059 "Rangehood", 30 Oct 2026; sheet row 6 wants one)
+                        $w.SpaceBefore = [double]$w.SpaceBefore - $delta; $actions += ("right space +{0:n1}" -f (-$delta))
+                    } else { Insert-Blank-Before $w; $actions += 'right +1' }
+                }
             }
             # InsertParagraphBefore grows the range to include the new blank: re-point at the text paragraph
             $lp = $lp.Paragraphs.Last.Range
@@ -647,6 +655,13 @@ try {
                 $resObj = [pscustomobject]$res
                 $iters = $(if ($Mode -eq 'check') { 0 } else { $MaxIter })
                 $actions = @(Adjust-Step $resObj $usable $lineH $Target $iters)
+                # the next step searches from where this one ends AFTER its own edits: blanks deleted
+                # above the label pull the text below up, and the end read before them lands inside the
+                # next paragraph (26059, 29 Oct 2026: "left -3" above "Main Floor Tiles", then "Carpet"
+                # was looked up from inside the standard label and matched the PROMOTIONAL UPGRADES one
+                # pages below - the run padded seven empty pages trying to level the two)
+                $lastR = $resObj._rp.End
+                if ($resObj._lp -ne $null) { $lastL = $resObj._lp.End }
                 $resObj.actions = ($actions -join ', ')
                 $results.Add($resObj)
                 if ($stepNo % 20 -eq 0) { Say "  step $stepNo/$($steps.Count)" }

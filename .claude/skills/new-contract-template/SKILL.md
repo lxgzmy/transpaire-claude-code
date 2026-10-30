@@ -477,7 +477,7 @@ preview stop (removed 17 Aug 2026):
 3. **Sydney and SEQ inclusions content edit** (`edit_inclusions.py`, from the job's
    `upgrades` block — CD-9, 10 Sep 2026; SEQ's `PROMOTIONAL UPGRADES` the
    same way since 28 Oct 2026, CD-9.12, with no section 18 / Bathroom 2 /
-   air-con note steps, and only when the job JSON has an `upgrades` block). Sydney: section 18 trimmed to the job's
+   air-con note steps, on every SEQ job, with or without an `upgrades` block, since issue #94: the NCC `19.` highlight cleared, the page-13 signature lines on Sydney's tab stops). Sydney: section 18 trimmed to the job's
    area, Bathroom 2 and air-conditioning notes actioned, the upgrade items
    written into `UPGRADED INCLUSIONS` (replace / one line / add / new label
    at the Standard Variation order), every run black except the blue package

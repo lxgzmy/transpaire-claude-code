@@ -641,8 +641,12 @@ edit until its template is measured.
   `PROMOTIONAL UPGRADES` section (heading kept in the template's colour,
   last standard label `Letterbox`), with the QLD Variation List sheet.
   CD-9.2–9.4 do not apply (no section 18, no Bathroom 2 notes, no air-con
-  note: air conditioning is an ordinary item). The edit runs only when the
-  job JSON carries an `upgrades` block. Rules from the review:
+  note: air conditioning is an ordinary item). The edit, the layout pass and
+  the gate run on **every** SEQ job, with or without an `upgrades` block
+  (issue #94): NCC Livable Housing is kept on every Queensland job, so the
+  blank's yellow-highlighted `19.` is cleared every time, and the layout pass
+  keeps `Livable Housing` level with its first line of wording. Rules from
+  the review:
   1. A promotion the request names is copied whole from its document
      (`SALES INCLUSIONS - SEPTEMBER PROMOTION 2023.docx`, `promotion.py`):
      Benchtops replace the blank's (`Benchtops – MWC ONLY` on an MWC job);
@@ -658,8 +662,13 @@ edit until its template is measured.
   5. A Standard Variation note that contradicts another request line is
      amended to fit ("… standard range excluding tapware" when black
      tapware is ordered).
-  The gate's page-1 and page-13 tab-stop checks are Sydney's and are not
-  run on SEQ. `variation_list.py` matches sheet names trimmed: the workbook
+  The signature-page lines (Owner 1, Owner 2, Owners Witness, Builders
+  Representative, each with its `Date:`) take Sydney's two tab stops
+  (CD-9.9, #56). The SEQ blanks type those lines in the same font and text
+  box, so the owners' names start under the builder's and every `Date:` sits
+  at one x (issue #94, INCLUSIONS row 12). The gate checks them there as it
+  does on Sydney; only the page-1 tab-stop check stays Sydney's.
+  `variation_list.py` matches sheet names trimmed: the workbook
   names the QLD sheet `QLD Variation List ` (trailing space), so no QLD run
   had read it before.
 

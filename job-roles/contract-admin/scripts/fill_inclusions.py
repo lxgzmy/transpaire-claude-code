@@ -187,6 +187,12 @@ FAMILIES = {
             "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
             "GARAGE SIDE :": 3, "PRICE :": 6,
         },
+        # The signature-page lines on Sydney's two tab stops (job 26059 review,
+        # issue #94, INCLUSIONS row 12: the witness Date: and the owners' names
+        # were out of line). The SEQ blanks type those lines exactly as
+        # Sydney's do: Segoe UI Light bold at the 11 pt default, in the same
+        # 568 pt text box, so Sydney's measured stops hold here unchanged.
+        "tabs": {"sig_name": 2235, "sig_date": 7560},
     },
 }
 
@@ -791,7 +797,8 @@ def main():
         print("The template may have changed. Do not issue this document - check it.")
 
     if family.get("tabs"):
-        print(f"tabs     : page-1 values and {sig_lines} signature line(s) on tab stops "
+        page1 = "page-1 values and " if family["tabs"].get("page1") else ""
+        print(f"tabs     : {page1}{sig_lines} signature line(s) on tab stops "
               f"(sheet 9.9 rows 1, 14, 15) - gate_inclusions.py verifies the x positions")
 
     if dropped_notes:
