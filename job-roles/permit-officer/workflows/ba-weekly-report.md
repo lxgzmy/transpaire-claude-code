@@ -72,8 +72,38 @@ snapshot fails, or when the draft for that Monday in the drop folder has been
 changed since it was delivered (she may be working on it; `--force` only once
 you know it can go). Re-running a Monday is fine while the draft there is
 still exactly what was delivered. It keeps a copy of what it delivered in `outputs\delivered\`, so next
-week her edits are read against exactly what she was given. The steps, for
-reference or to run by hand:
+week her edits are read against exactly what she was given.
+
+Checks it makes on every run (since 31 Oct 2026), each with a regression
+check behind it:
+
+- **Self-check first.** The regression suite runs beside the snapshot and
+  is waited for before anything is copied: code that fails its own checks
+  drafts nothing. Code that already passed (the same scripts, the same OSC
+  client, the same Python; recorded in `state\self-check.json`) is not
+  checked again, so it costs time only on the first Monday after a change.
+  `--no-self-check` is for when a person has judged a failing check itself
+  wrong.
+- **The network step first.** The OSC snapshot runs before the base is
+  copied or the state set aside, and retries a timeout, a dropped
+  connection or a busy answer twice (2 s, then 5 s); any other error stops
+  it at once. The jobs are read side by side, at most four requests at a
+  time (about 7 s for the pilot instead of 14).
+- **Her copy found, or its absence said.** If the draft under its own name
+  is exactly as delivered but another copy of that Monday's draft in the
+  drop folder was changed (a Save As), the newest changed copy is read. A
+  draft open in Excel when the run starts (unsaved changes cannot be read)
+  and a draft with no changes at all are both said in the summary.
+- **A restart is done once.** Running a `--restart` command again stops
+  before any network step and says so; leave `--restart` off to redo the
+  week.
+- **Delivery read back.** The delivered draft is compared byte for byte
+  with the one written, checked to hold the base's jobs in order, and read
+  back the way next Monday will read it.
+- The summary ends with how long each step took. Sixty days before the
+  NSW holiday table runs out, every run says to add the next year.
+
+The steps, for reference or to run by hand:
 
 0. **Base report.** Copy the officer's latest export from the BA REPORTS
    archive under `Z:\ADMINISTRATION` into `runtime\permit-officer\reports\`
@@ -138,7 +168,14 @@ reference or to run by hand:
    days counted); type *Date resolved* to close an item; write anything
    she wants kept in *Notes* (hers, carried week to week); *Draft notes*
    are rewritten every run. One row per item, no merged or multi-line
-   cells. Her values win and stick from then on.
+   cells. Her values win and stick from then on. Each row's *Draft notes*
+   starts with what changed since the draft she checked ("new this
+   week", "since last week: now RED (was YELLOW)", "after your change"
+   when it follows her own edit, or "no change since last week"), so she
+   can pass over the rows that did not move. A day count in her own note
+   that differs from the row's limit ("council says 20 days") is pointed
+   out on the row and in the evidence note, so a rule she writes down is
+   not missed.
 4. **Compare (the pilot metric):** once the officer's real Monday report
    exists,
 
@@ -172,6 +209,12 @@ python job-roles\permit-officer\scripts\ba_weekly_run.py --asof 2026-11-02 --res
 `--restart` renames the state to `ba-items-first-seen.september-test.json`
 (nothing is deleted). Her 22.10.2026 edits are read from the drop folder
 against `outputs\BA REPORT DRAFT - 22.10.2026.xlsx`.
+
+**Done on 31 Oct 2026 at 10:49** (the merged v0.4 with engineering stages,
+a same-day production snapshot): the 02.11.2026 draft is in the drop
+folder, identical to the kept copy, and reads back cleanly. Running the
+command again stops before any network step, saying the restart is done.
+From Monday 9 November, run the plain command above.
 
 Rehearsed on 27 Oct 2026 with the real archive, a copy of the drop folder
 and state, and a same-day production snapshot: all 13 of her changed rows

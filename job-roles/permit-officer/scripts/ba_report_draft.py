@@ -25,8 +25,8 @@ item, ASSIGNED TO, DATE SUBMITTED, DATE RESOLVED and DAYS OUTSTANDING in
 NSW business days; the flag is YELLOW at or under the tier threshold and RED
 over it, where the tier follows who the item is with (TIERS below). A
 resolved item is shown once (the Monday after it resolves) with its date and
-frozen count, then drops. Six defaults are assumed until the owner confirms
-them on #29 — see ASSIGNEE_TIER and rules/approval-workflow.md.
+frozen count, then drops. The six defaults asked on #29 were confirmed by the
+officer on 17 Sep 2026 — see ASSIGNEE_TIER and rules/approval-workflow.md.
 
 Snapshot JSON shape (one file per job, ``<jobno>.json``, written by
 ``osc_snapshot.py`` — see workflows/ba-weekly-report.md):
@@ -69,17 +69,17 @@ TIERS = {"INTERNAL": 10, "ENERGY": 10, "EXTERNAL": 20, "COUNCIL": 30}
 
 # Who an item is with -> tier. Matched case-insensitively against the
 # Assigned-to text (officer-typed, "(W/O X)" hint, or the OSC owner name).
-# Lines marked ASSUMED are the #29 clarifications, defaults until confirmed.
+# Lines marked #29 were defaults the officer confirmed on 17 Sep 2026.
 ASSIGNEE_TIER = [
     (r"\b(DRAFT\w*|GM|GENERAL MANAGER|CONTRACTS?|ADMIN\w*|ESTIMAT\w*|SALES|TRANSPIRE|INTERNAL)\b", "INTERNAL"),
-    (r"\b(CLIENT|OWNERS?|CUSTOMER)\b", "INTERNAL"),                       # ASSUMED (#29 q1)
+    (r"\b(CLIENT|OWNERS?|CUSTOMER)\b", "INTERNAL"),                       # #29 q1
     (r"\b(ENERGY|BASIX|NATHERS|ASSESSOR)\b", "ENERGY"),
-    (r"\b(CERTIFIER|PCA|PRIVATE CERT\w*)\b", "EXTERNAL"),                 # ASSUMED (#29 q1)
+    (r"\b(CERTIFIER|PCA|PRIVATE CERT\w*)\b", "EXTERNAL"),                 # #29 q1
     (r"\b(ENGINEER\w*|SURVEY\w*|CONSULT\w*|HYDRAULIC|STRUCTURAL|GEOTECH\w*)\b", "EXTERNAL"),
     # The officer's own label, e.g. "Water Services Coordinator (External)" (22.10 Items sheet)
     (r"\b(EXTERNAL|WATER SERVICES? CO-?ORDINATOR)\b", "EXTERNAL"),
     (r"\b(COUNCIL|SHIRE|CITY OF)\b", "COUNCIL"),
-    (r"\b(SYDNEY WATER|ALTOGETHER|HUNTER WATER|WATER AUTHORITY|TAP.?IN)\b", "COUNCIL"),  # ASSUMED (#29 q2)
+    (r"\b(SYDNEY WATER|ALTOGETHER|HUNTER WATER|WATER AUTHORITY|TAP.?IN)\b", "COUNCIL"),  # #29 q2
 ]
 
 # Report column -> OSC activity description (verified in
@@ -574,6 +574,44 @@ def _stage_words(item):
     return f" ({fam['stages'][item['stage']]['label']}{how})"
 
 
+def _since_last_week(item, last, have_last):
+    """What changed on a row since the draft she checked last week, so she can pass over the rest:
+    the flag, the date submitted or who has it (days going up is not news). None when there was no
+    earlier draft to compare with, or for a resolved row, which is news by itself."""
+    if item.get("resolved") or not have_last:
+        return None
+    if last is None:
+        return "new this week"
+    said = []
+    if item["flag"] != last["flag"]:
+        said.append(f"now {item['flag']} (was {last['flag'] or 'blank'})"
+                    + (" after your change" if last.get("hers") else ""))
+    if (item.get("date_submitted") or None) != (last["date_submitted"] or None):
+        said.append(f"date submitted now {_ddmmyyyy(item.get('date_submitted')) or 'empty'} "
+                    f"(was {_ddmmyyyy(last['date_submitted']) or 'empty'})")
+    if (item.get("assigned_to") or "") != (last["assigned_to"] or ""):
+        said.append(f"assigned to now {item.get('assigned_to') or '?'} (was {last['assigned_to'] or '?'})")
+    return ("since last week: " + "; ".join(said)) if said else "no change since last week"
+
+
+def _last_row(job_no, name, last_rows, now_names):
+    """Last week's row for an item: the same name, else (renamed on her report, "SEW EJECTION" to
+    "SEWER EJECTION") the one row of the same evidence family and a similar name that is gone this week."""
+    found = last_rows.get((job_no, norm_item(name)))
+    if found:
+        return found
+    alike = [v for (job, key), v in last_rows.items() if job == job_no and key not in now_names
+             and item_key(v["item"]) == item_key(name) and _alike(v["item"], name)]
+    return alike[0] if len(alike) == 1 else None
+
+
+def _note_days(note, limit):
+    """Day counts her note gives that differ from the row's limit ("HBCF takes 10 days"): a rule she
+    has written down that the draft may not be applying."""
+    said = {int(n) for n in re.findall(r"\b(\d{1,3})\s*(?:business\s+|working\s+)?days?\b", note or "", re.I)}
+    return sorted(said - {limit})
+
+
 def _limits_text():
     """Each family's own limits, for the evidence note."""
     out = []
@@ -920,7 +958,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                                  f"counts in {asof[:4]} miss that year's public holidays — add them first")
     # The officer's base is a plain export with no Items sheet; what she typed last week lives in
     # the draft she edited, so it is read from there and kept in the state from now on.
-    edits_by_job, edit_source, last_names = {}, None, {}
+    edits_by_job, edit_source, last_names, last_rows = {}, None, {}, {}
     if edited:
         name = re.sub(r"\s*\(officer-edited\)", "", Path(edited).name)
         # the copy kept when it was delivered (a later re-run of that Monday may have replaced the other)
@@ -933,7 +971,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         found = officer_edits(edited, drafted)
         for e in found["edits"]:
             edits_by_job.setdefault(e["job_no"], []).append(e)
-        last_names = found["drafted_names"]
+        last_names, last_rows = found["drafted_names"], found["last_rows"]
         edit_source = Path(edited).name
         evidence["notes"].append(f"the officer's Items-sheet changes read from {edit_source}: "
                                  f"{len(found['edits'])} row(s) changed")
@@ -1260,6 +1298,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
         out_rows.append(cells)
 
         # ---- Items sheet: one row per item, coloured by its own flag; Notes are the officer's own
+        now_names = {norm_item(i["name"]) for i in ordered}
         for i in ordered:
             if i.get("resolved"):
                 fill, flag_text = xlsx_min.S_WRAP, "RESOLVED"
@@ -1267,6 +1306,9 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 fill = {"RED": xlsx_min.S_REDFILL, "YELLOW": xlsx_min.S_YELLOW}.get(i["flag"], xlsx_min.S_WRAP)
                 flag_text = i["flag"]
             notes = []
+            change = _since_last_week(i, _last_row(job_no, i["name"], last_rows, now_names), bool(last_rows))
+            if change:
+                notes.append(change)
             if i.get("column") and not i.get("resolved"):
                 notes.append("tracked from its columns, not on the RFI list")
             if i.get("assumed"):
@@ -1279,6 +1321,13 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 notes.append(str(i["evidence"]))
             if not i.get("resolved"):
                 notes.append(f"limit {i['threshold']} business days" + _stage_words(i))
+                other = _note_days(i.get("officer_note"), i["threshold"])
+                if other:
+                    days_said = ", ".join(str(n) for n in other)
+                    notes.append(f"your note mentions {days_said} days but this row uses {i['threshold']}: "
+                                 "tell us if the limit should change")
+                    job_ev["flags"].append(f"item \"{i['name']}\": her note mentions {days_said} days, the limit "
+                                           f"used is {i['threshold']} — check the rule with her")
             items_rows.append([
                 (job_no, fill),
                 (i["name"], fill),

@@ -35,11 +35,20 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(REPO / "shared" / "mcp" / "osc-api"))
 
 try:
+    import httpx  # noqa: E402
     from osc_mcp.client import OSCClient, OSCError  # noqa: E402
     from osc_mcp.config import ConfigError, load_config  # noqa: E402
 except ImportError as exc:  # pragma: no cover - environment guard
     sys.exit(f"cannot import the OSC client ({exc}); run this under "
              "shared\\mcp\\osc-api\\.venv\\Scripts\\python.exe")
+
+# A GET that times out, loses its connection or meets a busy or briefly unavailable server is tried
+# again after these waits (seconds); anything else stops the snapshot at once. Only GETs are sent,
+# so a retry can never repeat a change.
+RETRY_WAITS = (2, 5)
+TRANSIENT_STATUS = {429, 500, 502, 503, 504}
+# Requests in flight at once: the jobs are read side by side, gently.
+PARALLEL = 4
 
 JOB_SELECT = "jobID,contractNumber,clientName,siteAddress,workflowStatusName"
 ACTIVITY_SELECT = ("jobActivityID,sequence,description,completionDate,completionDateLastUpdatedOnUtc,"
@@ -52,11 +61,30 @@ class SnapshotError(RuntimeError):
     pass
 
 
+_slots = None
+
+
 async def _get(client, path, query, body=None, what=""):
-    """GET only. Raises on a non-2xx answer so a half snapshot is never saved."""
-    result = await client.request("GET", path, params=query, json_body=body)
-    if not result.get("ok"):
-        raise SnapshotError(f"{what or path}: HTTP {result.get('status')} {result.get('error') or ''}".strip())
+    """GET only. A passing fault is retried (RETRY_WAITS); anything else raises, so a half snapshot is
+    never saved."""
+    for attempt, wait in enumerate((*RETRY_WAITS, None), 1):
+        try:
+            async with _slots:
+                result = await client.request("GET", path, params=query, json_body=body)
+        except httpx.TransportError as exc:
+            if wait is None:
+                raise SnapshotError(f"{what or path}: no answer after {attempt} tries ({type(exc).__name__})")
+            print(f"{what or path}: {type(exc).__name__}, trying again in {wait} s")
+            await asyncio.sleep(wait)
+            continue
+        if result.get("ok"):
+            break
+        if result.get("status") in TRANSIENT_STATUS and wait is not None:
+            print(f"{what or path}: HTTP {result.get('status')}, trying again in {wait} s")
+            await asyncio.sleep(wait)
+            continue
+        raise SnapshotError(f"{what or path}: HTTP {result.get('status')} {result.get('error') or ''}".strip()
+                            + (f" after {attempt} tries" if attempt > 1 else ""))
     data = result.get("data")
     if isinstance(data, dict) and "value" in data:
         return data["value"]
@@ -88,15 +116,16 @@ async def snapshot_job(client, jobno):
         raise SnapshotError(f"job {jobno}: contract number matches {len(jobs)} jobs; not saving.")
     job = jobs[0]
     job_id = job["jobID"]
-    activities = await _get(client, "/api/JobActivities",
-                            {"$filter": f"jobID eq {job_id}", "$orderby": "sequence", "$top": 300,
-                             "$select": ACTIVITY_SELECT}, None, f"job {jobno} activities")
-    alerts = await _get(client, "/api/Jobs/Alerts",
-                        {"$filter": f"jobID eq {job_id}", "$orderby": "createdOnUtc desc", "$top": 200,
-                         "$select": ALERT_SELECT}, {}, f"job {jobno} alerts")
-    documents = await _get(client, "/api/Jobs/Documents",
-                           {"$filter": f"jobID eq {job_id}", "$orderby": "attachedOnUtc desc", "$top": 500,
-                            "$select": DOCUMENT_SELECT}, {}, f"job {jobno} documents")
+    activities, alerts, documents = await asyncio.gather(
+        _get(client, "/api/JobActivities",
+             {"$filter": f"jobID eq {job_id}", "$orderby": "sequence", "$top": 300,
+              "$select": ACTIVITY_SELECT}, None, f"job {jobno} activities"),
+        _get(client, "/api/Jobs/Alerts",
+             {"$filter": f"jobID eq {job_id}", "$orderby": "createdOnUtc desc", "$top": 200,
+              "$select": ALERT_SELECT}, {}, f"job {jobno} alerts"),
+        _get(client, "/api/Jobs/Documents",
+             {"$filter": f"jobID eq {job_id}", "$orderby": "attachedOnUtc desc", "$top": 500,
+              "$select": DOCUMENT_SELECT}, {}, f"job {jobno} documents"))
     site = job.get("siteAddress") or {}
     return {
         "retrievedAtUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -112,6 +141,8 @@ async def snapshot_job(client, jobno):
 
 
 async def run(jobs, out_dir):
+    global _slots
+    _slots = asyncio.Semaphore(PARALLEL)  # one per run: a semaphore belongs to the event loop it serves
     try:
         config = load_config()
     except ConfigError as exc:
@@ -126,8 +157,8 @@ async def run(jobs, out_dir):
         missing, snaps = [], []
         # Every job is read before any file is written, so a run that stops part-way never leaves
         # fresh files beside last week's (the drafter also refuses a snapshot older than its base).
-        for jobno in jobs:
-            snap = await snapshot_job(client, jobno)
+        # The live check above fetched the token, so the jobs can be read side by side.
+        for jobno, snap in zip(jobs, await asyncio.gather(*(snapshot_job(client, j) for j in jobs))):
             if snap is None:
                 missing.append(jobno)
                 print(f"{jobno}: not found in OSC — no snapshot written")

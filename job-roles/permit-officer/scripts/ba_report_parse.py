@@ -282,7 +282,10 @@ def _items_sheet(path):
 def officer_edits(edited_path, drafted_path):
     """What the officer changed on a draft's Items sheet, compared cell by cell with the draft as written.
 
-    Returns {"edits": [...], "unmatched": [...], "drafted_names": {job: {item name key}}}. Each
+    Returns {"edits": [...], "unmatched": [...], "drafted_names": {job: {item name key}},
+    "last_rows": {(job, item name key): {"item", "flag", "date_submitted", "assigned_to", "hers"}}}:
+    last_rows is what each row showed when she left it (the draft's flag; her date and assignee;
+    "hers" when she changed either). Each
     edit has job_no, item, row and only the fields she changed: assigned_to ("" = cleared),
     date_submitted (None = emptied, meaning not yet submitted), date_resolved, note ("" =
     cleared); a date she typed that cannot be read comes back as date_submitted_unreadable /
@@ -292,14 +295,23 @@ def officer_edits(edited_path, drafted_path):
     drafted = _items_sheet(drafted_path)
     by_name = {(r["job_no"], norm_item(r["item"])): r for r in drafted}
     by_row = {(r["job_no"], r["row"]): r for r in drafted}
-    out = {"edits": [], "unmatched": [], "drafted_names": {}}
+    out = {"edits": [], "unmatched": [], "drafted_names": {}, "last_rows": {}}
     for r in drafted:
         out["drafted_names"].setdefault(r["job_no"], set()).add(norm_item(r["item"]))
+        out["last_rows"][(r["job_no"], norm_item(r["item"]))] = {
+            "item": r["item"], "flag": r.get("flag", "").upper(), "date_submitted": r.get("date_submitted"),
+            "assigned_to": r.get("assigned_to"), "hers": False}
     for e in _items_sheet(edited_path):
         d = by_name.get((e["job_no"], norm_item(e["item"]))) or by_row.get((e["job_no"], e["row"]))
         if d is None:
             out["unmatched"].append({"job_no": e["job_no"], "item": e["item"], "row": e["row"]})
             continue
+        last = out["last_rows"][(d["job_no"], norm_item(d["item"]))]
+        unreadable = e.get("date_submitted_raw") and not e.get("date_submitted")
+        last.update(date_submitted=d.get("date_submitted") if unreadable else e.get("date_submitted"),
+                    assigned_to=e.get("assigned_to"))
+        last["hers"] = (last["date_submitted"] != d.get("date_submitted")
+                        or (last["assigned_to"] or "") != (d.get("assigned_to") or ""))
         edit = {"job_no": e["job_no"], "item": e["item"], "row": e["row"],
                 "was_resolved": d.get("flag", "").upper() == "RESOLVED"}
         if (e.get("assigned_to") or "") != (d.get("assigned_to") or ""):
