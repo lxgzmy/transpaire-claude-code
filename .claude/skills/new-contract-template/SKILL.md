@@ -604,11 +604,11 @@ figures, whenever they have them, and those win:
   is within the 5% the contract prints for $20,000 or more. Every figure is
   typed as given; pass each FLAG to the person in plain words.
 
-Expect ~3s of fills/diffs, 4–6 minutes for the Sydney or SEQ layout pass
+Expect ~3s of fills/diffs, 4–10 minutes for the Sydney or SEQ layout pass
 (Word measures ~1,000 paragraphs and re-levels them; up to ~16 minutes when
 another Word job runs on the server at the same time - measured 31 Oct
 2026), and ~10–20s per PDF (Word start-up dominates; the PDF is half the
-deliverable pair, never cut it): a Sydney or SEQ run is 5–8 minutes, a
+deliverable pair, never cut it): a Sydney or SEQ run is 5–11 minutes, a
 Gunnedah run 25–70 seconds. Say so before you start it. The first run
 against a new or revised blank adds 5–15 minutes to measure the blank once
 (cached in `runtime\contract-admin\state\layout\`; every live SEQ and Sydney
