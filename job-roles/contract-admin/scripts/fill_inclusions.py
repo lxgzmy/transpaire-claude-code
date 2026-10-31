@@ -187,6 +187,20 @@ FAMILIES = {
             "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
             "GARAGE SIDE :": 3, "PRICE :": 6,
         },
+        # Blank 8 (Montera Estate, 22.11.2024) types its page-1 labels with no
+        # space before the colon - "Lot " + "No.:" in two runs, "STREET:" - and
+        # its "STREET:" reads like the termite page's own, so these match inside
+        # the page-1 table only. The number is the TOTAL spaces between label and
+        # value on the five completed jobs typed from it (24162, 25001, 25004,
+        # 25016, 25019; HOUSE TYPE, ESTATE and PRICE by three of five): SUBURB
+        # has one space, fewer than the blank types, so the gap is rewritten,
+        # not padded.
+        "page1_compact": {
+            "Lot No. :": ("No.:", 3), "HOUSE TYPE :": ("HOUSE TYPE:", 6), "STREET :": ("STREET:", 3),
+            "HOUSE SIZE :": ("HOUSE SIZE:", 7), "SUBURB :": ("SUBURB:", 1),
+            "HOUSE FA\u00c7ADE :": ("HOUSE FA\u00c7ADE:", 1), "ESTATE :": ("ESTATE:", 3),
+            "GARAGE SIDE :": ("GARAGE SIDE:", 5), "PRICE :": ("PRICE:", 6),
+        },
         # The signature-page lines on Sydney's two tab stops (job 26059 review,
         # issue #94, INCLUSIONS row 12: the witness Date: and the owners' names
         # were out of line). The SEQ blanks type those lines exactly as
@@ -453,6 +467,10 @@ def fill(xml, values, report, family):
     # filler did before the key existed. Single-owner jobs are unaffected either
     # way; two-owner jobs should set it.
     values = {**values, "owners": values.get("owners") or values.get("owner_1")}
+    compact = family.get("page1_compact", {})
+    t0 = xml.find("<w:tbl>")
+    page1 = [i for i, r in enumerate(runs) if t0 <= r[0] < xml.find("</w:tbl>", t0)] if compact and t0 >= 0 else []
+    claimed = set()   # page-1 runs a compact label took - no later anchor matches them
 
     for anchor, key, mode, exact in COMMON_FIELDS + family["fields"]:
         pad = family["pads"].get(anchor, 0)
@@ -463,6 +481,24 @@ def fill(xml, values, report, family):
             entry["skipped"] = True
             continue
         value = str(value)
+
+        if anchor in compact:
+            label, total = compact[anchor]
+            for i in page1:
+                if texts[i].strip() != label:
+                    continue
+                j = i + 1
+                while j < len(runs) and texts[j] != "" and GAP_ONLY.match(texts[j]):
+                    j += 1
+                for k in range(i, j):
+                    edits.append((runs[k][0], runs[k][1], set_run_text(runs[k][2], label if k == i else "")))
+                    claimed.add(k)
+                shown = f"${value}" if mode == "suffix" else value
+                edits.append((runs[j - 1][1], runs[j - 1][1], clone_run(runs[j - 1][2], " " * total + shown)))
+                entry["hits"] += 1
+            if entry["hits"]:
+                entry["value"] = value
+                continue
 
         if mode == "textbox":
             # the empty floating box straight after each heading - no
@@ -482,6 +518,8 @@ def fill(xml, values, report, family):
             continue
 
         for i, t in enumerate(texts):
+            if i in claimed:
+                continue
             if mode == "suffix":
                 # the label's trailing $ is template typing, not identity: the
                 # SEQ Auxiliary blank reads "PRICE : $" where the standard SEQ

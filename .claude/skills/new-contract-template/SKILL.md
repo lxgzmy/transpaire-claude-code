@@ -695,6 +695,15 @@ under `Air-Conditioning`) in this order:
    replaces the promotion's gas cooktop and its gas notes) or `replaces`
    (one line: black Mizu Drift tapware replaces the chrome sink mixer).
 
+**Builders Brokers blank (7)** carries its own promotion, whose Electrical
+item lists the lights and power points twice, for a SINGLE STOREY and a
+DOUBLE STOREY home, under a "DELETE AS REQUIRED" note. Set
+`upgrades.storeys` (the table above) on every job on that blank. The run
+keeps that list with its heading and deletes the other list and the note
+(owner's choice, 31 Oct 2026), flagged TO CONFIRM. Without `storeys` it
+stops before the Word step with STOREYS NEEDED: read the storeys off the
+request or the plans and run again.
+
 The review's worked rulings for 26059:
 
 | Request | Written |

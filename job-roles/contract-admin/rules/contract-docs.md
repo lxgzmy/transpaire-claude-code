@@ -669,6 +669,19 @@ edit until its template is measured.
   5. A Standard Variation note that contradicts another request line is
      amended to fit ("… standard range excluding tapware" when black
      tapware is ordered).
+  6. The Builders Brokers blank (7) carries its own promotion. Its
+     Electrical item lists the lights and power points for a SINGLE STOREY
+     and a DOUBLE STOREY home, with a "DELETE AS REQUIRED" note as a
+     left-column label. The list for `upgrades.storeys` stays with its
+     heading; the other list and the note go, flagged for confirmation.
+     A job with no storeys stops before the Word step and asks *(owner's
+     choice, 31 Oct 2026: no completed job uses this version of the blank)*.
+  The Montera Estate blank (8) types its page-1 labels with no space before
+  the colon (`Lot No.:`, `STREET:`). Those are matched in the page-1 table
+  only, since `STREET:` is also the termite page's label. The value sits
+  after the label at the spacing the five completed jobs on that blank agree
+  on (24162, 25001, 25004, 25016, 25019), SUBURB with a single space
+  *(observed 31 Oct 2026)*.
   The signature-page lines (Owner 1, Owner 2, Owners Witness, Builders
   Representative, each with its `Date:`) take Sydney's two tab stops
   (CD-9.9, #56). The SEQ blanks type those lines in the same font and text
