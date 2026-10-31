@@ -604,12 +604,15 @@ figures, whenever they have them, and those win:
   is within the 5% the contract prints for $20,000 or more. Every figure is
   typed as given; pass each FLAG to the person in plain words.
 
-Expect ~3s of fills/diffs, 2–5 minutes for the Sydney layout pass (Word
-measures ~1,000 paragraphs and re-levels them), and ~10–20s per PDF (Word
-start-up dominates; the PDF is half the deliverable pair, never cut it): a
-Sydney run is 3–7 minutes, a Gunnedah/SEQ run 25–70 seconds. Say so before
-you start it. The first run against a newly revised blank adds ~3 minutes
-to measure the blank once (`runtime\contract-admin\state\layout\`). The
+Expect ~3s of fills/diffs, 4–6 minutes for the Sydney or SEQ layout pass
+(Word measures ~1,000 paragraphs and re-levels them; up to ~16 minutes when
+another Word job runs on the server at the same time - measured 31 Oct
+2026), and ~10–20s per PDF (Word start-up dominates; the PDF is half the
+deliverable pair, never cut it): a Sydney or SEQ run is 5–8 minutes, a
+Gunnedah run 25–70 seconds. Say so before you start it. The first run
+against a new or revised blank adds 5–15 minutes to measure the blank once
+(cached in `runtime\contract-admin\state\layout\`; every live SEQ and Sydney
+blank is measured already). The
 underlying commands (`fill_inclusions.py`, `edit_inclusions.py`,
 `word_layout.ps1`, `gate_inclusions.py`, `fill_prelim.py`, `fill_hia.py`,
 `docx_diff.py`, `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a

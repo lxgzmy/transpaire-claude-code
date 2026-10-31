@@ -105,7 +105,14 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-3.2** Owner 2 is left blank for a single owner — the dotted line stays.
 - **CD-3.3** The site address on the acknowledgements page is the full
   `Lot <n>, <street>, <SUBURB> <STATE> <postcode>`. The postcode is **verified by
-  lookup**, never assumed (JD-2.6). *(observed)*
+  lookup**, never assumed (JD-2.6). *(observed)* It is typed **in the box under
+  "…to be located at;"** and nowhere else: all 182 completed SEQ inclusions on
+  the drive hold it there, starting `Lot`, with nothing after the sentence
+  (31 Oct 2026). The Owner Occupier blank has a second sentence and box on its
+  colour-selections page, filled the same way, and a second owners box under
+  that page's own ACKNOWLEDGEMENTS & SIGNATURE heading (CD-3.1a). Each box is
+  stored twice in the file, so a flat-text read cannot tell the box from the
+  sentence; `gate_inclusions.py` checks the structure.
 - **CD-3.4** `LOT No` / `STREET` / `SUBURB` repeat on the client signature and
   acknowledgement pages and must match page 1 exactly. *(observed)*
 - **CD-3.5** Builders Representative is **Michael Cronk**. *(manual)*
