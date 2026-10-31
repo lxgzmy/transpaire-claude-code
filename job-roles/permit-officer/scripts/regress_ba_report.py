@@ -44,13 +44,17 @@ or in tests), runs the parse + draft + compare steps, and asserts:
  19. the review of v0.4: every finding as a scenario over four weeks
  20. the Monday run in one command (base found, edits read, never overwrite)
  18. the officer's answers (27 Oct 2026) and the week-1 restart: the
-     engineering and covenant columns are tracked on the Items sheet at 10
-     business days (from the latest dated step, re-opened by a revision) and
+     engineering and covenant columns are tracked on the Items sheet (from the
+     latest dated step, re-opened by a revision; engineering by stage, 21) and
      never touch the RFI cell; ROP and amended-DA items sit with Council, the
      amended DA at 60 days; her changes on last week's draft are read back
      (assignee, a typed, emptied or resolved date, her own Notes column)
      against the draft as written, found again under a renamed item, and
      kept from week to week; a fresh state carries nothing else
+ 21. engineering in two stages (her correction): 15 business days while the
+     engineer designs it, 10 in Transpire's internal review; the stage from
+     who she says has it, else the columns, else OSC, else the stricter; her
+     values for one stage are not carried into the next
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
@@ -576,6 +580,120 @@ def review_v04_checks(tmp, check):
     check("Items sheet keeps its header row in view", 'state="frozen"' in items_xml)
 
 
+def engineering_stage_checks(tmp, check):
+    """21. Engineering in two stages (the officer's correction of her 27 Oct 2026 answer): design with
+    the engineer at 15 business days, then Transpire's internal review at 10, over three synthetic weeks."""
+    def t(iso, frac=0.0):
+        return serial(iso) + frac
+
+    eng = "Quartzbridge Structures Pty Ltd"   # a made-up engineering firm
+    weeks = ["2026-10-19", "2026-10-26", "2026-11-02"]   # base report dates; each draft is 7 days later
+    review_cols = (t("2026-09-01"), t("2026-10-13", 0.6), t("2026-10-13", 0.61), "PENDING REVIEW")
+
+    def rows(w):
+        r = lambda job, g, cols=("", "", "", ""): row16(
+            job, f"Lot {job[-2:]}, {job[-2:]} Sample Road, NOWHERE NSW 0000", t("2026-07-01"), t("2026-07-20"),
+            "", g, eng=cols)
+        design = (t("2026-10-12"), t("2026-11-03", 0.4) if w >= 2 else "", "", "")
+        return [[(h, xlsx_min.S_HEADER) for h in HEADER],
+                r("90051", "PENDING INSURANCES", design),
+                r("90052", "PENDING ENGINEERING (REVIEW)", review_cols),
+                r("90053", "PENDING ENGINEERING (W/O ENGINEER)", review_cols),
+                r("90054", "PENDING ENGINEERING"),
+                r("90055", "PENDING ENGINEERING")]
+
+    def snap(job, w):
+        received = "2026-11-03" if (job == "90051" and w >= 2) else None
+        acts = {"90051": [act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-10-12", sp=eng),
+                          act(53, "Receive Engineering - Piers, Footings & Slab Design", done=received,
+                              user="Synthetic Officer", sp=eng),
+                          act(54, "Review Engineering - Piers, Footings & Slab Design", user="Synthetic Reviewer"),
+                          act(56, "Forward Engineers Footing/Slab Design to Private Certiifier")],
+                "90052": [act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-09-01", sp=eng),
+                          act(54, "Review Engineering - Piers, Footings & Slab Design", user="Synthetic Reviewer")],
+                "90053": [act(54, "Review Engineering - Piers, Footings & Slab Design", user="Synthetic Reviewer")],
+                "90054": [act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-10-05", sp=eng),
+                          act(53, "Receive Engineering - Piers, Footings & Slab Design", sp=eng)],
+                "90055": []}[job]
+        return {"activities": acts, "alerts": [], "documents": []}
+
+    jobs = [f"900{n}" for n in range(51, 56)]
+    snaps, out, state = tmp / "snaps-stages", tmp / "out-stages", tmp / "state-stages"
+    snaps.mkdir()
+
+    def week(w, edited=None):
+        base = tmp / f"BA REPORT - {weeks[w][8:]}.{weeks[w][5:7]}.{weeks[w][:4]}.xlsx"
+        xlsx_min.write_xlsx(base, rows(w))
+        asof = (date.fromisoformat(weeks[w]) + timedelta(days=7)).isoformat()
+        for job in jobs:
+            (snaps / f"{job}.json").write_text(json.dumps(dict(snap(job, w), retrievedAtUtc=f"{asof}T00:00:00Z",
+                                                               contractNumber=job)), encoding="utf-8")
+        draft, ev_md, ev = build_draft(base, snaps, out, asof=asof, state_dir=state, jobs=jobs, edited=edited)
+        return draft, ev_md, {j["job_no"]: {i["name"]: i for i in j["outstanding"]} for j in ev["jobs"]}
+
+    d1, md1, w1 = week(0)
+    rows1 = items_rows(d1)
+    e51 = w1["90051"].get("ENGINEERING", {})
+    check("stages: ordered and not yet received is with the engineer at 15 days, assigned to the firm",
+          e51.get("stage") == "design" and e51.get("threshold") == 15 and e51.get("tier") == "EXTERNAL"
+          and e51.get("date_submitted") == "2026-10-12" and e51.get("days") == 10 and e51.get("flag") == "YELLOW"
+          and e51.get("assigned_to") == eng, str(e51))
+    check("stages: the Draft notes say which stage the limit is for",
+          "limit 15 business days (design, with the engineer)" in rows1[("90051", "ENGINEERING")]["Draft notes"]
+          and "limit 10 business days (internal review)" in rows1[("90052", "ENGINEERING")]["Draft notes"],
+          str(rows1[("90051", "ENGINEERING")]))
+    e52 = w1["90052"].get("ENGINEERING", {})
+    check("stages: received or reviewed is Transpire's internal review at 10 days, from the latest of the two",
+          e52.get("stage") == "review" and e52.get("threshold") == 10 and e52.get("date_submitted") == "2026-10-13"
+          and e52.get("assigned_to") == "Synthetic Reviewer", str(e52))
+    e53 = w1["90053"].get("ENGINEERING", {})
+    check("stages: (W/O ENGINEER) on her RFI list puts it with the engineer",
+          e53.get("stage") == "design" and e53.get("stage_how") == "rfi list" and e53.get("threshold") == 15, str(e53))
+    e54 = w1["90054"].get("ENGINEERING", {})
+    check("stages: with no column dates OSC tells the stage (ordered, not received: 15 days)",
+          e54.get("stage") == "design" and e54.get("stage_how") == "osc" and e54.get("date_submitted") == "2026-10-05"
+          and e54.get("days") == 15 and e54.get("flag") == "YELLOW", str(e54))
+    e55 = w1["90055"].get("ENGINEERING", {})
+    check("stages: nothing to tell the stage by: the stricter, internal review, and said so",
+          e55.get("stage") == "review" and e55.get("threshold") == 10
+          and "(internal review: assumed, the stricter)" in rows1[("90055", "ENGINEERING")]["Draft notes"], str(e55))
+    check("stages: the evidence note gives both engineering limits",
+          "ENGINEERING 15 design, with the engineer / 10 internal review" in md1.read_text(encoding="utf-8"))
+
+    # her week: 90051 dated as she knows it; 90052's queries are back with the engineer (the firm, as she'd type it)
+    e1 = tmp / "BA REPORT DRAFT - 26.10.2026 (officer-edited).xlsx"
+    edit_draft(d1, e1, {("90051", "ENGINEERING"): {"D": "13/10/2026", "H": "chased the engineer"},
+                        ("90052", "ENGINEERING"): {"C": "Quartzbridge"},
+                        ("90053", "ENGINEERING"): {"C": "Synthetic Reviewer"}})
+    d2, _, w2 = week(1, edited=e1)
+    rows2 = items_rows(d2)
+    e51 = w2["90051"].get("ENGINEERING", {})
+    check("stages: 14 days with the engineer is still yellow (it was red at 10)",
+          e51.get("date_submitted") == "2026-10-13" and e51.get("days") == 14 and e51.get("flag") == "YELLOW", str(e51))
+    e52 = w2["90052"].get("ENGINEERING", {})
+    check("stages: her Assigned to naming the engineer's firm puts it at 15, and the notes say why",
+          e52.get("stage") == "design" and e52.get("stage_how") == "assigned" and e52.get("days") == 14
+          and e52.get("flag") == "YELLOW"
+          and "(design, with the engineer: from your Assigned to)" in rows2[("90052", "ENGINEERING")]["Draft notes"],
+          str(e52))
+    e53 = w2["90053"].get("ENGINEERING", {})
+    check("stages: a person's name says neither, so the RFI list still decides",
+          e53.get("stage") == "design" and e53.get("assigned_to") == "Synthetic Reviewer", str(e53))
+
+    # her week: the engineer has 90051 (her Assigned to); then the design arrives, so a new stage starts
+    e2 = tmp / "BA REPORT DRAFT - 02.11.2026 (officer-edited).xlsx"
+    edit_draft(d2, e2, {("90051", "ENGINEERING"): {"C": "Quartzbridge (External)", "D": "14/10/2026"}})
+    d3, _, w3 = week(2, edited=e2)
+    rows3 = items_rows(d3)
+    e51 = w3["90051"].get("ENGINEERING", {})
+    check("stages: once received the count starts again from the receipt, at 10 days",
+          e51.get("stage") == "review" and e51.get("date_submitted") == "2026-11-03"
+          and e51.get("days") == business_days("2026-11-03", "2026-11-09") and e51.get("threshold") == 10, str(e51))
+    check("stages: her values typed for the design stage are not carried into the review (her note is)",
+          e51.get("assigned_to") == "Synthetic Reviewer" and e51.get("date_source") != "officer"
+          and rows3[("90051", "ENGINEERING")]["Notes"] == "chased the engineer", str(e51))
+
+
 def weekly_run_checks(tmp, check):
     """20. The Monday run in one command, on synthetic folders (the snapshot step replaced)."""
     archive, drop, rt = tmp / "archive", tmp / "drop", tmp / "rt"
@@ -1002,6 +1120,7 @@ def main():
 
         officer_round_trip(tmp, check)
         review_v04_checks(tmp, check)
+        engineering_stage_checks(tmp, check)
         weekly_run_checks(tmp, check)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

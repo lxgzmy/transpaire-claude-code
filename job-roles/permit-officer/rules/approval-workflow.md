@@ -119,8 +119,9 @@ testable; open questions are marked ❓.
   main sheet stays the export column for column).
 - **PO-11b — Engineering, covenant and two council items (answered by the
   permit officer on 27 Oct 2026, issue #79).** The engineering and covenant
-  columns added to the export on 28 Sep 2026 are aged like RFI items, at
-  **10 business days** whoever holds them. Each is tracked from its latest
+  columns added to the export on 28 Sep 2026 are aged like RFI items:
+  covenant at **10 business days** whoever holds it, engineering by stage
+  (PO-11c, her correction). Each is tracked from its latest
   dated step on the export (engineering: ordered, received, reviewed;
   covenant: ordered) until engineering is forwarded to the certifier or the
   covenant is approved, on the Items sheet only: the main sheet and the RFI
@@ -132,6 +133,29 @@ testable; open questions are marked ❓.
   which typically takes about 60 business days and so turns red only after
   60. The draft no longer adds "(PROPOSED)" items to her RFI cell: she did
   not take them up, and orders insurances once most RFI items are done.
+- **PO-11c — Engineering in two stages (the permit officer's correction of
+  PO-11b, in her reply to the 27 Oct 2026 email, issue #79).** Her 10
+  business days meant Transpire's internal review only. The engineers are
+  external consultants, so engineering has two stages, each with its own
+  limit:
+
+  | Stage | Counted from | Until | Yellow | Red |
+  |---|---|---|---|---|
+  | Design, with the engineer | Engineering Ordered | the design is received | ≤ 15 | > 15 |
+  | Internal review at Transpire | the design received, or last reviewed | forwarded to the certifier | ≤ 10 | > 10 |
+
+  The stage is whoever she says has the item: her *Assigned to* on the
+  Items sheet, else "(W/O X)" on her RFI list. The engineer (the firm OSC
+  names on the order, or any external party) means design; Transpire means
+  internal review; a person's name says neither. Failing that, the export's
+  columns tell it: the latest dated step is *ordered* (design) or
+  *received* / *reviewed* (internal review, counted from that step, as she
+  dated the pilot jobs on 22 Oct 2026). Without column dates, OSC's slab
+  engineering chain tells it. With nothing to go on, the item is in internal
+  review, the stricter limit. When a newer engineering step is dated the
+  item has moved on: the count starts again from that date, and the *Date
+  submitted* and *Assigned to* she gave for the earlier stage are worked out
+  again (her Notes stay). Covenant stays at 10.
 
 ## Pre-lodgement checklist
 
