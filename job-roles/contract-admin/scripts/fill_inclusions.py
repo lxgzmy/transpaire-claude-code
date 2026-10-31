@@ -41,6 +41,10 @@ GAP_ONLY = re.compile(r"^[:\s\u00a0]*$")
 # produces. An empty box's paragraph may be written <w:p/> (SEQ blank 1's site box).
 TXBX_RE = re.compile(r"<w:txbxContent>.*?</w:txbxContent>", re.S)
 BOX_PARA = re.compile(r"<w:p\b[^>]*/>|<w:p\b[^>]*>.*?</w:p>", re.S)
+# One paragraph with content. "<w:p\b[^>]*>" also takes an empty "<w:p .../>" for an
+# opening tag and runs on into the next paragraph: three of them before blank 8's
+# INTERNAL TURNKEY PACKAGE hid the heading from the gate (31 Oct 2026).
+PARA_RE = re.compile(r"<w:p(?:\s[^>]*?)?(?<!/)>.*?</w:p>", re.S)
 
 # (anchor, json key, mode, exact)
 #
@@ -665,7 +669,7 @@ def signature_tabs(xml, values, family):
         return xml, 0
     rebuilt = 0
     out, pos = [], 0
-    for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.S):
+    for m in PARA_RE.finditer(xml):
         p = m.group(0)
         runs = [r.group(0) for r in RUN_RE.finditer(p)]
         text = "".join(run_text(r) for r in runs)
