@@ -616,6 +616,15 @@ def main():
             plan = workdir / "layout_plan.json"
 
             def do_edit():
+                # SEQ blank 7's promotion lists the Electrical items per storey count: a
+                # job that does not say which is asked now, not after the Word measurement
+                import edit_inclusions
+                if (values.get("upgrades") or {}).get("storeys") not in (1, 2) and \
+                        edit_inclusions.storey_choice(edit_inclusions.Columns(edit_inclusions.read_xml(doc))):
+                    print("  inclusions: STOREYS NEEDED - this blank's PROMOTIONAL UPGRADES lists the Electrical "
+                          "items for a SINGLE STOREY and a DOUBLE STOREY home. Set upgrades.storeys to 1 or 2 "
+                          "in the job JSON (the request or the plans) and run again.")
+                    return False
                 bm = blank_measure_for(args.template)
                 if not bm:
                     return False

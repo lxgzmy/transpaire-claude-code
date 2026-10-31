@@ -46,8 +46,8 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       padding only matters once the upgrades run past one page, where it
       lands on a page of its own (an empty page, sheet row 12). One is kept.
   Storeys   `upgrades.storeys` (1/2) is recorded and checked against the
-      wording ("First Floor" on a single storey is flagged); nothing in the
-      document changes with it.
+      wording ("First Floor" on a single storey is flagged); on Sydney
+      nothing in the document changes with it (SEQ blank 7: see below).
 
 SEQ ESSENTIALS blanks (contract admin review of job 26059, 28 Oct 2026; CD-9.12)
       the item rules above apply to their PROMOTIONAL UPGRADES section. There
@@ -55,6 +55,12 @@ SEQ ESSENTIALS blanks (contract admin review of job 26059, 28 Oct 2026; CD-9.12)
       Sydney's only, and air conditioning is an ordinary item. Promotion
       items come from promotion.py. Package headings stay at page top only
       where the blank puts them.
+  Storey lists (blank 7, Builders Brokers, 31 Oct 2026)  the blank's own
+      promotion lists the Electrical items twice, under SINGLE STOREY and
+      DOUBLE STOREY, with "DELETE AS REQUIRED" as a left-column label. The
+      list for `upgrades.storeys` stays with its heading; the other list and
+      the instruction go, flagged TO CONFIRM. No storeys -> refused, and
+      draft_contract.py asks before the Word measurement (storey_choice()).
 
 Nothing outside section 18, the three notes and the UPGRADED INCLUSIONS
 section may change (row 8 of the sheet): the script compares every other
@@ -472,6 +478,46 @@ def edit_bathroom2(cols, on, log):
                 log.append(f"bathroom 2    : {norm(t)[:45]!r} -> {t2[:60]!r}")
     else:
         log.append("bathroom 2    : not on the ground floor - notes removed, wording unchanged")
+
+
+STOREY_NOTE = "DELETE AS REQUIRED"
+STOREY_HEADINGS = {1: "SINGLE STOREY", 2: "DOUBLE STOREY"}
+
+
+def storey_choice(cols):
+    """(note index on the left, {storeys: heading index on the right}) when the upgraded
+    section offers the two storey lists (SEQ blank 7), else None."""
+    L, R = cols.left, cols.right
+    ni = find_idx(L, exact(STOREY_NOTE))
+    heads = {n: find_idx(R, exact(h)) for n, h in STOREY_HEADINGS.items()}
+    if ni < 0 or min(heads.values()) < 0:
+        return None
+    return ni, heads
+
+
+def edit_storeys(cols, storeys, log, flags):
+    """Keep the storey list the job takes, with its heading; drop the other and the instruction."""
+    found = storey_choice(cols)
+    if not found:
+        return
+    if storeys not in (1, 2):
+        raise SystemExit("STOREYS NEEDED: this blank's PROMOTIONAL UPGRADES lists the Electrical items for a "
+                         "SINGLE STOREY and a DOUBLE STOREY home - set upgrades.storeys to 1 or 2 from the "
+                         "request or the plans")
+    ni, heads = found
+    L, R = cols.left, cols.right
+    drop = 2 if storeys == 1 else 1
+    start = heads[drop]
+    # a list runs from its heading to the other heading or the group's end
+    end = start + 1
+    while end < len(R) and not is_blank(R[end]) and end not in heads.values():
+        end += 1
+    del R[start:end]
+    del L[ni]
+    log.append(f"storey lists  : kept {STOREY_HEADINGS[storeys]!r}, deleted the {STOREY_HEADINGS[drop]!r} list "
+               f"({end - start - 1} line(s)) and the {STOREY_NOTE!r} note")
+    flags.append(f"Electrical: the {STOREY_HEADINGS[storeys]} list is kept (upgrades.storeys = {storeys}) - "
+                 f"confirm against the plans")
 
 
 def is_upgraded_heading(text):
@@ -983,6 +1029,8 @@ def main():
     elif up.get("aircon"):
         flags.append(f"upgrades.aircon is a Sydney key - on a {fam} blank give the air conditioning as an "
                      f"item under its own label; ignored")
+    # before the items, so a request line acts on the list the job keeps
+    edit_storeys(cols, storeys, log, flags)
     items = up.get("items") or []
     try:
         import variation_list
