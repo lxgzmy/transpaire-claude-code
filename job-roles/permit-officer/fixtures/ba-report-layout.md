@@ -50,7 +50,7 @@ them to their own rows.
 | F | Days outstanding | NSW business days (a number); blank while not yet submitted |
 | G | Flag | `YELLOW`, `RED`, `NOT SUBMITTED` or `RESOLVED` |
 | H | Notes | **the officer's own**: carried week to week exactly as she typed it, until she changes or clears it |
-| I | Draft notes | the draft's: why the row needs eyes ("date submitted assumed — please correct", "verify"), the evidence, the item's limit; rewritten every run |
+| I | Draft notes | the draft's: why the row needs eyes ("date submitted assumed — please correct", "verify"), the evidence, the item's limit (for engineering, with its stage: "limit 15 business days (design, with the engineer)", PO-11c); rewritten every run |
 
 Rows are in main-sheet order: pending items first (in PENDING order), then
 engineering and covenant when they are tracked from their columns but not
@@ -71,7 +71,10 @@ EJECTION"), and a rename never carries her *Date resolved*. A change to an
 item that has since left her report, or whose list has closed, is noted, not
 used. Officer-typed values win and stick from then on; they follow the item
 when a second item of its family joins or leaves the list, and a resolved
-engineering or covenant cycle stays closed until a newer step is dated. On the 22.10.2026 draft, the first she edited, Notes
+engineering or covenant cycle stays closed until a newer step is dated. On
+an engineering or covenant row, her *Date submitted* and *Assigned to*
+belong to the stage on the draft she edited: once a newer step is dated
+(the design received, a revision), both are worked out again (PO-11c). On the 22.10.2026 draft, the first she edited, Notes
 held the draft's text too; her own words are taken out of it once.
 
 A base that does carry an Items sheet (an officer-edited draft filed as the

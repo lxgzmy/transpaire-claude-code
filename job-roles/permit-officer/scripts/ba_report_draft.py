@@ -16,8 +16,9 @@ submitted, Date resolved, Days outstanding, Flag, Notes, Draft notes), which
 is also where the officer types corrections. Her base is a plain export, so
 v0.4 reads them from last week's draft as she left it (``--edited``) and
 keeps them; Notes is her own column. Engineering and covenant are also
-tracked from their export columns (PO-11b). The v0.2 L-O columns are no
-longer written.
+tracked from their export columns (PO-11b), engineering in two stages: design
+with the engineer, then Transpire's internal review (PO-11c). The v0.2 L-O
+columns are no longer written.
 
 Ageing model (PO-11, confirmed on issue #29, 10 Sep 2026): per outstanding
 item, ASSIGNED TO, DATE SUBMITTED, DATE RESOLVED and DAYS OUTSTANDING in
@@ -100,6 +101,24 @@ COLUMN_ACTIVITY = {
 # (contributions paid) set done_exclude to None.
 NOT_AN_OUTCOME = r"\b(APPLICATION|APPLN|REQUEST|ORDER(ED)?|RECEIPT|SUBMI\w*)\b"
 
+# Engineering in two stages (the officer, correcting her 27 Oct 2026 answer): the
+# engineer, an external consultant, takes about 15 business days to design it;
+# Transpire's internal review, from receiving the design until it goes to the
+# certifier, about 10. A stage is told by who she says has the item, else by the
+# item's columns (COLUMN_CYCLES "stage"), else by the OSC slab chain the columns
+# follow ("osc": the step that starts the stage is done, the one that ends it is
+# not), else it is the stricter. "owner": the OSC step whose person or service
+# provider has the item at that stage, when she has not said.
+ENGINEERING_STAGES = {
+    "design": {"threshold": 15, "tier": "EXTERNAL", "label": "design, with the engineer",
+               "osc": (r"^Order Engineering - Piers", r"^Receive Engineering - Piers"),
+               "owner": [(r"^Receive Engineering - Piers", "serviceProvider"),
+                         (r"^Order Engineering - Piers", "serviceProvider")]},
+    "review": {"threshold": 10, "tier": "INTERNAL", "label": "internal review",
+               "osc": (r"^Receive Engineering - Piers", r"^Forward Engineers Footing/Slab"),
+               "owner": [(r"^Review Engineering - Piers", "user")]},
+}
+
 # Outstanding-item families: how a report item name maps to OSC evidence.
 # An item name that matches more than one family, or a family's exclude, gets
 # no rule: it is kept and flagged for the officer rather than guessed.
@@ -111,8 +130,8 @@ NOT_AN_OUTCOME = r"\b(APPLICATION|APPLN|REQUEST|ORDER(ED)?|RECEIPT|SUBMI\w*)\b"
 # order_activities: the step that sends the item out (Order Engineering - X);
 # with the chain steps, it dates DATE SUBMITTED for the first pending step.
 # threshold: business days before RED for this item whoever has it, in place
-# of the tier's (the officer, 27 Oct 2026: engineering and covenant 10, an
-# amended DA about 60).
+# of the tier's (the officer, 27 Oct 2026: covenant 10, an amended DA about 60).
+# stages: an item whose limit follows the stage it is at (ENGINEERING_STAGES).
 # columns: the item is also tracked from the export's own columns, listed or
 # not (COLUMN_CYCLES below).
 # submitted_docs: order/application/receipt documents whose OLDEST attach
@@ -122,7 +141,7 @@ NOT_AN_OUTCOME = r"\b(APPLICATION|APPLN|REQUEST|ORDER(ED)?|RECEIPT|SUBMI\w*)\b"
 FAMILIES = [
     # The structural engineering OSC tracks (slab and structural steel chains).
     # Other disciplines have no OSC steps, so they get no rule.
-    {"key": "ENGINEERING", "tier": "EXTERNAL", "threshold": 10, "columns": True,
+    {"key": "ENGINEERING", "tier": "EXTERNAL", "stages": ENGINEERING_STAGES, "columns": True,
      "match": r"\bENG(INEERING)?\b",
      "exclude": r"\b(HYDRAULIC|CIVIL|STORMWATER|DRAINAGE|GEOTECH\w*|ELECTRICAL|FIRE|TRAFFIC|ACOUSTIC|BUSHFIRE)\b",
      "done_activities": [r"Receive Engineering", r"Review Engineering", r"Forward Engineers"],
@@ -424,16 +443,20 @@ def check_item(item, snapshot, since_iso):
 
 
 # The engineering and covenant columns the export gained on 28 Sep 2026, aged
-# like RFI items at 10 business days (the officer, 27 Oct 2026). Each is a
-# chain of steps: in flight from its latest dated step until the closing step
-# is dated on or after it. Engineering goes round again when a revision is
-# received or reviewed after the last forward, which OSC does not re-date, so
-# the officer's Date resolved closes a cycle too. Header text is matched by
-# its start ("Review Engineering - <reviewer>"); OSC's own closing step is
-# read as well, being fresher than the base export.
+# like RFI items (the officer, 27 Oct 2026; engineering by stage since her
+# correction, ENGINEERING_STAGES). Each is a chain of steps: in flight from its
+# latest dated step until the closing step is dated on or after it.
+# Engineering goes round again when a revision is received or reviewed after
+# the last forward, which OSC does not re-date, so the officer's Date resolved
+# closes a cycle too. "stage": the stage the latest dated step starts (ordered:
+# the engineer is designing; received or reviewed: Transpire is reviewing, as
+# she dated the pilot jobs on 22 Oct 2026). Header text is matched by its
+# start ("Review Engineering - <reviewer>"); OSC's own closing step is read as
+# well, being fresher than the base export.
 COLUMN_CYCLES = {
     "ENGINEERING": {"steps": {"engineering ordered": "ordered", "receive engineering": "received",
                               "review engineering": "reviewed"},
+                    "stage": {"ordered": "design", "received": "review", "reviewed": "review"},
                     "closing": "forward engineering", "closed": "forwarded to the certifier",
                     "closing_activity": r"^Forward Engineers Footing/Slab Design", "label": "engineering columns"},
     "COVENANT": {"steps": {"covenant ordered": "ordered"}, "closing": "received covenant approval",
@@ -480,8 +503,86 @@ def column_cycle(key, row, snapshot):
         after = f"not {spec['closed']} since (last {_ddmmyyyy(closed)})"
     else:
         after = f"not {spec['closed']} yet" + (f" ({str(closed_raw).strip()})" if str(closed_raw or "").strip() else "")
-    return {"since": since, "done_on": done_on,
+    return {"since": since, "done_on": done_on, "stage": spec.get("stage", {}).get(step),
             "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}, {after}"}
+
+
+def _first_step(snapshot, pattern):
+    """The first OSC activity whose description matches ``pattern``, or None."""
+    return next((a for a in (snapshot or {}).get("activities", [])
+                 if re.search(pattern, a.get("description") or "", re.I)), None)
+
+
+def _step_done(activity):
+    return bool(activity and activity.get("completionDate") and not activity.get("isNotApplicable"))
+
+
+def _osc_stage(fam, snapshot):
+    """The stage OSC shows for an item with stages: the step that starts it done, the one that ends
+    it neither done nor marked not applicable. None when OSC says neither."""
+    for stage, spec in fam["stages"].items():
+        start, end = (_first_step(snapshot, p) for p in spec["osc"])
+        if _step_done(start) and end and not end.get("completionDate") and not end.get("isNotApplicable"):
+            return stage
+    return None
+
+
+def _names_provider(text, fam, snapshot):
+    """Her Assigned to names the service provider OSC holds for the item's outside stage (the
+    engineering firm on the order and receive steps), so it sits with that outside party."""
+    generic = {"CONSULTING", "CONSULTANTS", "ENGINEERS", "ENGINEERING", "GROUP", "SERVICES", "AUSTRALIA"}
+    said = set(re.findall(r"[A-Z]{4,}", (text or "").upper())) - generic
+    if not said:
+        return False
+    steps = [p for spec in fam["stages"].values() for p, field in spec["owner"] if field == "serviceProvider"]
+    return any(said & (set(re.findall(r"[A-Z]{4,}", a["serviceProvider"].upper())) - generic)
+               for a in (snapshot or {}).get("activities", [])
+               if a.get("serviceProvider") and any(re.search(p, a.get("description") or "", re.I) for p in steps))
+
+
+def item_stage(fam, item, snapshot):
+    """(stage, how) for an item with stages before the officer's say: its columns, else OSC, else the
+    stricter stage. None for other items."""
+    stages = (fam or {}).get("stages")
+    if not stages:
+        return None, None
+    if item.get("column_stage"):
+        return item["column_stage"], "columns"
+    found = _osc_stage(fam, snapshot) if snapshot else None
+    if found:
+        return found, "osc"
+    return min(stages, key=lambda s: stages[s]["threshold"]), "default"
+
+
+def _stage_owner(fam, stage, snapshot):
+    """(name, field) of whoever OSC says has the item at this stage, or (None, None)."""
+    for pattern, field in fam["stages"][stage]["owner"]:
+        step = _first_step(snapshot, pattern)
+        if step and step.get(field):
+            return step[field], field
+    return None, None
+
+
+def _stage_words(item):
+    """The stage after an item's limit, as " (internal review)", with how it was told when not by
+    its own columns or OSC."""
+    fam = family_of(item["name"]) if item.get("stage") else None
+    if not fam or not fam.get("stages"):
+        return ""
+    how = {"assigned": ": from your Assigned to", "rfi list": ": from the RFI list",
+           "default": ": assumed, the stricter"}.get(item.get("stage_how"), "")
+    return f" ({fam['stages'][item['stage']]['label']}{how})"
+
+
+def _limits_text():
+    """Each family's own limits, for the evidence note."""
+    out = []
+    for f in FAMILIES:
+        if f.get("stages"):
+            out.append(f"{f['key']} " + " / ".join(f"{s['threshold']} {s['label']}" for s in f["stages"].values()))
+        elif f.get("threshold"):
+            out.append(f"{f['key']} {f['threshold']}")
+    return ", ".join(out)
 
 
 def _chain_of(desc):
@@ -620,22 +721,44 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     """
     fam = family_of(item["name"])
     flags = []
+    column_since = item.get("column_since")
+    stage, stage_how = item_stage(fam, item, snapshot)
 
-    # ---- assigned to
+    # ---- assigned to (hers belongs to the cycle current when she gave it, like her date below:
+    # a newer step in the item's columns means it has moved on, so it is worked out again)
+    if column_since and entry.get("assigned_source") == "officer":
+        if column_since > entry.setdefault("assigned_cycle", column_since):
+            entry.update(assigned_to=None, assigned_source=None, ai_assigned_to=None)
+            entry.pop("assigned_cycle", None)
     assigned, src = _resolve_sticky(item.get("assigned_to"), entry,
                                     "ai_assigned_to", "assigned_to", "assigned_source")
     fallback_echo = assigned if (assigned and src is None) else None
+    wo = re.match(r"^W/?O\s+(.+)$", (item.get("state") or "").strip(), re.I)
     if src != "officer":
         assigned, src = None, None
-        wo = re.match(r"^W/?O\s+(.+)$", (item.get("state") or "").strip(), re.I)
+        stage_owner, stage_field = _stage_owner(fam, stage, snapshot) if stage else (None, None)
         if wo:
             assigned, src = wo.group(1).strip(), "report (W/O)"
+        elif stage_owner:
+            assigned, src = stage_owner, f"osc {stage_field}"
         elif item.get("owner"):
             assigned, src = item["owner"], f"osc {item.get('owner_field') or 'activity'}"
         elif fallback_echo:
             assigned, src = fallback_echo, "carried"
     tier = None
-    if src == "officer" or src == "report (W/O)" or src == "carried":
+    if stage:
+        # who she says has it decides the stage (the engineer: design; Transpire: review), on the
+        # Items sheet, else as "(W/O X)" on her RFI list; a person's name says neither, so the
+        # columns or OSC decide
+        for text, how in ((assigned if src == "officer" else None, "assigned"),
+                          (wo.group(1) if wo else None, "rfi list")):
+            said = tier_for(text) or ("EXTERNAL" if _names_provider(text, fam, snapshot) else None)
+            told = [s for s, spec in fam["stages"].items() if spec["tier"] == said]
+            if told:
+                stage, stage_how = told[0], how
+                break
+        tier = fam["stages"][stage]["tier"]
+    elif src == "officer" or src == "report (W/O)" or src == "carried":
         tier = tier_for(assigned)
     elif src and src.startswith("osc"):
         tier = "INTERNAL" if item.get("owner_field") == "user" else (fam["tier"] if fam else None)
@@ -656,7 +779,6 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     # columns, else OSC evidence, else last week's value, else the first sighting (assumed)
     if item.get("date_submitted"):
         entry.pop("not_submitted", None)
-    column_since = item.get("column_since")
     if column_since and entry.get("date_source") == "officer":
         # Her date (or "not yet submitted") belongs to the cycle current when she gave it; only a
         # newer step in the item's columns starts a new cycle and replaces it.
@@ -687,7 +809,7 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     entry.setdefault("first_seen", since)
 
     # ---- days + flag (an item not yet submitted counts no days)
-    threshold = (fam or {}).get("threshold") or TIERS[tier]
+    threshold = fam["stages"][stage]["threshold"] if stage else ((fam or {}).get("threshold") or TIERS[tier])
     end = item.get("date_resolved") if item.get("resolved") else asof
     days = business_days(submitted, end) if (end and submitted) else None
     if item.get("resolved"):
@@ -698,8 +820,8 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
         flag = "YELLOW" if days <= threshold else "RED"
 
     entry["item"] = norm_item(item["name"])  # which item a shared-family entry belongs to
-    item.update({"assigned_to": assigned, "assigned_source": src, "tier": tier,
-                 "threshold": threshold, "date_submitted": submitted,
+    item.update({"assigned_to": assigned, "assigned_source": src, "tier": tier, "stage": stage,
+                 "stage_how": stage_how, "threshold": threshold, "date_submitted": submitted,
                  "date_source": dsrc, "days": days, "flag": flag,
                  "assumed": dsrc.startswith("assumed") if dsrc else False})
     item["age_flags"] = flags
@@ -709,9 +831,13 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     if flags:
         item["flagged"] = True
 
-    # remember what the AI wrote so next week's echo is recognisable
+    # remember what the AI wrote so next week's echo is recognisable, and the cycle the draft shows
     entry["ai_assigned_to"] = assigned
     entry["ai_date_submitted"] = submitted
+    if column_since:
+        entry["since_shown"] = column_since
+    else:
+        entry.pop("since_shown", None)
     if src != "officer":
         entry["assigned_to"] = assigned
         entry["assigned_source"] = src
@@ -724,13 +850,22 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
 def apply_officer_edit(entry, edit, source):
     """Fold one Items-sheet edit (ba_report_parse.officer_edits) into the item's state: her values
     stick until she changes them again."""
+    # Her values belong to the cycle on the draft she edited, which may have moved on since.
+    shown = entry.get("since_shown")
     if "assigned_to" in edit:
+        if shown:
+            entry["assigned_cycle"] = shown
+        else:
+            entry.pop("assigned_cycle", None)  # set from the item's columns when it is aged
         if edit["assigned_to"]:
             entry.update(assigned_to=edit["assigned_to"], assigned_source="officer")
         else:  # cleared: back to what the evidence says
             entry.update(assigned_to=None, assigned_source=None, ai_assigned_to=None)
     if "date_submitted" in edit:
-        entry.pop("date_cycle", None)  # set again from the item's columns when it is aged
+        if shown:
+            entry["date_cycle"] = shown
+        else:
+            entry.pop("date_cycle", None)
         if edit["date_submitted"]:
             entry.update(date_submitted=edit["date_submitted"], date_source="officer")
             entry.pop("not_submitted", None)
@@ -906,7 +1041,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                                               "evidence": f"two or more items share the {k} evidence rule; "
                                                           "each keeps its own dates"})
 
-        # ---- the engineering and covenant columns (aged at 10 business days, the officer 27 Oct 2026)
+        # ---- the engineering and covenant columns (PO-11b; engineering by stage, PO-11c)
         cycles = {}
         if in_scope and not row["ba_received"]["date"]:
             for fkey in COLUMN_CYCLES:
@@ -979,7 +1114,8 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                    "date_submitted": item.get("date_submitted"),
                    "evidence": ev, "flagged": False, "resolved": False}
             if cyc and not cyc["done_on"]:
-                rec.update(column_since=cyc["since"], column_detail=cyc["detail"], evidence=f"{cyc['detail']}; {ev}")
+                rec.update(column_since=cyc["since"], column_detail=cyc["detail"], column_stage=cyc.get("stage"),
+                           evidence=f"{cyc['detail']}; {ev}")
             if verdict == "complete":
                 rec.update({"resolved": True, "date_resolved": ev_date or asof})
                 job_ev["changes"].append({"item": item["name"], "action": "resolved", "evidence": ev})
@@ -1013,7 +1149,8 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 continue  # already shown as resolved, or finished before it was ever tracked
             st = jstate.setdefault(fkey, st)
             rec = {"name": fkey, "state": "", "key": fkey, "column": True, "flagged": False, "resolved": False,
-                   "column_since": since_on, "column_detail": cyc["detail"], "evidence": cyc["detail"]}
+                   "column_since": since_on, "column_detail": cyc["detail"], "column_stage": cyc.get("stage"),
+                   "evidence": cyc["detail"]}
             if closed_on:
                 how = ("resolved on your Items sheet" if st.get("officer_resolved")
                        else "marked not applicable" if cyc.get("not_applicable")
@@ -1141,7 +1278,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
             if i.get("evidence"):
                 notes.append(str(i["evidence"]))
             if not i.get("resolved"):
-                notes.append(f"limit {i['threshold']} business days")
+                notes.append(f"limit {i['threshold']} business days" + _stage_words(i))
             items_rows.append([
                 (job_no, fill),
                 (i["name"], fill),
@@ -1188,8 +1325,7 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
              "",
              "Ageing: NSW business days from DATE SUBMITTED; YELLOW at or under the",
              "tier threshold, RED over it — " +
-             ", ".join(f"{k} {v}" for k, v in TIERS.items()) + "; whoever has them, " +
-             ", ".join(f"{f['key']} {f['threshold']}" for f in FAMILIES if f.get("threshold")) + ".",
+             ", ".join(f"{k} {v}" for k, v in TIERS.items()) + "; whoever has them, " + _limits_text() + ".",
              "Engineering and covenant are also tracked from their columns when not on the RFI list.",
              ""]
     if pilot:

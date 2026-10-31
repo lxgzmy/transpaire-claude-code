@@ -35,8 +35,9 @@ testing folder (see `../reference/README.md`).
    **Items** sheet — *Assigned to*, *Date submitted*, *Date resolved*, *Days
    outstanding* in NSW business days — with the YELLOW/RED flag by tier
    (Internal 10, Energy 10, External consultants 20, Council 30; PO-11a,
-   confirmed on issue #29) or by the item's own limit (engineering and
-   covenant 10, an amended DA 60; PO-11b). The main sheet and the RFI list
+   confirmed on issue #29) or by the item's own limit (engineering 15 while
+   the engineer designs it and 10 in Transpire's internal review, PO-11c;
+   covenant 10, an amended DA 60, PO-11b). The main sheet and the RFI list
    stay hers: the export, column for column, plus RESOLVED lines.
 5. **Evidence bundle**: for every removed or added item, cite the OSC
    activity/alert/document or email that justifies it. Low-confidence
