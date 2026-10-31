@@ -35,13 +35,12 @@ RUN_RE = re.compile(r"<w:r(?: [^>]*)?>(?:(?!<w:r[ >]).)*?</w:r>", re.S)
 # A gap run holds no value - only whitespace, and sometimes the label's colon,
 # because Word splits "SUBURB:" into a 'SUBURB' run and a ':  ' run.
 GAP_ONLY = re.compile(r"^[:\s\u00a0]*$")
-# An empty floating text box - the owner-name box under ACKNOWLEDGEMENTS & SIGNATURE
-# has no placeholder text at all. Word stores it twice (mc:Choice + mc:Fallback),
-# so filling both is what a person editing in Word produces.
-EMPTY_TXBX = re.compile(
-    r"<w:txbxContent><w:p\b[^>]*>(?:<w:pPr>(?:(?!</w:p>).)*?</w:pPr>)?</w:p></w:txbxContent>",
-    re.S,
-)
+# A floating text box - the owner-name box under ACKNOWLEDGEMENTS & SIGNATURE, the
+# site-address box under the "located at;" sentence. Word stores each twice
+# (mc:Choice + mc:Fallback), so filling both is what a person editing in Word
+# produces. An empty box's paragraph may be written <w:p/> (SEQ blank 1's site box).
+TXBX_RE = re.compile(r"<w:txbxContent>.*?</w:txbxContent>", re.S)
+BOX_PARA = re.compile(r"<w:p\b[^>]*/>|<w:p\b[^>]*>.*?</w:p>", re.S)
 
 # (anchor, json key, mode, exact)
 #
@@ -51,11 +50,11 @@ EMPTY_TXBX = re.compile(
 #   dotted      - type the value into the anchor run's own dotted line
 #   dotted_next - type the value into the dotted line in the FOLLOWING run
 #   prefix      - append the value to following runs that already read "Lot "
-#   textbox     - fill the empty floating text box(es) that follow the anchor
+#   textbox     - fill the empty floating text box that follows the anchor
+#   after_lot   - type "Lot <value>" into the text box under the anchor sentence
 #
 # exact=True matches the whole run text, which matters because "SUBURB" is a
 # substring of page 1's "SUBURB :" and would otherwise be filled twice.
-#   after_lot   - insert "Lot <value>" twice immediately after the anchor run
 #
 # Anchors shared by every template family. Region-specific ones live in FAMILIES.
 COMMON_FIELDS = [
@@ -93,9 +92,10 @@ SITE_ANCHOR = "Being the owners of the proposed new home to be located at;"
 #      Gunnedah, so both shapes exist WITHIN one family. Suffix matching
 #      therefore treats a trailing $ as optional (fill() normalises both sides
 #      with rstrip("$ "), the same normalisation the write path always used).
-#   2. The site address - Gunnedah's template carries runs reading "Lot " to
-#      append to; SEQ has none, so the whole address is typed after the sentence,
-#      twice, for the builder's and the owner's copy.
+#   2. The site address - both families type it into the box under the
+#      sentence. Gunnedah's box carries "Lot " runs to append to; of the SEQ
+#      blanks, 2 and 3 carry a "Lot " run there and blank 1 (Transpire) an
+#      empty box, so SEQ types the whole "Lot <address>" (after_lot).
 #   3. pad - extra spaces between the template's own gap run and the value, so
 #      the value lands where it lands on the real contracts. Both families indent
 #      further than the blank, but by different amounts.
@@ -362,6 +362,60 @@ def paragraph_at(xml, pos):
     return start, end
 
 
+def box_after(xml, pos):
+    """(start, end) of every copy of the first floating text box after offset pos.
+
+    A DrawingML box sits in one mc:AlternateContent with its VML fallback, so a
+    person typing into it fills both copies; a VML-only box is the one copy."""
+    m = TXBX_RE.search(xml, pos)
+    if not m:
+        return []
+    ac = xml.rfind("<mc:AlternateContent", 0, m.start())
+    ac_end = xml.find("</mc:AlternateContent>", m.start())
+    if ac != -1 and xml.find("</mc:AlternateContent>", ac) == ac_end:
+        return [(b.start(), b.end()) for b in TXBX_RE.finditer(xml, ac, ac_end)]
+    return [(m.start(), m.end())]
+
+
+def site_box(xml, s, e):
+    """Copies of the address box that belongs to the "located at;" run at s..e.
+
+    Either the box floats in the sentence's own paragraph, ahead of the words
+    (the Owner Occupier colour-selections page), or it is the next box after
+    the paragraph with no text between (every page-15 sentence). [] otherwise."""
+    ac_end = xml.rfind("</mc:AlternateContent>", 0, s)
+    if ac_end != -1 and "</w:p>" not in xml[ac_end:s] and not run_text(xml[ac_end:s]).strip():
+        return box_after(xml, xml.rfind("<mc:AlternateContent", 0, ac_end))
+    pend = xml.find("</w:p>", e)
+    copies = box_after(xml, pend)
+    if copies and run_text(xml[pend:copies[0][0]]).strip():
+        return []
+    return copies
+
+
+def box_text_edits(xml, span, text, placeholders=("Lot", "Lot:")):
+    """Edits typing `text` into one copy of a text box.
+
+    Over the box's placeholder run(s) when that is all it holds ("Lot "), else
+    at the end of its first paragraph when it is empty. None when the box holds
+    other words - a value never lands on top of contract text."""
+    seg = xml[span[0]:span[1]]
+    words = [(m.start(), m.end(), m.group(0)) for m in RUN_RE.finditer(seg) if run_text(m.group(0)).strip()]
+    if words:
+        if not all(run_text(r).strip() in placeholders for _, _, r in words):
+            return None
+        return [(span[0] + s, span[0] + e, set_run_text(r, text if n == 0 else ""))
+                for n, (s, e, r) in enumerate(words)]
+    p = BOX_PARA.search(seg)
+    if not p:
+        return None
+    run = f'<w:r><w:t xml:space="preserve">{xml_escape(text)}</w:t></w:r>'
+    if p.group(0).endswith("/>"):
+        return [(span[0] + p.start(), span[0] + p.end(), p.group(0)[:-2].rstrip() + ">" + run + "</w:p>")]
+    at = span[0] + p.end() - len("</w:p>")
+    return [(at, at, run)]
+
+
 def ppr_tab_edit(xml, pos, *positions):
     """An (start, end, replacement) edit adding tab stops to the pPr of the paragraph containing pos."""
     ps, pe = paragraph_at(xml, pos)
@@ -411,19 +465,19 @@ def fill(xml, values, report, family):
         value = str(value)
 
         if mode == "textbox":
-            # empty floating boxes after the anchor - no placeholder run to find
-            apos = xml.find(xml_escape(anchor))
-            if apos == -1:
-                entry["value"] = value
-                continue
-            for m in EMPTY_TXBX.finditer(xml):
-                if m.start() < apos:
+            # the empty floating box straight after each heading - no
+            # placeholder run to find. Only that box: "every empty box after
+            # the heading" also took the site-address box whenever it was empty
+            # (the Owner Occupier blank's colour-selections page).
+            for am in re.finditer(re.escape(xml_escape(anchor)), xml):
+                copies = box_after(xml, am.end())
+                if not copies or run_text(xml[am.end():copies[0][0]]).strip():
                     continue
-                at = m.start() + m.group(0).rindex("</w:p>")
-                edits.append(
-                    (at, at, f'<w:r><w:t xml:space="preserve">{xml_escape(value)}</w:t></w:r>')
-                )
-                entry["hits"] += 1
+                planned = [box_text_edits(xml, c, value, ()) for c in copies]
+                if all(p is not None for p in planned):
+                    for p in planned:
+                        edits.extend(p)
+                    entry["hits"] += len(planned)
             entry["value"] = value
             continue
 
@@ -453,34 +507,24 @@ def fill(xml, values, report, family):
                     edits.append((s, e, set_run_text(run, f"{base}{' ' * pad}${value}")))
 
             elif mode == "after_lot":
-                # The standard SEQ blank has no "Lot " runs to append to, so the
-                # whole address is inserted after the sentence - twice, because
-                # the builder's and the owner's copy sit side by side. All 21
-                # completed SEQ jobs separate the sentence and the address with
-                # a space ("at; Lot") and butt the two copies together with
-                # none - so only the first copy carries the leading space
-                # (verified 16 Aug 2026). The SEQ Auxiliary blank DOES carry
-                # two "Lot " placeholder runs (the Gunnedah shape - seen
-                # 18 Aug 2026 on 25163): those are filled in place instead,
-                # because inserting as well leaves them behind as "Lot Lot".
-                j = i + 1
-                lot_runs = []
-                while j < len(runs) and texts[j].strip() in ("Lot", "Lot:", ""):
-                    if texts[j].strip():
-                        lot_runs.append(j)
-                    j += 1
-                if lot_runs:
-                    for n, jj in enumerate(lot_runs):
-                        sj, ej, rj = runs[jj]
-                        lead = " " if n == 0 else ""
-                        edits.append((sj, ej, set_run_text(
-                            rj, f"{lead}{texts[jj]}{value}")))
-                        entry["hits"] += 1
+                # "Lot <address>" goes in the box under the sentence, once per
+                # copy, with nothing typed after "located at;": all 182
+                # completed SEQ inclusions on the drive hold it so, 173 of them
+                # starting the box with "Lot" (31 Oct 2026). Blanks 2 and 3
+                # carry a "Lot " run in the box, typed over; blank 1
+                # (Transpire) leaves the box empty. The earlier reading - "typed
+                # after the sentence, twice" - was the box's two copies read as
+                # flat text; on blank 1 it left the box empty and the doubled
+                # line pushed a sixteenth, empty page (job 26059 follow-up).
+                copies = site_box(xml, s, e)
+                planned = [box_text_edits(xml, c, f"Lot {value}") for c in copies]
+                if planned and all(p is not None for p in planned):
+                    for p in planned:
+                        edits.extend(p)
+                    entry["hits"] += len(planned)
                 else:
-                    first = clone_run(run, f" Lot {value}")
-                    second = clone_run(run, f"Lot {value}")
-                    edits.append((e, e, first + second))
-                    entry["hits"] += 1
+                    entry["why"] = "no empty address box under the sentence"
+                continue  # hits count the box copies typed into, not the sentence
 
             elif mode == "dotted":
                 edits.append((s, e, set_run_text(
@@ -612,6 +656,11 @@ def signature_tabs(xml, values, family):
         elif dots:
             cap = SIG_DOTS.get(label, SIG_DOTS_DEFAULT)
             parts.append(f'<w:r>{rpr_value}<w:t xml:space="preserve"> {ELLIPSIS * min(dots, cap)}</w:t></w:r>')
+        else:
+            # no name and no dotted line - SEQ blank 1 types its page-13 "Name of
+            # Owner 2:" with spaces only. A tab to the name stop first, or the
+            # one tab stops there and Date: sits in the name column.
+            parts.append(TAB_RUN)
         parts.append(TAB_RUN + f'<w:r>{rpr_date}<w:t xml:space="preserve">{xml_escape(date_text)}</w:t></w:r>')
         open_tag = re.match(r"<w:p\b[^>]*>", p).group(0)
         ppr = re.search(r"<w:pPr>.*?</w:pPr>", p, re.S)
@@ -782,7 +831,7 @@ def main():
         if info.get("skipped"):
             print(f"{key:<13} {'-':>4}  {anchor:<26} (no value - left blank)")
             continue
-        flag = "" if hits else "   <-- ANCHOR NOT FOUND"
+        flag = "" if hits else f"   <-- {info['why'].upper() if info.get('why') else 'ANCHOR NOT FOUND'}"
         print(f"{key:<13} {hits:>4}  {anchor:<26} {info['value'][:30]}{flag}")
         if not hits:
             problems.append(f"{key} ({info['anchor'][:24]})")

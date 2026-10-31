@@ -401,13 +401,14 @@ def measure_version(path):
 
 
 def blank_measure_for(template):
-    """The blank's Word measurement, made (3 min) when missing or older than the blank."""
+    """The blank's Word measurement, made when missing or older than the blank (5-15 min on the
+    server for an SEQ or Sydney blank - 4 to 17 min measured 29-31 Oct 2026), then cached."""
     template = Path(template)
     LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
     out = LAYOUT_STATE / f"{template.stem}.measure.json"
     if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
         return out
-    print(f"  measuring : the blank's layout through Word (first run for this blank, ~3 min) -> {out.name}")
+    print(f"  measuring : the blank's layout through Word (first run for this blank, 5-15 min; later runs reuse it) -> {out.name}")
     r = run_layout("-Mode", "measure", "-Docx", template, "-Out", out)
     if r.returncode != 0 or not out.exists():
         print(f"  MEASURE FAILED: {(r.stderr or r.stdout).strip()[:300]}")

@@ -19,6 +19,9 @@ Checks (NSW inclusions feedback sheet 9.9, issue #35):
   page 13   the signature lines (a text box, which Word cannot measure) carry
             the tab stops that put the owner's name under the builder's and
             every "Date:" at one x (rows 14, 15) - checked in the XML
+  site box  the address is typed in the box under "located at;", the same in
+            both of Word's copies, and nothing after the sentence itself - a
+            flat-text read cannot tell the two apart (SEQ blank 1, 31 Oct 2026)
 
 The measurement comes from word_layout.ps1 (the align report carries one under
 "measure"; a plain measure JSON is accepted too). Exit 0 = PASS, 1 = FAIL.
@@ -37,7 +40,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from fill_inclusions import EDITOR_NOTES, SIG_LABELS, run_text, RUN_RE  # noqa: E402
+from fill_inclusions import EDITOR_NOTES, SIG_LABELS, SITE_ANCHOR, run_text, RUN_RE, site_box  # noqa: E402
 from edit_inclusions import P_RE, REGIONAL_RIGHT_BLANKS, is_package_heading, ptext  # noqa: E402
 
 XTOL = 1.0   # pt - horizontal agreement for tab-stopped values
@@ -309,10 +312,16 @@ def check_signature_lines(docx, out, family="sydney"):
             if not text[len(label):].startswith(" ") or tabs_in != 1:
                 problems.append("Builders Representative: name must follow the label directly, one tab before Date:")
         else:
+            # a blank line's dotted run reaches past the name stop, so one tab
+            # takes Date: to its stop; with no dots the first tab stops at the
+            # name stop and a second is needed (SEQ blank 1's Name of Owner 2:)
+            dots = "…" in text[len(label):text.index("Date:")]
             if body.strip() and tabs_in != 2:
                 problems.append(f"{label} needs a tab before the name and one before Date:")
-            if not body.strip() and tabs_in != 1:
+            if not body.strip() and dots and tabs_in != 1:
                 problems.append(f"{label} (blank) needs one tab before Date:")
+            if not body.strip() and not dots and tabs_in != 2:
+                problems.append(f"{label} (blank, no dotted line) needs two tabs before Date:")
     if seen == 0:
         out.append("page 13  : no tab-stopped signature lines found (non-Sydney template?)")
     elif problems:
@@ -322,6 +331,38 @@ def check_signature_lines(docx, out, family="sydney"):
         out.append(f"page 13  : {seen} signature lines on tab stops - names at {t_name} twips "
                    f"(the builder label's measured width), every Date: at {t_date} twips")
     return ok
+
+
+def check_site_box(docx, out):
+    """The site address sits in the box under the "located at;" sentence, once per
+    copy of that box, and the sentence ends at "located at;" - as on every
+    completed job. Flattened text reads a doubled inline address and the box's two
+    copies alike, which is how blank 1 shipped the address outside its box."""
+    with zipfile.ZipFile(docx) as z:
+        xml = z.read("word/document.xml").decode("utf-8")
+    hits = [m.start() for m in re.finditer(re.escape(SITE_ANCHOR), xml)]
+    if not hits:
+        out.append("site box : not checked - no \"located at;\" sentence in this blank")
+        return True
+    problems = []
+    for n, at in enumerate(hits, 1):
+        end = at + len(SITE_ANCHOR)
+        seg = xml[end:xml.find("</w:p>", at)]
+        if (seg[:seg.find("<")] + run_text(seg)).strip():
+            problems.append(f"sentence {n}: text typed after \"located at;\"")
+        copies = [run_text(xml[s:e]).strip() for s, e in site_box(xml, at, end)]
+        if not copies:
+            problems.append(f"sentence {n}: no address box with it")
+        elif not copies[0].upper().startswith("LOT"):
+            problems.append(f"sentence {n}: the address box is empty or does not start with Lot")
+        elif len(set(copies)) != 1:
+            problems.append(f"sentence {n}: the address box's copies differ")
+    if problems:
+        out.append("site box : FAIL - " + "; ".join(problems))
+        return False
+    out.append(f"site box : the address in its box under each of {len(hits)} \"located at;\" sentence(s), "
+               "both copies alike, nothing typed after the sentence")
+    return True
 
 
 def main():
@@ -348,6 +389,7 @@ def main():
                    f"typed spacing is kept")
     results.append(check_section18(measure, out))
     results.append(check_signature_lines(args.docx, out, args.family))
+    results.append(check_site_box(args.docx, out))
     results.append(check_footer_total(args.docx, out))
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"

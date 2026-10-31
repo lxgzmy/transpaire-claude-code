@@ -194,9 +194,20 @@ def run_suite(family, root, pattern, blank):
     if not gate_inclusions.check_footer_total(out, []) or numpages < typed_in_blank:
         footer_bad = f"{typed_in_blank} typed page total(s) in the blank, {numpages} NUMPAGES field(s) in the fill"
 
+    # ...and it must sit IN that box. The word-level read above flattens the
+    # box's two copies onto the sentence's line, so an address typed twice
+    # after the sentence read the same and passed (SEQ blank 1, 31 Oct 2026).
+    box_lines = []
+    box_bad = None
+    if vals.get("site_address") and not gate_inclusions.check_site_box(out, box_lines):
+        box_bad = box_lines[-1]
+
     out.unlink(missing_ok=True)
     jf.unlink(missing_ok=True)
 
+    if box_bad:
+        print(f"   FAIL - {box_bad}")
+        return 1
     if footer_bad:
         print(f"   FAIL - footer page total: {footer_bad}")
         return 1
@@ -212,7 +223,7 @@ def run_suite(family, root, pattern, blank):
         print(f"      real  : {' '.join(site_bad[1] or ['(missing)'])[:100]}")
         return 1
     print(f"   PASS - filler matches the convention on all {len(convention)} fields"
-          " + the site address line + the footer page total (NUMPAGES)"
+          " + the site address line, in its box + the footer page total (NUMPAGES)"
           + (" (tab-stopped values; x verified by gate_inclusions.py)" if tabs else ""))
     return 0
 
