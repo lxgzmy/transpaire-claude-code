@@ -219,9 +219,14 @@ never inferred from contract price. Fill only when explicitly sourced and
 reviewed. Do not set post-construction, utility, permit or colour fields
 merely because they are visible in the screenshot.
 
-**Every intake writes these in stage 2, never leaving one blank** (contract
-admin review of job 26059, issue #94, 28 Oct 2026; values as staff key them on
-the newest production jobs):
+**Every intake fills these in stage 2 wherever OSC has no value yet, never
+leaving one blank** (contract admin review of job 26059, issue #94, 28 Oct
+2026; values as staff key them on the newest production jobs). **A value OSC
+already holds is left as it is, even when it differs from the default**: put
+only the empty ones in the stage. Staff move Job Notes on as the contract
+progresses (26059 read `CONTRACT EXECUTED, AWAITING AUTHORISATION TO PROCEED`
+by 30 Oct), so on an established job the defaults would only offer to undo
+their work.
 
 | Custom field | Value | Rule |
 |---|---|---|
