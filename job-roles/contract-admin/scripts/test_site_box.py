@@ -128,6 +128,15 @@ def main():
     check(not gi.check_signature_lines(docx("sig_old", one_tab.replace(words(" " * 20), "")), lines, "seq"),
           f"one tab on a line with no dotted line fails the gate - {lines[-1]}")
 
+    # Word saves empty paragraphs as <w:p/>: they must not run on into the paragraph after
+    # them (three before blank 8's INTERNAL TURNKEY PACKAGE hid it from the gate)
+    out, rebuilt = fi.signature_tabs("<w:p/>" + BLANK_OWNER_2, {}, fi.FAMILIES["seq"])
+    check(rebuilt == 1 and out.startswith("<w:p/><w:p>"), "an empty <w:p/> before a signature line stays its own paragraph")
+    blue = '<w:p><w:r><w:rPr><w:color w:val="00B0F0"/></w:rPr><w:t>INTERNAL TURNKEY PACKAGE </w:t></w:r></w:p>'
+    lines = []
+    check(gi.check_xml(docx("heading_after_empty", '<w:p w14:paraId="1"/><w:p/>' + blue), lines),
+          f"a package heading after empty <w:p/> paragraphs keeps its colour - {lines[0]}")
+
     print(f"\n{'PASS' if not failures else 'FAIL'} - {len(failures)} failure(s)")
     return 1 if failures else 0
 

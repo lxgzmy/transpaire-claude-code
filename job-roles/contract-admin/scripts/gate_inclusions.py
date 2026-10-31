@@ -40,8 +40,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from fill_inclusions import EDITOR_NOTES, SIG_LABELS, SITE_ANCHOR, run_text, RUN_RE, site_box  # noqa: E402
-from edit_inclusions import P_RE, REGIONAL_RIGHT_BLANKS, is_package_heading, ptext  # noqa: E402
+from fill_inclusions import EDITOR_NOTES, PARA_RE, SIG_LABELS, SITE_ANCHOR, run_text, RUN_RE, site_box  # noqa: E402
+from edit_inclusions import REGIONAL_RIGHT_BLANKS, is_package_heading, ptext  # noqa: E402
 
 XTOL = 1.0   # pt - horizontal agreement for tab-stopped values
 TEXT_LINE_PT = 13.5   # pt - one line of body text in the Sydney blanks (measured 13.1-14.6)
@@ -141,7 +141,7 @@ def check_xml(docx, out):
                   if re.match(r"word/(header|footer)\d*\.xml", n)}
     ok = True
     # The package headings keep the template's blue (issue #58); every other run is black.
-    heads = [m for m in P_RE.finditer(xml) if not re.search(r"<w:p[ >]", m.group(0)[4:])
+    heads = [m for m in PARA_RE.finditer(xml) if not re.search(r"<w:p[ >]", m.group(0)[4:])
              and is_package_heading(ptext(m.group(0)))]
     rest, pos = [], 0
     for m in heads:
@@ -289,7 +289,7 @@ def check_signature_lines(docx, out, family="sydney"):
     with zipfile.ZipFile(docx) as z:
         xml = z.read("word/document.xml").decode("utf-8")
     ok, seen, problems = True, 0, []
-    for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.S):
+    for m in PARA_RE.finditer(xml):
         p = m.group(0)
         runs = [r.group(0) for r in RUN_RE.finditer(p)]
         text = "".join(rt(r) for r in runs)
