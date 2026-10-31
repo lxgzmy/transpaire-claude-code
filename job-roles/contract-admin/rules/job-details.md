@@ -69,6 +69,10 @@ These scoped changes leave the other field rules and document pricing rules inta
 
 ## JD-3 Job details fields
 
+The fixed values below (JD-3.4 to 3.7, 3.11) fill an **empty** field only. A
+value already in OSC is a person's, and is never overwritten by a default
+(issue #94 follow-up, 31 Oct 2026).
+
 - **JD-3.1** Stage number: from `Z:\ESTATES INFORMATION` or the request email.
 - **JD-3.2** Design Type: from the request email. **Only a granny flat
   qualifies as an Auxiliary Dwelling.**

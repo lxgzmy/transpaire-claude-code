@@ -72,10 +72,12 @@ owners - and 26045 - a single owner).
 """
 import argparse
 import json
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -344,6 +346,48 @@ def run_ps(script, *args):
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
+# word_layout.ps1 prints a line every 10 steps / 100 paragraphs; the longest gap seen is the
+# first steps of an align (~150 s on job 26059). Twice on 29 Oct 2026 the pass then went silent
+# for good and the run sat there 25 minutes until it was killed by hand.
+LAYOUT_SILENCE = 420
+
+
+def run_layout(*args, script="word_layout.ps1", silence=None):
+    """word_layout.ps1 under a watchdog: a pass silent for LAYOUT_SILENCE seconds is stopped - its
+    pwsh and the Word it reported starting, nothing else - and run once more. The pass saves only
+    at its end, so a stopped pass leaves the document as it was. (test_layout_watchdog.py)"""
+    silence = silence or LAYOUT_SILENCE
+    cmd = ["pwsh", "-NoProfile", "-File", str(HERE / script), *map(str, args)]
+    for attempt in (1, 2):
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                             encoding="utf-8", errors="replace")
+        lines, err, word_pid = [], [], None
+        events = queue.Queue()
+        threading.Thread(target=lambda: ([events.put(line) for line in p.stdout], events.put(None)),
+                         daemon=True).start()
+        threading.Thread(target=lambda: err.extend(p.stderr), daemon=True).start()
+        while True:
+            try:
+                line = events.get(timeout=silence)
+            except queue.Empty:
+                break
+            if line is None:
+                p.wait()
+                return subprocess.CompletedProcess(cmd, p.returncode, "".join(lines), "".join(err))
+            lines.append(line)
+            found = re.search(r"word pid (\d+)", line)
+            if found:
+                word_pid = int(found.group(1))
+        p.kill()
+        p.wait(timeout=30)
+        if word_pid:   # the filter makes taskkill a no-op on any process that is not Word
+            subprocess.run(["taskkill", "/F", "/PID", str(word_pid), "/FI", "IMAGENAME eq WINWORD.EXE"],
+                           capture_output=True)
+        print(f"  layout    : Word stopped answering ({silence // 60} min without progress) - "
+              f"stopped it{', trying once more' if attempt == 1 else ''}")
+    return subprocess.CompletedProcess(cmd, 1, "".join(lines), "Word stopped answering on both tries")
+
+
 # word_layout.ps1 -Mode measure output version: 2 since 16 Oct 2026 (each paragraph's page is its
 # first line's, as its top is; end_page is its last line's). An older cache is measured again.
 MEASURE_VERSION = 2
@@ -364,7 +408,7 @@ def blank_measure_for(template):
     if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
         return out
     print(f"  measuring : the blank's layout through Word (first run for this blank, ~3 min) -> {out.name}")
-    r = run_ps("word_layout.ps1", "-Mode", "measure", "-Docx", template, "-Out", out)
+    r = run_layout("-Mode", "measure", "-Docx", template, "-Out", out)
     if r.returncode != 0 or not out.exists():
         print(f"  MEASURE FAILED: {(r.stderr or r.stdout).strip()[:300]}")
         return None
@@ -590,7 +634,7 @@ def main():
                 return True
 
             def do_layout():
-                r = run_ps("word_layout.ps1", "-Mode", "align", "-Docx", doc, "-Plan", plan,
+                r = run_layout("-Mode", "align", "-Docx", doc, "-Plan", plan,
                            "-Out", workdir / "layout_align.json")
                 for line in (r.stdout or "").splitlines():
                     if line.strip():

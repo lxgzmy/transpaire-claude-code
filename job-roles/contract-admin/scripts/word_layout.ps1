@@ -161,6 +161,10 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
         if ($res.kind -eq 'pair') {
             $delta = (Flow (Pos $rp) $usable) - (Flow (Pos $lp) $usable)   # + : label sits above its wording
             if ([math]::Abs($delta) -le $tol) { break }
+            # a label more than a page from its wording is the wrong paragraph, not a gap to pad: padding
+            # it filled seven empty pages before the gate caught it (26059, 30 Oct 2026). Left as it is,
+            # the step stays OFF and the gate fails the document at once
+            if ([math]::Abs($delta) -gt $usable) { $actions += 'MISMATCH - over a page from its wording, not padded'; break }
             $first = Block-First $lp
             if (-not $res.pin -and $delta -lt 0 -and $first.Range.Start -ne $lp.Paragraphs.Item(1).Range.Start) {
                 # a heading glued above this label (section 18's) starts a page, with the wording above
@@ -464,6 +468,7 @@ function Get-CellParas($cell) {
             page = $(($q = Pos $r).page); top = [math]::Round($q.top, 2); end_page = (End-Page $r)
         })
         $i++
+        if ($i % 100 -eq 0) { Say "    $i paragraphs" }   # the watchdog's heartbeat (Write-Host: not returned)
     }
     return $out
 }
@@ -580,6 +585,8 @@ function Doc-Facts($doc, $lc, $rc) {
 $word = $null
 try {
     $word = Start-Word
+    # draft_contract.py's watchdog reads this line: it stops this Word, and only this one, if the pass hangs
+    Say "word pid $($script:WordPid)"
     # a UNC path opens in Protected View and Documents.Open returns nothing (Drive-Path)
     $src = Drive-Path (Resolve-Path -LiteralPath $Docx).Path
     $doc = $word.Documents.Open($src, $false, ($Mode -ne 'align'))
@@ -664,7 +671,7 @@ try {
                 if ($resObj._lp -ne $null) { $lastL = $resObj._lp.End }
                 $resObj.actions = ($actions -join ', ')
                 $results.Add($resObj)
-                if ($stepNo % 20 -eq 0) { Say "  step $stepNo/$($steps.Count)" }
+                if ($stepNo % 10 -eq 0) { Say "  step $stepNo/$($steps.Count)" }   # the watchdog's heartbeat
             }
             Say "steps done - verifying"
             # verification pass: final positions after all edits; a later step's padding
