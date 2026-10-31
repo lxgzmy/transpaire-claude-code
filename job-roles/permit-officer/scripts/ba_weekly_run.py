@@ -116,16 +116,24 @@ def restart_state(state_dir, label):
     return moved
 
 
-def deliver(files, drop, force=False):
-    """Copy the draft and its note into the drop folder; never overwrite a different file there unless forced."""
-    clashes = [f for f in files if (Path(drop) / f.name).exists()
-               and not filecmp.cmp(f, Path(drop) / f.name, shallow=False)]
-    if clashes and not force:
-        raise RunError("the drop folder already has " + ", ".join(f.name for f in clashes) +
-                       " and it differs (the officer may have started on it); nothing was delivered. "
-                       "Re-run with --force only once you know it can be replaced.")
+def deliver(files, drop, kept, force=False):
+    """Copy the draft and its note into the drop folder, and keep a copy of each in ``kept``.
+
+    A file already in the drop folder is replaced only when it is still exactly what was delivered
+    last time (a re-run of the same Monday before she opened it). One she has changed is never
+    overwritten unless forced."""
+    def untouched(f):
+        there, ours = Path(drop) / f.name, Path(kept) / f.name
+        return (not there.exists() or filecmp.cmp(f, there, shallow=False)
+                or (ours.exists() and filecmp.cmp(there, ours, shallow=False)))
+    changed = [f for f in files if not untouched(f)]
+    if changed and not force:
+        raise RunError("the drop folder already has " + ", ".join(f.name for f in changed) +
+                       " and it has been changed since it was delivered (the officer may be working on it); "
+                       "nothing was delivered. Re-run with --force only once you know it can be replaced.")
     for f in files:
         copy_in(f, Path(drop) / f.name)
+        copy_in(f, Path(kept) / f.name)
     return [Path(drop) / f.name for f in files]
 
 
@@ -164,9 +172,8 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
     draft, ev_md, evidence = build_draft(base, snap_dir, outputs, asof=asof.isoformat(), state_dir=state,
                                          jobs=jobs, edited=edited if use_edits else None,
                                          drafted=drafted if use_edits else None)
-    delivered = deliver([Path(draft), Path(ev_md)], drop, force=force)
-    # Next week her edits are read against exactly what she was given, even if this Monday is re-run.
-    copy_in(Path(draft), outputs / "delivered" / Path(draft).name)
+    # The kept copy is what next week's read-back compares her edits with, even if this Monday is re-run.
+    delivered = deliver([Path(draft), Path(ev_md)], drop, outputs / "delivered", force=force)
     return {"plan": plan, "moved": moved, "draft": draft, "evidence": evidence, "delivered": delivered}
 
 

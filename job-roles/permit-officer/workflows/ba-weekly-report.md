@@ -68,9 +68,10 @@ python job-roles\permit-officer\scripts\ba_weekly_run.py
 It does steps 0 to 2 below and delivers the draft and its evidence note to
 the drop folder. It stops, with nothing half done, when last week's export
 is not in the archive yet (it never falls back to an older one), when the
-snapshot fails, or when the drop folder already holds a different draft for
-that Monday (she may have started on it; `--force` only once you know it can
-go). It keeps a copy of what it delivered in `outputs\delivered\`, so next
+snapshot fails, or when the draft for that Monday in the drop folder has been
+changed since it was delivered (she may be working on it; `--force` only once
+you know it can go). Re-running a Monday is fine while the draft there is
+still exactly what was delivered. It keeps a copy of what it delivered in `outputs\delivered\`, so next
 week her edits are read against exactly what she was given. The steps, for
 reference or to run by hand:
 
