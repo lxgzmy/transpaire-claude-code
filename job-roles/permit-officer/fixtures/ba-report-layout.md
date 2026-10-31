@@ -50,7 +50,7 @@ them to their own rows.
 | F | Days outstanding | NSW business days (a number); blank while not yet submitted |
 | G | Flag | `YELLOW`, `RED`, `NOT SUBMITTED` or `RESOLVED` |
 | H | Notes | **the officer's own**: carried week to week exactly as she typed it, until she changes or clears it |
-| I | Draft notes | the draft's: why the row needs eyes ("date submitted assumed — please correct", "verify"), the evidence, the item's limit (for engineering, with its stage: "limit 15 business days (design, with the engineer)", PO-11c); rewritten every run |
+| I | Draft notes | the draft's: first, what changed since the draft she checked ("new this week", "since last week: now RED (was YELLOW)", "after your change" when it follows her own edit, "no change since last week"; nothing in a draft with no earlier one to compare); then why the row needs eyes ("date submitted assumed — please correct", "verify"), the evidence, the item's limit (for engineering, with its stage: "limit 15 business days (design, with the engineer)", PO-11c); a day count in her Notes that differs from that limit; rewritten every run |
 
 Rows are in main-sheet order: pending items first (in PENDING order), then
 engineering and covenant when they are tracked from their columns but not

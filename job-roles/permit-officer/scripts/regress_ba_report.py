@@ -55,12 +55,18 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      engineer designs it, 10 in Transpire's internal review; the stage from
      who she says has it, else the columns, else OSC, else the stricter; her
      values for one stage are not carried into the next
+ 22. fewer silent misses and a quicker check: what changed on each row since the
+     draft she checked; a day count in her note that differs from the limit;
+     her Save As copy found; an open or untouched draft said; the delivered
+     draft read back; the snapshot's retries and side-by-side reads
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -72,7 +78,7 @@ import xlsx_min
 from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, family_of,
                              load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
-from ba_weekly_run import RunError, find_base, run
+from ba_weekly_run import VENV_PYTHON, RunError, find_base, find_last_draft, run, verify_delivered
 from compare_ba_report import compare
 from nsw_holidays import business_days, covers, sydney_date
 
@@ -745,9 +751,129 @@ def weekly_run_checks(tmp, check):
     check("run: --dry-run changes nothing", plan.get("dry_run") and (drop / name2).read_bytes() == before)
 
 
+def hardening_checks(tmp, check, snapshot_tests=None):
+    """22. Fewer silent misses, and a quicker check for her: each row says what changed since the draft
+    she checked; a day count in her note that differs from the row's limit is raised; her Save As copy
+    is found; an open or untouched draft is said; the delivered draft is read back; the snapshot's
+    retries and side-by-side reads (under the osc-api environment, when this checkout has it)."""
+    def week(base_name, asof, g, edited=None):
+        base = tmp / base_name
+        xlsx_min.write_xlsx(base, [[(h, xlsx_min.S_HEADER) for h in HEADER],
+                                   row16("90061", "Lot 61, 61 Sample Road, NOWHERE NSW 0000", serial("2026-07-01"),
+                                         serial("2026-07-20"), "", g)])
+        snaps.mkdir(exist_ok=True)
+        (snaps / "90061.json").write_text(json.dumps({"retrievedAtUtc": f"{asof}T00:00:00Z", "contractNumber": "90061",
+                                                      "activities": [], "alerts": [],
+                                                      "documents": [doc(1, "ENERGY EFFICIENCY REQUEST", "2026-10-12")]}),
+                                          encoding="utf-8")
+        draft, _, ev = build_draft(base, snaps, tmp / "out-aids", asof=asof, state_dir=tmp / "state-aids",
+                                   jobs=["90061"], edited=edited)
+        return draft, ev["jobs"][0]
+
+    snaps = tmp / "snaps-aids"
+    d1, _ = week("BA REPORT - 19.10.2026.xlsx", "2026-10-26",
+                 "PENDING S68 APPLICATION, DRIVEWAY APPLICATION, SEW EJECTION PUMP APPROVAL, ENERGY REPORT")
+    rows1 = items_rows(d1)
+    check("aids: the first draft has nothing to compare with, so no change notes",
+          not any("last week" in str(r.get("Draft notes")) for r in rows1.values()), str(rows1))
+    e1 = tmp / "BA REPORT DRAFT - 26.10.2026 (officer-edited).xlsx"
+    edit_draft(d1, e1, {("90061", "S68 APPLICATION"): {"D": "12/10/2026", "H": "council says 20 days for this one"},
+                        ("90061", "DRIVEWAY APPLICATION"): {"D": "01/09/2026", "H": "council usually 30 days"}})
+    d2, j2 = week("BA REPORT - 26.10.2026.xlsx", "2026-11-02", "PENDING S68 APPLICATION, DRIVEWAY APPLICATION, "
+                  "SEWER EJECTION PUMP APPROVAL, ENERGY REPORT, WATER METER APPLICATION", edited=e1)
+    rows2 = items_rows(d2)
+    notes = {item: str(rows2[("90061", item)]["Draft notes"])
+             for item in ("S68 APPLICATION", "DRIVEWAY APPLICATION", "WATER METER APPLICATION",
+                          "SEWER EJECTION PUMP APPROVAL", "ENERGY REPORT")}
+    check("aids: each row says what changed since the draft she checked, or that nothing did",
+          notes["WATER METER APPLICATION"].startswith("new this week")
+          and notes["ENERGY REPORT"].startswith("since last week: now RED (was YELLOW);")
+          and notes["S68 APPLICATION"].startswith("no change since last week"), str(notes))
+    check("aids: a change that follows her own edit says so; an item renamed on her report is not new",
+          notes["DRIVEWAY APPLICATION"].startswith("since last week: now RED (was YELLOW) after your change")
+          and notes["SEWER EJECTION PUMP APPROVAL"].startswith("no change since last week"), str(notes))
+    check("aids: a day count in her note that differs from the limit is raised, a matching one is not",
+          "your note mentions 20 days but this row uses 30" in notes["S68 APPLICATION"]
+          and "your note mentions" not in notes["DRIVEWAY APPLICATION"]
+          and any("her note mentions 20 days" in f for f in j2["flags"]), str(notes))
+
+    archive, drop, rt = tmp / "archive-h", tmp / "drop-h", tmp / "rt-h"
+    for d in (archive, drop):
+        d.mkdir()
+    synth_prev_report(archive / "BA REPORT - 19.10.2026.xlsx")
+    synth_prev_report(archive / "BA REPORT - 26.10.2026.xlsx")
+
+    def fake_snapshot(folder, jobs):
+        folder.mkdir(parents=True, exist_ok=True)
+        snap = synth_snapshot_90002()
+        snap["retrievedAtUtc"] = "2026-10-26T00:00:00Z"
+        (folder / "90002.json").write_text(json.dumps(snap), encoding="utf-8")
+
+    first = run(date(2026, 10, 26), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    check("run: the delivered draft is read back, and the run says how long each step took",
+          first["checked"][0] == len(base_rows()) and first["checked"][1] > 0
+          and list(first["took"]) == ["snapshot", "draft", "delivery"], str(first.get("checked")))
+    name = "BA REPORT DRAFT - 26.10.2026.xlsx"
+    _, _, said = find_last_draft(drop, rt / "outputs", date(2026, 11, 2))
+    check("run: a draft she left untouched is said, not passed over",
+          any("exactly as delivered" in n for n in said), str(said))
+    copy = "BA REPORT DRAFT - 26.10.2026 GR.xlsx"   # her Save As; the draft itself stays as delivered
+    edit_draft(drop / name, drop / copy, {("90002", "ENERGY REPORT"): {"C": "Synthetic Assessor"}})
+    (drop / f"~${name}").write_bytes(b"lock")
+    edited, _, said = find_last_draft(drop, rt / "outputs", date(2026, 11, 2))
+    check("run: her Save As copy is read when the draft itself is untouched; a draft open in Excel is said",
+          edited.name == copy and any(f"read from {copy}" in n for n in said)
+          and any("open in Excel" in n for n in said), str(said))
+    second = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    j90002 = next(j for j in second["evidence"]["jobs"] if j["job_no"] == "90002")
+    en = {i["name"]: i for i in j90002["outstanding"]}.get("ENERGY REPORT", {})
+    check("run: what she typed in her Save As copy reaches the next draft",
+          en.get("assigned_to") == "Synthetic Assessor"
+          and (rt / "reports" / name.replace(".xlsx", " (officer-edited).xlsx")).exists(), str(en))
+    name2 = "BA REPORT DRAFT - 02.11.2026.xlsx"
+    run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot,
+        restart="week1")
+    plan = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, dry_run=True,
+               restart="week1")["plan"]
+    try:
+        run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, restart="week1",
+            snapshot=lambda *a: check("run: a restart already done stops before the snapshot", False, "snapshot ran"))
+        check("run: a restart already done stops before the snapshot", False, "no error")
+    except RunError as exc:
+        check("run: a restart already done stops before the snapshot, saying so plainly",
+              "has already been done" in str(exc) and any("already in the drop folder" in ln for ln in plan)
+              and any(ln.startswith("would stop: --restart week1") for ln in plan), str(exc))
+    bad = tmp / "not-the-draft.xlsx"
+    edit_draft(drop / name2, bad, {("90002", "ENERGY REPORT"): {"C": "someone else"}})
+    try:
+        verify_delivered(rt / "outputs" / name2, bad, archive / "BA REPORT - 26.10.2026.xlsx")
+        check("run: a drop-folder copy that is not the draft written is caught", False, "no error")
+    except RunError as exc:
+        check("run: a drop-folder copy that is not the draft written is caught", "not the draft" in str(exc))
+
+    if snapshot_tests:  # started at the beginning, under the osc-api environment
+        out, err = snapshot_tests.communicate()
+        check("snapshot: a passing network fault is retried, a real error stops at once, jobs read side by side",
+              snapshot_tests.returncode == 0, (out + err)[-600:])
+    else:
+        print("SKIP  snapshot retries (no osc-api virtual environment in this checkout)")
+
+
 def main():
-    tmp = Path(tempfile.mkdtemp(prefix="ba-regress-"))
+    # On the server the system temp folder is on C:, where nothing of the project's may be written;
+    # the checkout's git-ignored runtime folder takes the scratch files instead (a dev clone without
+    # one uses the system's).
+    runtime = Path(os.path.abspath(__file__)).parents[3] / "runtime"
+    scratch = runtime / "shared" / "tmp" if runtime.is_dir() else None
+    if scratch:
+        scratch.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix="ba-regress-", dir=scratch))
     failures = []
+    # The snapshot's own tests need the osc-api environment; they run beside everything else.
+    snapshot_tests = subprocess.Popen(
+        [str(VENV_PYTHON), str(Path(os.path.abspath(__file__)).parent / "test_osc_snapshot.py")],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+        errors="replace") if VENV_PYTHON.exists() else None
 
     def check(name, cond, detail=""):
         print(("PASS  " if cond else "FAIL  ") + name + (f" — {detail}" if detail and not cond else ""))
@@ -1125,6 +1251,7 @@ def main():
         review_v04_checks(tmp, check)
         engineering_stage_checks(tmp, check)
         weekly_run_checks(tmp, check)
+        hardening_checks(tmp, check, snapshot_tests)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
