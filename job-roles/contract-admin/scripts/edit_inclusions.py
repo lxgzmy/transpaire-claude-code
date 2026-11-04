@@ -841,6 +841,39 @@ def hygiene(xml, log):
     return xml
 
 
+CLOSING_RE = re.compile(r"(</w:tbl>\s*)(<w:p\b(?:(?!<w:p\b).)*?</w:p>)(\s*<w:sectPr\b(?:(?!</w:sectPr>).)*</w:sectPr>\s*</w:body>)", re.S)
+
+
+def shrink_closing_paragraph(xml, log):
+    """The document's closing paragraph, after the last page's signature table, set to 1 pt.
+
+    Word needs a paragraph after a table that ends the document; the SEQ blanks
+    type it at 16 pt. When a long owner name wraps on the signature table's
+    "Name of Owner 1:" line (a company trust - 26039, 4 Nov 2026), the table
+    fills the page and that empty 16 pt line lands on a page of its own (an
+    empty page, sheet row 12). Blank paragraph only - no text changes.
+    """
+    m = CLOSING_RE.search(xml)
+    if not m or not is_blank(m.group(2)):
+        return xml
+    p = m.group(2)
+    ppr = re.search(r"<w:pPr>.*?</w:pPr>", p, re.S)
+    ppr_xml = ppr.group(0) if ppr else "<w:pPr></w:pPr>"
+    tiny = '<w:sz w:val="2"/><w:szCs w:val="2"/>'
+    ppr_xml = re.sub(r"<w:spacing\b[^>]*/>", "", ppr_xml)
+    ppr_xml = ppr_xml.replace("<w:pPr>", '<w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>', 1)
+    mark = re.search(r"<w:rPr>.*?</w:rPr>", ppr_xml, re.S)
+    if mark:
+        rpr = re.sub(r"<w:szCs?\b[^>]*/>", "", mark.group(0)).replace("</w:rPr>", tiny + "</w:rPr>")
+        ppr_xml = ppr_xml[:mark.start()] + rpr + ppr_xml[mark.end():]
+    else:
+        ppr_xml = ppr_xml.replace("</w:pPr>", f"<w:rPr>{tiny}</w:rPr></w:pPr>")
+    new_p = p[:ppr.start()] + ppr_xml + p[ppr.end():] if ppr else re.sub(r"(<w:p\b[^>]*>)", r"\1" + ppr_xml, p, 1)
+    log.append("closing para  : the empty paragraph after the last page's signature table set to 1 pt, "
+               "so a wrapped owner name cannot push it onto an empty page (sheet row 12)")
+    return xml[:m.start(2)] + new_p + xml[m.end(2):]
+
+
 def texts(paras):
     return [norm(ptext(p)) for p in paras if not is_blank(p)]
 
@@ -1055,6 +1088,7 @@ def main():
 
     xml = cols.rebuild()
     xml = hygiene(xml, log)
+    xml = shrink_closing_paragraph(xml, log)
     after = Columns(xml)
     if after.outside_text() != outside_before:
         print("REFUSED: text outside the body table changed - nothing written.")
