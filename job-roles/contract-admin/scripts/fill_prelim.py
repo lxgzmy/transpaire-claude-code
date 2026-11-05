@@ -537,6 +537,12 @@ def main():
     args = ap.parse_args()
 
     values = json.loads(Path(args.job).read_text(encoding="utf-8"))
+    # the site's house number in brackets, as the inclusions and the build
+    # contract type it (feedback sheet 5 Nov 2026 row 7; the agreement is NSW)
+    import street_format
+    values, street_notes = street_format.bracket_job(values)
+    for note in street_notes:
+        print(f"NOTE: {note}")
 
     if "PRELIMINARY AGREEMENT" not in Path(args.template).name.upper():
         print(f"ERROR: {Path(args.template).name} does not look like the "

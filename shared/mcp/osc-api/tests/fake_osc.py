@@ -60,9 +60,12 @@ class FakeOSC:
         self.template = _id()
         self.templates = [{"workflowTemplateID": self.template, "name": "1.1 - Pre Sales Investor v1"}]
         self.f_sp, self.f_design, self.f_facade = _id(), _id(), _id()
+        self.f_legal_phone = _id()
         self.job_fields = [{"customFieldID": self.f_sp, "label": "SP No.", "valueType": "Text"},
                            {"customFieldID": self.f_design, "label": "Design", "valueType": "Text"},
-                           {"customFieldID": self.f_facade, "label": "Facade", "valueType": "Text"}]
+                           {"customFieldID": self.f_facade, "label": "Facade", "valueType": "Text"},
+                           {"customFieldID": self.f_legal_phone, "label": "Legal Reps Phone No.",
+                            "valueType": "Text"}]
         self.person_fields: list[dict] = []
         self.methods = [{"contactDetailsPrimaryCommunicationMethodID": 1, "description": "Phone"},
                         {"contactDetailsPrimaryCommunicationMethodID": 2, "description": "Email"}]

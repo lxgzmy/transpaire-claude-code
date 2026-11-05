@@ -22,6 +22,9 @@ Checks (NSW inclusions feedback sheet 9.9, issue #35):
   site box  the address is typed in the box under "located at;", the same in
             both of Word's copies, and nothing after the sentence itself - a
             flat-text read cannot tell the two apart (SEQ blank 1, 31 Oct 2026)
+  items     the upgraded section(s): no wording line twice under one label,
+            exactly one blank line between items (CD-9.6; feedback sheet
+            5 Nov 2026 rows 14-15, job 26039)
 
 The measurement comes from word_layout.ps1 (the align report carries one under
 "measure"; a plain measure JSON is accepted too). Exit 0 = PASS, 1 = FAIL.
@@ -308,6 +311,15 @@ def check_signature_lines(docx, out, family="sydney"):
             problems.append(f"{label} line lacks tab stops {t_name}/{t_date}")
         body = text[len(label):text.index("Date:")].replace("\u2026", "").replace(".", "")
         tabs_in = p.count("<w:tab/>")
+        if label == "Name of Owner 1:" and "<w:br/>" in p and "on behalf of" in text:
+            # a company owner (feedback sheet 5 Nov 2026 row 16): name at the name
+            # stop, the signer's line under it, Date: on a line of its own taken
+            # past the name stop to the Date: stop by two tabs
+            first, last = p.split("<w:br/>")[0], p.split("<w:br/>")[-1]
+            if first.count("<w:tab/>") != 1 or last.count("<w:tab/>") != 2 or "Date:" not in rt(last):
+                problems.append("Name of Owner 1: (company) needs one tab before the name and Date: on its "
+                                "own line after two tabs")
+            continue
         if label == "Builders Representative:":
             if not text[len(label):].startswith(" ") or tabs_in != 1:
                 problems.append("Builders Representative: name must follow the label directly, one tab before Date:")
@@ -331,6 +343,45 @@ def check_signature_lines(docx, out, family="sydney"):
         out.append(f"page 13  : {seen} signature lines on tab stops - names at {t_name} twips "
                    f"(the builder label's measured width), every Date: at {t_date} twips")
     return ok
+
+
+def check_upgrade_items(docx, out, family="sydney"):
+    """The upgraded section(s) read as the team writes them: no wording line twice
+    under one label, and one blank line between items (CD-9.6). Job 26039 shipped
+    the September promotion's Plumbing and Electrical lines twice and two blank
+    lines after Plumbing (feedback sheet 5 Nov 2026 rows 14-15); the word-diff
+    against the real document showed both, but nothing failed on them."""
+    import edit_inclusions as E
+    if family not in E.FAMILY_RULES:
+        out.append(f"items    : not checked - no upgraded-section rules for the {family} family")
+        return True
+    E.use_family(family)
+    with zipfile.ZipFile(docx) as z:
+        cols = E.Columns(z.read("word/document.xml").decode("utf-8"))
+    try:
+        secs = E.upgraded_sections(cols)
+    except SystemExit as e:
+        out.append(f"items    : FAIL - the upgraded section cannot be read ({e})")
+        return False
+    problems = []
+    for sec in secs:
+        for n, (s, e) in enumerate(sec["groups"]):
+            seen = set()
+            for k in range(s, e):
+                t = norm(E.ptext(cols.right[k])).lower()
+                if t in seen:
+                    lab = norm(E.ptext(cols.left[sec["labels"][n]])) if n < len(sec["labels"]) else "?"
+                    problems.append(f"{lab!r} repeats {norm(E.ptext(cols.right[k]))[:50]!r}")
+                seen.add(t)
+    for heading, label, s, e in E.item_gaps(cols):
+        if e - s != 1:
+            problems.append(f"{e - s} blank lines after {label!r} in {heading}")
+    if problems:
+        out.append("items    : FAIL - " + "; ".join(problems) + " (CD-9.6)")
+        return False
+    out.append(f"items    : {sum(len(s['groups']) for s in secs)} item(s) in "
+               f"{' / '.join(s['heading'] for s in secs)}, no line repeated, one blank line between items")
+    return True
 
 
 def check_site_box(docx, out):
@@ -390,6 +441,7 @@ def main():
     results.append(check_section18(measure, out))
     results.append(check_signature_lines(args.docx, out, args.family))
     results.append(check_site_box(args.docx, out))
+    results.append(check_upgrade_items(args.docx, out, args.family))
     results.append(check_footer_total(args.docx, out))
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"

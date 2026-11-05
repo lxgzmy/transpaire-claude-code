@@ -278,7 +278,7 @@ once per field:
 | Stage | One confirmation covers | When |
 |---|---|---|
 | 1. New client and job | the client (unless a verified existing one is reused) and the job, the job taking `"clientID": "{{1.clientID}}"` | New intake, after the duplicate search |
-| 2. Set up the job | job details and custom fields, including the intake defaults on every field still empty (Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94; a value OSC already holds is never overwritten); purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete, activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
+| 2. Set up the job | job details and custom fields, including the intake defaults on every field still empty (Design Type from the storeys, Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94 and the 5 Nov 2026 sheet; a value OSC already holds is never overwritten), every phone number 4-3-3 (`0290 000 000`), the client's address in its `workAddress`; purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete, activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
 | 3. DataBuild done | activity 6's eight answers, all `Complete`, and its completion | When the person answers yes to *"Is the job in DataBuild yet?"*. Never ask for DataBuild details |
 
 1. `osc_prepare_changes(job_id, changes)` with the stage's changes in order
@@ -401,7 +401,7 @@ unsourceable value stays `""` and is flagged, never guessed:
 | Key | Format — follow it exactly | Source |
 |---|---|---|
 | `lot_no` | digits only: `"143"` | Subject + EOI |
-| `street` | keeps the house number in brackets when the job folder does: `"(3) Pioneer Close"` | Job folder name (CD-2.2) |
+| `street` | the street as the request / plans give it; on NSW the fillers bracket a single leading house number in every document (`"(3) Sample Close"`, CD-2.2, feedback sheet 5 Nov 2026 row 7) - write it bare or bracketed, the documents come out alike | Request / job folder / plans (CD-2.2) |
 | `suburb` | `"SUBURB STATE"` in CAPS: `"WESTDALE NSW"` | EOI / subject (CD-2.3) |
 | `estate` | SEQ: when the job-folder name carries a bracketed estate (`(FORESTONE ESTATE)`, `(SOMERFIELD WEST)`), fill it in title case as the **most recently contracted** completed neighbour spells it (`"Forestone Estate"`, `"Somerfield West"`) — older neighbours may be blank, recency wins (observed 26038/26050/26051 vs 26033/26034). No estate in the folder name (infill like 26053) → `""`. An unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"` (CD-2.4) | Job folder name + most recent completed neighbour |
 | `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2) | Email "Design:" |
@@ -411,9 +411,10 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). The GST-inclusive contract price: on NSW the build contract's item 2 and progress schedule are worked from it (CD-5.4). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
 | `amendments` | only when the request marks a contract change approved **on its own line** (CD-10). One object per change: `{"id": "A1", "kind": "schedule", "field": "interest_rate", "from": "15%", "to": "12%", "request_line": "<the line, verbatim>"}`, `{"kind": "strike_clause", "clause": 14, "title": "Hidden Site Conditions", "request_line": ...}` (NSW), `{"kind": "prelim_words", "clause": 4, "expect": "<the new paragraph exactly as the request quotes it>", "request_line": ...}`. Copy, never paraphrase: the scripts refuse a line or paragraph they cannot find word for word in `email*.txt` | Email |
 | `amendments_for_person` | every other contract change the request asks for, verbatim: no approval marker, a new clause or special condition, rewording, any other schedule item. Reported, never applied (CD-10.6) | Email |
+| `price_validity_line` / `price_valid_until` | NSW only: the request's price-validity line verbatim ("Price Validity: Fixed until Q1 2027") and the date it fixes, ISO (`"2027-03-31"`). A quarter is written as its last day and the run flags it TO CONFIRM - the drive shows no one day per quarter. The build contract's Special Conditions clause 1 then reads "up to and including 31st March 2027." (CD-10.7, feedback sheet 5 Nov 2026 row 6); the line must be in the saved request text word for word. A request with no validity line: leave both out | Email |
 | `deposit_request` | only when the request asks for a deposit other than 10%: an amount (`"25,000.00"`) or `"5%"`. Lower than 10% goes into item 2(b) with a flag; higher is refused (CD-5.4) | Email |
 | `owner_1`, `owner_2` | `"First name Middle name SURNAME"` — the middle name is included whenever the client ID shows one, and it is usually absent from the email, so read it off the licence/passport (CD-3.1, team-confirmed 28 Aug 2026). Single owner → `owner_2: ""`. **Three or more owners:** key `owner_3` too — the **preliminary agreement** takes it natively (9.1 round, 4 Sep 2026: third name joins the client row, which keeps `("Client")` for three per the sheet + manual 26011, and the second signing row is cloned for the third name). The **inclusions and build contract** still fill owner_1/owner_2 only — FLAG the rest there (the one observed job hand-repurposed the witness rows into "Name of Owner 3", a template-wording edit a person makes, CD-3.8) | EOI (CD-0.2); ID confirms spelling and the middle name (CD-0.3) |
-| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"VWJJ INVESTMENT No.1 PTY LTD ATF WANG AND LIU No.1 FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 693 135 572"`). On the **preliminary agreement**, a sourced `company_signatory` key (the person named by the signed land contract) types the page-3 signing line as `<signatory>` ⏎ `on behalf of <owners incl. ABN/ACN>` and relabels that row `Client Name / Company` (9.1 round, CD-4.5); on the **inclusions/build contract** the signer line ("<Director> on behalf of ...") stays typed by a person at signing, never filled (observed 26039) | EOI / signed land contract |
+| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 600 000 000"`). Every document then names the company WITH its ACN, sized to its line. Set `company_signatory` (`"Firstname SURNAME"`) to the guarantor the land contract's *Guarantee and Indemnity (If Company or Trustee Buyer)* page names - read that page off the rendered PDF, its text layer is a shifted font - and the same person as `guarantor_name`. The preliminary agreement types `<signatory>` ⏎ `on behalf of <owners incl. ABN/ACN>` (CD-4.5); the inclusions put `<signatory> on behalf of <company> ACN: ...` under every `Name of Owner 1:` line and the build contract under the owner's signature NAME and the QLD guide NAME(S) (feedback sheet 5 Nov 2026 rows 8, 12, 16 - until then a person typed it at signing). No signatory named: leave the key out; the line is flagged for a person | EOI / signed land contract (its guarantee page) |
 | `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026) | Job folder + lookup |
 | `builders_rep` | `"Michael CRONK"` (CD-3.5) | Manual |
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
@@ -546,19 +547,26 @@ Part B's `deposit` (its first row: QC2 has no item 2 deposit),
 `progress_1`..`progress_5` (BASE, FRAME, ENCLOSED, FIXING, PRACTICAL
 COMPLETION) and `progress_total`, with `figures_source` saying where they
 came from (below); any
-amount types as `$nnn,nnn.nn` however it is keyed; and `guarantor_name`/
+amount types as `$nnn,nnn.nn` however it is keyed, padded after the `$` so
+each column lines up on its digits (CD-5.4); and `guarantor_name`/
 `guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`
-only when a signed source names them (these also complete the deed's
-BUILDER IS / OWNER IS lines; the deed date is never filled). Region
+only when a signed source names them - for a company buyer, the land
+contract's guarantee page (CD-3.9). They also complete the deed's BUILDER IS
+(`Transpire Constructions Pty Ltd`) / OWNER IS (the company with its ACN)
+lines; a guarantor with no address of their own there takes the buyer's,
+flagged; the deed date is never filled. Region
 specifics: NSW types `builders_rep` on the Builder NAME line (executed
 contracts all key Michael CRONK there) and the Attachment A checklist owner
 names; QLD types the Consumer Building Guide acknowledgement NAME(S) on both
 copies (executed 25163 keys the owner at each) and leaves the builder line
 alone — the QLD build ships it prefilled (Michael CRONK); the owner's
 signature NAME types at that name's x and size so the two line up (27 Oct
-2026 review). The QLD build also
-prefills a 210-day building period — the data sheet still carries the job's
-CD-5.5 period for the reviewer to check against it.
+2026 review). The QLD build
+prefills a 210-day building period; the fill writes the team's figure from
+`storeys` (top level, or `upgrades.storeys`) and `house_size`: single storey
+210, double storey under 300 m² 240, over 300 m² 260 (CD-5.5, feedback sheet
+5 Nov 2026 row 11). Unknown storeys, a double storey without a house size,
+or exactly 300 m² keep 210 with a flag.
 `--no-build-contract` skips the stage.
 
 **QLD contract figures (27 Oct 2026 review of job 26059, reversing issue
@@ -735,8 +743,9 @@ agreement" seen at 26053 is a different document this skill does not produce):
 ### 6. Draft the build contract data sheet
 
 The values a person needs to key into the contract (CD-5): cover page (owners,
-job, lot, site), the building period in contract days (single storey 180,
-single-storey duplex 210, double storey 210, double-storey duplex 240 — CD-5.5),
+job, lot, site), the building period in contract days (NSW per the manual:
+single storey 180, single-storey duplex 210, double storey 210, double-storey
+duplex 240; QLD per the team: 210 / 240 under 300 m² / 260 over — CD-5.5),
 and the land details. Contract price excluding GST, GST, total, deposit and
 the Part B progress payment schedule: on NSW, copy the `contract figures`
 block from `fill_buildcontract.txt` (worked from the request price, CD-5.4)

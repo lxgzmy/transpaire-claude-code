@@ -141,7 +141,7 @@ contact details. Reuse only a verified match. Multiple matches require a choice.
 | Region | NSW example: resolve description `SYDNEY01`. For another region, use the EOI and live lookup, not this NSW screenshot. The lookup checked in Sep 2026 (on the frozen copy of production) uses `SEQ01`; old `SEQ1` prose is not a UUID or an instruction to invent a region. |
 | Generate Contract No | Omit `contractNumber` on new-job creation; never calculate, allocate or type a number from a neighbouring job. The schema permits omission but does not document generation behaviour. Read back the created job and require a non-empty generated number. If absent, retain the created job ID and have a person use OSC's Generate Contract No on that job; do not create again. |
 | Initial Template | Match `Pre Sales Investor v1`; the lookup verified in Sep 2026 calls it `1.1 - Pre Sales Investor v1` (re-check it live; the gate refuses a template ID OSC does not list). Accept that exact numbered label, not any template containing “Pre Sales”. If absent or ambiguous, stop before creating a client/job. |
-| Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. Populate sourced values only; empty objects are permitted by the schema where they contain no required fields. Never copy a residential address into a work address without evidence. Read nested required fields before submitting. |
+| Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. The client's address (JD-7.1) goes in `workAddress` - the address OSC shows on the client, and the one staff fill on every staff-created client (10 of 10 for jobs 26049-26058, 5 Nov 2026; `postalAddress` 0 of 10); `postalAddress` and `workContactDetails` stay empty objects. Populate sourced values only. Read nested required fields before submitting. *(Until 5 Nov 2026 this row said never to put a residential address in `workAddress`, so the run wrote `postalAddress` and the client's address showed blank: 26059 and 26060, both fixed by hand - feedback sheet 5 Nov 2026 row 4.)* |
 | Create Job | `POST /api/Jobs`: `clientID`, `regionID`, `siteAddress`, `workflowTemplateID`; optional `startDate` only if sourced. No `contractValueIncludingGst` or `contractValueExcludingGst`. |
 
 Describe both POST endpoints before use (production has no swagger on its own
@@ -230,12 +230,21 @@ their work.
 
 | Custom field | Value | Rule |
 |---|---|---|
+| `Design Type` | `Single Storey` or `Double Storey` from the job's storeys (the request, else the SA / EOI's Storey tick - an ink mark on the SA, so read it off the rendered page, not the form fields - else the plans); `Single Storey with AUX Dwelling` / `Double Storey with AUX Dwelling` only for a granny flat. The same storeys the inclusions edit uses (`upgrades.storeys`). Not known: left blank and flagged | JD-3.2 |
 | `Property Type` | `Investment`, or `Owner Occupied` when the request or EOI says the buyer will live in it | JD-3.4 |
 | `Job Notes (Reporting)` | `CONTRACT SENT, AWAITING EXECUTION` | JD-3.11 |
 | `CLAIM 1 - Stage` … `CLAIM 6 - Stage` | `Deposit`, `Base`, `Frame`, `Enclosed`, `Fixing`, `Practical Completion` | JD-3.5 |
 | `Private Certifier` | QLD `Buildable`; NSW not written | JD-3.6 |
 | `Local Council` | the web search's council in CAPITALS | JD-3.7 |
 | `Marketing Company`, `Marketer Contact Person`, `Marketers Email`, `Marketers Phone No` | from the request (company in CAPITALS, contact surname in CAPITALS) | JD-3.9 |
+
+Every phone number written to OSC - `Legal Reps Phone No.`, `Marketers Phone
+No`, a person's mobile - is an Australian number typed **4-3-3**: `0412 345
+678`, a landline `0290 000 000`, `1300 123 456`, whatever spacing the SA or
+EOI uses (JD-7.8; feedback sheet 5 Nov 2026 row 3 - the run copied the SA's
+`02 9000 0000`). All 19 Legal Reps and 19 Marketers numbers on the 32 newest
+jobs read this way. The gate warns, naming the 4-3-3 form, when a ten-digit
+Australian number is sent any other way. An overseas number stays as given.
 
 A council the search cannot settle is flagged in the report and left for a
 person. It is never skipped without a word.
@@ -351,9 +360,9 @@ Person only when no identity match exists; patch only reviewed changed values.
 | Word field | Mapping / rule |
 |---|---|
 | Client name | Client `name`, verified against ID when one is attached, otherwise as typed on the EOI (flagged); do not overwrite a shared client solely to match an email abbreviation. |
-| Client address | Client `postalAddress` and purchaser Person `personalAddress`, using sourced current residence: `line1`, blank `line2` for new records, uppercase `suburb`, `state`, `postcode`. Existing nonblank line2 is not automatically cleared. |
+| Client address | Client **`workAddress`** (JD-7.1, feedback sheet 5 Nov 2026 row 4), from the SA / EOI's current residence: the whole street line in `line1` (`15/180-182 Sample Street`), `line2` blank, `suburb` in capitals, `state`, `postcode`. On an existing client whose `workAddress` is empty, set it in stage 2; a value already there is a person's and stays. The purchaser Person's `personalAddress` carries the same address. Existing nonblank line2 is not automatically cleared. |
 | Purchaser name | Person `givenName`, `middleNames`, `surname`; surname in capitals. Include every purchaser. |
-| Mobile / email | Person `personalContactDetails.mobile` and `.email`; resolve `.contactDetailsPrimaryCommunicationMethodID` to Email. |
+| Mobile / email | Person `personalContactDetails.mobile` and `.email`; resolve `.contactDetailsPrimaryCommunicationMethodID` to Email. Every Australian number is typed **4-3-3** (`0412 345 678`; a landline `0290 000 000`; `1300 123 456`) however the source writes it - JD-7.8. An overseas number stays as given. |
 | Primary purchaser(s) | Client contact link `isPrimaryContact=true` unless the marketer's sourced instruction says otherwise. Do not infer primary/secondary from sex or names. This follows Word item 9 for this workflow instead of the legacy `JD-7.3` slots. |
 | Preferred communication / relationship | Resolve `preferredCommunicationGroupID`. Relationship as staff key it in production (the 10 newest jobs, 15 Oct 2026): purchasers `Client Contact` (OSC's default client-contact label), sales `SALES`, marketer `MARKETER_CC IN ALL EMAILS`. The manual's `MARKETER_ cc in all emails` (`JD-7.5`) is the older spelling; follow the live one. These labels do not authorise sending email. |
 | Client notes / EOI messages | The checked Clients schema has no writable notes field. Report exact sourced notes for manual entry in Client Notes. Do not claim a job message is the same field or place notes in `name`, `workUrl` or unrelated custom fields. |

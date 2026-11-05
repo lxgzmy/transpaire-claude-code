@@ -89,6 +89,19 @@ class ConfirmationTests(GateTestCase):
         self.assertEqual(len(out["confirmation_code"]), 6)
         self.assertEqual(self.fake.writes, [], "preparing must never write")
 
+    async def test_a_phone_not_in_the_433_form_is_named_with_the_form_to_send(self):
+        # feedback sheet 5 Nov 2026 row 3: staff key every Australian number 4-3-3
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "02 9000 0000"}]})
+        self.assertTrue(out["ok"], out)
+        self.assertTrue(any('"0290 000 000"' in w for w in out["warnings"]), out["warnings"])
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "0290 000 000"}]})
+        self.assertFalse(any("4-3-3" in w for w in out["warnings"]), out["warnings"])
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "+86 138 0013 8000"}]})
+        self.assertFalse(any("4-3-3" in w for w in out["warnings"]), "an overseas number is left as given")
+
     async def test_overwrite_and_clear_are_spelled_out(self):
         out = await self.prepare("PATCH", f"/api/Clients/{self.fake.client_id}",
                                  body={"postalAddress": {"line1": "2 NEW STREET", "suburb": ""}})
