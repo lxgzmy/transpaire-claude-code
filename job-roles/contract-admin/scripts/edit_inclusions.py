@@ -931,10 +931,25 @@ def shrink_closing_paragraph(xml, log):
     ppr_xml = ppr.group(0) if ppr else "<w:pPr></w:pPr>"
     tiny = '<w:sz w:val="2"/><w:szCs w:val="2"/>'
     ppr_xml = re.sub(r"<w:spacing\b[^>]*/>", "", ppr_xml)
-    ppr_xml = ppr_xml.replace("<w:pPr>", '<w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>', 1)
+    # w:spacing in its schema place: after pStyle, keepNext, tabs ...; before
+    # ind, jc and the mark's rPr
+    spacing = '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>'
+    after = re.search(r"<w:(?:ind|contextualSpacing|mirrorIndents|suppressOverlap|jc|textDirection|"
+                      r"textAlignment|textboxTightWrap|outlineLvl|divId|cnfStyle|rPr|sectPr|pPrChange)\b", ppr_xml)
+    at = after.start() if after else ppr_xml.rindex("</w:pPr>")
+    ppr_xml = ppr_xml[:at] + spacing + ppr_xml[at:]
     mark = re.search(r"<w:rPr>.*?</w:rPr>", ppr_xml, re.S)
     if mark:
-        rpr = re.sub(r"<w:szCs?\b[^>]*/>", "", mark.group(0)).replace("</w:rPr>", tiny + "</w:rPr>")
+        # the mark's own size, replaced where it stands (schema order: sz and
+        # szCs sit before u, lang ...); a mark with none gets them at the end.
+        # `<w:szCs?` matched only szC/szCs and left the 16 pt sz beside the new
+        # one - Word happened to keep the later value (5 Nov 2026 review of #106)
+        rpr = mark.group(0)
+        if re.search(r"<w:sz\b[^>]*/>", rpr):
+            rpr = re.sub(r"<w:szCs\b[^>]*/>", "", rpr)
+            rpr = re.sub(r"<w:sz\b[^>]*/>", tiny, rpr, count=1)
+        else:
+            rpr = re.sub(r"<w:szCs\b[^>]*/>", "", rpr).replace("</w:rPr>", tiny + "</w:rPr>")
         ppr_xml = ppr_xml[:mark.start()] + rpr + ppr_xml[mark.end():]
     else:
         ppr_xml = ppr_xml.replace("</w:pPr>", f"<w:rPr>{tiny}</w:rPr></w:pPr>")
