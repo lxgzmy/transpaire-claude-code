@@ -838,6 +838,17 @@ three CD-10 kinds, each approved on its own line, checked word for word
 against the saved request text, applied to a draft a person reads before it
 is issued, and reported line by line.
 
+**A run never changes the solution.** This skill is used by staff to raise
+contracts; it does not edit the scripts, rules, templates or this file, and it
+never runs `git commit`, `git push`, `git merge` or `gh pr`. When a stage fails
+(a quality-gate FAIL, an anchor missing, a script error), the document does not
+save and the run stops: tell the person in plain words what failed and on
+which job, say the developers need to look at it, and leave the workdir as it
+is for them. A fix is a developer's change on their own branch and pull
+request, never part of a contract run - even when the cause looks obvious.
+(PR #106, 4 Nov 2026, was written and opened from a staff login during a 26039
+run; the shared checkout now refuses commits and pushes from staff accounts.)
+
 **Outward acts stay human.** Never send email, never issue to DocuSign, never sign or
 initial anything, and never write to DataBuild. OSC intake changes use only
 the reviewed MCP procedure in [OSC setup](references/osc-new-contract.md):
