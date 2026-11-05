@@ -97,6 +97,11 @@ check behind it:
 - **A restart is done once.** Running a `--restart` command again stops
   before any network step and says so; leave `--restart` off to redo the
   week.
+- **No draft over the Christmas shutdown (PO-11d).** A Monday inside the
+  break stops before any network step and names the day to run (2026-27:
+  no runs on 28 December or 4 January; run on Monday 11 January 2027).
+  The first Monday back takes her last export before the break (21
+  December) as its base and reads her edits on the last draft she had.
 - **Delivery read back.** The delivered draft is compared byte for byte
   with the one written, checked to hold the base's jobs in order, and read
   back the way next Monday will read it.

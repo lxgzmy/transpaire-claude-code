@@ -718,6 +718,35 @@ def weekly_run_checks(tmp, check):
     except RunError as exc:
         check("run: an export older than a week is never used in its place", "not in the archive yet" in str(exc))
 
+    # Over the Christmas shutdown (PO-11d): no export while closed, and no draft either.
+    saved = list(nsw_holidays.SHUTDOWNS)
+    try:
+        nsw_holidays.SHUTDOWNS[:] = [(date(2026, 12, 23), date(2027, 1, 11))]
+        xmas = tmp / "archive-xmas"
+        xmas.mkdir()
+        synth_prev_report(xmas / "BA REPORT - 14.12.2026.xlsx")
+        try:
+            find_base(xmas, date(2027, 1, 11))
+            refused = False
+        except RunError:
+            refused = True
+        synth_prev_report(xmas / "BA REPORT - 21.12.2026.xlsx")
+        check("run: the first Monday back takes the last export before the break, and still refuses an older one",
+              refused and find_base(xmas, date(2027, 1, 11))[1].name == "BA REPORT - 21.12.2026.xlsx")
+        (xmas / "BA REPORT - 21.12.2026.xlsx").unlink()  # said first, even with no export before the break
+        said = []
+        for dry in (True, False):
+            try:
+                out = run(date(2027, 1, 4), ["90002"], archive=xmas, drop=drop, runtime=rt, dry_run=dry,
+                          snapshot=lambda *a: said.append("the snapshot ran"))
+                said += [ln for ln in out["plan"] if ln.startswith("would stop: 04.01.2027 falls in the Christmas")]
+            except RunError as exc:
+                said.append(str(exc))
+        check("run: a Monday in the shutdown drafts nothing and says when to run",
+              len(said) == 2 and said[1].endswith("run on Monday 11.01.2027"), str(said))
+    finally:
+        nsw_holidays.SHUTDOWNS[:] = saved
+
     def fake_snapshot(folder, jobs):
         folder.mkdir(parents=True, exist_ok=True)
         snap = synth_snapshot_90002()
@@ -1212,12 +1241,16 @@ def main():
             _, _, ev_dec = build_draft(base, folder, tmp / "out-shutdown", asof="2026-12-07", jobs=["90002"])
             check("shutdown: an unset break is in the draft's notes (and so in the Monday summary)",
                   any("2026-27 Christmas shutdown dates are not set" in n for n in ev_dec["notes"]), str(ev_dec["notes"]))
-            nsw_holidays.SHUTDOWNS[:] = [(date(2026, 12, 21), date(2027, 1, 8))]
-            check("shutdown: once set, its days are left out of the count and it is not asked for again",
+            nsw_holidays.SHUTDOWNS[:] = [(date(2026, 12, 18), date(2027, 1, 11))]
+            check("shutdown: once set, the days between her last business day and the day work resumes are left "
+                  "out of the count, and it is not asked for again",
                   business_days("2026-12-18", "2027-01-12") == 2 and business_days("2026-12-14", "2026-12-21") == 4
                   and shutdown_missing("2026-12-07") is None)
         finally:
             nsw_holidays.SHUTDOWNS[:] = saved
+        check("shutdown: each break is entered as (last business day in December, weekday work resumes in January)",
+              all(a.month == 12 and b.month == 1 and b.year == a.year + 1 and a.weekday() < 5 and b.weekday() < 5
+                  for a, b in saved), str(saved))
 
         items = parse_items("PENDING ENGINEERING (W/O CLIENT, DRAFTING), ENERGY REPORT\nS68 APPLICATION")
         check("fix: commas inside brackets and line breaks split items correctly",
