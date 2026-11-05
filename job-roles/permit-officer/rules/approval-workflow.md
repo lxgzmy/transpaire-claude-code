@@ -161,9 +161,13 @@ testable; open questions are marked ❓.
 - **PO-11d — The Christmas shutdown and what ENGINEERING covers (answered
   by the permit officer, November 2026, issue #104).** The shutdown is
   left out of the business-day count, as the industry is all but closed
-  then. Its dates go in `SHUTDOWNS` (`scripts/nsw_holidays.py`) once she
-  gives them, one pair per break; from 1 December to 31 January every
-  run says so while that break's pair is missing. ENGINEERING on her RFI
+  then. Each break goes in `SHUTDOWNS` (`scripts/nsw_holidays.py`) the way
+  she gives it: her last business day and the day work resumes; the days
+  between are closed. 2026-27: last business day Wednesday 23 December
+  2026, work resumes Monday 11 January 2027 (her email, 5 November 2026).
+  From 1 December to 31 January every run says so while that break's pair
+  is missing. No draft is made while closed; the first Monday back takes
+  the last export before the break as its base. ENGINEERING on her RFI
   list is the footing and slab design only, so the structural steel
   chain in OSC is not read for it.
 

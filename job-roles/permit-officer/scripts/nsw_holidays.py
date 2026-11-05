@@ -49,11 +49,11 @@ NSW_PUBLIC_HOLIDAYS = {
 
 LAST_YEAR = max(d.year for d in NSW_PUBLIC_HOLIDAYS)
 
-# The Christmas shutdown, left out of the count (the officer, November 2026: the industry is all but
-# closed then). One (first day closed, last day closed) pair per break, both inclusive, as she gives
-# them. Every run from 1 December to 31 January says so while that break's pair is missing.
+# The Christmas shutdown, left out of the count (PO-11d: the industry is all but closed then). One pair
+# per break in the officer's own words, (last business day, the day work resumes); the days between are
+# closed. Every run from 1 December to 31 January says so while that break's pair is missing.
 SHUTDOWNS = [
-    # 2026-27: dates asked of the officer, November 2026
+    (date(2026, 12, 23), date(2027, 1, 11)),  # 2026-27, the officer, 5 November 2026
 ]
 
 
@@ -62,9 +62,14 @@ def covers(value):
     return _to_date(value).year <= LAST_YEAR
 
 
-def in_shutdown(d):
-    d = _to_date(d)
-    return any(first <= d <= last for first, last in SHUTDOWNS)
+def reopens(value):
+    """The day work resumes, when ``value`` falls in a Christmas shutdown; else None."""
+    d = _to_date(value)
+    return next((back for last_open, back in SHUTDOWNS if last_open < d < back), None)
+
+
+def in_shutdown(value):
+    return reopens(value) is not None
 
 
 def shutdown_missing(value):

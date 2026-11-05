@@ -29,6 +29,9 @@ In order, stopping at the first problem with nothing half done:
    that name is never overwritten (she may have started on it) unless --force. The delivered draft
    is then read back the way next Monday will read it.
 
+A Monday inside the Christmas shutdown (nsw_holidays.SHUTDOWNS) drafts nothing and says when to
+run; the first Monday back takes the last export before the break as its base.
+
 Read-only on the archive; writes only under runtime\\ and the agreed drop folder.
 """
 import argparse
@@ -51,7 +54,7 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 from ba_report_draft import DraftInputError, StateError, STATE_FILE, STATE_PREVIOUS, build_draft  # noqa: E402
 from ba_report_parse import officer_edits, parse_report  # noqa: E402
-from nsw_holidays import covers  # noqa: E402
+from nsw_holidays import covers, in_shutdown, reopens  # noqa: E402
 
 RUNTIME = REPO / "runtime" / "permit-officer"
 ARCHIVE = Path(r"Z:\ADMINISTRATION\REPORTS\REPORTS\BA REPORTS")
@@ -81,12 +84,13 @@ def _dated(folder, pattern):
 
 
 def find_base(archive, asof):
-    """Her latest export dated before ``asof`` and within 7 days of it, or RunError."""
+    """Her latest export dated before ``asof`` and within 7 days of it, the Christmas shutdown not
+    counted (no export is made while the office is closed), or RunError."""
     before = [(d, p) for d, p in _dated(archive, REPORT_NAME) if d < asof]
     if not before:
         raise RunError(f"no BA report dated before {asof:%d.%m.%Y} in {archive}")
     d, p = before[-1]
-    if d < asof - timedelta(days=7):
+    if sum(not in_shutdown(d + timedelta(n)) for n in range(1, (asof - d).days + 1)) > 7:
         raise RunError(f"the newest BA report before {asof:%d.%m.%Y} is {p.name} ({(asof - d).days} days old); "
                        "last week's report is not in the archive yet, so nothing was drafted")
     return d, p
@@ -243,6 +247,14 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
     """The Monday run. ``snapshot(out_dir, jobs)`` replaces the production snapshot step in tests;
     ``gate()``, when given, is waited for after the snapshot and before anything is copied (the
     self-check); it stops the run by raising RunError."""
+    # No draft while the office is closed for Christmas (PO-11d): she would not see it until work resumes.
+    back = reopens(asof)
+    if back:
+        stop = (f"{asof:%d.%m.%Y} falls in the Christmas shutdown; nothing is drafted until work resumes, so "
+                f"run on {back:%A %d.%m.%Y}")
+        if not dry_run:
+            raise RunError(stop)
+        return {"plan": ["would stop: " + stop], "dry_run": True}
     reports, outputs, state = runtime / "reports", runtime / "outputs", runtime / "state"
     base_date, base_src = find_base(archive, asof)
     base = reports / f"BA REPORT - {base_date:%d.%m.%Y}.xlsx"
