@@ -20,7 +20,15 @@
       "mcp__docusign-demo",
       "mcp__osc-api-prod__osc_confirm_write",
       "Edit(C:/**)",
-      "Edit(C:\\**)"
+      "Edit(C:\\**)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(gh pr *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push *)",
+      "PowerShell(git merge *)",
+      "PowerShell(gh pr *)"
     ],
     "deny": [
       "mcp__osc-api__osc_token_info",

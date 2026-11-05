@@ -849,7 +849,7 @@ cabinet; and any DocuSign issue to a client.
 | Preliminary fee not stated in the request | Proceed; the standard $30,000 stands (CD-4.3) |
 | Client ID missing from the request | Note it; do not guess the name spelling |
 | Upgrade request matches no Standard Variation row | Write it as a custom item, `confidence: low`, `variation_row: null`; a person approves the wording (CD-9.10) |
-| `gate_inclusions.py` FAILs | The document does not save; fix the cause (template changed, content overflow) and re-run — never hand-fix the output (CD-9.9) |
+| `gate_inclusions.py` FAILs | The document does not save and the run stops: report what failed, on which job, to the person and the developers — never hand-fix the output (CD-9.9). Finding and fixing the cause (template changed, content overflow) is a developer's change on its own branch, never part of a contract run (SKILL "A run never changes the solution") |
 
 ## Open questions for business review
 
