@@ -93,13 +93,13 @@ Every job carries **two engineering chains**, *Piers, Footings & Slab
 Design* and *Structural Steel*, each running Order → Receive → Review →
 Amend Working Drawings → Forward to the certifier. OSC misspells two of the
 steps (`Review Engineering - Strucutral Steel`, and `Private Certiifier` on
-both Forward steps), so match on the start of the description. The drafter's
-ENGINEERING family patterns (`Receive Engineering`, `Review Engineering`,
-`Forward Engineers`) match both chains, and the family clears only when
-every match is complete: a job whose slab engineering has gone to the
-certifier still shows ENGINEERING active while its steel steps are pending.
-Whether the report's ENGINEERING item means the slab chain only is a
-question for the officer (#79).
+both Forward steps), so match on the start of the description. The
+report's ENGINEERING item is the footing and slab design only (the
+officer, November 2026, PO-11d), so the drafter's ENGINEERING patterns
+match the slab chain alone (`Order Engineering - Piers`, `Receive
+Engineering - Piers`, `Review Engineering - Piers`, `Amend Working
+Drawings to Suit Footing`, `Forward Engineers Footing/Slab`); the steel
+chain neither dates nor holds open an engineering item.
 
 ## Query patterns (all verified live; re-checked on production 23 Oct 2026)
 

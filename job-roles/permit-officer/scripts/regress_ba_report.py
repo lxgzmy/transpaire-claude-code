@@ -31,7 +31,7 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      pilot job missing from the base is noted, never fabricated
  13. a job without a snapshot is carried forward untouched and flagged
  14. v0.1 state (ISO string per item) upgrades to the v0.2 dict shape
- 15. business_days boundaries and NSW holidays
+ 15. business_days boundaries, NSW holidays and the Christmas shutdown
  16. the draft round-trips through ba_report_parse and compare_ba_report
  17. review fixes (23 Oct 2026): an application or request document never
      resolves an item, and an approval document never does while the OSC step
@@ -80,7 +80,8 @@ from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, buil
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 from ba_weekly_run import VENV_PYTHON, RunError, find_base, find_last_draft, run, verify_delivered
 from compare_ba_report import compare
-from nsw_holidays import business_days, covers, sydney_date
+import nsw_holidays
+from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
 
 ASOF = "2026-09-07"          # the Monday being drafted
 PREV = "2026-08-31"          # last week's report date (in the filename)
@@ -976,9 +977,9 @@ def main():
               and co.get("assumed") is True, str(co))
         # date-submitted evidence: Order -> Receive pairing, same-chain predecessor, unrelated ignored
         mini = {"activities": [
-            act(46, "Order Engineering - Structural Steel", done="2026-08-20", sp="Synth Eng"),
+            act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-08-20", sp="Synth Eng"),
             act(47, "Complete Colour Selections & Save into OSC", done="2026-09-01"),
-            act(53, "Receive Engineering - Structural Steel", sp="Synth Eng"),
+            act(53, "Receive Engineering - Piers, Footings & Slab Design", sp="Synth Eng"),
         ], "alerts": [], "documents": []}
         d, why = submitted_evidence({"name": "ENGINEERING"}, mini)
         check("date evidence: Receive <- matching Order step", d == "2026-08-20" and "Order" in why, f"{d} {why}")
@@ -1177,8 +1178,9 @@ def main():
                       act(82, "Receive Engineering - Structural Steel", done="2026-09-01"),
                       act(83, "Review Engineering - Strucutral Steel", user="Synthetic Drafter")])
         d, why = submitted_evidence({"name": "ENGINEERING"}, steel)
-        check("fix: the steel chain dates from its own step (OSC's misspelling included)",
-              d == "2026-09-01" and "Structural Steel" in why, f"{d} {why}")
+        verdict = check_item({"name": "ENGINEERING"}, steel, "2026-08-01")[0]
+        check("engineering follows the footing and slab chain only: a pending steel step neither dates it "
+              "nor holds it open", (d, why) == (None, None) and verdict == "complete", f"{d} {why} {verdict}")
         na_before = snap([act(57, "Submit Covenant Application", done="2026-08-25", na=True),
                           act(58, "Receive Covenant Approval & Upload to OSC")])
         check("fix: a not-applicable step before dates nothing",
@@ -1194,6 +1196,28 @@ def main():
         check("fix: an upload on the base report's Monday morning counts as new evidence",
               check_item({"name": "ENERGY REPORT"}, monday, PREV)[0] == "complete")
         check("fix: the holiday table says when it runs out", covers("2027-12-31") and not covers("2028-01-25"))
+
+        # the Christmas shutdown (the officer, November 2026): left out of the count; said while unset
+        saved = list(nsw_holidays.SHUTDOWNS)
+        try:
+            nsw_holidays.SHUTDOWNS[:] = []
+            check("shutdown: an unset break is said from 1 December to 31 January, and not outside it",
+                  shutdown_missing("2026-12-07") == "2026-27" and shutdown_missing("2027-01-11") == "2026-27"
+                  and shutdown_missing("2026-11-30") is None and shutdown_missing("2027-02-01") is None)
+            folder = tmp / "snaps-shutdown"
+            folder.mkdir()
+            write_snaps(folder, "2026-12-07")
+            base = tmp / "BA REPORT - 30.11.2026.xlsx"
+            synth_prev_report(base)
+            _, _, ev_dec = build_draft(base, folder, tmp / "out-shutdown", asof="2026-12-07", jobs=["90002"])
+            check("shutdown: an unset break is in the draft's notes (and so in the Monday summary)",
+                  any("2026-27 Christmas shutdown dates are not set" in n for n in ev_dec["notes"]), str(ev_dec["notes"]))
+            nsw_holidays.SHUTDOWNS[:] = [(date(2026, 12, 21), date(2027, 1, 8))]
+            check("shutdown: once set, its days are left out of the count and it is not asked for again",
+                  business_days("2026-12-18", "2027-01-12") == 2 and business_days("2026-12-14", "2026-12-21") == 4
+                  and shutdown_missing("2026-12-07") is None)
+        finally:
+            nsw_holidays.SHUTDOWNS[:] = saved
 
         items = parse_items("PENDING ENGINEERING (W/O CLIENT, DRAFTING), ENERGY REPORT\nS68 APPLICATION")
         check("fix: commas inside brackets and line breaks split items correctly",

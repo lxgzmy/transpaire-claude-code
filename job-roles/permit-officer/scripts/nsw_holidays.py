@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Business-day arithmetic for the weekly BA report ageing (PO-11).
 
-Business days = Monday to Friday excluding NSW public holidays. The pilot is
+Business days = Monday to Friday excluding NSW public holidays and the
+Christmas shutdown (SHUTDOWNS). The pilot is
 NSW-first (role CLAUDE.md), so NSW is the only calendar carried; add a QLD set
 when QLD jobs join. Weekend-fall holidays that NSW does not substitute (Anzac
 Day) are listed anyway for completeness — they never affect the count.
@@ -48,10 +49,34 @@ NSW_PUBLIC_HOLIDAYS = {
 
 LAST_YEAR = max(d.year for d in NSW_PUBLIC_HOLIDAYS)
 
+# The Christmas shutdown, left out of the count (the officer, November 2026: the industry is all but
+# closed then). One (first day closed, last day closed) pair per break, both inclusive, as she gives
+# them. Every run from 1 December to 31 January says so while that break's pair is missing.
+SHUTDOWNS = [
+    # 2026-27: dates asked of the officer, November 2026
+]
+
 
 def covers(value):
     """True while the holiday table reaches the year of ``value``; past it, counts would miss holidays."""
     return _to_date(value).year <= LAST_YEAR
+
+
+def in_shutdown(d):
+    d = _to_date(d)
+    return any(first <= d <= last for first, last in SHUTDOWNS)
+
+
+def shutdown_missing(value):
+    """The break (e.g. "2026-27") whose shutdown dates are not set, while ``value`` falls between 1 December
+    and 31 January; else None."""
+    d = _to_date(value)
+    if d.month not in (12, 1):
+        return None
+    year = d.year if d.month == 12 else d.year - 1
+    if in_shutdown(date(year, 12, 29)):  # inside any Christmas shutdown
+        return None
+    return f"{year}-{str(year + 1)[2:]}"
 
 
 def _to_date(value):
@@ -87,7 +112,7 @@ def sydney_date(value):
 
 def is_business_day(d, holidays=NSW_PUBLIC_HOLIDAYS):
     d = _to_date(d)
-    return d.weekday() < 5 and d not in holidays
+    return d.weekday() < 5 and d not in holidays and not in_shutdown(d)
 
 
 def business_days(start, end, holidays=NSW_PUBLIC_HOLIDAYS):
