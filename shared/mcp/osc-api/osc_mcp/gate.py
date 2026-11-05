@@ -338,6 +338,27 @@ def same(a: Any, b: Any) -> bool:
     return _norm(a) == _norm(b)
 
 
+def phone_433(value: Any) -> str | None:
+    """The 4-3-3 form staff key an Australian phone number in ("0412 345 678",
+    "0290 000 000", "1300 123 456"), or None when the value is not a ten-digit
+    Australian number. Every Legal Reps and Marketers phone on the newest jobs
+    and every purchaser mobile but one overseas number reads this way (feedback
+    sheet 5 Nov 2026, row 3: "02 9000 0000" should be "0290 000 000")."""
+    digits = re.sub(r"\D", "", str(value or ""))
+    if len(digits) != 10 or digits[0] not in "01" or re.search(r"[^\d\s()+-]", str(value)):
+        return None
+    return f"{digits[:4]} {digits[4:7]} {digits[7:]}"
+
+
+def phone_form_warning(plan: "Plan", name: str, value: Any) -> None:
+    """A warning, not a block (one confirmation, no second prompt): a phone number
+    that is not in the 4-3-3 form names the form to send instead."""
+    want = phone_433(value)
+    if want and str(value).strip() != want:
+        plan.warnings.append(f"{name} \"{value}\" is not in the 4-3-3 form staff key - "
+                             f"send \"{want}\" instead.")
+
+
 def _parse_dt(text: Any) -> datetime | None:
     m = ISO_DATE.match(text) if isinstance(text, str) else None
     if not m:
@@ -876,6 +897,8 @@ class Gate:
                     if k2 not in sub:
                         raise GateError(f"OnSite Companion has no field called {k2!r} in {label(key)}.")
                     before = _current(cur, k2)
+                    if any(w in k2.lower() for w in ("phone", "mobile", "direct")):
+                        phone_form_warning(plan, f"{label(key)} {k2}", v2)
                     if not same(before, v2):
                         await self._add_change(plan, f"{key}.{k2}", before, v2, current is None)
                         part[k2] = v2
@@ -913,6 +936,8 @@ class Gate:
             if fid not in labels:
                 raise GateError("A custom field ID is not one of this OnSite Companion's fields.")
             new = item.get("value")
+            if "phone" in labels[fid].lower():
+                phone_form_warning(plan, labels[fid], new)
             if not same(merged.get(fid), new):
                 changed = True
                 plan.changes.append(self._change(f"{CUSTOM}.{fid}", labels[fid], merged.get(fid), new,

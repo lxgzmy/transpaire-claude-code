@@ -37,6 +37,12 @@ What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
       `dwelling` ("main"/"aux") picks the section its label is matched and
       placed in. No `dwelling` on an AUXILIARY blank -> MAIN, flagged; "aux"
       on a STANDARD blank -> refused.
+  Item lines and gaps (feedback sheet 5 Nov 2026 rows 14-15, CD-9.6)  an
+      added line the label already carries is not written again (SEQ blanks
+      1 and 8 ship the September promotion's Plumbing and Electrical lines);
+      every upgraded section keeps exactly one blank line between items, the
+      blanks' own double and triple gaps included. A blank paragraph holding
+      a break, field or bookmark is never removed.
   Hygiene   every run black except the package headings, which keep the
       template's blue (issue #58); no highlight, no run shading (row 3 / row 13).
   Section 18 spacing  one blank line between the NBN wording and the heading
@@ -685,8 +691,19 @@ def edit_items(cols, items, categories, log, flags):
             # written this run -> add" default (26059: the black shower rail and sink
             # mixer were added beside the chrome ones the promotion had written)
             if mode == "add" or (not mode and not replaces and (sec["dwelling"], key(lab)) in touched):
+                # a line the label already carries is not written again: SEQ
+                # blanks 1 and 8 ship the September promotion's Plumbing and
+                # Electrical lines, so adding the promotion doubled them
+                # (job 26039, feedback sheet 5 Nov 2026 row 14)
+                have = {norm(ptext(R[k])).lower() for k in range(s, e)}
+                there = [l for l in lines if norm(l).lower() in have]
+                lines = [l for l in lines if norm(l).lower() not in have]
                 R[e:e] = [make_para(R[s], l) for l in lines]
-                action = f"added {len(lines)} line(s) under existing label {lab!r}"
+                action = (f"added {len(lines)} line(s) under existing label {lab!r}" if lines
+                          else f"nothing added under existing label {lab!r}")
+                if there:
+                    action += (f"; {len(there)} line(s) already there, not repeated "
+                               f"({there[0][:40]!r}{' ...' if len(there) > 1 else ''})")
             elif replaces:
                 k = next((k for k in range(s, e) if norm(replaces).lower() in norm(ptext(R[k])).lower()), None)
                 if k is None:
@@ -751,6 +768,59 @@ def edit_items(cols, items, categories, log, flags):
         log.append(f"item          : {cat!r} - {action}")
     check_structure(cols, "after items")
     return results
+
+
+# a paragraph with no text that still carries something - a break, a field, a
+# bookmark, a picture - is never taken out as a spare blank line
+NOT_PLAIN_BLANK = re.compile(r"<w:(?:br|cr|sectPr|drawing|pict|object|bookmarkStart|bookmarkEnd|fldChar|"
+                             r"instrText|fldSimple|footnoteReference|endnoteReference|commentReference)\b|<mc:")
+
+
+def is_plain_blank(p):
+    return is_blank(p) and not NOT_PLAIN_BLANK.search(p)
+
+
+def item_gaps(cols):
+    """[(section heading, label text, start, end)] of every gap between two
+    wording groups of the upgraded section(s): R[start:end] are its blank
+    paragraphs."""
+    out = []
+    for sec in upgraded_sections(cols):
+        g = sec["groups"]
+        for n in range(len(g) - 1):
+            out.append((sec["heading"], norm(ptext(cols.left[sec["labels"][n]])), g[n][1], g[n + 1][0]))
+    return out
+
+
+def one_blank_between_items(cols, log, flags):
+    """Exactly one blank line between two items of the upgraded section(s) (CD-9.6).
+
+    The blanks themselves carry two or three blank lines in places - SEQ
+    blank 1 after Plumbing, blanks 6-8, the Sydney STANDARD and AUXILIARY
+    blanks after Electrical Allowances - and the edit kept them, so the
+    contract read "two lines between items" (feedback sheet 5 Nov 2026 row
+    15, job 26039). The spare blank paragraphs of the right column go; the
+    layout pass then levels each label with its wording again. A blank
+    paragraph that carries a break, field or bookmark is never removed."""
+    R = cols.right
+    fixed, stuck = [], []
+    for heading, label, s, e in reversed(item_gaps(cols)):
+        if e - s <= 1:
+            continue
+        spare = [k for k in range(s, e) if is_plain_blank(R[k])]
+        drop = spare[-(e - s - 1):] if len(spare) >= e - s - 1 else spare
+        for k in sorted(drop, reverse=True):
+            del R[k]
+        fixed.append((label, e - s))
+        if e - s - len(drop) > 1:
+            stuck.append(label)
+    check_structure(cols, "after the item gaps")
+    if fixed:
+        log.append("item gaps     : one blank line between items (CD-9.6) - "
+                   + ", ".join(f"after {lab!r} {n} -> 1" for lab, n in reversed(fixed)))
+    for lab in stuck:
+        flags.append(f"the gap after {lab!r} keeps a blank paragraph that holds a break, field or bookmark - "
+                     f"more than one blank line between items there; check it")
 
 
 def next_section_on_new_page(cols):
@@ -1088,6 +1158,7 @@ def main():
         flags.append(f"Standard Variation workbook not readable ({e}); category order taken from the "
                      f"built-in label map")
     results = edit_items(cols, items, categories, log, flags) if items else []
+    one_blank_between_items(cols, log, flags)
     end_cells_blank(cols, log)
     trim_table_end(cols, log)
     for r in results:

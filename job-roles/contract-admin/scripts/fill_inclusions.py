@@ -726,6 +726,109 @@ def signature_tabs(xml, values, family):
     return "".join(out), rebuilt
 
 
+def default_size(template):
+    """The template's default run size in half-points (docDefaults), 22 if unreadable."""
+    try:
+        with zipfile.ZipFile(template) as z:
+            st = z.read("word/styles.xml").decode("utf-8")
+        dd = re.search(r"<w:docDefaults>.*?</w:docDefaults>", st, re.S)
+        m = re.search(r'<w:sz w:val="(\d+)"', dd.group(0)) if dd else None
+        return int(m.group(1)) if m else 22
+    except (KeyError, OSError, zipfile.BadZipFile):
+        return 22
+
+
+def company_owner_lines(xml, values, default_half_points=22):
+    """A company or trust owner on the "Name of Owner 1:" lines (feedback sheet
+    5 Nov 2026 row 16, job 26039): the full name WITH its ACN, at the size that
+    keeps it on its line, and "<signatory> on behalf of <company> ACN: ..." on
+    the line under it from the left edge, as the team writes it. On a line that
+    also carries "Date:" (the tab-stopped signature lines) the Date: moves to a
+    third line of its own at its tab stop - a company name cannot share the line
+    with it at any readable size. (xml, [report lines])."""
+    import font_fit
+    import owner_names
+    company = owner_names.company_name(values)
+    o1 = str(values.get("owner_1") or "").strip()
+    if not company or not o1:
+        return xml, []
+    signer = owner_names.signer_line(values, company)
+    notes = [f"company  : {company} on every Name of Owner 1 line (the ACN rides with the name)"]
+    if not signer:
+        notes.append("company  : no company_signatory in the job JSON - the '<name> on behalf of' line "
+                     "is left for a person")
+
+    def face(rpr):
+        f = re.search(r'w:ascii="([^"]+)"', rpr)
+        s = re.search(r'<w:sz w:val="(\d+)"', rpr)
+        return (f.group(1) if f else "Calibri", int(s.group(1)) if s else default_half_points,
+                bool(re.search(r'<w:b(?: w:val="(?:1|true|on)")?/>', rpr)))
+
+    def sized(rpr, hp):
+        rpr = re.sub(r'<w:sz(?:Cs)? w:val="\d+"/>', "", rpr or "<w:rPr></w:rPr>")
+        return rpr.replace("</w:rPr>", f'<w:sz w:val="{hp}"/><w:szCs w:val="{hp}"/></w:rPr>')
+
+    out, pos, done = [], 0, 0
+    for m in PARA_RE.finditer(xml):
+        p = m.group(0)
+        runs = list(RUN_RE.finditer(p))
+        texts = [run_text(r.group(0)) for r in runs]
+        if not "".join(texts).startswith("Name of Owner 1:"):
+            continue
+        k = next((i for i, t in enumerate(texts) if o1 in t), None)
+        if k is None:
+            continue
+        width = font_fit.container_width(xml, m.start()) or 10000
+        run = runs[k].group(0)
+        rpr_m = re.search(r"<w:rPr>.*?</w:rPr>", run, re.S)
+        rpr = rpr_m.group(0) if rpr_m else ""
+        font, hp, bold = face(rpr)
+        stops = [int(s) for s in re.findall(r'<w:tab w:val="left" w:pos="(\d+)"/>', p)]
+        if stops and k > 0 and "<w:tab/>" in runs[k - 1].group(0):
+            start = stops[0]                      # the name sits at the first tab stop
+        else:                                     # typed after the label and its gap spaces
+            lead = texts[k][:texts[k].index(o1)]
+            lf, lhp, lb = face((re.search(r"<w:rPr>.*?</w:rPr>", runs[0].group(0), re.S) or [""])[0])
+            start = int((font_fit.text_width_pt("".join(texts[:k]), lf, lhp, lb)[0]
+                         + font_fit.text_width_pt(lead, font, hp, bold)[0]) * 20)
+        hp1, fits, exact = font_fit.fit_size(company, font, hp, width - start, bold)
+        new_name = sized(rpr, hp1)
+        new_run = (run[:rpr_m.start()] + new_name + run[rpr_m.end():] if rpr_m
+                   else run.replace(">", ">" + new_name, 1))
+        new_run = new_run.replace(xml_escape(o1), xml_escape(company), 1)
+        repl = {k: new_run}                       # run index -> its replacement
+        tail = ""
+        if signer:
+            hp2, _, _ = font_fit.fit_size(signer, font, hp1, width, bold)
+            tail = f'<w:r>{sized(rpr, hp2)}<w:br/><w:t xml:space="preserve">{xml_escape(signer)}</w:t></w:r>'
+        date_k = next((i for i in range(k + 1, len(texts)) if "Date:" in texts[i]), None)
+        if date_k is not None:
+            # the tab(s) that took Date: across the name's line go; on its own
+            # line two tabs take it past the name stop to the Date: stop
+            for i in range(k + 1, date_k):
+                if not texts[i].strip():
+                    repl[i] = ""
+            repl[date_k] = tail + "<w:r><w:br/><w:tab/><w:tab/></w:r>" + runs[date_k].group(0)
+        else:
+            repl[k] = new_run + tail
+        # the paragraph rebuilt run by run; whatever sits between runs stays
+        new_p, cur = [], 0
+        for i, r in enumerate(runs):
+            new_p.append(p[cur:r.start()] + repl.get(i, r.group(0)))
+            cur = r.end()
+        new_p = "".join(new_p) + p[cur:]
+        out.append(xml[pos:m.start()] + new_p)
+        pos = m.end()
+        done += 1
+        notes.append(f"company  : Name of Owner 1 line {done} - {hp1 / 2:g} pt in {(width - start) / 20:.0f} pt"
+                     + ("" if fits else " (still wraps at the smallest size - check the line)")
+                     + ("" if exact else " (width estimated - font file not found)")
+                     + (f"; signer line {hp2 / 2:g} pt" if signer else "")
+                     + ("; Date: on a line of its own" if date_k is not None else ""))
+    out.append(xml[pos:])
+    return "".join(out), notes
+
+
 def write_docx(template, out, xml, parts=None):
     """Copy the template zip, swapping in the new document.xml (and any other
     part given in `parts`, name -> xml)."""
@@ -855,11 +958,19 @@ def main():
               file=sys.stderr)
         return 2
 
+    # the site's house number in brackets in every document (feedback sheet
+    # 5 Nov 2026 row 7) - one formatter for the inclusions, prelim and contract
+    import street_format
+    street_notes = []
+    if street_format.applies(fam_name):
+        values, street_notes = street_format.bracket_job(values)
+
     xml = read_xml(args.template)
     report = []
     new_xml = fill(xml, values, report, family)
     new_xml, dropped_notes = drop_instruction_paras(new_xml, fam_name)
     new_xml, sig_lines = signature_tabs(new_xml, values, family)
+    new_xml, company_notes = company_owner_lines(new_xml, values, default_size(args.template))
 
     print(f"template : {Path(args.template).name}")
     print(f"family   : {fam_name} - {family['label']}")
@@ -891,6 +1002,11 @@ def main():
         page1 = "page-1 values and " if family["tabs"].get("page1") else ""
         print(f"tabs     : {page1}{sig_lines} signature line(s) on tab stops "
               f"(sheet 9.9 rows 1, 14, 15) - gate_inclusions.py verifies the x positions")
+
+    for n in company_notes:
+        print(n)
+    for n in street_notes:
+        print(f"NOTE: {n}")
 
     if dropped_notes:
         for n in dropped_notes:

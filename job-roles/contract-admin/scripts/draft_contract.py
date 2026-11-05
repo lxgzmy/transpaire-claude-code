@@ -312,9 +312,50 @@ def deliver_routed(workdir, values, job_dir, existing, kinds=None):
     test = [f for f in finals if f not in prod]
     if prod:
         deliver_production(prod, job_dir)
+        save_request_email(workdir, job_dir)
     if test:
         deliver_test(workdir, test, TEST_ROOT / workdir.name, force=True)
     return prod, test
+
+
+def save_request_email(workdir, job_dir):
+    """The contract request email into the job's CONTRACT DOCUMENTATION beside the
+    first drafts (feedback sheet 5 Nov 2026 row 1, job 26060: the run saved only
+    the documents; the team saves the request .msg there on every job - 26011,
+    26019, 26032, 26058 - and added 26060's by hand). Named as Outlook's Save As
+    names it. Only on a run that saves into the job folder; never overwrites; an
+    email the folder already holds (same subject, any name) is left alone.
+    Returns a report line."""
+    import msg_extract
+    msgs = sorted(p for p in Path(workdir).glob("*.msg") if p.is_file())
+    if len(msgs) != 1:
+        why = ("no .msg in the workdir (the request came through the mail connector)" if not msgs
+               else f"{len(msgs)} .msg files in the workdir: {', '.join(p.name for p in msgs)}")
+        line = f"  email     : NOT saved - {why}; a person saves the request email into the job folder"
+        print(line)
+        return line
+    src = msgs[0]
+    subj = msg_extract.subject(msg_extract.Cfb(src.read_bytes()))
+    held = []
+    for p in Path(job_dir).rglob("*.msg"):
+        try:
+            if msg_extract.subject(msg_extract.Cfb(p.read_bytes())).strip() == subj.strip():
+                held.append(p)
+        except Exception:   # a damaged or locked .msg is simply not a match
+            continue
+    if held:
+        line = f"  email     : already in the job folder ({held[0].name}) - not saved again"
+        print(line)
+        return line
+    dst = Path(job_dir) / msg_extract.outlook_file_name(subj)
+    if dst.exists():
+        line = f"  email     : NOT saved - {dst.name} already exists with another subject; a person checks it"
+        print(line)
+        return line
+    copy_final(src, dst)
+    line = f"  email     : {dst}"
+    print(line)
+    return line
 
 
 def copy_final(src, dst):

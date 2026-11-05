@@ -140,7 +140,10 @@ SYNTH = {
             # from their contract price. QC2 has no item 2 deposit
             "price_excl_gst": "$636,363.64", "gst_amount": "$63,636.36",
             "price_incl_gst": "$700,000.00",
+            # item 13 building period (feedback sheet 5 Nov 2026 row 11)
+            "storeys": 2, "house_size": "245.50 m²",
         },
+        "period": "240",
         "gone": ["$ 25.00", "$ 000,000.00", "$ 0.00"],
         "part_b": [("5.00%", "$35,000.00"), ("15.00%", "$105,000.00"), ("20.00%", "$140,000.00"),
                    ("25.00%", "$175,000.00"), ("20.00%", "$140,000.00"), ("15.00%", "$105,000.00"),
@@ -167,7 +170,8 @@ SYNTH = {
             ["NAME", "Guaran TESTGUARANTOR"],
             ["ADDRESS", "9 Guarantee Grove"],
             ["SUBURB", "EXAMPLETON", "STATE", "QLD", "POSTCODE", "4997"],
-            ["BUILDER IS", "TRANSPIRE CONSTRUCTIONS PTY LTD"],
+            # as the team types it (CD-1.4; feedback sheet 5 Nov 2026 row 13)
+            ["BUILDER IS", "Transpire Constructions Pty Ltd"],
             ["OWNER IS", "Testfirst TESTSURNAME & Second TESTOWNER"],
             # the land rows, tables since the v2.1 LAND TABLES interim
             # (3 Sep 2026 - the last narrow area, the residual spill's home)
@@ -273,8 +277,9 @@ SYNTH = {
         "region": "QLD",
         "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
         "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
-                   "price": "456,789.00"},
+                   "price": "456,789.00", "storeys": 1},
         "expect": ["$415,262.73", "$41,526.27", "$456,789.00"],
+        "period": "210",
         "gone": ["$ 000,000.00", "$ 0.00"],
         "part_b": [("5.00%", "$22,839.45"), ("15.00%", "$68,518.35"), ("20.00%", "$91,357.80"),
                    ("25.00%", "$114,197.25"), ("20.00%", "$91,357.80"), ("15.00%", "$68,518.35"),
@@ -303,7 +308,7 @@ SYNTH = {
                    "price_excl_gst": "415,262.73", "gst_amount": "41,526.27",
                    "price_incl_gst": "$456,789.00", "deposit": "22,839.45",
                    "progress_1": "68,518.35", "progress_2": "91,357.80", "progress_3": "114,197.25",
-                   "progress_4": "91,357.80", "progress_5": "68,518.35"},
+                   "progress_4": "91,357.80", "progress_5": "68,518.35", "storeys": 1},
         "expect": ["$415,262.73", "$41,526.27", "$456,789.00"],
         "gone": ["$ 000,000.00", "$ 0.00"],
         "part_b": [("5.00%", "$22,839.45"), ("15.00%", "$68,518.35"), ("20.00%", "$91,357.80"),
@@ -338,6 +343,65 @@ SYNTH = {
                   "FLAG: the deposit $46,000.00 is over 5% of the contract price ($23,000.00)"],
         "no_flags": ["DEPOSIT $46,000.00 is not 5%", "part-filled"],
     },
+    # feedback sheet 5 Nov 2026 (job 26039): a company / trust owner names its
+    # ACN wherever the owner is named, sized to its line, signs "<guarantor> on
+    # behalf of <company> ACN: ..."; the deed reads "Transpire Constructions
+    # Pty Ltd" and the guarantor, named by the land contract without an
+    # address, takes the owner's (flagged). Double storey of 320 m2: 260 days.
+    "QLD company": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owner_1": "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST",
+                   "owners": "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST "
+                             "ACN: 600 000 000",
+                   "owner_2": "", "company_signatory": "Alex SAMPLE", "guarantor_name": "Alex SAMPLE",
+                   "owner_address": "9 Example Road", "owner_suburb": "EXAMPLETON",
+                   "owner_state": "QLD", "owner_postcode": "4998", "price": "648,400.00",
+                   "storeys": 2, "house_size": "320.10 m²"},
+        "expect": ["$  58,945.45"],
+        "period": "260",
+        "contains": ["Alex SAMPLE on behalf of SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 "
+                     "FAMILY TRUST ACN: 600 000 000"],
+        "gone": ["$ 000,000.00"],
+        "cell_rows": [
+            ["NAME", "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST ACN: 600 000 000"],
+            ["NAME", "Alex SAMPLE"],
+            ["ADDRESS", "9 Example Road"],
+            ["BUILDER IS", "Transpire Constructions Pty Ltd"],
+            ["OWNER IS", "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST ACN: 600 000 000"],
+        ],
+        "flags": ["FLAG: guarantor address = the owner's address",
+                  "building period: 260 days (double storey, 320.1 m2 (over 300)"],
+    },
+    # double storey with no house size yet (plans not in): 210 stays, flagged
+    "QLD period unknown": {
+        "region": "QLD",
+        "template": STAGED / "QLD BUILD CONTRACT v2.1 LAND TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owners": "Testfirst TESTSURNAME", "owner_1": "Testfirst TESTSURNAME",
+                   "price": "456,789.00", "storeys": 2},
+        "expect": [],
+        "period": "210",
+        "gone": [],
+        "flags": ["FLAG: building period not worked out: double storey but no house size yet"],
+    },
+    # the same company on the NSW contract: item 3 and the signature NAME carry
+    # the ACN, the signer line sits under the owner's name
+    "NSW company": {
+        "region": "NSW",
+        "template": STAGED / "NSW BUILD CONTRACT v1.1 TABLES 03.09.2026 - INTERIM PENDING MCR.docx",
+        "values": {"owner_1": "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST",
+                   "owners": "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST "
+                             "ACN: 600 000 000",
+                   "owner_2": "", "company_signatory": "Alex SAMPLE", "price": "549,900.00"},
+        "expect": ["$  49,990.91", "$499,909.09", "$549,900.00"],
+        "contains": ["Alex SAMPLE on behalf of SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 "
+                     "FAMILY TRUST ACN: 600 000 000"],
+        "gone": [],
+        "cell_rows": [
+            ["", "NAME", "SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE AND EXAMPLE No.2 FAMILY TRUST ACN: 600 000 000"],
+        ],
+        "flags": ["FLAG: Attachment A checklist: a company acknowledges through the person who signs"],
+    },
 }
 
 
@@ -347,6 +411,41 @@ def docx_text(path):
     return re.sub(" +", " ", " ".join(
         html.unescape(m.group(1))
         for m in re.finditer(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S)))
+
+
+def unpad(s):
+    """An amount without the alignment pad after its "$"."""
+    return re.sub(r"\$ +(?=\d)", "$", s)
+
+
+def raw_amounts(path):
+    """Every typed amount's own text node, pad included, in document order."""
+    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+    return [html.unescape(m.group(1))
+            for m in re.finditer(r"<w:t(?: [^>]*)?>(\$ *[\d,]+\.\d{2})</w:t>", xml)]
+
+
+def lined_up(path, figures, name, what):
+    """The amounts of one column print at one width in Arial, so their digits line
+    up under each other (feedback sheet 5 Nov 2026 row 5: "$49,990.91" sat one
+    digit left of "$499,909.09")."""
+    import font_fit
+    raws = raw_amounts(path)
+    figures = [f if f.startswith("$") else "$" + f for f in figures]
+    # the column's amounts sit one after another in the document (a deposit
+    # equal to stage 1 elsewhere must not stand in for it)
+    start = next((i for i in range(len(raws) - len(figures) + 1)
+                  if [unpad(r) for r in raws[i:i + len(figures)]] == figures), None)
+    if start is None:
+        print(f"  {name}: FAIL - {what}: amounts {figures} not found together as typed")
+        return False
+    found = raws[start:start + len(figures)]
+    widths = [font_fit.text_width_pt(a, "Arial", 24)[0] for a in found]
+    if max(widths) - min(widths) > 0.05:
+        print(f"  {name}: FAIL - {what} amounts do not line up: "
+              + ", ".join(f"{a!r} {w:.1f}pt" for a, w in zip(found, widths)))
+        return False
+    return True
 
 
 def table_rows(path):
@@ -396,12 +495,16 @@ def run(name, spec, tmp):
         print(f"  {region}: FAIL - fill\n{fill.stdout}{fill.stderr}")
         return False
 
+    # an amount lined up on its digits carries a pad after its "$" ("$  49,990.91",
+    # feedback sheet 5 Nov 2026 row 5) - the figure is the same either way
     text = docx_text(out)
     # each value as typed, or the case's own list of strings the fill must
     # produce (an amount types as "$nnn,nnn.nn"; the bare request price is
     # not itself printed in the build contract)
-    expect = spec.get("expect", [v for k, v in values.items() if v and k != "price"])
-    missing = [v for v in expect if re.sub(" +", " ", v) not in text]
+    # (keys that only steer a derived value are not themselves printed)
+    expect = spec.get("expect", [v for k, v in values.items()
+                                 if v and k not in ("price", "storeys", "house_size", "company_signatory")])
+    missing = [v for v in expect if re.sub(" +", " ", v) not in text and unpad(v) not in unpad(text)]
     if missing:
         print(f"  {region}: FAIL - value(s) not in the filled text: {missing}")
         return False
@@ -415,16 +518,32 @@ def run(name, spec, tmp):
         print(f"  {name}: FAIL - placeholder(s) that must stay were filled: {lost}")
         return False
     if "progress" in spec:
-        rows = [(r[2], r[3]) for r in table_rows(out)
+        rows = [(r[2], unpad(r[3])) for r in table_rows(out)
                 if len(r) == 4 and re.fullmatch(r"\d+%", r[2])]
         if rows != spec["progress"]:
             print(f"  {name}: FAIL - progress schedule rows {rows}, expected {spec['progress']}")
             return False
+        if not lined_up(out, [b for _, b in rows], name, "progress schedule"):
+            return False
     if "part_b" in spec:
-        rows = [(r[1], r[2]) for r in table_rows(out)
+        rows = [(r[1], unpad(r[2])) for r in table_rows(out)
                 if len(r) == 3 and re.fullmatch(r"\d+\.\d{2}%", r[1])]
         if rows != spec["part_b"]:
             print(f"  {name}: FAIL - Part B rows {rows}, expected {spec['part_b']}")
+            return False
+        if not lined_up(out, [b for _, b in rows], name, "Part B"):
+            return False
+    item2 = [values.get(k) for k in ("price_excl_gst", "gst_amount", "price_incl_gst")]
+    if "item2" in spec:
+        item2 = spec["item2"]
+    if all(item2) and not lined_up(out, [unpad(str(v)) for v in item2], name, "item 2"):
+        return False
+    if "period" in spec and f"practical completion within {spec['period']} days" not in text:
+        print(f"  {name}: FAIL - building period: expected {spec['period']} days")
+        return False
+    for want in spec.get("contains", []):
+        if want not in text:
+            print(f"  {name}: FAIL - {want!r} not in the filled text")
             return False
     if "struck" in spec:
         why = struck_check(out, spec["struck"])
