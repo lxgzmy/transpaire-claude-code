@@ -841,6 +841,54 @@ def hygiene(xml, log):
     return xml
 
 
+CLOSING_RE = re.compile(r"(</w:tbl>\s*)(<w:p\b(?:(?!<w:p\b).)*?</w:p>)(\s*<w:sectPr\b(?:(?!</w:sectPr>).)*</w:sectPr>\s*</w:body>)", re.S)
+
+
+def shrink_closing_paragraph(xml, log):
+    """The document's closing paragraph, after the last page's signature table, set to 1 pt.
+
+    Word needs a paragraph after a table that ends the document; the SEQ blanks
+    type it at 16 pt. When a long owner name wraps on the signature table's
+    "Name of Owner 1:" line (a company trust - 26039, 4 Nov 2026), the table
+    fills the page and that empty 16 pt line lands on a page of its own (an
+    empty page, sheet row 12). Blank paragraph only - no text changes.
+    """
+    m = CLOSING_RE.search(xml)
+    if not m or not is_blank(m.group(2)):
+        return xml
+    p = m.group(2)
+    ppr = re.search(r"<w:pPr>.*?</w:pPr>", p, re.S)
+    ppr_xml = ppr.group(0) if ppr else "<w:pPr></w:pPr>"
+    tiny = '<w:sz w:val="2"/><w:szCs w:val="2"/>'
+    ppr_xml = re.sub(r"<w:spacing\b[^>]*/>", "", ppr_xml)
+    # w:spacing in its schema place: after pStyle, keepNext, tabs ...; before
+    # ind, jc and the mark's rPr
+    spacing = '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>'
+    after = re.search(r"<w:(?:ind|contextualSpacing|mirrorIndents|suppressOverlap|jc|textDirection|"
+                      r"textAlignment|textboxTightWrap|outlineLvl|divId|cnfStyle|rPr|sectPr|pPrChange)\b", ppr_xml)
+    at = after.start() if after else ppr_xml.rindex("</w:pPr>")
+    ppr_xml = ppr_xml[:at] + spacing + ppr_xml[at:]
+    mark = re.search(r"<w:rPr>.*?</w:rPr>", ppr_xml, re.S)
+    if mark:
+        # the mark's own size, replaced where it stands (schema order: sz and
+        # szCs sit before u, lang ...); a mark with none gets them at the end.
+        # `<w:szCs?` matched only szC/szCs and left the 16 pt sz beside the new
+        # one - Word happened to keep the later value (5 Nov 2026 review of #106)
+        rpr = mark.group(0)
+        if re.search(r"<w:sz\b[^>]*/>", rpr):
+            rpr = re.sub(r"<w:szCs\b[^>]*/>", "", rpr)
+            rpr = re.sub(r"<w:sz\b[^>]*/>", tiny, rpr, count=1)
+        else:
+            rpr = re.sub(r"<w:szCs\b[^>]*/>", "", rpr).replace("</w:rPr>", tiny + "</w:rPr>")
+        ppr_xml = ppr_xml[:mark.start()] + rpr + ppr_xml[mark.end():]
+    else:
+        ppr_xml = ppr_xml.replace("</w:pPr>", f"<w:rPr>{tiny}</w:rPr></w:pPr>")
+    new_p = p[:ppr.start()] + ppr_xml + p[ppr.end():] if ppr else re.sub(r"(<w:p\b[^>]*>)", r"\1" + ppr_xml, p, 1)
+    log.append("closing para  : the empty paragraph after the last page's signature table set to 1 pt, "
+               "so a wrapped owner name cannot push it onto an empty page (sheet row 12)")
+    return xml[:m.start(2)] + new_p + xml[m.end(2):]
+
+
 def texts(paras):
     return [norm(ptext(p)) for p in paras if not is_blank(p)]
 
@@ -1055,6 +1103,7 @@ def main():
 
     xml = cols.rebuild()
     xml = hygiene(xml, log)
+    xml = shrink_closing_paragraph(xml, log)
     after = Columns(xml)
     if after.outside_text() != outside_before:
         print("REFUSED: text outside the body table changed - nothing written.")
