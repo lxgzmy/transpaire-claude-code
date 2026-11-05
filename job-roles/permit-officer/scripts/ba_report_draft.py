@@ -61,7 +61,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, norm_item, officer_edits, parse_report
-from nsw_holidays import LAST_YEAR, business_days, covers, sydney_date
+from nsw_holidays import LAST_YEAR, business_days, covers, shutdown_missing, sydney_date
 
 # ------------------------------------------------------------------ ageing config
 # Business-day thresholds per tier: YELLOW while days <= threshold, RED after.
@@ -139,15 +139,17 @@ ENGINEERING_STAGES = {
 # OSC after the send, PO-9).
 # tier: default tier when nothing better says who the item is with.
 FAMILIES = [
-    # The structural engineering OSC tracks (slab and structural steel chains).
-    # Other disciplines have no OSC steps, so they get no rule.
+    # The footing and slab engineering OSC tracks: ENGINEERING on her list is that design only (the
+    # officer, November 2026), so the structural steel chain is not read. Other disciplines have no
+    # OSC steps, so they get no rule.
     {"key": "ENGINEERING", "tier": "EXTERNAL", "stages": ENGINEERING_STAGES, "columns": True,
      "match": r"\bENG(INEERING)?\b",
      "exclude": r"\b(HYDRAULIC|CIVIL|STORMWATER|DRAINAGE|GEOTECH\w*|ELECTRICAL|FIRE|TRAFFIC|ACOUSTIC|BUSHFIRE)\b",
-     "done_activities": [r"Receive Engineering", r"Review Engineering", r"Forward Engineers"],
-     "pending_activities": [r"Receive Engineering", r"Review Engineering",
-                            r"Amend Working Drawings to Suit", r"Forward Engineers"],
-     "order_activities": [r"Order Engineering"],
+     "done_activities": [r"^Receive Engineering - Piers", r"^Review Engineering - Piers",
+                         r"^Forward Engineers Footing/Slab"],
+     "pending_activities": [r"^Receive Engineering - Piers", r"^Review Engineering - Piers",
+                            r"^Amend Working Drawings to Suit Footing", r"^Forward Engineers Footing/Slab"],
+     "order_activities": [r"^Order Engineering - Piers"],
      "done_docs": [], "submitted_docs": []},
     {"key": "COVENANT", "tier": "EXTERNAL", "threshold": 10, "columns": True,
      "match": r"\bCOV(ENANT)?\b",
@@ -956,6 +958,10 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
     if not covers(asof):
         evidence["notes"].append(f"the NSW holiday table in nsw_holidays.py ends in {LAST_YEAR}, so business-day "
                                  f"counts in {asof[:4]} miss that year's public holidays — add them first")
+    unset = shutdown_missing(asof)
+    if unset:
+        evidence["notes"].append(f"the {unset} Christmas shutdown dates are not set (SHUTDOWNS in nsw_holidays.py), "
+                                 "so the days of the break still count — ask the officer for them")
     # The officer's base is a plain export with no Items sheet; what she typed last week lives in
     # the draft she edited, so it is read from there and kept in the state from now on.
     edits_by_job, edit_source, last_names, last_rows = {}, None, {}, {}

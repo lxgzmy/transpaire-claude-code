@@ -101,7 +101,9 @@ check behind it:
   with the one written, checked to hold the base's jobs in order, and read
   back the way next Monday will read it.
 - The summary ends with how long each step took. Sixty days before the
-  NSW holiday table runs out, every run says to add the next year.
+  NSW holiday table runs out, every run says to add the next year. From
+  1 December to 31 January, every run says so while that break's
+  Christmas shutdown dates are not set (PO-11d).
 
 The steps, for reference or to run by hand:
 

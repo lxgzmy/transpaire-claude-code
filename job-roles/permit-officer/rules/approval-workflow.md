@@ -111,7 +111,8 @@ testable; open questions are marked ❓.
   Six defaults were **confirmed by the permit officer on 17 Sep 2026**
   (asked on #29): Certifier → External consultants; Client → Internal;
   water authorities (Sydney Water, Altogether) → Council; business days
-  exclude NSW public holidays; a resolved item stays on the report for one
+  exclude NSW public holidays (and, since November 2026, the Christmas
+  shutdown: PO-11d); a resolved item stays on the report for one
   cycle (the Monday after it resolves) then drops; the fill colour on a job
   row shows the worst open item, with each item's own flag written as text
   (per-item colour was declined as too convoluted for the main sheet; since
@@ -151,11 +152,20 @@ testable; open questions are marked ❓.
   columns tell it: the latest dated step is *ordered* (design) or
   *received* / *reviewed* (internal review, counted from that step, as she
   dated the pilot jobs on 22 Oct 2026). Without column dates, OSC's slab
-  engineering chain tells it. With nothing to go on, the item is in internal
+  engineering chain tells it (ENGINEERING is the footing and slab design
+  only, PO-11d). With nothing to go on, the item is in internal
   review, the stricter limit. When a newer engineering step is dated the
   item has moved on: the count starts again from that date, and the *Date
   submitted* and *Assigned to* she gave for the earlier stage are worked out
   again (her Notes stay). Covenant stays at 10.
+- **PO-11d — The Christmas shutdown and what ENGINEERING covers (answered
+  by the permit officer, November 2026, issue #104).** The shutdown is
+  left out of the business-day count, as the industry is all but closed
+  then. Its dates go in `SHUTDOWNS` (`scripts/nsw_holidays.py`) once she
+  gives them, one pair per break; from 1 December to 31 January every
+  run says so while that break's pair is missing. ENGINEERING on her RFI
+  list is the footing and slab design only, so the structural steel
+  chain in OSC is not read for it.
 
 ## Pre-lodgement checklist
 
