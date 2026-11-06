@@ -824,12 +824,16 @@ routing, which test-detects first) and refuses to overwrite unless
 
 ### 8. DocuSign draft — only after a PRODUCTION build-contract save
 
-Follow [DocuSign draft](references/docusign-draft.md). In short:
-`docusign_payload.py` writes the tool arguments and lists the job's PDFs under
-their CD-7.2 names (it reads the driver's `routes.txt`; a TEST-routed build
-contract yields the files and no call). The local `docusign-upload` server
-then checks the connection, previews the draft (template by exact name, page
-counts, the `JobNo` duplicate check) and creates it with
+Follow [DocuSign draft](references/docusign-draft.md). In short: read the job
+client's contacts from OSC (read-only) into the workdir, then
+`docusign_payload.py` writes the tool arguments - the buyers' full legal
+names and emails from OSC with Buyer 1 the principal buyer recorded there,
+the template named as the server's account names it, the issue #77 subject
+and message - and lists the job's PDFs under their CD-7.2 names (it reads
+the driver's `routes.txt`; a TEST-routed build contract yields the files and
+no call). The local `docusign-upload` server then checks the connection,
+previews the draft (template by exact name, page counts, signing order, the
+`JobNo` duplicate check) and creates it with
 `docusign_create_draft`: status `created`, the job's own PDFs inside. The
 approval prompt on that call is the person's yes, and a decline ends the step
 as a normal outcome. The template's tabs carry onto a job document with the
@@ -841,7 +845,9 @@ production Go-Live. Until then, and on any stop, no draft is created and the
 report says why. Any fallback beyond that is an open owner decision (CD-11.8);
 none is built. `docusign-upload` (SANDBOX, no legal effect) takes synthetic
 jobs under `runtime\docusign-sandbox\` only. Name the environment in the
-report every time. Rules: CD-11.
+report every time. Checking each recipient's fields on every page, sending,
+and the signing-order screenshot to the sales agent afterwards stay the
+person's; the report lists them. Rules: CD-11.
 
 ## Auxiliary and dual-key dwellings
 

@@ -267,6 +267,23 @@ def build_body(plan: Plan) -> dict[str, Any]:
             "emailBlurb": plan.email_blurb, "compositeTemplates": composites}
 
 
+def _routing_key(role: TemplateRole) -> tuple[int, str]:
+    try:
+        return int(role.routing_order), role.role
+    except ValueError:
+        return 10 ** 6, role.role  # no readable order: last, by name
+
+
+def signing_order(plan: Plan) -> list[dict[str, str]]:
+    """Every template role in routing order, with its recipient type (signer, copy, witness...)
+    and who sets it, so the person approving sees the signing order and the copy recipients,
+    witnesses and guarantor the template keeps (issue #77, step 3)."""
+    sent_roles = {r.role for r, _ in plan.recipients}
+    return [{"order": t.routing_order, "role": t.role, "type": t.recipient_type,
+             "set_by": "the job" if t.role in sent_roles else "the template"}
+            for t in sorted(plan.template.roles, key=_routing_key)]
+
+
 def plan_view(plan: Plan) -> dict[str, Any]:
     """What the preview shows and the create repeats: everything a person approves."""
     sent_roles = {r.role for r, _ in plan.recipients}
@@ -277,6 +294,7 @@ def plan_view(plan: Plan) -> dict[str, Any]:
         "job_no": plan.job_no,
         "email_subject": plan.email_subject,
         "recipients_set": [{"role": r.role, "name": r.name, "email": r.email} for r, _ in plan.recipients],
+        "signing_order": signing_order(plan),
         "roles_left_as_template_defaults": [t.role for t in plan.template.roles if t.role not in sent_roles],
         "documents": [{"kind": d.kind, "file": d.file.name, "pages": d.file.pages,
                        "tabs": "carried from the template" if d.carry else f"none, flagged: {d.reason}"}

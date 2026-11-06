@@ -7,6 +7,13 @@ in step 5). The envelope is a **draft** (`status: created`) that the local
 own PDFs** in it. Sending, voiding, the witness and date roles, and the tabs on
 any document the draft report flags are a person's acts in the DocuSign web UI.
 
+The steps follow the team's DocuSign workflow (issue #77): the template by
+state and buyer type, the job's documents in place of the template's, the
+recipients' full legal names and emails from OSC with Buyer 1 the principal
+buyer recorded there, the subject and message, then the person's own pass
+over every recipient's fields, the send, and the signing-order screenshot to
+the sales agent.
+
 ## Which server
 
 | Job folder | Server | Report label |
@@ -28,17 +35,32 @@ and `docusign_draft_preview` are read-only and on `allow`.
 
 ## 1. Build the payload
 
+First read the buyers from OSC (read-only, `osc_get` is on `allow`): the
+job's client is `clientID` in the intake's `osc-state.json`; call
+`osc_get` with path `/api/Clients/<clientID>/Contacts` and save the result,
+exactly as returned, to `<workdir>/osc_contacts.json`. Do not edit it: the
+script picks the purchasers (not the SALES or MARKETER links), puts the
+principal buyer first and checks them against the job JSON. A synthetic
+sandbox job has no OSC client; skip the read there. If the read fails on a
+real job, build the payload without it: the report then says the buyers came
+from the job JSON, unchecked against OSC.
+
 ```
-python job-roles/contract-admin/scripts/docusign_payload.py --job <workdir>/job.json --job-dir "<job's CONTRACT DOCUMENTATION>"
+python job-roles/contract-admin/scripts/docusign_payload.py --job <workdir>/job.json --job-dir "<job's CONTRACT DOCUMENTATION>" --osc-contacts <workdir>/osc_contacts.json
 ```
 
 A sandbox job's folder is not under `Z:\PROJECTS`, so add `--region NSW|QLD`.
+The template name follows the server: the production account names the
+templates differently from the sandbox (CD-11.2). A production template
+whose name is not confirmed yet is a payload stop (exit 2), as are the OSC
+stops (no purchaser, a different number of buyers, no principal to be
+found, a buyer with no email).
 
 Exit 2 = stop 3; put its `REASON:` line in the report and finish.
 `CALL: no` = a template-testing refresh; mention the payload files and finish.
 Otherwise read `docusign_envelope.json`: `server`, `templateName`,
-`draftArgs`, `sources`, `defaultRoles`, `documentsMissing` and
-`staffBeforeSending`.
+`draftArgs`, `sources`, `flags`, `defaultRoles`, `documentsMissing`,
+`staffBeforeSending` and `staffAfterSending`.
 
 `draftArgs` holds exactly the six tool arguments (`template_name`,
 `recipients`, `email_subject`, `email_blurb`, `job_no`, `documents`). Pass it
@@ -62,8 +84,10 @@ build contract's page count against the template's, the request size, and any
 envelope from the last 180 days that already carries this `JobNo`.
 
 `ok: false` with `stop: true` is stop 4. `ok: true` returns the `plan`: per
-document, `carried from the template` or `none, flagged: <reason>`, and the
-template documents left out because the job has no file of that kind.
+document, `carried from the template` or `none, flagged: <reason>`, the
+template documents left out because the job has no file of that kind, and
+`signing_order`: every role in routing order with its type (signer, copy,
+witness) and whether the job or the template sets it.
 
 ## 4. Create the draft (gated)
 
@@ -97,8 +121,11 @@ Report lines (added to the step 7 table):
 
 - the server and its environment, PRODUCTION or SANDBOX (a SANDBOX draft has
   no legal effect; say so);
-- the template, the recipients set with their sources (`sources`), and the
-  roles left as template defaults (`defaultRoles`);
+- the template, the recipients set with their sources (`sources`: OSC, or
+  the job JSON unchecked), the signing order from the preview, and the roles
+  left as template defaults (`defaultRoles`);
+- the payload's `flags` verbatim (an email or name OSC holds differently
+  from the request, a principal buyer to confirm, owners beyond the second);
 - per document: carried, or flagged with its reason; the kinds in
   `documentsMissing` that the template has a place for;
 - the envelope id, and the read-back `check` line with any `findings`
@@ -106,7 +133,10 @@ Report lines (added to the step 7 table):
 - headed "Before sending, in DocuSign:", the `staffBeforeSending` list
   verbatim, then one line per flagged document (for example "PLANS: 5 pages,
   the template's has 4. No tabs: place them before sending.") and one line
-  per read-back finding.
+  per read-back finding;
+- headed "After sending, in DocuSign:", the `staffAfterSending` list
+  verbatim: the Sent folder's signing-order screenshot and the email to the
+  sales agent. Both are the person's; the run sends no email.
 
 When no draft was created (a stop, a decline, or `CALL: no`), say
 "No DocuSign draft was created" with the reason and finish, as for any stop.
@@ -144,7 +174,9 @@ placeholder PDFs in the draft and is no longer part of it; whether it comes
 back as a fallback is the open CD-11.8 decision);
 `createEnvelopeFromTemplate` (it sends and cannot be held at draft); a real
 job's documents on the sandbox server, or a synthetic job's on production;
-changing `draftArgs` between the preview and the create; a document that is
+changing `draftArgs` between the preview and the create (a recipient OSC
+holds differently is fixed in OSC or the job JSON and the payload rebuilt,
+never typed into the arguments); a document that is
 not in the payload's `documents`; setting Builder, Builder Witness, Date
 Contract, Signer 1 or Buyer Witness; voiding or deleting; a second create for
 the same job in one run.

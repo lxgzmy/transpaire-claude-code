@@ -44,6 +44,15 @@ def check_template_pick():
     # I3: a company_signatory alone selects the Company template
     t, _ = dp.pick_template("NSW", dict(SINGLE, company_signatory="Casey SIGNER"))
     assert t["name"] == "NSW Build _ Company", t
+    # issue #77 review: a person holding the land as trustee is a trust buyer (CD-11.2), not a
+    # single buyer, and the filename token is unchanged by it
+    for trustee in ("Alex EXAMPLE ATF EXAMPLE FAMILY TRUST", "Alex EXAMPLE as trustee for the "
+                    "Example Trust", "EXAMPLE FAMILY TRUST"):
+        t, _ = dp.pick_template("NSW", dict(SINGLE, owner_1=trustee))
+        assert t["name"] == "NSW Build _ Company", (trustee, t)
+    assert dp.dc.owner_token("Alex EXAMPLE ATF EXAMPLE FAMILY TRUST") == "EXAMPLE"
+    for person in ("Alex EXAMPLE", "Jo TRUSTRAM", "Sam ATFIELD"):
+        assert not dp.is_company_or_trust(person), person
     # I5: owner_3 without owner_2 is a stop
     # deferred minors: unknown state, no owner_1
     for state, vals, needle in (("NSW", dict(SINGLE, owner_3="Jo THIRD"), "owner_2 is blank"),
@@ -55,21 +64,41 @@ def check_template_pick():
             assert needle in str(e), (needle, e)
         else:
             raise AssertionError(f"no stop for {state} {needle}")
+    # the two accounts name the templates differently: sandbox names on the sandbox server,
+    # the production account's (issue #77) on production, and a stop where none is confirmed
+    t, _ = dp.pick_template("NSW", SINGLE)
+    assert dp.template_name(t, dp.SANDBOX_SERVER) == "NSW Build _ Single Buyer"
+    assert dp.template_name(t, dp.PRODUCTION_SERVER) == "NSW BUILD CONTRACT _ Single Buyer"
+    t, _ = dp.pick_template("NSW", TWO)
+    assert dp.template_name(t, dp.PRODUCTION_SERVER) == "NSW Build Contract _ Multi Buyers"
+    t, _ = dp.pick_template("QLD", TWO)
+    assert dp.template_name(t, dp.PRODUCTION_SERVER) == "Build Contract _2 Buyer QLD"
+    for state, vals in (("NSW", COMPANY), ("QLD", COMPANY), ("QLD", SINGLE)):
+        t, _ = dp.pick_template(state, vals)
+        assert dp.template_name(t, dp.SANDBOX_SERVER) == t["name"]
+        try:
+            dp.template_name(t, dp.PRODUCTION_SERVER)
+        except dp.PayloadStop as e:
+            assert "not confirmed" in str(e) and t["name"] in str(e), e
+        else:
+            raise AssertionError(f"production name guessed for {t['name']}")
     print("  template pick: ok")
 
 
 def check_recipients():
     t, _ = dp.pick_template("NSW", TWO)
-    roles, sources = dp.recipients_for(t, TWO)
+    roles, sources, flags = dp.recipients_for(t, TWO)
     # the docusign-upload tools' shape: role, name, email
     assert roles == [{"role": "Buyer 1", "name": "Alex EXAMPLE", "email": "alex@example.com"},
                      {"role": "Buyer 2", "name": "Sam SAMPLE", "email": "sam@example.com"}], roles
-    assert sources == ["Buyer 1: owner_1 + owner_email", "Buyer 2: owner_2 + owner_2_email"], sources
+    assert sources == ["Buyer 1: owner_1 + owner_email (job JSON, not checked against OSC)",
+                       "Buyer 2: owner_2 + owner_2_email (job JSON, not checked against OSC)"], sources
+    assert flags == []
     t, _ = dp.pick_template("QLD", TWO)
-    roles, _ = dp.recipients_for(t, TWO)
+    roles, _, _ = dp.recipients_for(t, TWO)
     assert [r["role"] for r in roles] == ["BUYER 1", "Buyer 2"]
     t, _ = dp.pick_template("QLD", COMPANY)
-    roles, sources = dp.recipients_for(t, COMPANY)
+    roles, sources, _ = dp.recipients_for(t, COMPANY)
     assert roles == [{"role": "Buyer - Company Guarantor", "name": "Casey SIGNER",
                       "email": "casey@example.com"}], roles
     # stops
@@ -89,15 +118,19 @@ def check_recipients():
 
 
 def check_subject_and_message():
-    assert dp.subject_for(TWO) == "Complete with DocuSign: BUILD CONTRACT - LOT 12, TESTVILLE"
+    # issue #77 step 4: "Complete with Docusign: BUILD CONTRACT_LOT<lot> <SUBURB>"
+    assert dp.subject_for(TWO) == "Complete with Docusign: BUILD CONTRACT_LOT12 TESTVILLE"
     assert dp.subject_for(dict(SINGLE, suburb="North Kellyville")) == \
-        "Complete with DocuSign: BUILD CONTRACT - LOT 12, NORTH KELLYVILLE"
+        "Complete with Docusign: BUILD CONTRACT_LOT12 NORTH KELLYVILLE"
+    # "Hi <full name> & <full name>," with the names the recipients carry
     t, _ = dp.pick_template("NSW", TWO)
-    assert dp.message_for(TWO, t) == ("Dear Alex & Sam,\n\n"
-                                      "Please find the building contract for review and signing.\n\n"
-                                      "Thank you\nSales Admin")
+    roles, _, _ = dp.recipients_for(t, TWO)
+    assert dp.message_for(roles) == ("Hi Alex EXAMPLE & Sam SAMPLE,\n\n"
+                                     "Please find the build contract for you to review and sign.\n\n"
+                                     "Thank you\nSales Admin")
     t, _ = dp.pick_template("QLD", COMPANY)
-    assert dp.message_for(COMPANY, t).startswith("Dear Casey,\n")
+    roles, _, _ = dp.recipients_for(t, COMPANY)
+    assert dp.message_for(roles).startswith("Hi Casey SIGNER,\n")
     print("  subject + message: ok")
 
 
@@ -109,9 +142,18 @@ def check_build_envelope():
     a = env["draftArgs"]
     # exactly the arguments docusign_draft_preview and docusign_create_draft take
     assert set(a) == DRAFT_ARG_KEYS, sorted(a)
-    assert a["template_name"] == env["templateName"] == "NSW Build _ 2 Buyers"
+    assert a["template_name"] == env["templateName"] == "NSW Build Contract _ Multi Buyers"
+    assert dp.build_envelope("NSW", TWO, dp.SANDBOX_SERVER)["templateName"] == "NSW Build _ 2 Buyers"
     assert a["email_subject"] == dp.subject_for(TWO)
-    assert a["email_blurb"].startswith("Dear Alex & Sam,")
+    assert a["email_blurb"].startswith("Hi Alex EXAMPLE & Sam SAMPLE,")
+    # no OSC read: the report says the buyers were not checked against OSC
+    assert any("OSC's client contacts were not read" in f for f in env["flags"]), env["flags"]
+    # issue #77 steps 3 and 6 are on the staff lists
+    assert any("signing order" in s and "principal" in s for s in env["staffBeforeSending"])
+    assert any("required fields on every page" in s for s in env["staffBeforeSending"])
+    after = env["staffAfterSending"]
+    assert any("Sent folder" in s and "signing order" in s for s in after), after
+    assert any("sales agent" in s for s in after), after
     assert a["job_no"] == "26099"
     assert [r["role"] for r in a["recipients"]] == ["Buyer 1", "Buyer 2"]
     assert a["documents"] == []
@@ -171,9 +213,17 @@ def check_cli_files():
         rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW"])
         assert rc == 0, rc
         env = json.loads((wd / "docusign_envelope.json").read_text(encoding="utf-8"))
-        assert env["call"] is True and env["templateName"] == "NSW Build _ 2 Buyers"
+        assert env["call"] is True and env["templateName"] == "NSW Build Contract _ Multi Buyers"
         txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
         assert "CALL: yes" in txt and "Buyer 1: owner_1 + owner_email" in txt and "Signer 1" in txt
+        assert "staff after sending:" in txt, txt
+        # a production run whose template name is not confirmed yet stops, and says why
+        (wd / "co.json").write_text(json.dumps(COMPANY), encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "co.json"), "--region", "QLD"])
+        assert rc == 2, rc
+        assert "not confirmed" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "co.json"), "--region", "QLD", "--server", dp.SANDBOX_SERVER])
+        assert rc == 0, rc
         assert "docusign-upload-prod" in txt and "PRODUCTION" in txt, txt
         # TEST route -> files written, no call
         (wd / "routes.txt").write_text("BUILD CONTRACT\tTEST\tZ:\\t\n", encoding="utf-8")
@@ -260,6 +310,86 @@ def check_documents_list():
     print("  documents list: ok")
 
 
+def _contact(name, email, primary, relationship="Client Contact"):
+    """One GetClientContactsViewModel entry, synthetic."""
+    return {"fullName": name, "email": email, "isPrimaryContact": primary,
+            "isSecondaryContact": False, "relationship": relationship}
+
+
+SALES = _contact("Pat SELLER", "pat.seller@example.com", False, "SALES")
+MARKETER = _contact("Lee PROMO", "lee.promo@example.com", False, "MARKETER_CC IN ALL EMAILS")
+
+
+def check_osc_recipients():
+    """Issue #77 step 3: names and emails from OSC, Buyer 1 the principal buyer there."""
+    # OSC lists the second owner first but marks the first one primary: Buyer 1 follows OSC
+    osc = [SALES, _contact("Sam SAMPLE", "sam@example.com", False),
+           _contact("Alex EXAMPLE", "alex.osc@example.com", True), MARKETER]
+    env = dp.build_envelope("NSW", TWO, dp.PRODUCTION_SERVER, osc)
+    r = env["draftArgs"]["recipients"]
+    assert r == [{"role": "Buyer 1", "name": "Alex EXAMPLE", "email": "alex.osc@example.com"},
+                 {"role": "Buyer 2", "name": "Sam SAMPLE", "email": "sam@example.com"}], r
+    assert env["sources"][0] == "Buyer 1: OSC client contact 1 (principal buyer)", env["sources"]
+    # OSC's email is used; the difference from the request is flagged, never silent
+    assert any("Buyer 1 email: OSC has alex.osc@example.com, the request alex@example.com" in f
+               for f in env["flags"]), env["flags"]
+    assert not any("not read" in f for f in env["flags"])
+    assert env["draftArgs"]["email_blurb"].startswith("Hi Alex EXAMPLE & Sam SAMPLE,")
+    # the sales contact from OSC is named in the after-sending step
+    assert any("Pat SELLER <pat.seller@example.com>" in s for s in env["staffAfterSending"])
+    # osc_get's own {status, ok, data} wrapper is read too
+    wrapped = dp.build_envelope("NSW", TWO, dp.PRODUCTION_SERVER,
+                                {"status": 200, "ok": True, "data": osc})
+    assert wrapped["draftArgs"]["recipients"] == r
+    # both purchasers marked primary: Buyer 1 is the one with owner 1's email, flagged
+    both = [_contact("Sam SAMPLE", "sam@example.com", True),
+            _contact("Alex EXAMPLE", "alex@example.com", True)]
+    env = dp.build_envelope("NSW", TWO, dp.PRODUCTION_SERVER, both)
+    assert [x["name"] for x in env["draftArgs"]["recipients"]] == ["Alex EXAMPLE", "Sam SAMPLE"]
+    assert any("2 purchasers as the primary contact" in f for f in env["flags"]), env["flags"]
+    # renamed contact in OSC: OSC's full legal name goes in, the difference is flagged
+    env = dp.build_envelope("NSW", SINGLE, dp.SANDBOX_SERVER,
+                            [_contact("Alexander EXAMPLE", "alex@example.com", True)])
+    assert env["draftArgs"]["recipients"][0]["name"] == "Alexander EXAMPLE"
+    assert any("Buyer name" in f and "full legal name" in f for f in env["flags"]), env["flags"]
+    # company: the guarantor stays the land contract's; a guarantor OSC does not hold is flagged
+    env = dp.build_envelope("QLD", COMPANY, dp.SANDBOX_SERVER, [_contact("Jo DIRECTOR", "jo@example.com", True)])
+    assert env["draftArgs"]["recipients"][0]["name"] == "Casey SIGNER"
+    assert any("guarantor's email is not on any OSC purchaser" in f for f in env["flags"])
+    # stops: nothing to go on, or OSC and the job disagree on how many buyers there are
+    for contacts, vals, needle in (
+            ([SALES], TWO, "no purchaser contact"),
+            ([_contact("Alex EXAMPLE", "alex@example.com", True)], TWO, "OSC has 1 purchaser"),
+            ([_contact("Sam SAMPLE", "sam@example.com", True),
+              _contact("Alex EXAMPLE", "other@example.com", True)], TWO, "none matches owner 1"),
+            ([_contact("Alex EXAMPLE", "", True)], SINGLE, "OSC has no email for Alex EXAMPLE"),
+            ({"ok": False, "error": "x"}, SINGLE, "read failed"),
+            ({"data": {"a": [], "b": []}}, SINGLE, "no list of client contacts"),
+            ("not a list", SINGLE, "no list of client contacts")):
+        try:
+            dp.build_envelope("NSW", vals, dp.PRODUCTION_SERVER, contacts)
+        except dp.PayloadStop as e:
+            assert needle in str(e), (needle, e)
+        else:
+            raise AssertionError(f"no stop for {needle}")
+    # CLI: --osc-contacts read from the workdir; an unreadable file is a stop
+    with tempfile.TemporaryDirectory() as tmp:
+        wd = Path(tmp)
+        (wd / "job.json").write_text(json.dumps(TWO), encoding="utf-8")
+        (wd / "routes.txt").write_text("BUILD CONTRACT\tPRODUCTION\tZ:\\p\n", encoding="utf-8")
+        (wd / "osc_contacts.json").write_text(json.dumps({"ok": True, "data": osc}), encoding="utf-8")
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW",
+                      "--osc-contacts", str(wd / "osc_contacts.json")])
+        assert rc == 0, rc
+        txt = (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+        assert "Buyer 1: OSC client contact 1 (principal buyer)" in txt, txt
+        rc = dp.main(["--job", str(wd / "job.json"), "--region", "NSW",
+                      "--osc-contacts", str(wd / "missing.json")])
+        assert rc == 2, rc
+        assert "OSC contacts file not readable" in (wd / "docusign_payload.txt").read_text(encoding="utf-8")
+    print("  OSC recipients: ok")
+
+
 if __name__ == "__main__":
     check_template_pick()
     check_recipients()
@@ -268,4 +398,5 @@ if __name__ == "__main__":
     check_server_for()
     check_cli_files()
     check_documents_list()
+    check_osc_recipients()
     print("docusign_payload self-test: all ok")

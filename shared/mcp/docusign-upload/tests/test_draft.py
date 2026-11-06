@@ -137,6 +137,23 @@ class PlanTests(unittest.TestCase):
     def setUp(self):
         self.qld = draft.parse_template(qld_single_template())
 
+    def test_signing_order_sorts_by_routing_order_and_shows_copies_and_witnesses(self):
+        raw = nsw_company_template()
+        raw["recipients"] = {
+            "signers": [{"roleName": "Builder", "recipientId": "2", "routingOrder": "10"},
+                        {"roleName": "Buyer - Company Guarantor", "recipientId": "1", "routingOrder": "2"}],
+            "carbonCopies": [{"roleName": "Sales Admin", "recipientId": "5", "routingOrder": "11"}],
+            "witnesses": [{"roleName": "Buyer Witness", "recipientId": "6", "routingOrder": ""}]}
+        template = draft.parse_template(raw)
+        sent = draft.check_recipients([{"role": "Buyer - Company Guarantor", "name": "Casey SIGNER",
+                                        "email": "casey@example.com"}], template)
+        plan = draft.Plan(template, sent, (), "s", "b", "00001")
+        self.assertEqual([(r["order"], r["role"], r["type"], r["set_by"]) for r in draft.signing_order(plan)],
+                         [("2", "Buyer - Company Guarantor", "signers", "the job"),
+                          ("10", "Builder", "signers", "the template"),
+                          ("11", "Sales Admin", "carbonCopies", "the template"),
+                          ("", "Buyer Witness", "witnesses", "the template")])
+
     def test_carry_when_pages_match_and_flag_otherwise_in_envelope_order(self):
         files = [("PLANS", pdf("PLANS_X.pdf", 5)), ("BUILD CONTRACT", pdf("BUILD CONTRACT_X.pdf", 37)),
                  ("INCLUSIONS", pdf("INCLUSIONS_X.pdf", 15)),
@@ -216,6 +233,9 @@ class BodyTests(unittest.TestCase):
     def test_plan_view(self):
         view = draft.plan_view(self.plan)
         self.assertEqual(view["roles_left_as_template_defaults"], ["Builder"])
+        self.assertEqual(view["signing_order"],
+                         [{"order": "1", "role": "Buyer", "type": "signers", "set_by": "the job"},
+                          {"order": "2", "role": "Builder", "type": "signers", "set_by": "the template"}])
         self.assertEqual([d["tabs"] for d in view["documents"]],
                          ["carried from the template", "carried from the template",
                           "none, flagged: 5 pages, the template's has 4"])
