@@ -41,13 +41,17 @@ def check_pdf(path: str, roots: tuple[str, ...]) -> PdfFile:
         raise PdfCheckError("not an existing file on the server")
     if p.suffix.lower() != ".pdf":
         raise PdfCheckError("not a .pdf file")
-    size = p.stat().st_size
+    try:  # the service account may see the file but not be allowed to read it
+        size = p.stat().st_size
+        with p.open("rb") as fh:
+            head = fh.read(5)
+    except OSError:
+        raise PdfCheckError("could not be read by the server (check the folder's permissions)") from None
     if size > MAX_DOCUMENT_BYTES:
         raise PdfCheckError(f"{size / 1048576:.1f} MB, over the {MAX_DOCUMENT_BYTES // 1048576} MB "
                             "limit per document")
-    with p.open("rb") as fh:
-        if fh.read(5) != b"%PDF-":
-            raise PdfCheckError("does not start with %PDF-, so it is not a PDF")
+    if head != b"%PDF-":
+        raise PdfCheckError("does not start with %PDF-, so it is not a PDF")
     try:
         reader = PdfReader(str(p))
         encrypted = reader.is_encrypted

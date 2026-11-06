@@ -92,9 +92,17 @@ class Authenticator:
             raise AuthError(f"Token request refused ({resp.status_code} {error}"
                             f"{', ' + detail if detail else ''}). Check the integration key, the "
                             "user id, the key pair and the environment.", status=resp.status_code)
-        payload = resp.json()
-        token = payload["access_token"]
-        expires_in = float(payload.get("expires_in", 3600))
+        # A proxy or maintenance page can answer 200 with no token (or no JSON at all): that
+        # is a sign-in failure the tools report as {ok: false}, not an exception that escapes.
+        payload = _json(resp)
+        token = payload.get("access_token")
+        if not isinstance(token, str) or not token:
+            raise AuthError("The token response held no access token (a proxy or maintenance "
+                            "page may have answered). Try again later.", status=resp.status_code)
+        try:
+            expires_in = float(payload.get("expires_in", 3600))
+        except (TypeError, ValueError):
+            expires_in = 3600.0
         info = await self.http.get(f"https://{host}/oauth/userinfo",
                                    headers={"Authorization": f"Bearer {token}"})
         if info.status_code != 200:

@@ -115,7 +115,8 @@ def _documents(obj, template=None):
     if isinstance(obj, list):
         return obj
     holder = _one(_holders(obj, ("envelopeDocuments", "documents"), list), template, "documents")
-    return holder.get("envelopeDocuments") or holder.get("documents")
+    # an empty list under the first key must not fall through to None (TypeError downstream)
+    return holder.get("envelopeDocuments") or holder.get("documents") or []
 
 
 def geometry(recipients, documents, template=None):

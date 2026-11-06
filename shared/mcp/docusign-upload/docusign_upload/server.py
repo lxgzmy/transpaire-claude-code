@@ -156,6 +156,8 @@ async def docusign_draft_preview(template_name: str, recipients: list[dict[str, 
         plan = await _plan(template_name, recipients, email_subject, email_blurb, job_no, documents)
     except (Stop, AuthError, DocuSignError, httpx.HTTPError) as exc:
         return _failure(exc)
+    except OSError:  # as the create does: the preview must fail the same way, never with a trace
+        return _err("A document could not be read on the server; nothing was created.")
     return {"ok": True, "dry_run": True, "environment": _config.label, "plan": draft.plan_view(plan),
             "note": "Nothing was created. docusign_create_draft with the same arguments creates "
                     "this draft."}

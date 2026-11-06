@@ -144,6 +144,7 @@ class FakeDocuSign:
         self.template_tabs = template_tabs or qld_single_template_tabs()
         self.existing: list[dict] = []
         self.token_error: str | None = None
+        self.token_page: bytes | None = None  # a 200 that is not a token (proxy, maintenance)
         self.create_error: tuple[int, dict | str] | None = None
         self.create_transport_error = False
         self.requests: list[httpx.Request] = []
@@ -163,6 +164,8 @@ class FakeDocuSign:
             if (method, path) == ("POST", "/oauth/token"):
                 if self.token_error:
                     return httpx.Response(400, json={"error": self.token_error})
+                if self.token_page is not None:
+                    return httpx.Response(200, content=self.token_page)
                 return httpx.Response(200, json={"access_token": "synthetic-token",
                                                  "token_type": "Bearer", "expires_in": 3600})
             if (method, path) == ("GET", "/oauth/userinfo"):

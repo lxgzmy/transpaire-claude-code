@@ -29,6 +29,8 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
                 self.token_calls += 1
                 self.forms.append(parse_qs(request.content.decode()))
                 status, body = self.token_reply
+                if isinstance(body, bytes):  # a page that is not JSON at all
+                    return httpx.Response(status, content=body)
                 return httpx.Response(status, json=body)
             if request.url.path == "/oauth/userinfo":
                 assert request.headers["Authorization"] == "Bearer synthetic-token"
@@ -85,6 +87,21 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         self.accounts = [{"account_id": "acct-other", "account_name": "other", "base_uri": BASE}]
         with self.assertRaisesRegex(AuthError, "not one of this user's accounts"):
             await self.auth.session()
+
+    async def test_a_200_without_a_token_is_an_auth_error_not_a_crash(self):
+        # a proxy or maintenance page: HTML, a JSON string, or JSON with no access_token
+        for body in (b"<html>maintenance</html>", "maintenance", {"token_type": "Bearer"},
+                     {"access_token": ""}, {"access_token": 12345}):
+            with self.subTest(body=body):
+                self.token_reply = (200, body)
+                self.auth._session = None
+                with self.assertRaisesRegex(AuthError, "no access token"):
+                    await self.auth.session()
+
+    async def test_an_unreadable_expiry_falls_back_to_an_hour(self):
+        self.token_reply = (200, {"access_token": "synthetic-token", "expires_in": "soon"})
+        session = await self.auth.session()
+        self.assertGreater(session.expires_at - time.monotonic(), 3000)
 
     async def test_an_unreadable_key_file_is_reported_plainly(self):
         self.auth.config = make_config("/nonexistent/synthetic-key.pem")

@@ -116,6 +116,26 @@ def _as_bool(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+MAX_TIMEOUT_SECONDS = 600
+
+
+def parse_timeout(raw: str | None) -> float:
+    """DOCUSIGN_TIMEOUT in seconds (default 60). A bad value is a ConfigError, reported at
+    tool-call time like any other setting, instead of a ValueError that stops the server
+    from starting at all."""
+    text = (raw or "").strip()
+    if not text:
+        return 60.0
+    try:
+        value = float(text)
+    except ValueError:
+        raise ConfigError("DOCUSIGN_TIMEOUT must be a number of seconds, such as 60.") from None
+    if not 0 < value <= MAX_TIMEOUT_SECONDS:  # also false for nan
+        raise ConfigError(f"DOCUSIGN_TIMEOUT must be more than 0 and at most "
+                          f"{MAX_TIMEOUT_SECONDS} seconds.")
+    return value
+
+
 def check_key_path(raw: str) -> str:
     """The private key path, or ConfigError. The path itself is never echoed."""
     if windows_drive(raw) == "c:":
@@ -220,5 +240,5 @@ def load_config() -> Config:
         enable_writes=_as_bool(os.environ.get("DOCUSIGN_ENABLE_WRITES")),
         enable_writes_source=setting_source("DOCUSIGN_ENABLE_WRITES"),
         consent_redirect_uri=os.environ.get("DOCUSIGN_CONSENT_REDIRECT_URI", "").strip() or None,
-        timeout=float(os.environ.get("DOCUSIGN_TIMEOUT", "").strip() or 60),
+        timeout=parse_timeout(os.environ.get("DOCUSIGN_TIMEOUT")),
     )

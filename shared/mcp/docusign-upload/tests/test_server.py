@@ -192,6 +192,25 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(out["ok"])
         self.assertTrue(out["consent_url"].startswith("https://account-d.docusign.com/oauth/auth?"))
 
+    async def test_a_token_page_that_is_not_a_token_is_ok_false_from_every_tool(self):
+        self.fake.token_page = b"<html>down for maintenance</html>"
+        for call in (server.docusign_token_info(), server.docusign_draft_preview(**self.args),
+                     server.docusign_create_draft(**self.args)):
+            out = await call
+            self.assertFalse(out["ok"], out)
+            self.assertIn("no access token", out["error"])
+        self.assertEqual(self.posts(), [])
+
+    async def test_a_document_the_server_cannot_read_stops_preview_and_create_alike(self):
+        with patch("pathlib.Path.open", side_effect=PermissionError("synthetic")):
+            outs = [await server.docusign_draft_preview(**self.args),
+                    await server.docusign_create_draft(**self.args)]
+        for out in outs:
+            self.assertFalse(out["ok"], out)
+            self.assertTrue(out["stop"], out)
+            self.assertIn("could not be read by the server", out["error"])
+        self.assertEqual(self.posts(), [])
+
     async def test_not_configured(self):
         message = "Missing required setting(s): DOCUSIGN_USER_ID."
         with patch.object(server, "_config", None), patch.object(server, "_config_error", message):

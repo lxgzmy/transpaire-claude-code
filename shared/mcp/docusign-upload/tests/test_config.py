@@ -38,6 +38,16 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(c.upload_roots, (os.path.join(config.runtime_root(), "docusign-sandbox"),))
         self.assertEqual((c.enable_writes, c.enable_writes_source, c.timeout), (False, "default", 60.0))
 
+    def test_timeout(self):
+        with self.env(DOCUSIGN_TIMEOUT=" 90 "):
+            self.assertEqual(load_config().timeout, 90.0)
+        # a bad value is a ConfigError (reported at tool-call time), never a ValueError that
+        # stops the server from importing
+        for bad in ("60s", "sixty", "0", "-5", "nan", "601"):
+            with self.subTest(bad=bad), self.env(DOCUSIGN_TIMEOUT=bad):
+                with self.assertRaisesRegex(ConfigError, "DOCUSIGN_TIMEOUT"):
+                    load_config()
+
     def test_missing_settings_are_named(self):
         with self.env(DOCUSIGN_INTEGRATION_KEY=None, DOCUSIGN_USER_ID=None):
             with self.assertRaises(ConfigError) as cm:

@@ -80,6 +80,10 @@ def check_geometry():
         assert "--template" in str(e)
     else:
         raise AssertionError("two templates in one file were not refused without --template")
+    # a template or draft read with an empty documents list: every tab is UNKNOWN, no TypeError
+    for empty in ({"envelopeDocuments": []}, {"documents": []}, {"templateId": "t", "documents": []}):
+        got = ov.geometry(RECIPIENTS, empty)
+        assert len(got) == len(tabs) and {t["kind"] for t in got} == {"UNKNOWN"}, (empty, got)
     print("  geometry: ok")
 
 

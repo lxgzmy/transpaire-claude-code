@@ -79,6 +79,12 @@ class PdfCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(PdfCheckError, "outside"):
             check_pdf(p, ())
 
+    def test_a_file_the_server_cannot_read_is_a_check_error(self):
+        p = make_pdf(self.path("BUILD CONTRACT_X.pdf"), 2)
+        with patch("pathlib.Path.open", side_effect=PermissionError("synthetic")):
+            with self.assertRaisesRegex(PdfCheckError, "could not be read by the server"):
+                check_pdf(p, self.roots)
+
     def test_size_limit(self):
         p = make_pdf(self.path("big.pdf"), 1)
         with patch.object(pdfcheck, "MAX_DOCUMENT_BYTES", 10):
