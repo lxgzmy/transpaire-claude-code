@@ -225,11 +225,13 @@ async def osc_prepare_write(
     body: dict | None = None,
     form: dict[str, str] | None = None,
     files: dict[str, str] | None = None,
+    workflow: str = "intake",
+    note: str = "",
 ) -> dict[str, Any]:
     """Check an OnSite Companion change and word its confirmation. SENDS NOTHING.
 
-    Reads the target from OSC, refuses anything that is not an approved
-    contract-intake change, not tied to the named job, ambiguous, or touching a
+    Reads the target from OSC, refuses anything that is not a change approved
+    for the workflow asking, not tied to the named job, ambiguous, or touching a
     protected field (contract price, contract number, region, DataBuild code).
     Works out exactly which fields change, with their current values, and the
     smallest request that changes only those (custom fields are sent as the full
@@ -248,6 +250,13 @@ async def osc_prepare_write(
         body:   JSON fields to change (only the fields being changed).
         form:   message fields: Subject, Body, Documents[0].description.
         files:  message attachments: {"Documents[0].file": "<absolute path under runtime\\>"}.
+        workflow: "intake" (the contract intake, the default) or
+            "permit-officer" (tick one of the Permit Officer's building-approval
+            activities, or add a message to an NSW job in pre-construction or to
+            one of those activities). Each workflow allows only its own changes.
+        note:   one line shown in the confirmation. Required for a Permit Officer
+            tick: where the completion date comes from, e.g. "date from the certifier's
+            email received 20 Oct 2026".
     """
     if _config is None:
         return _err(_config_error or "OSC MCP is not configured.")
@@ -255,9 +264,10 @@ async def osc_prepare_write(
         gate = _get_gate()
     except OSCError as exc:
         return _err(str(exc))
-    plan = await gate.build_plan(method, path, job_id, body, form, files)
+    plan = await gate.build_plan(method, path, job_id, body, form, files, workflow=workflow, note=note)
     out: dict[str, Any] = {
         "environment": _config.environment,
+        "workflow": workflow,
         "job": plan.job_label or None,
         "change": plan.headline or None,
         "changes": [{k: v for k, v in c.items() if not k.endswith("_shown")} for c in plan.changes],
@@ -286,11 +296,12 @@ async def osc_prepare_write(
 
 
 @mcp.tool()
-async def osc_prepare_changes(job_id: str, changes: list[dict]) -> dict[str, Any]:
+async def osc_prepare_changes(job_id: str, changes: list[dict], workflow: str = "intake") -> dict[str, Any]:
     """Check several OnSite Companion changes for one job and word ONE confirmation. SENDS NOTHING.
 
-    Use this for an intake stage, so the person confirms the stage once
-    instead of change by change. Every change gets exactly the checks of
+    Use this for an intake stage, or a Permit Officer update to one job (for
+    example a tick, its message and the email attached to it), so the person
+    confirms once instead of change by change. Every change gets exactly the checks of
     osc_prepare_write; any change that cannot go ahead blocks the batch, and
     a change OSC already holds is left out and said so. One plain yes later
     sends them in the order given, each read back; the batch stops at the
@@ -301,10 +312,13 @@ async def osc_prepare_changes(job_id: str, changes: list[dict]) -> dict[str, Any
             first stage of a new intake (new client, people, and the job).
         changes: in order, each {"method", "path", "body"} or, for a
             message, {"method", "path", "form", "files"} - the same values
-            osc_prepare_write takes. A later change can use the ID of a
+            osc_prepare_write takes - plus an optional "note". A later change can use the ID of a
             record an earlier one creates, written "{{N.clientID}}",
             "{{N.personID}}" (N = that change's number, from 1): the new
-            job's clientID, or the PersonID in a contact-link path.
+            job's clientID, or the PersonID in a contact-link path. An
+            activity ticked earlier in the batch counts as done for the
+            Permit Officer's "step before" check.
+        workflow: "intake" (default) or "permit-officer", as for osc_prepare_write.
     """
     if _config is None:
         return _err(_config_error or "OSC MCP is not configured.")
@@ -312,10 +326,11 @@ async def osc_prepare_changes(job_id: str, changes: list[dict]) -> dict[str, Any
         gate = _get_gate()
     except OSCError as exc:
         return _err(str(exc))
-    batch = await gate.build_batch(job_id, changes)
+    batch = await gate.build_batch(job_id, changes, workflow)
     text = render_batch(batch, _config.environment)
     out: dict[str, Any] = {
         "environment": _config.environment,
+        "workflow": workflow,
         "job": batch.job_label or None,
         "changes": [{"change": i, "for_input": p.step, "what": p.headline,
                      "fields": [{k: v for k, v in c.items() if not k.endswith("_shown")} for c in p.changes],

@@ -2,8 +2,10 @@
 
 Every write goes through two steps, and nothing reaches OSC between them:
 
-1. build_plan() matches the request to one of the approved contract-intake
-   changes, checks the target belongs to the job the person is working on,
+1. build_plan() matches the request to one of the changes approved for the
+   workflow that asks (the contract intake, or the Permit Officer's
+   building-approval record-keeping), checks the target belongs to the job
+   the person is working on,
    reads the target's current values from OSC, works out exactly which fields
    change (old value and new value), and builds the smallest request that makes
    only those changes. Anything ambiguous, unknown or protected blocks the plan.
@@ -25,6 +27,8 @@ record an earlier change in the batch creates ("{{1.clientID}}").
 
 Codes live in this server process only: a new chat starts with none, and a
 code is used once, replaced by a newer check of the same target, or expires.
+Every answered confirmation, sent or not, is logged with the reply as typed
+(write_log).
 """
 from __future__ import annotations
 
@@ -36,7 +40,7 @@ import secrets
 import time
 from contextlib import ExitStack
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import mimetypes
 from typing import Any
@@ -48,6 +52,7 @@ from .config import Config
 
 GUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?[^ ]*)?$")
+PLAIN_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L to misread
 
 
@@ -89,8 +94,10 @@ class Rule:
         return found.groupdict() if found else None
 
 
-# The contract-intake changes (issue #34, Word items 4-9). Anything else is a
-# person's job in OnSite Companion. Adding a route is a reviewed code change.
+# Every change Claude may make. Each workflow allows only its own kinds (WORKFLOWS
+# below): the contract intake (issue #34, Word items 4-9) and the Permit Officer's
+# building-approval record-keeping. Anything else is a person's job in OnSite
+# Companion. Adding a route is a reviewed code change.
 APPROVED = (
     Rule("POST", "/api/Clients", "create_client", "new client", needs_job=False),
     Rule("PATCH", "/api/Clients/{ClientID}", "update_client", "client"),
@@ -103,6 +110,8 @@ APPROVED = (
     Rule("POST", "/api/Jobs", "create_job", "new job", needs_job=False),
     Rule("PATCH", "/api/Jobs/{JobID}", "update_job", "job"),
     Rule("POST", "/api/JobActivities/{JobActivityID}/Complete", "complete_activity", "activity"),
+    Rule("POST", "/api/JobActivities/{JobActivityID}/NotApplicable", "not_applicable_activity",
+         "not-applicable activity"),
     Rule("PUT", "/api/JobActivities/{JobActivityID}/Questions/{CompletionQuestionID}",
          "answer_question", "answer"),
     Rule("POST", "/api/Jobs/{JobID}/Messages", "job_message", "job message"),
@@ -136,6 +145,7 @@ FIELDS: dict[str, dict[str, Any]] = {
     "create_job": {**_JOB, "clientID": None, "workflowTemplateID": None},
     "update_job": _JOB,
     "complete_activity": {"completionDate": None},
+    "not_applicable_activity": {"shouldNotNALinkedActivities": None},
     "answer_question": {"completionAnswerStateID": None, "note": None},
 }
 FIELDS["update_client_link"] = FIELDS["link_client"]
@@ -186,10 +196,8 @@ LABELS = {
 }
 
 YES = {"yes", "y", "yep", "yeah", "ok", "okay", "confirm", "confirmed", "approve", "approved",
-       "go ahead", "proceed", "do it", "yes please", "yes go ahead",
-       "是", "是的", "确认", "好", "好的", "可以", "同意"}
-NO = {"no", "n", "nope", "cancel", "stop", "don't", "do not", "no thanks",
-      "不", "不要", "否", "取消", "不用"}
+       "go ahead", "proceed", "do it", "yes please", "yes go ahead"}
+NO = {"no", "n", "nope", "cancel", "stop", "don't", "do not", "no thanks"}
 
 
 LOT_PAGE = 500  # jobs read per lot-number check; reaching it means the check could be incomplete
@@ -197,11 +205,94 @@ LOT_PAGE = 500  # jobs read per lot-number check; reaching it means the check co
 DATABUILD_ACTIVITY = "create job within databuild"
 INTAKE_ACTIVITIES = {"initial contact", "follow up initial contact", DATABUILD_ACTIVITY,
                      "receive eoi approval to proceed from marketer"}
+# The one activity the intake marks not applicable (job 26059 review, issue #94): the marketer sent the
+# EOI, so Transpire never sends one. Staff mark it N/A on every job (the 12 newest, 29 Oct 2026).
+INTAKE_NOT_APPLICABLE = {"send eoi (expression of interest) to marketer"}
 
 
 def _activity_name(text: Any) -> str:
     return re.sub(r"^\s*[a-z]\)\s*", "", re.sub(r"\s+", " ", str(text or "")).strip().lower())
 NAME_FILLER = {"and", "pty", "ltd", "atf", "the", "trust", "family", "no", "no.1", "acn", "abn"}
+
+
+# The building-approval steps the Permit Officer workflow may tick (owner sign-off, 23 Oct 2026),
+# exact production spellings read from the three pilot jobs, each with the steps that must be
+# complete (or not applicable) first. Matched by name, never by sequence: Receive RFI from
+# Certifier is activity 60 on two pilot jobs and 61 on the third.
+LODGED = "Submit Documents to Private Certifier for Building Approval Application"
+PAYMENTS = ("Pay Q Leave / Long Service Levy",
+            "Pay QBCC Home Warranty Insurance / Home Building Compensation Fund",
+            "Pay Construction Works Insurance")
+_PO_STEPS = (
+    ("Submit Covenant Application", ()),
+    ("Receive Covenant Approval & Upload to OSC", ("Submit Covenant Application",)),
+    ("Forward Covenant Application Approval to Private Certifier", ("Receive Covenant Approval & Upload to OSC",)),
+    ("Receive RFI from Certifier", (LODGED,)),
+    ("Return RFI Information to Certifier", ("Receive RFI from Certifier",)),
+    *((p, ()) for p in PAYMENTS),
+    ("Email Copy of Relevant Insurances to Certifier", PAYMENTS),
+    ("h) Building Approval Received from Certifier", (LODGED,)),
+)
+PERMIT_OFFICER_ACTIVITIES = {_activity_name(n): tuple(_activity_name(p) for p in before) for n, before in _PO_STEPS}
+STEP_TITLES = {_activity_name(n): n for n, _ in _PO_STEPS} | {_activity_name(LODGED): LODGED}
+PAYMENT_STEPS = {_activity_name(p) for p in PAYMENTS}
+RFI_RETURNED = _activity_name("Return RFI Information to Certifier")
+BA_RECEIVED = _activity_name("h) Building Approval Received from Certifier")
+# The weekly BA report prints these completion dates (job-roles/permit-officer/reference/osc-field-map.md).
+REPORT_COLUMNS = {_activity_name("Submit Covenant Application"): "Covenant Ordered",
+                  _activity_name("Receive Covenant Approval & Upload to OSC"): "Received Covenant Approval",
+                  _activity_name("Receive RFI from Certifier"): "Received RFI",
+                  RFI_RETURNED: "Submit all RFI Items", BA_RECEIVED: "BA Received"}
+# NSW approvals only (QLD status lives in the certifier's portal), on jobs in the approval stage,
+# or on a job kept for testing.
+PO_STATUSES = {"3. pre-construction", "20. test job"}
+BACKDATE_WARNING_DAYS = 14
+
+
+@dataclass(frozen=True)
+class Workflow:
+    """What one workflow may change: its kinds of change and the activities it may touch."""
+    name: str
+    kinds: frozenset[str]
+    activities: frozenset[str]
+    can: str             # how a refusal says what this workflow can do
+    activity_list: str   # how a refusal names its activities
+    role: str            # runtime\<role>\logs\ holds its write log
+
+
+INTAKE, PERMIT_OFFICER = "intake", "permit-officer"
+WORKFLOWS = {
+    INTAKE: Workflow(
+        "contract intake", frozenset(r.kind for r in APPROVED), frozenset(INTAKE_ACTIVITIES),
+        "the contract-intake changes",
+        "the intake activities (Initial Contact, Follow Up Initial Contact, Create Job within Databuild, "
+        "Receive EOI Approval to Proceed from Marketer)", "contract-admin"),
+    PERMIT_OFFICER: Workflow(
+        "Permit Officer", frozenset({"complete_activity", "activity_message", "job_message"}),
+        frozenset(PERMIT_OFFICER_ACTIVITIES),
+        "the Permit Officer changes (tick a listed building-approval activity, add a message to the job "
+        "or to one of those activities)",
+        "the Permit Officer's building-approval activities", "permit-officer"),
+}
+
+
+def sydney_time(moment: datetime) -> datetime:
+    """A UTC moment as Sydney wall-clock time, without a time-zone database (the server's Python has
+    none). NSW daylight saving runs from the first Sunday in October to the first Sunday in April;
+    both changes fall at 16:00 UTC on the Saturday before."""
+    moment = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+    moment = moment.astimezone(timezone.utc)
+
+    def change(month: int) -> datetime:
+        first = datetime(moment.year, month, 1, tzinfo=timezone.utc)
+        return first + timedelta(days=(6 - first.weekday()) % 7) - timedelta(hours=8)
+
+    summer = moment >= change(10) or moment < change(4)
+    return (moment + timedelta(hours=11 if summer else 10)).replace(tzinfo=None)
+
+
+def sydney_today() -> date:
+    return sydney_time(datetime.now(timezone.utc)).date()
 
 
 def _q(text: str) -> str:
@@ -247,16 +338,40 @@ def same(a: Any, b: Any) -> bool:
     return _norm(a) == _norm(b)
 
 
+def phone_433(value: Any) -> str | None:
+    """The 4-3-3 form staff key an Australian phone number in ("0412 345 678",
+    "0290 000 000", "1300 123 456"), or None when the value is not a ten-digit
+    Australian number. Every Legal Reps and Marketers phone on the newest jobs
+    and every purchaser mobile but one overseas number reads this way (feedback
+    sheet 5 Nov 2026, row 3: "02 9000 0000" should be "0290 000 000")."""
+    digits = re.sub(r"\D", "", str(value or ""))
+    if len(digits) != 10 or digits[0] not in "01" or re.search(r"[^\d\s()+-]", str(value)):
+        return None
+    return f"{digits[:4]} {digits[4:7]} {digits[7:]}"
+
+
+def phone_form_warning(plan: "Plan", name: str, value: Any) -> None:
+    """A warning, not a block (one confirmation, no second prompt): a phone number
+    that is not in the 4-3-3 form names the form to send instead."""
+    want = phone_433(value)
+    if want and str(value).strip() != want:
+        plan.warnings.append(f"{name} \"{value}\" is not in the 4-3-3 form staff key - "
+                             f"send \"{want}\" instead.")
+
+
 def _parse_dt(text: Any) -> datetime | None:
     m = ISO_DATE.match(text) if isinstance(text, str) else None
     if not m:
         return None
     y, mo, d, h, mi, s = (int(x) if x else 0 for x in m.groups())
-    return datetime(y, mo, d, h, mi, s, tzinfo=timezone.utc)
+    try:
+        return datetime(y, mo, d, h, mi, s, tzinfo=timezone.utc)
+    except ValueError:  # shaped like a date but not one (2026-02-30): treated as no date
+        return None
 
 
 def fmt_date(value: Any) -> str:
-    dt = value if isinstance(value, datetime) else _parse_dt(value)
+    dt = value if isinstance(value, date) else _parse_dt(value)
     return f"{dt.day} {dt.strftime('%b')} {dt.year}" if dt else str(value)
 
 
@@ -379,6 +494,12 @@ class Plan:
     refs: dict[str, dict[str, Any]] = field(default_factory=dict)  # batch placeholders -> the record they create
     done: bool = False  # blocked only because OSC already holds it
     step: int = 0       # the change's number in its batch, as the caller numbered it
+    workflow: str = INTAKE
+    # Activities an earlier change in the same batch completes (name -> date): they count as done.
+    earlier: dict[str, str] = field(default_factory=dict)
+    # A create's duplicate search, kept to find the new record when OSC's answer does not name it:
+    # (path, filter, GET body, page size, the IDs it found just before sending).
+    created_search: tuple[str, str, Any, int, frozenset[str]] | None = None
 
     @property
     def fingerprint(self) -> str:
@@ -411,6 +532,7 @@ class Batch:
     left_out: list[str] = field(default_factory=list)
     blocked: list[str] = field(default_factory=list)
     job_label: str = ""
+    workflow: str = INTAKE
 
     @property
     def fingerprint(self) -> str:
@@ -495,7 +617,7 @@ def reply_kind(reply: str, code: str = "") -> str:
     text = (reply or "").strip().lower()
     if code:
         text = text.replace(code.lower(), " ")
-    text = re.sub(r"[\s.!,。！，]+", " ", text).strip()
+    text = re.sub(r"[\s.!,]+", " ", text).strip()
     if text in YES:
         return "yes"
     if text in NO:
@@ -602,10 +724,12 @@ class Gate:
     # ---- planning -------------------------------------------------------
     async def build_plan(self, method: str, path: str, job_id: str = "", body: Any = None,
                          form: dict | None = None, files: dict | None = None,
-                         refs: dict[str, dict[str, Any]] | None = None) -> Plan:
+                         refs: dict[str, dict[str, Any]] | None = None, workflow: str = INTAKE,
+                         note: str = "", earlier: dict[str, str] | None = None) -> Plan:
         plan = Plan(method=(method or "").upper(), path=(path or "").strip(), job_id=(job_id or "").strip(),
                     inputs={"method": method, "path": path, "job_id": job_id, "body": body,
-                            "form": form, "files": files}, refs=dict(refs or {}))
+                            "form": form, "files": files, "workflow": workflow, "note": note},
+                    refs=dict(refs or {}), workflow=workflow, earlier=dict(earlier or {}))
         try:
             await self._plan(plan, body, form, files)
         except GateError as exc:
@@ -616,9 +740,10 @@ class Gate:
             plan.done = True
         return plan
 
-    async def build_batch(self, job_id: str, changes: Any) -> Batch:
+    async def build_batch(self, job_id: str, changes: Any, workflow: str = INTAKE) -> Batch:
         """Plan every change of a batch. Any change that cannot go ahead blocks the whole batch."""
-        batch = Batch(job_id=(job_id or "").strip(), changes=changes if isinstance(changes, list) else [])
+        batch = Batch(job_id=(job_id or "").strip(), changes=changes if isinstance(changes, list) else [],
+                      workflow=workflow)
         if not batch.changes:
             batch.blocked.append("The batch has no changes in it.")
             return batch
@@ -627,22 +752,27 @@ class Gate:
             return batch
         refs: dict[str, dict[str, Any]] = {}
         targets: dict[str, int] = {}
+        earlier: dict[str, str] = {}
         for n, change in enumerate(batch.changes, 1):
             if not isinstance(change, dict) or not change.get("method") or \
-                    set(change) - {"method", "path", "body", "form", "files"}:
-                batch.blocked.append(f"Change {n}: give method and path, plus body (or form and files), "
-                                     "and nothing else.")
+                    set(change) - {"method", "path", "body", "form", "files", "note"}:
+                batch.blocked.append(f"Change {n}: give method and path, plus body (or form and files) and "
+                                     "an optional note, and nothing else.")
                 continue
             inputs = {"method": change.get("method"), "path": change.get("path"), "job_id": batch.job_id,
-                      "body": change.get("body"), "form": change.get("form"), "files": change.get("files")}
+                      "body": change.get("body"), "form": change.get("form"), "files": change.get("files"),
+                      "workflow": workflow, "note": change.get("note") or ""}
             unknown = [m.group(0) for m in REF.finditer(json.dumps(inputs, default=str))
                        if m.group(0) not in refs]
             if unknown:
                 batch.blocked.append(f"Change {n} uses {unknown[0]}, which is not the ID of a record that an "
                                      "earlier change in this batch creates.")
                 continue
-            plan = await self.build_plan(**inputs, refs=refs)
+            plan = await self.build_plan(**inputs, refs=refs, earlier=earlier)
             plan.step = n
+            if plan.rule and plan.rule.kind == "complete_activity" and not plan.blocked:
+                earlier[_activity_name(plan.reads["activity"].get("description"))] = \
+                    str(plan.request["json"]["completionDate"])
             if plan.done:
                 batch.left_out.append(f"change {n} ({_describe(plan)}): {plan.blocked[0]}")
                 continue
@@ -664,6 +794,10 @@ class Gate:
         return batch
 
     async def _plan(self, plan: Plan, body: Any, form: dict | None, files: dict | None) -> None:
+        flow = WORKFLOWS.get(plan.workflow)
+        if flow is None:
+            raise GateError(f"{plan.workflow!r} is not a workflow that can change OnSite Companion "
+                            f"(only {', '.join(WORKFLOWS)}).")
         for rule in APPROVED:
             params = rule.match(plan.method, plan.path)
             if params is not None:
@@ -672,8 +806,14 @@ class Gate:
         else:
             raise GateError(
                 f"{plan.method} {plan.path} is not one of the approved OnSite Companion changes. Claude can "
-                "only make the contract-intake changes; anything else is done by a person in OnSite Companion.")
+                f"only make {flow.can}; anything else is done by a person in OnSite Companion.")
         rule = plan.rule
+        if rule.kind not in flow.kinds:
+            raise GateError(f"The {flow.name} workflow does not change a {rule.what}. Claude can only make "
+                            f"{flow.can} there; anything else is done by a person in OnSite Companion.")
+        note = re.sub(r"\s+", " ", str(plan.inputs.get("note") or "")).strip()
+        if len(note) > 300:
+            raise GateError("A note is one short line (300 characters at most).")
         for name, value in plan.params.items():
             new = plan.refs.get(value)
             if new and name == "PersonID" and rule.kind in {"link_client", "link_job"} \
@@ -710,8 +850,23 @@ class Gate:
         if job is not None:
             plan.job_label = job_label(job)
             plan.reads["job"] = _strip(job)
+        if plan.workflow == PERMIT_OFFICER:
+            self._permit_officer_job(plan, job)
+        if note:
+            plan.notes.append(note)
 
         await getattr(self, "_plan_" + rule.kind)(plan, job, body or {}, form or {}, files or {})
+
+    @staticmethod
+    def _permit_officer_job(plan: Plan, job: dict) -> None:
+        state = str((job.get("siteAddress") or {}).get("state") or "").strip().upper()
+        status = str(job.get("workflowStatusName") or "").strip()
+        if state != "NSW":
+            raise GateError(f"Job {plan.job_label} is not an NSW job ({state or 'no state'}). The Permit Officer "
+                            "changes cover NSW approvals only; QLD approval status lives in the certifier's portal.")
+        if status.lower() not in PO_STATUSES:
+            raise GateError(f"Job {plan.job_label} is in \"{status or 'no status'}\", not 3. Pre-Construction, so "
+                            "the Permit Officer changes do not apply to it.")
 
     def _same_id(self, a: Any, b: Any, message: str) -> None:
         if str(a or "").lower() != str(b or "").lower():
@@ -742,6 +897,8 @@ class Gate:
                     if k2 not in sub:
                         raise GateError(f"OnSite Companion has no field called {k2!r} in {label(key)}.")
                     before = _current(cur, k2)
+                    if any(w in k2.lower() for w in ("phone", "mobile", "direct")):
+                        phone_form_warning(plan, f"{label(key)} {k2}", v2)
                     if not same(before, v2):
                         await self._add_change(plan, f"{key}.{k2}", before, v2, current is None)
                         part[k2] = v2
@@ -779,6 +936,8 @@ class Gate:
             if fid not in labels:
                 raise GateError("A custom field ID is not one of this OnSite Companion's fields.")
             new = item.get("value")
+            if "phone" in labels[fid].lower():
+                phone_form_warning(plan, labels[fid], new)
             if not same(merged.get(fid), new):
                 changed = True
                 plan.changes.append(self._change(f"{CUSTOM}.{fid}", labels[fid], merged.get(fid), new,
@@ -936,8 +1095,10 @@ class Gate:
                 raise GateError(f"{label(part)} must be given (an empty group is fine where nothing is sourced).")
         # Case-insensitive, and every word of the name in any order: OSC holds clients that differ
         # only by case, and "Given SURNAME & Given SURNAME" is typed in either order.
-        rows = await self._find("/api/Clients", f"tolower(name) eq '{_q(name.lower())}'", "clients", top=50)
+        flt = f"tolower(name) eq '{_q(name.lower())}'"
+        rows = await self._find("/api/Clients", flt, "clients", top=50)
         exact = {str(r.get("clientID")).lower() for r in rows}
+        plan.created_search = ("/api/Clients", flt, None, 50, frozenset(exact))
         words = [w for w in re.split(r"[\s,&]+", name.lower()) if len(w) > 1 and w not in NAME_FILLER][:4]
         similar = []
         if len(words) >= 2:
@@ -964,9 +1125,10 @@ class Gate:
             if not isinstance(body.get(part), dict):
                 raise GateError(f"{label(part)} must be given (an empty group is fine where nothing is sourced).")
         given, surname = str(body.get("givenName") or "").strip(), str(body.get("surname") or "").strip()
-        rows = await self._find("/api/Persons", f"tolower(givenName) eq '{_q(given.lower())}' and "
-                                                f"tolower(surname) eq '{_q(surname.lower())}'", "people", top=50)
+        flt = f"tolower(givenName) eq '{_q(given.lower())}' and tolower(surname) eq '{_q(surname.lower())}'"
+        rows = await self._find("/api/Persons", flt, "people", top=50)
         plan.reads["same_name"] = sorted(str(r.get("personID")).lower() for r in rows)
+        plan.created_search = ("/api/Persons", flt, None, 50, frozenset(plan.reads["same_name"]))
         whole = " ".join(x for x in (given, surname) if x)
         if rows:
             plan.warnings.append(f"OnSite Companion already has {len(rows)} person(s) called \"{whole}\". "
@@ -1018,12 +1180,15 @@ class Gate:
         if lot:
             # Every job on the lot number, cancelled ones included. Lot numbers repeat across estates
             # (one is on 28 production jobs, 15 Oct 2026), so a short page could hide the real twin.
-            rows = await self._find("/api/Jobs", f"siteAddress/lotNumber eq '{_q(lot)}'", "jobs on the same lot",
-                                    {"shouldShowMyJobsOnly": False}, top=LOT_PAGE)
+            flt = f"siteAddress/lotNumber eq '{_q(lot)}'"
+            rows = await self._find("/api/Jobs", flt, "jobs on the same lot", {"shouldShowMyJobsOnly": False},
+                                    top=LOT_PAGE)
             if len(rows) >= LOT_PAGE:
                 raise GateError(f"More than {LOT_PAGE - 1} jobs use lot {lot}, so they could not all be checked "
                                 "for a duplicate. A person creates this job in OnSite Companion.")
             plan.reads["same_lot"] = sorted(str(r.get("jobID")).lower() for r in rows)
+            plan.created_search = ("/api/Jobs", flt, {"shouldShowMyJobsOnly": False}, LOT_PAGE,
+                                   frozenset(plan.reads["same_lot"]))
             suburb = str(site.get("suburb") or "").strip().upper()
             here = [r for r in rows if not suburb
                     or str((r.get("siteAddress") or {}).get("suburb") or "").strip().upper() == suburb]
@@ -1052,17 +1217,17 @@ class Gate:
         plan.job_label = f"new job at {job_label({'siteAddress': site}).lstrip(' -')}"
         plan.headline = f"a new job is created for client \"{client.get('name')}\""
 
-    async def _activity_for_job(self, plan) -> dict:
+    async def _activity_for_job(self, plan, allowed: frozenset[str] | set[str] | None = None,
+                                listed: str = "") -> dict:
         activity = await self._activity(plan.params["JobActivityID"])
         self._same_id(activity.get("jobID"), plan.job_id,
                       f"That activity belongs to a different job, not {plan.job_label}.")
         # Sequence numbers differ between workflow templates (on three production jobs, 15 Oct 2026,
         # activity 2 is "m) Fixout Complete - OK to Claim"), so the activity is checked by its name.
-        if _activity_name(activity.get("description")) not in INTAKE_ACTIVITIES:
+        flow = WORKFLOWS[plan.workflow]
+        if _activity_name(activity.get("description")) not in (allowed or flow.activities):
             raise GateError(f"Activity {activity.get('sequence')} \"{activity.get('description')}\" is not one of "
-                            "the intake activities (Initial Contact, Follow Up Initial Contact, Create Job within "
-                            "Databuild, Receive EOI Approval to Proceed from Marketer). A person handles it in "
-                            "OnSite Companion.")
+                            f"{listed or flow.activity_list}. A person handles it in OnSite Companion.")
         plan.reads["activity"] = _strip(activity)
         return activity
 
@@ -1076,12 +1241,107 @@ class Gate:
                               f"({fmt_date(activity['completionDate'])}), so there is nothing to change.")
         if activity.get("isNotApplicable"):
             raise GateError(f"{name[0].upper() + name[1:]} is marked not applicable. A person decides that one.")
+        if plan.workflow == PERMIT_OFFICER:
+            await self._permit_officer_tick(plan, job, activity, body["completionDate"], name)
         # A completion is one action, checked by its date on read-back; OSC may
         # fill other activity fields when it completes one, so no whole-record compare.
         plan.request = {"json": await self._diff(plan, body, {"completionDate": None})}
         plan.headline = f"{name} is marked complete"
         if _activity_name(activity.get("description")) == DATABUILD_ACTIVITY:
             plan.warnings.append("say yes only if the job has been entered in DataBuild.")
+
+    async def _plan_not_applicable_activity(self, plan, job, body, form, files):
+        activity = await self._activity_for_job(
+            plan, INTAKE_NOT_APPLICABLE, "the activities the intake marks not applicable (Send EOI (Expression of "
+                                         "Interest) to Marketer)")
+        name = f"activity {activity.get('sequence')} \"{activity.get('description')}\""
+        # OSC sets the date itself; the one body field decides whether linked activities go N/A too
+        if body != {"shouldNotNALinkedActivities": True}:
+            raise GateError("Send {\"shouldNotNALinkedActivities\": true}: only this activity is marked not "
+                            "applicable, never the activities linked to it.")
+        if activity.get("isNotApplicable"):
+            raise AlreadyDone(f"{name[0].upper() + name[1:]} is already marked not applicable, so there is "
+                              "nothing to change.")
+        if activity.get("completionDate"):
+            raise GateError(f"{name[0].upper() + name[1:]} is already complete "
+                            f"({fmt_date(activity['completionDate'])}). A person decides whether it is not applicable.")
+        plan.request = {"json": dict(body)}
+        plan.changes.append(self._change("isNotApplicable", "Not applicable", False, True, False))
+        plan.headline = f"{name} is marked not applicable (the activities linked to it are left as they are)"
+
+    async def _permit_officer_tick(self, plan: Plan, job: dict, activity: dict, when: str, name: str) -> None:
+        """A building-approval tick: refused only when it would be wrong, otherwise a note or warning."""
+        if not str(plan.inputs.get("note") or "").strip():
+            raise GateError("Say where the completion date comes from (note), for example \"date from the certifier's "
+                            "email received 20 Oct 2026\".")
+        day = _parse_dt(when)
+        if not PLAIN_DATE.fullmatch(when) or day is None:
+            raise GateError("The completion date must be the day it happened, written YYYY-MM-DD.")
+        day = day.date()
+        if activity.get("hasCompletionQuestions"):
+            raise GateError(f"{name[0].upper() + name[1:]} has completion questions, which a person answers when "
+                            "ticking it in OnSite Companion.")
+        today = sydney_today()
+        if day > today:
+            raise GateError(f"The completion date {fmt_date(day)} is after today ({fmt_date(today)} in Sydney). "
+                            "Tick it on the day it happens.")
+        created = _parse_dt(job.get("createdOnUtc"))
+        if created and day < sydney_time(created).date():
+            raise GateError(f"The completion date {fmt_date(day)} is before the job was created in OnSite Companion "
+                            f"({fmt_date(sydney_time(created))}).")
+        rows = self._rows(await self._get("/api/JobActivities", {
+            "$filter": f"jobID eq {plan.job_id}", "$top": 500,
+            "$select": "jobActivityID,sequence,description,completionDate,isNotApplicable"}, None, "job's activities"))
+        key = _activity_name(activity.get("description"))
+
+        def is_open(r: dict) -> bool:
+            return not r.get("completionDate") and not r.get("isNotApplicable")
+
+        twins = [r for r in rows if _activity_name(r.get("description")) == key and is_open(r)]
+        if len(twins) > 1:
+            raise GateError(f"Job {plan.job_label} has {len(twins)} open activities called "
+                            f"\"{activity.get('description')}\", so which one to tick is unclear. A person ticks it "
+                            "in OnSite Companion.")
+        before: list[list[Any]] = []
+        for step in PERMIT_OFFICER_ACTIVITIES[key]:
+            if step in plan.earlier:
+                before.append([step, "this update", plan.earlier[step]])
+                continue
+            found = [r for r in rows if _activity_name(r.get("description")) == step]
+            if not found:
+                before.append([step, "missing", None])
+                plan.warnings.append(f"this job has no \"{STEP_TITLES[step]}\" activity, so the step before could "
+                                     "not be checked.")
+                continue
+            waiting = [r for r in found if is_open(r)]
+            if waiting:
+                r = waiting[0]
+                raise GateError(f"Activity {r.get('sequence')} \"{r.get('description')}\" comes first and is not "
+                                f"complete yet. Tick it first, or put both in one update.")
+            done = [r["completionDate"] for r in found if r.get("completionDate") and not r.get("isNotApplicable")]
+            before.append([step, "complete" if done else "not applicable", max(done) if done else None])
+        for step, _, finished in before:
+            finished_day = _parse_dt(finished).date() if _parse_dt(finished) else None
+            if finished_day and day < finished_day:
+                raise GateError(f"The completion date {fmt_date(day)} is before \"{STEP_TITLES[step]}\" was completed "
+                                f"({fmt_date(finished_day)}), which comes first.")
+        plan.reads["permit_officer"] = {"open_twins": len(twins), "before": before}
+        days = (today - day).days
+        if days > 0:
+            column = REPORT_COLUMNS.get(key)
+            text = (f"this date is {days} day{'s' if days != 1 else ''} before today ({fmt_date(today)})."
+                    + (f" The BA report shows it as {column}." if column else ""))
+            if days > BACKDATE_WARNING_DAYS:
+                plan.warnings.append(text + " Check it is the day it happened.")
+            else:
+                plan.notes.append(text)
+        if key in PAYMENT_STEPS:
+            plan.warnings.append("say yes only if this has been paid. Claude pays nothing; the tick records a "
+                                 "payment a person made.")
+        if key == BA_RECEIVED and RFI_RETURNED not in plan.earlier and any(
+                is_open(r) for r in rows if _activity_name(r.get("description")) == RFI_RETURNED):
+            plan.warnings.append("\"Return RFI Information to Certifier\" is still open on this job. Building "
+                                 "approval usually comes after every RFI item has gone back.")
 
     async def _plan_answer_question(self, plan, job, body, form, files):
         activity = await self._activity_for_job(plan)
@@ -1172,6 +1432,11 @@ class Gate:
                     "Nothing was sent. That confirmation code is not valid any more: it was already used, "
                     "replaced by a newer check of the same change, expired, or came from another chat. "
                     "Prepare the change again and show the new confirmation."}
+        result = await self._answer(pending, code, user_reply)
+        self.write_log(pending, user_reply, result)
+        return result
+
+    async def _answer(self, pending: Pending, code: str, user_reply: str) -> dict[str, Any]:
         kind = reply_kind(user_reply, code)
         if kind != "yes":
             del self.pending[code]
@@ -1199,9 +1464,37 @@ class Gate:
                                    "and ask again."}
         return await self._send(pending.plan)
 
+    def write_log(self, pending: Pending, user_reply: str, result: dict[str, Any]) -> None:
+        """One line per answered confirmation in runtime\\<role>\\logs\\osc-writes.jsonl: what the person
+        was shown, their reply exactly as typed, and what happened. Live client data, so runtime only."""
+        if not self.config.log_root:
+            return
+        plan = pending.plan
+        steps = plan.steps if isinstance(plan, Batch) else [plan]
+        record = {
+            "at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "environment": self.config.environment, "workflow": plan.workflow, "code": pending.code,
+            "job_id": plan.job_id, "job": plan.job_label,
+            "asked": [{"what": _describe(p), "method": p.method, "path": p.path,
+                       "fields": [[c["label"], c["current"], c["new"]] for c in p.changes],
+                       "notes": p.notes, "warnings": p.warnings} for p in steps],
+            "reply": user_reply, "reply_kind": reply_kind(user_reply, pending.code),
+            "sent": bool(result.get("sent")),
+            "state": result.get("state") or ("cancelled" if result.get("cancelled") else "not_sent"),
+            "results": result.get("changes") or [{"state": result.get("state"), "text": result.get("result_text")}],
+        }
+        role = WORKFLOWS[plan.workflow].role if plan.workflow in WORKFLOWS else "shared"
+        path = Path(self.config.log_root) / role / "logs" / "osc-writes.jsonl"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "a", encoding="utf-8") as log:
+                log.write(json.dumps(record, default=str) + "\n")
+        except OSError:
+            result["log_error"] = "The write log could not be saved, so tell the person this change is not logged."
+
     async def _confirm_batch(self, approved: Batch) -> dict[str, Any]:
         env = self.config.environment
-        fresh = await self.build_batch(approved.job_id, approved.changes)
+        fresh = await self.build_batch(approved.job_id, approved.changes, approved.workflow)
         if fresh.blocked:
             return {"ok": False, "sent": False, "result_text": render_batch(fresh, env)}
         if fresh.fingerprint != approved.fingerprint:
@@ -1250,7 +1543,7 @@ class Gate:
         first = step.step
         rest = [json.loads(_renumber(_swap(json.dumps(c, default=str), ids), first - 1))
                 for c in approved.changes[first - 1:]]
-        again = await self.build_batch(approved.job_id, rest)
+        again = await self.build_batch(approved.job_id, rest, approved.workflow)
         out: dict[str, Any] = {
             "ok": False, "sent": bool(done), "state": "stopped", "changes": done, "created": ids,
             "confirmation_text": render_batch(again, self.config.environment),
@@ -1289,10 +1582,37 @@ class Gate:
             return {"ok": False, "sent": True, "state": "failed", "status": res.get("status"), "data": res.get("data"),
                     "result_text": f"OnSite Companion refused the change (HTTP {res.get('status')}). Nothing "
                                    f"was changed. {str(detail)[:300]}".strip()}
-        verification = await self._verify(plan, res.get("data"))
-        return {"ok": verification["verified"], "sent": True, "status": res.get("status"), "data": res.get("data"),
+        data, searched = res.get("data"), False
+        key = CREATED_ID.get(plan.rule.kind) if plan.rule else None
+        if key:
+            # Production's answer to a create did not name the new record the way the gate expected
+            # (job 26059, 23 Oct 2026), so every new record read back as unverified: take the ID in
+            # whatever form the answer gives it, else find the one new record by the plan's own search.
+            new_id = _created_id(res, key)
+            if not new_id:
+                new_id, searched = await self._find_created(plan, key), True
+            data = {key: new_id} if new_id else data
+        verification = await self._verify(plan, data)
+        if searched and verification["verified"]:
+            verification["text"] += (" OnSite Companion's reply did not include the new record's ID, so it was "
+                                     "found by searching: the one new record that matches.")
+        return {"ok": verification["verified"], "sent": True, "status": res.get("status"), "data": data,
                 "state": "verified" if verification["verified"] else "sent_unverified",
                 "verification": verification, "result_text": verification["text"]}
+
+    async def _find_created(self, plan: Plan, key: str) -> str | None:
+        """The ID of the record a create just made, when OSC's answer does not name it: the plan's
+        duplicate search run again, less the IDs it found just before sending. Only exactly one new
+        record counts - none or several and the change stays unverified."""
+        if not plan.created_search:
+            return None
+        path, flt, body, top, before = plan.created_search
+        try:
+            rows = await self._find(path, flt, "the new record", body, top=top)
+        except GateError:
+            return None
+        new = {str(r.get(key)).lower() for r in rows if GUID.fullmatch(str(r.get(key) or ""))} - before
+        return new.pop() if len(new) == 1 else None
 
     # ---- read-back ------------------------------------------------------
     async def _verify(self, plan: Plan, data: Any) -> dict[str, Any]:
@@ -1386,7 +1706,7 @@ class Gate:
             rows = await self._find("/api/Jobs/Contacts", f"jobID eq {p['JobID']} and personID eq {p['PersonID']}",
                                     "job contact")
             return rows[0] if len(rows) == 1 else None
-        if kind == "complete_activity":
+        if kind in {"complete_activity", "not_applicable_activity"}:
             return await self._activity(p["JobActivityID"])
         if kind == "answer_question":
             questions = self._rows(await self._get(f"/api/JobActivities/{p['JobActivityID']}/Questions", None,
@@ -1436,6 +1756,17 @@ class Gate:
                 f"The message was sent{where}, but the read-back found a problem ({'; '.join(problems)}). "
                 "Check it in OnSite Companion before sending it again.")
         return {"verified": ok, "message_id": message_id, "attachments": len(documents), "text": text}
+
+
+def _created_id(res: dict[str, Any], key: str) -> str | None:
+    """The new record's ID from OSC's answer to a create, in whatever form it comes: its ID field
+    (any letter case), the ID on its own, or the Location header's last path segment."""
+    data = res.get("data")
+    candidates = ([v for k, v in data.items() if k.lower() == key.lower()] if isinstance(data, dict)
+                  else [data])
+    candidates += [str(res.get("text") or "").strip().strip('"'),
+                   str(res.get("location") or "").rstrip("/").rsplit("/", 1)[-1]]
+    return next((str(c) for c in candidates if GUID.fullmatch(str(c or ""))), None)
 
 
 def _swap(text: str, ids: dict[str, str]) -> str:

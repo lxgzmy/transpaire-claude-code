@@ -72,10 +72,12 @@ owners - and 26045 - a single owner).
 """
 import argparse
 import json
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -335,9 +337,50 @@ def deliver_routed(workdir, values, job_dir, existing, kinds=None):
     test = [f for f in finals if f not in prod]
     if prod:
         deliver_production(prod, job_dir)
+        save_request_email(workdir, job_dir)
     if test:
         deliver_test(workdir, test, TEST_ROOT / workdir.name, force=True)
     return prod, test
+
+
+def save_request_email(workdir, job_dir):
+    """The contract request email into the job's CONTRACT DOCUMENTATION beside the
+    first drafts (feedback sheet 5 Nov 2026 row 1, job 26060: the run saved only
+    the documents; the team saves the request .msg there on every job - 26011,
+    26019, 26032, 26058 - and added 26060's by hand). Named as Outlook's Save As
+    names it. Only on a run that saves into the job folder; never overwrites; an
+    email the folder already holds (same subject, any name) is left alone.
+    Returns a report line."""
+    import msg_extract
+    msgs = sorted(p for p in Path(workdir).glob("*.msg") if p.is_file())
+    if len(msgs) != 1:
+        why = ("no .msg in the workdir (the request came through the mail connector)" if not msgs
+               else f"{len(msgs)} .msg files in the workdir: {', '.join(p.name for p in msgs)}")
+        line = f"  email     : NOT saved - {why}; a person saves the request email into the job folder"
+        print(line)
+        return line
+    src = msgs[0]
+    subj = msg_extract.subject(msg_extract.Cfb(src.read_bytes()))
+    held = []
+    for p in Path(job_dir).rglob("*.msg"):
+        try:
+            if msg_extract.subject(msg_extract.Cfb(p.read_bytes())).strip() == subj.strip():
+                held.append(p)
+        except Exception:   # a damaged or locked .msg is simply not a match
+            continue
+    if held:
+        line = f"  email     : already in the job folder ({held[0].name}) - not saved again"
+        print(line)
+        return line
+    dst = Path(job_dir) / msg_extract.outlook_file_name(subj)
+    if dst.exists():
+        line = f"  email     : NOT saved - {dst.name} already exists with another subject; a person checks it"
+        print(line)
+        return line
+    copy_final(src, dst)
+    line = f"  email     : {dst}"
+    print(line)
+    return line
 
 
 def copy_final(src, dst):
@@ -369,6 +412,48 @@ def run_ps(script, *args):
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
+# word_layout.ps1 prints a line every 10 steps / 100 paragraphs; the longest gap seen is the
+# first steps of an align (~150 s on job 26059). Twice on 29 Oct 2026 the pass then went silent
+# for good and the run sat there 25 minutes until it was killed by hand.
+LAYOUT_SILENCE = 420
+
+
+def run_layout(*args, script="word_layout.ps1", silence=None):
+    """word_layout.ps1 under a watchdog: a pass silent for LAYOUT_SILENCE seconds is stopped - its
+    pwsh and the Word it reported starting, nothing else - and run once more. The pass saves only
+    at its end, so a stopped pass leaves the document as it was. (test_layout_watchdog.py)"""
+    silence = silence or LAYOUT_SILENCE
+    cmd = ["pwsh", "-NoProfile", "-File", str(HERE / script), *map(str, args)]
+    for attempt in (1, 2):
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                             encoding="utf-8", errors="replace")
+        lines, err, word_pid = [], [], None
+        events = queue.Queue()
+        threading.Thread(target=lambda: ([events.put(line) for line in p.stdout], events.put(None)),
+                         daemon=True).start()
+        threading.Thread(target=lambda: err.extend(p.stderr), daemon=True).start()
+        while True:
+            try:
+                line = events.get(timeout=silence)
+            except queue.Empty:
+                break
+            if line is None:
+                p.wait()
+                return subprocess.CompletedProcess(cmd, p.returncode, "".join(lines), "".join(err))
+            lines.append(line)
+            found = re.search(r"word pid (\d+)", line)
+            if found:
+                word_pid = int(found.group(1))
+        p.kill()
+        p.wait(timeout=30)
+        if word_pid:   # the filter makes taskkill a no-op on any process that is not Word
+            subprocess.run(["taskkill", "/F", "/PID", str(word_pid), "/FI", "IMAGENAME eq WINWORD.EXE"],
+                           capture_output=True)
+        print(f"  layout    : Word stopped answering ({silence // 60} min without progress) - "
+              f"stopped it{', trying once more' if attempt == 1 else ''}")
+    return subprocess.CompletedProcess(cmd, 1, "".join(lines), "Word stopped answering on both tries")
+
+
 # word_layout.ps1 -Mode measure output version: 2 since 16 Oct 2026 (each paragraph's page is its
 # first line's, as its top is; end_page is its last line's). An older cache is measured again.
 MEASURE_VERSION = 2
@@ -382,14 +467,15 @@ def measure_version(path):
 
 
 def blank_measure_for(template):
-    """The blank's Word measurement, made (3 min) when missing or older than the blank."""
+    """The blank's Word measurement, made when missing or older than the blank (5-15 min on the
+    server for an SEQ or Sydney blank - 4 to 17 min measured 29-31 Oct 2026), then cached."""
     template = Path(template)
     LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
     out = LAYOUT_STATE / f"{template.stem}.measure.json"
     if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
         return out
-    print(f"  measuring : the blank's layout through Word (first run for this blank, ~3 min) -> {out.name}")
-    r = run_ps("word_layout.ps1", "-Mode", "measure", "-Docx", template, "-Out", out)
+    print(f"  measuring : the blank's layout through Word (first run for this blank, 5-15 min; later runs reuse it) -> {out.name}")
+    r = run_layout("-Mode", "measure", "-Docx", template, "-Out", out)
     if r.returncode != 0 or not out.exists():
         print(f"  MEASURE FAILED: {(r.stderr or r.stdout).strip()[:300]}")
         return None
@@ -583,7 +669,13 @@ def main():
     # an empty page never ships.
     # The AUXILIARY blanks (split MAIN / AUX DWELLING upgrades) take the same
     # path since 15 Oct 2026 (CD-9.11, issue #63): each upgrades item names its dwelling.
-    if args.template and made.get("inclusions") and pick_family(args.template)[0] == "sydney":
+    # SEQ ESSENTIALS blanks take the same path since 28 Oct 2026 (CD-9.12, the
+    # contract admin review of job 26059), with or without an upgrades block:
+    # the blank's highlighted "19." NCC number is cleared on every QLD job and
+    # the layout pass and gate level the NCC and signature lines (issue #94).
+    inc_family = pick_family(args.template)[0] if args.template else None
+    edit_inclusions_doc = inc_family in ("sydney", "seq")
+    if args.template and made.get("inclusions") and edit_inclusions_doc:
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")
             if args.job_dir:
@@ -593,6 +685,15 @@ def main():
             plan = workdir / "layout_plan.json"
 
             def do_edit():
+                # SEQ blank 7's promotion lists the Electrical items per storey count: a
+                # job that does not say which is asked now, not after the Word measurement
+                import edit_inclusions
+                if (values.get("upgrades") or {}).get("storeys") not in (1, 2) and \
+                        edit_inclusions.storey_choice(edit_inclusions.Columns(edit_inclusions.read_xml(doc))):
+                    print("  inclusions: STOREYS NEEDED - this blank's PROMOTIONAL UPGRADES lists the Electrical "
+                          "items for a SINGLE STOREY and a DOUBLE STOREY home. Set upgrades.storeys to 1 or 2 "
+                          "in the job JSON (the request or the plans) and run again.")
+                    return False
                 bm = blank_measure_for(args.template)
                 if not bm:
                     return False
@@ -612,7 +713,7 @@ def main():
                 return True
 
             def do_layout():
-                r = run_ps("word_layout.ps1", "-Mode", "align", "-Docx", doc, "-Plan", plan,
+                r = run_layout("-Mode", "align", "-Docx", doc, "-Plan", plan,
                            "-Out", workdir / "layout_align.json")
                 for line in (r.stdout or "").splitlines():
                     if line.strip():
@@ -624,7 +725,7 @@ def main():
 
             def do_gate():
                 r = run_py("gate_inclusions.py", "--docx", doc, "--measure", workdir / "layout_align.json",
-                           "--plan", plan, "--report", workdir / "gate_inclusions.txt")
+                           "--plan", plan, "--report", workdir / "gate_inclusions.txt", "--family", inc_family)
                 for line in r.stdout.splitlines():
                     if line.strip() and not line.startswith("gate_inclusions"):
                         print(f"  {line.strip()}")

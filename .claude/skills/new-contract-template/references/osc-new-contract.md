@@ -141,7 +141,7 @@ contact details. Reuse only a verified match. Multiple matches require a choice.
 | Region | NSW example: resolve description `SYDNEY01`. For another region, use the EOI and live lookup, not this NSW screenshot. The lookup checked in Sep 2026 (on the frozen copy of production) uses `SEQ01`; old `SEQ1` prose is not a UUID or an instruction to invent a region. |
 | Generate Contract No | Omit `contractNumber` on new-job creation; never calculate, allocate or type a number from a neighbouring job. The schema permits omission but does not document generation behaviour. Read back the created job and require a non-empty generated number. If absent, retain the created job ID and have a person use OSC's Generate Contract No on that job; do not create again. |
 | Initial Template | Match `Pre Sales Investor v1`; the lookup verified in Sep 2026 calls it `1.1 - Pre Sales Investor v1` (re-check it live; the gate refuses a template ID OSC does not list). Accept that exact numbered label, not any template containing “Pre Sales”. If absent or ambiguous, stop before creating a client/job. |
-| Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. Populate sourced values only; empty objects are permitted by the schema where they contain no required fields. Never copy a residential address into a work address without evidence. Read nested required fields before submitting. |
+| Create New Client | `POST /api/Clients`: `name` is the purchaser/entity name — ID-verified when an ID is attached, else the EOI's typed name (flagged, JD-0.1); use returned client ID in the job. Required objects are `postalAddress`, `workAddress`, `workContactDetails`. The client's address (JD-7.1) goes in `workAddress` - the address OSC shows on the client, and the one staff fill on every staff-created client (10 of 10 for jobs 26049-26058, 5 Nov 2026; `postalAddress` 0 of 10); `postalAddress` and `workContactDetails` stay empty objects. Populate sourced values only. Read nested required fields before submitting. *(Until 5 Nov 2026 this row said never to put a residential address in `workAddress`, so the run wrote `postalAddress` and the client's address showed blank: 26059 and 26060, both fixed by hand - feedback sheet 5 Nov 2026 row 4.)* |
 | Create Job | `POST /api/Jobs`: `clientID`, `regionID`, `siteAddress`, `workflowTemplateID`; optional `startDate` only if sourced. No `contractValueIncludingGst` or `contractValueExcludingGst`. |
 
 Describe both POST endpoints before use (production has no swagger on its own
@@ -151,8 +151,12 @@ with `job_id` empty, the client first and the job second with
 `"clientID": "{{1.clientID}}"` (or just the job, with a verified existing
 client's ID), then `osc_confirm_write` on the person's plain yes. A new
 client, person or job has no `job_id` yet; every later change passes the
-job's. The gate reads each new record back by its returned ID; persist the
-`created` IDs and the contract number immediately. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
+job's. The gate reads each new record back by its returned ID - or, when
+production's answer does not name it, by the one new record its duplicate
+search finds (27 Oct 2026; job 26059's intake needed five confirmations
+before this) - and the rest of the stage carries on; persist the
+`created` IDs and the contract number immediately. A change still reported
+"sent, not verified" is checked in OSC by a person, never re-sent. `/api/Jobs/{JobID}` is a PATCH route in the checked spec, not a
 GET route: read jobs via `/api/Jobs` and `$filter: "jobID eq <uuid>"` with the GET
 body above. Inspect the create response schema for its ID field; do not assume
 all create responses have the same key.
@@ -193,7 +197,7 @@ sourced diff. Blank/missing EOI values mean “leave existing value alone”, no
 | Workflow start date | `startDate`, only a sourced date. Never use the screenshot's date. |
 | Contract number / region | Read and retain the verified values from creation. Do not rewrite them during field entry. |
 | Job status / contract details / locations | No general write mapping established for these screenshot controls. Report any requested change as manual unless the runtime API schema establishes the exact operation. Do not use `/Contract` to guess at a UI status change. |
-| Contract values | Excluded from OSC writes, including custom claim amounts/percentages. |
+| Contract values | Excluded from OSC writes, including custom claim amounts/percentages. The `CLAIM n - Stage` names are not values and are written (JD-3.5). |
 
 All labels below were verified against `/api/Jobs/CustomFieldSchemas`. Resolve
 IDs anew for the selected environment; never commit or reuse another
@@ -212,9 +216,38 @@ formatting. Dropdown-looking controls are not licence to invent an enum.
 
 The typo in `Total Commision incl GST` is the live schema label. Commission is
 never inferred from contract price. Fill only when explicitly sourced and
-reviewed. Do not set post-construction, utility, permit, colour or reporting
-status fields merely because they are visible in the screenshot. In particular,
-the example “contract sent” note is not an intake default.
+reviewed. Do not set post-construction, utility, permit or colour fields
+merely because they are visible in the screenshot.
+
+**Every intake fills these in stage 2 wherever OSC has no value yet, never
+leaving one blank** (contract admin review of job 26059, issue #94, 28 Oct
+2026; values as staff key them on the newest production jobs). **A value OSC
+already holds is left as it is, even when it differs from the default**: put
+only the empty ones in the stage. Staff move Job Notes on as the contract
+progresses (26059 read `CONTRACT EXECUTED, AWAITING AUTHORISATION TO PROCEED`
+by 30 Oct), so on an established job the defaults would only offer to undo
+their work.
+
+| Custom field | Value | Rule |
+|---|---|---|
+| `Design Type` | `Single Storey` or `Double Storey` from the job's storeys (the request, else the SA / EOI's Storey tick - an ink mark on the SA, so read it off the rendered page, not the form fields - else the plans); `Single Storey with AUX Dwelling` / `Double Storey with AUX Dwelling` only for a granny flat. The same storeys the inclusions edit uses (`upgrades.storeys`). Not known: left blank and flagged | JD-3.2 |
+| `Property Type` | `Investment`, or `Owner Occupied` when the request or EOI says the buyer will live in it | JD-3.4 |
+| `Job Notes (Reporting)` | `CONTRACT SENT, AWAITING EXECUTION` | JD-3.11 |
+| `CLAIM 1 - Stage` … `CLAIM 6 - Stage` | `Deposit`, `Base`, `Frame`, `Enclosed`, `Fixing`, `Practical Completion` | JD-3.5 |
+| `Private Certifier` | QLD `Buildable`; NSW not written | JD-3.6 |
+| `Local Council` | the web search's council in CAPITALS | JD-3.7 |
+| `Marketing Company`, `Marketer Contact Person`, `Marketers Email`, `Marketers Phone No` | from the request (company in CAPITALS, contact surname in CAPITALS) | JD-3.9 |
+
+Every phone number written to OSC - `Legal Reps Phone No.`, `Marketers Phone
+No`, a person's mobile - is an Australian number typed **4-3-3**: `0412 345
+678`, a landline `0290 000 000`, `1300 123 456`, whatever spacing the SA or
+EOI uses (JD-7.8; feedback sheet 5 Nov 2026 row 3 - the run copied the SA's
+`02 9000 0000`). All 19 Legal Reps and 19 Marketers numbers on the 32 newest
+jobs read this way. The gate warns, naming the 4-3-3 form, when a ten-digit
+Australian number is sent any other way. An overseas number stays as given.
+
+A council the search cannot settle is flagged in the report and left for a
+person. It is never skipped without a word.
 
 Custom values use `customFieldValues: [{"customFieldID": "<resolved UUID>",
 "value": "<sourced text>"}]`, listing only the fields that change. The generic
@@ -240,7 +273,8 @@ within Databuild", 2 is "Supervisor - File Break Up & Check of Purchase
 Orders" or "m) Fixout Complete - OK to Claim", and 6 and 11 are site and
 completion steps. The gate therefore accepts a completion, an answer or a
 message only on the four intake activities **by name** (the `a)` prefix
-ignored) and refuses any other activity. The expected activities are:
+ignored), a not-applicable mark only on "Send EOI (Expression of Interest)
+to Marketer", and refuses any other activity. The expected activities are:
 
 Word item 8 (and `JD-4.1`) marks activities **1, 2 and 6** complete at intake and
 ticks activity 6's questions. The contract request email is the evidence for 1
@@ -253,7 +287,8 @@ person does in issue #34's step 5, after this OSC stage.
 |---|---|---|
 | 1 | Initial Contact | Complete, `completionDate` = the day of entry (the manual's double-click sets today). |
 | 2 | Follow Up Initial Contact | Complete, same date. |
-| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5); that is stage 3, one confirmation. Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 3 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. The gate adds a warning to this completion: yes only once the job is in DataBuild. Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5); that is stage 3, one confirmation. The only question for the person is *"Is the job in DataBuild yet?"*. Never ask for DataBuild details or figures: the eight questions are ticks, not data (job 26059 review, issue #94). Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 3 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. The gate adds a warning to this completion: yes only once the job is in DataBuild. Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 10 | Send EOI (Expression of Interest) to Marketer | **Not applicable**, in stage 2: `POST /api/JobActivities/{JobActivityID}/NotApplicable` with `{"shouldNotNALinkedActivities": true}` (OSC dates it itself; `true` leaves linked activities alone). The marketer sent the EOI, so Transpire never sends one. It is N/A on all of the 12 newest jobs (JD-4.4, issue #94). It is the only activity the gate marks N/A. |
 | 11 | Receive EOI Approval to Proceed from Marketer (may carry `a)` prefix) | Attach the request email (below), then complete: the request email *is* the marketer's approval to proceed (`JD-5.2`). Answer any questions it carries the same way. |
 
 Read `/api/JobActivities/{JobActivityID}/Questions` and the completion-state
@@ -264,7 +299,7 @@ lookup. Answer each question with
 schema's date-time format. Read back completion and answers; do not repeat an
 already verified completion. Any activity other than the four intake ones
 is out of scope for this intake and is not touched (the gate refuses it).
-Activities 1, 2 and 11 carry no questions on the intake template.
+Activities 1, 2, 10 and 11 carry no questions on the intake template.
 
 The Word document requires the email under **task 11**; `JD-5.1` also requires
 it under the job. Use the two message endpoints, preserving uppercase subject
@@ -325,9 +360,9 @@ Person only when no identity match exists; patch only reviewed changed values.
 | Word field | Mapping / rule |
 |---|---|
 | Client name | Client `name`, verified against ID when one is attached, otherwise as typed on the EOI (flagged); do not overwrite a shared client solely to match an email abbreviation. |
-| Client address | Client `postalAddress` and purchaser Person `personalAddress`, using sourced current residence: `line1`, blank `line2` for new records, uppercase `suburb`, `state`, `postcode`. Existing nonblank line2 is not automatically cleared. |
+| Client address | Client **`workAddress`** (JD-7.1, feedback sheet 5 Nov 2026 row 4), from the SA / EOI's current residence: the whole street line in `line1` (`15/180-182 Sample Street`), `line2` blank, `suburb` in capitals, `state`, `postcode`. On an existing client whose `workAddress` is empty, set it in stage 2; a value already there is a person's and stays. The purchaser Person's `personalAddress` carries the same address. Existing nonblank line2 is not automatically cleared. |
 | Purchaser name | Person `givenName`, `middleNames`, `surname`; surname in capitals. Include every purchaser. |
-| Mobile / email | Person `personalContactDetails.mobile` and `.email`; resolve `.contactDetailsPrimaryCommunicationMethodID` to Email. |
+| Mobile / email | Person `personalContactDetails.mobile` and `.email`; resolve `.contactDetailsPrimaryCommunicationMethodID` to Email. Every Australian number is typed **4-3-3** (`0412 345 678`; a landline `0290 000 000`; `1300 123 456`) however the source writes it - JD-7.8. An overseas number stays as given. |
 | Primary purchaser(s) | Client contact link `isPrimaryContact=true` unless the marketer's sourced instruction says otherwise. Do not infer primary/secondary from sex or names. This follows Word item 9 for this workflow instead of the legacy `JD-7.3` slots. |
 | Preferred communication / relationship | Resolve `preferredCommunicationGroupID`. Relationship as staff key it in production (the 10 newest jobs, 15 Oct 2026): purchasers `Client Contact` (OSC's default client-contact label), sales `SALES`, marketer `MARKETER_CC IN ALL EMAILS`. The manual's `MARKETER_ cc in all emails` (`JD-7.5`) is the older spelling; follow the live one. These labels do not authorise sending email. |
 | Client notes / EOI messages | The checked Clients schema has no writable notes field. Report exact sourced notes for manual entry in Client Notes. Do not claim a job message is the same field or place notes in `name`, `workUrl` or unrelated custom fields. |
@@ -346,7 +381,16 @@ client, primary and secondary both false, and none has a job contact at all.
 `/api/Jobs/{JobID}/Contacts/{PersonID}` (additional job contacts, no primary
 flags) is not used by this intake. Link the verified existing sales and
 marketer Persons (the manual's Add From Existing); they are shared across
-many clients, which is expected, so do not create duplicates. A shared
+many clients, which is expected, so do not create duplicates. **The marketer
+contact is the person the request names as the marketer contact** (the
+`Marketer Contact Person`), found by name and email. It is never a Person
+record that carries the marketing company's name: the 26059 run linked one,
+and the review put the named person in its place (issue #94). A named
+marketer with no Person record is created from the request's name, email
+and phone. Either way, that person's `contactDetailsPrimaryCommunicationMethodID`
+is Email; an existing person whose Primary Comm is blank gets it set in the
+same stage (a shared-person change, so the confirmation says so). The
+client-contact list's Preferred Contact column shows that email. A shared
 client/person change affects other jobs, so make that scope explicit in the
 reviewed diff.
 

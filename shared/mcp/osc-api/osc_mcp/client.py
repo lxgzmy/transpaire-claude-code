@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 from typing import BinaryIO
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -139,6 +140,10 @@ class OSCClient:
             result["data"] = None
             if text:
                 result["text"] = text[:2000]
+        location = resp.headers.get("location")
+        if location:
+            # where a create says its new record is; the path only (the URL carries the server's host name)
+            result["location"] = urlsplit(location).path
         if not resp.is_success:
             result["error"] = _explain_status(resp.status_code)
         return result

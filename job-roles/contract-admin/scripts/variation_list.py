@@ -64,8 +64,10 @@ def _sheet_path(z, name):
     wb = ET.fromstring(z.read("xl/workbook.xml"))
     rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
     relmap = {r.get("Id"): r.get("Target") for r in rels}
+    # stripped: the workbook names its QLD sheet "QLD Variation List " (trailing
+    # space), so an exact match never found it and every QLD run fell back
     for s in wb.find("m:sheets", NS):
-        if s.get("name") == name:
+        if (s.get("name") or "").strip() == name.strip():
             target = relmap[s.get(RID)]
             return target[1:] if target.startswith("/") else "xl/" + target
     raise SystemExit(f"ERROR: sheet {name!r} not in {z.filename}")

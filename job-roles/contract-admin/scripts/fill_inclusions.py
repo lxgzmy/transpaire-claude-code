@@ -35,13 +35,16 @@ RUN_RE = re.compile(r"<w:r(?: [^>]*)?>(?:(?!<w:r[ >]).)*?</w:r>", re.S)
 # A gap run holds no value - only whitespace, and sometimes the label's colon,
 # because Word splits "SUBURB:" into a 'SUBURB' run and a ':  ' run.
 GAP_ONLY = re.compile(r"^[:\s\u00a0]*$")
-# An empty floating text box - the owner-name box under ACKNOWLEDGEMENTS & SIGNATURE
-# has no placeholder text at all. Word stores it twice (mc:Choice + mc:Fallback),
-# so filling both is what a person editing in Word produces.
-EMPTY_TXBX = re.compile(
-    r"<w:txbxContent><w:p\b[^>]*>(?:<w:pPr>(?:(?!</w:p>).)*?</w:pPr>)?</w:p></w:txbxContent>",
-    re.S,
-)
+# A floating text box - the owner-name box under ACKNOWLEDGEMENTS & SIGNATURE, the
+# site-address box under the "located at;" sentence. Word stores each twice
+# (mc:Choice + mc:Fallback), so filling both is what a person editing in Word
+# produces. An empty box's paragraph may be written <w:p/> (SEQ blank 1's site box).
+TXBX_RE = re.compile(r"<w:txbxContent>.*?</w:txbxContent>", re.S)
+BOX_PARA = re.compile(r"<w:p\b[^>]*/>|<w:p\b[^>]*>.*?</w:p>", re.S)
+# One paragraph with content. "<w:p\b[^>]*>" also takes an empty "<w:p .../>" for an
+# opening tag and runs on into the next paragraph: three of them before blank 8's
+# INTERNAL TURNKEY PACKAGE hid the heading from the gate (31 Oct 2026).
+PARA_RE = re.compile(r"<w:p(?:\s[^>]*?)?(?<!/)>.*?</w:p>", re.S)
 
 # (anchor, json key, mode, exact)
 #
@@ -51,11 +54,11 @@ EMPTY_TXBX = re.compile(
 #   dotted      - type the value into the anchor run's own dotted line
 #   dotted_next - type the value into the dotted line in the FOLLOWING run
 #   prefix      - append the value to following runs that already read "Lot "
-#   textbox     - fill the empty floating text box(es) that follow the anchor
+#   textbox     - fill the empty floating text box that follows the anchor
+#   after_lot   - type "Lot <value>" into the text box under the anchor sentence
 #
 # exact=True matches the whole run text, which matters because "SUBURB" is a
 # substring of page 1's "SUBURB :" and would otherwise be filled twice.
-#   after_lot   - insert "Lot <value>" twice immediately after the anchor run
 #
 # Anchors shared by every template family. Region-specific ones live in FAMILIES.
 COMMON_FIELDS = [
@@ -93,9 +96,10 @@ SITE_ANCHOR = "Being the owners of the proposed new home to be located at;"
 #      Gunnedah, so both shapes exist WITHIN one family. Suffix matching
 #      therefore treats a trailing $ as optional (fill() normalises both sides
 #      with rstrip("$ "), the same normalisation the write path always used).
-#   2. The site address - Gunnedah's template carries runs reading "Lot " to
-#      append to; SEQ has none, so the whole address is typed after the sentence,
-#      twice, for the builder's and the owner's copy.
+#   2. The site address - both families type it into the box under the
+#      sentence. Gunnedah's box carries "Lot " runs to append to; of the SEQ
+#      blanks, 2 and 3 carry a "Lot " run there and blank 1 (Transpire) an
+#      empty box, so SEQ types the whole "Lot <address>" (after_lot).
 #   3. pad - extra spaces between the template's own gap run and the value, so
 #      the value lands where it lands on the real contracts. Both families indent
 #      further than the blank, but by different amounts.
@@ -187,6 +191,26 @@ FAMILIES = {
             "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
             "GARAGE SIDE :": 3, "PRICE :": 6,
         },
+        # Blank 8 (Montera Estate, 22.11.2024) types its page-1 labels with no
+        # space before the colon - "Lot " + "No.:" in two runs, "STREET:" - and
+        # its "STREET:" reads like the termite page's own, so these match inside
+        # the page-1 table only. The number is the TOTAL spaces between label and
+        # value on the five completed jobs typed from it (24162, 25001, 25004,
+        # 25016, 25019; HOUSE TYPE, ESTATE and PRICE by three of five): SUBURB
+        # has one space, fewer than the blank types, so the gap is rewritten,
+        # not padded.
+        "page1_compact": {
+            "Lot No. :": ("No.:", 3), "HOUSE TYPE :": ("HOUSE TYPE:", 6), "STREET :": ("STREET:", 3),
+            "HOUSE SIZE :": ("HOUSE SIZE:", 7), "SUBURB :": ("SUBURB:", 1),
+            "HOUSE FA\u00c7ADE :": ("HOUSE FA\u00c7ADE:", 1), "ESTATE :": ("ESTATE:", 3),
+            "GARAGE SIDE :": ("GARAGE SIDE:", 5), "PRICE :": ("PRICE:", 6),
+        },
+        # The signature-page lines on Sydney's two tab stops (job 26059 review,
+        # issue #94, INCLUSIONS row 12: the witness Date: and the owners' names
+        # were out of line). The SEQ blanks type those lines exactly as
+        # Sydney's do: Segoe UI Light bold at the 11 pt default, in the same
+        # 568 pt text box, so Sydney's measured stops hold here unchanged.
+        "tabs": {"sig_name": 2235, "sig_date": 7560},
     },
 }
 
@@ -356,6 +380,60 @@ def paragraph_at(xml, pos):
     return start, end
 
 
+def box_after(xml, pos):
+    """(start, end) of every copy of the first floating text box after offset pos.
+
+    A DrawingML box sits in one mc:AlternateContent with its VML fallback, so a
+    person typing into it fills both copies; a VML-only box is the one copy."""
+    m = TXBX_RE.search(xml, pos)
+    if not m:
+        return []
+    ac = xml.rfind("<mc:AlternateContent", 0, m.start())
+    ac_end = xml.find("</mc:AlternateContent>", m.start())
+    if ac != -1 and xml.find("</mc:AlternateContent>", ac) == ac_end:
+        return [(b.start(), b.end()) for b in TXBX_RE.finditer(xml, ac, ac_end)]
+    return [(m.start(), m.end())]
+
+
+def site_box(xml, s, e):
+    """Copies of the address box that belongs to the "located at;" run at s..e.
+
+    Either the box floats in the sentence's own paragraph, ahead of the words
+    (the Owner Occupier colour-selections page), or it is the next box after
+    the paragraph with no text between (every page-15 sentence). [] otherwise."""
+    ac_end = xml.rfind("</mc:AlternateContent>", 0, s)
+    if ac_end != -1 and "</w:p>" not in xml[ac_end:s] and not run_text(xml[ac_end:s]).strip():
+        return box_after(xml, xml.rfind("<mc:AlternateContent", 0, ac_end))
+    pend = xml.find("</w:p>", e)
+    copies = box_after(xml, pend)
+    if copies and run_text(xml[pend:copies[0][0]]).strip():
+        return []
+    return copies
+
+
+def box_text_edits(xml, span, text, placeholders=("Lot", "Lot:")):
+    """Edits typing `text` into one copy of a text box.
+
+    Over the box's placeholder run(s) when that is all it holds ("Lot "), else
+    at the end of its first paragraph when it is empty. None when the box holds
+    other words - a value never lands on top of contract text."""
+    seg = xml[span[0]:span[1]]
+    words = [(m.start(), m.end(), m.group(0)) for m in RUN_RE.finditer(seg) if run_text(m.group(0)).strip()]
+    if words:
+        if not all(run_text(r).strip() in placeholders for _, _, r in words):
+            return None
+        return [(span[0] + s, span[0] + e, set_run_text(r, text if n == 0 else ""))
+                for n, (s, e, r) in enumerate(words)]
+    p = BOX_PARA.search(seg)
+    if not p:
+        return None
+    run = f'<w:r><w:t xml:space="preserve">{xml_escape(text)}</w:t></w:r>'
+    if p.group(0).endswith("/>"):
+        return [(span[0] + p.start(), span[0] + p.end(), p.group(0)[:-2].rstrip() + ">" + run + "</w:p>")]
+    at = span[0] + p.end() - len("</w:p>")
+    return [(at, at, run)]
+
+
 def ppr_tab_edit(xml, pos, *positions):
     """An (start, end, replacement) edit adding tab stops to the pPr of the paragraph containing pos."""
     ps, pe = paragraph_at(xml, pos)
@@ -393,6 +471,10 @@ def fill(xml, values, report, family):
     # filler did before the key existed. Single-owner jobs are unaffected either
     # way; two-owner jobs should set it.
     values = {**values, "owners": values.get("owners") or values.get("owner_1")}
+    compact = family.get("page1_compact", {})
+    t0 = xml.find("<w:tbl>")
+    page1 = [i for i, r in enumerate(runs) if t0 <= r[0] < xml.find("</w:tbl>", t0)] if compact and t0 >= 0 else []
+    claimed = set()   # page-1 runs a compact label took - no later anchor matches them
 
     for anchor, key, mode, exact in COMMON_FIELDS + family["fields"]:
         pad = family["pads"].get(anchor, 0)
@@ -404,24 +486,44 @@ def fill(xml, values, report, family):
             continue
         value = str(value)
 
-        if mode == "textbox":
-            # empty floating boxes after the anchor - no placeholder run to find
-            apos = xml.find(xml_escape(anchor))
-            if apos == -1:
+        if anchor in compact:
+            label, total = compact[anchor]
+            for i in page1:
+                if texts[i].strip() != label:
+                    continue
+                j = i + 1
+                while j < len(runs) and texts[j] != "" and GAP_ONLY.match(texts[j]):
+                    j += 1
+                for k in range(i, j):
+                    edits.append((runs[k][0], runs[k][1], set_run_text(runs[k][2], label if k == i else "")))
+                    claimed.add(k)
+                shown = f"${value}" if mode == "suffix" else value
+                edits.append((runs[j - 1][1], runs[j - 1][1], clone_run(runs[j - 1][2], " " * total + shown)))
+                entry["hits"] += 1
+            if entry["hits"]:
                 entry["value"] = value
                 continue
-            for m in EMPTY_TXBX.finditer(xml):
-                if m.start() < apos:
+
+        if mode == "textbox":
+            # the empty floating box straight after each heading - no
+            # placeholder run to find. Only that box: "every empty box after
+            # the heading" also took the site-address box whenever it was empty
+            # (the Owner Occupier blank's colour-selections page).
+            for am in re.finditer(re.escape(xml_escape(anchor)), xml):
+                copies = box_after(xml, am.end())
+                if not copies or run_text(xml[am.end():copies[0][0]]).strip():
                     continue
-                at = m.start() + m.group(0).rindex("</w:p>")
-                edits.append(
-                    (at, at, f'<w:r><w:t xml:space="preserve">{xml_escape(value)}</w:t></w:r>')
-                )
-                entry["hits"] += 1
+                planned = [box_text_edits(xml, c, value, ()) for c in copies]
+                if all(p is not None for p in planned):
+                    for p in planned:
+                        edits.extend(p)
+                    entry["hits"] += len(planned)
             entry["value"] = value
             continue
 
         for i, t in enumerate(texts):
+            if i in claimed:
+                continue
             if mode == "suffix":
                 # the label's trailing $ is template typing, not identity: the
                 # SEQ Auxiliary blank reads "PRICE : $" where the standard SEQ
@@ -447,34 +549,24 @@ def fill(xml, values, report, family):
                     edits.append((s, e, set_run_text(run, f"{base}{' ' * pad}${value}")))
 
             elif mode == "after_lot":
-                # The standard SEQ blank has no "Lot " runs to append to, so the
-                # whole address is inserted after the sentence - twice, because
-                # the builder's and the owner's copy sit side by side. All 21
-                # completed SEQ jobs separate the sentence and the address with
-                # a space ("at; Lot") and butt the two copies together with
-                # none - so only the first copy carries the leading space
-                # (verified 16 Aug 2026). The SEQ Auxiliary blank DOES carry
-                # two "Lot " placeholder runs (the Gunnedah shape - seen
-                # 18 Aug 2026 on 25163): those are filled in place instead,
-                # because inserting as well leaves them behind as "Lot Lot".
-                j = i + 1
-                lot_runs = []
-                while j < len(runs) and texts[j].strip() in ("Lot", "Lot:", ""):
-                    if texts[j].strip():
-                        lot_runs.append(j)
-                    j += 1
-                if lot_runs:
-                    for n, jj in enumerate(lot_runs):
-                        sj, ej, rj = runs[jj]
-                        lead = " " if n == 0 else ""
-                        edits.append((sj, ej, set_run_text(
-                            rj, f"{lead}{texts[jj]}{value}")))
-                        entry["hits"] += 1
+                # "Lot <address>" goes in the box under the sentence, once per
+                # copy, with nothing typed after "located at;": all 182
+                # completed SEQ inclusions on the drive hold it so, 173 of them
+                # starting the box with "Lot" (31 Oct 2026). Blanks 2 and 3
+                # carry a "Lot " run in the box, typed over; blank 1
+                # (Transpire) leaves the box empty. The earlier reading - "typed
+                # after the sentence, twice" - was the box's two copies read as
+                # flat text; on blank 1 it left the box empty and the doubled
+                # line pushed a sixteenth, empty page (job 26059 follow-up).
+                copies = site_box(xml, s, e)
+                planned = [box_text_edits(xml, c, f"Lot {value}") for c in copies]
+                if planned and all(p is not None for p in planned):
+                    for p in planned:
+                        edits.extend(p)
+                    entry["hits"] += len(planned)
                 else:
-                    first = clone_run(run, f" Lot {value}")
-                    second = clone_run(run, f"Lot {value}")
-                    edits.append((e, e, first + second))
-                    entry["hits"] += 1
+                    entry["why"] = "no empty address box under the sentence"
+                continue  # hits count the box copies typed into, not the sentence
 
             elif mode == "dotted":
                 edits.append((s, e, set_run_text(
@@ -577,7 +669,7 @@ def signature_tabs(xml, values, family):
         return xml, 0
     rebuilt = 0
     out, pos = [], 0
-    for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.S):
+    for m in PARA_RE.finditer(xml):
         p = m.group(0)
         runs = [r.group(0) for r in RUN_RE.finditer(p)]
         text = "".join(run_text(r) for r in runs)
@@ -606,6 +698,11 @@ def signature_tabs(xml, values, family):
         elif dots:
             cap = SIG_DOTS.get(label, SIG_DOTS_DEFAULT)
             parts.append(f'<w:r>{rpr_value}<w:t xml:space="preserve"> {ELLIPSIS * min(dots, cap)}</w:t></w:r>')
+        else:
+            # no name and no dotted line - SEQ blank 1 types its page-13 "Name of
+            # Owner 2:" with spaces only. A tab to the name stop first, or the
+            # one tab stops there and Date: sits in the name column.
+            parts.append(TAB_RUN)
         parts.append(TAB_RUN + f'<w:r>{rpr_date}<w:t xml:space="preserve">{xml_escape(date_text)}</w:t></w:r>')
         open_tag = re.match(r"<w:p\b[^>]*>", p).group(0)
         ppr = re.search(r"<w:pPr>.*?</w:pPr>", p, re.S)
@@ -627,6 +724,109 @@ def signature_tabs(xml, values, family):
         rebuilt += 1
     out.append(xml[pos:])
     return "".join(out), rebuilt
+
+
+def default_size(template):
+    """The template's default run size in half-points (docDefaults), 22 if unreadable."""
+    try:
+        with zipfile.ZipFile(template) as z:
+            st = z.read("word/styles.xml").decode("utf-8")
+        dd = re.search(r"<w:docDefaults>.*?</w:docDefaults>", st, re.S)
+        m = re.search(r'<w:sz w:val="(\d+)"', dd.group(0)) if dd else None
+        return int(m.group(1)) if m else 22
+    except (KeyError, OSError, zipfile.BadZipFile):
+        return 22
+
+
+def company_owner_lines(xml, values, default_half_points=22):
+    """A company or trust owner on the "Name of Owner 1:" lines (feedback sheet
+    5 Nov 2026 row 16, job 26039): the full name WITH its ACN, at the size that
+    keeps it on its line, and "<signatory> on behalf of <company> ACN: ..." on
+    the line under it from the left edge, as the team writes it. On a line that
+    also carries "Date:" (the tab-stopped signature lines) the Date: moves to a
+    third line of its own at its tab stop - a company name cannot share the line
+    with it at any readable size. (xml, [report lines])."""
+    import font_fit
+    import owner_names
+    company = owner_names.company_name(values)
+    o1 = str(values.get("owner_1") or "").strip()
+    if not company or not o1:
+        return xml, []
+    signer = owner_names.signer_line(values, company)
+    notes = [f"company  : {company} on every Name of Owner 1 line (the ACN rides with the name)"]
+    if not signer:
+        notes.append("company  : no company_signatory in the job JSON - the '<name> on behalf of' line "
+                     "is left for a person")
+
+    def face(rpr):
+        f = re.search(r'w:ascii="([^"]+)"', rpr)
+        s = re.search(r'<w:sz w:val="(\d+)"', rpr)
+        return (f.group(1) if f else "Calibri", int(s.group(1)) if s else default_half_points,
+                bool(re.search(r'<w:b(?: w:val="(?:1|true|on)")?/>', rpr)))
+
+    def sized(rpr, hp):
+        rpr = re.sub(r'<w:sz(?:Cs)? w:val="\d+"/>', "", rpr or "<w:rPr></w:rPr>")
+        return rpr.replace("</w:rPr>", f'<w:sz w:val="{hp}"/><w:szCs w:val="{hp}"/></w:rPr>')
+
+    out, pos, done = [], 0, 0
+    for m in PARA_RE.finditer(xml):
+        p = m.group(0)
+        runs = list(RUN_RE.finditer(p))
+        texts = [run_text(r.group(0)) for r in runs]
+        if not "".join(texts).startswith("Name of Owner 1:"):
+            continue
+        k = next((i for i, t in enumerate(texts) if o1 in t), None)
+        if k is None:
+            continue
+        width = font_fit.container_width(xml, m.start()) or 10000
+        run = runs[k].group(0)
+        rpr_m = re.search(r"<w:rPr>.*?</w:rPr>", run, re.S)
+        rpr = rpr_m.group(0) if rpr_m else ""
+        font, hp, bold = face(rpr)
+        stops = [int(s) for s in re.findall(r'<w:tab w:val="left" w:pos="(\d+)"/>', p)]
+        if stops and k > 0 and "<w:tab/>" in runs[k - 1].group(0):
+            start = stops[0]                      # the name sits at the first tab stop
+        else:                                     # typed after the label and its gap spaces
+            lead = texts[k][:texts[k].index(o1)]
+            lf, lhp, lb = face((re.search(r"<w:rPr>.*?</w:rPr>", runs[0].group(0), re.S) or [""])[0])
+            start = int((font_fit.text_width_pt("".join(texts[:k]), lf, lhp, lb)[0]
+                         + font_fit.text_width_pt(lead, font, hp, bold)[0]) * 20)
+        hp1, fits, exact = font_fit.fit_size(company, font, hp, width - start, bold)
+        new_name = sized(rpr, hp1)
+        new_run = (run[:rpr_m.start()] + new_name + run[rpr_m.end():] if rpr_m
+                   else run.replace(">", ">" + new_name, 1))
+        new_run = new_run.replace(xml_escape(o1), xml_escape(company), 1)
+        repl = {k: new_run}                       # run index -> its replacement
+        tail = ""
+        if signer:
+            hp2, _, _ = font_fit.fit_size(signer, font, hp1, width, bold)
+            tail = f'<w:r>{sized(rpr, hp2)}<w:br/><w:t xml:space="preserve">{xml_escape(signer)}</w:t></w:r>'
+        date_k = next((i for i in range(k + 1, len(texts)) if "Date:" in texts[i]), None)
+        if date_k is not None:
+            # the tab(s) that took Date: across the name's line go; on its own
+            # line two tabs take it past the name stop to the Date: stop
+            for i in range(k + 1, date_k):
+                if not texts[i].strip():
+                    repl[i] = ""
+            repl[date_k] = tail + "<w:r><w:br/><w:tab/><w:tab/></w:r>" + runs[date_k].group(0)
+        else:
+            repl[k] = new_run + tail
+        # the paragraph rebuilt run by run; whatever sits between runs stays
+        new_p, cur = [], 0
+        for i, r in enumerate(runs):
+            new_p.append(p[cur:r.start()] + repl.get(i, r.group(0)))
+            cur = r.end()
+        new_p = "".join(new_p) + p[cur:]
+        out.append(xml[pos:m.start()] + new_p)
+        pos = m.end()
+        done += 1
+        notes.append(f"company  : Name of Owner 1 line {done} - {hp1 / 2:g} pt in {(width - start) / 20:.0f} pt"
+                     + ("" if fits else " (still wraps at the smallest size - check the line)")
+                     + ("" if exact else " (width estimated - font file not found)")
+                     + (f"; signer line {hp2 / 2:g} pt" if signer else "")
+                     + ("; Date: on a line of its own" if date_k is not None else ""))
+    out.append(xml[pos:])
+    return "".join(out), notes
 
 
 def write_docx(template, out, xml, parts=None):
@@ -758,11 +958,19 @@ def main():
               file=sys.stderr)
         return 2
 
+    # the site's house number in brackets in every document (feedback sheet
+    # 5 Nov 2026 row 7) - one formatter for the inclusions, prelim and contract
+    import street_format
+    street_notes = []
+    if street_format.applies(fam_name):
+        values, street_notes = street_format.bracket_job(values)
+
     xml = read_xml(args.template)
     report = []
     new_xml = fill(xml, values, report, family)
     new_xml, dropped_notes = drop_instruction_paras(new_xml, fam_name)
     new_xml, sig_lines = signature_tabs(new_xml, values, family)
+    new_xml, company_notes = company_owner_lines(new_xml, values, default_size(args.template))
 
     print(f"template : {Path(args.template).name}")
     print(f"family   : {fam_name} - {family['label']}")
@@ -776,7 +984,7 @@ def main():
         if info.get("skipped"):
             print(f"{key:<13} {'-':>4}  {anchor:<26} (no value - left blank)")
             continue
-        flag = "" if hits else "   <-- ANCHOR NOT FOUND"
+        flag = "" if hits else f"   <-- {info['why'].upper() if info.get('why') else 'ANCHOR NOT FOUND'}"
         print(f"{key:<13} {hits:>4}  {anchor:<26} {info['value'][:30]}{flag}")
         if not hits:
             problems.append(f"{key} ({info['anchor'][:24]})")
@@ -791,8 +999,14 @@ def main():
         print("The template may have changed. Do not issue this document - check it.")
 
     if family.get("tabs"):
-        print(f"tabs     : page-1 values and {sig_lines} signature line(s) on tab stops "
+        page1 = "page-1 values and " if family["tabs"].get("page1") else ""
+        print(f"tabs     : {page1}{sig_lines} signature line(s) on tab stops "
               f"(sheet 9.9 rows 1, 14, 15) - gate_inclusions.py verifies the x positions")
+
+    for n in company_notes:
+        print(n)
+    for n in street_notes:
+        print(f"NOTE: {n}")
 
     if dropped_notes:
         for n in dropped_notes:

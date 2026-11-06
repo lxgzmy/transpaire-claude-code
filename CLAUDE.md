@@ -91,6 +91,9 @@ skills are scoped to that folder and must not leak into another role.
   Since 15 Oct 2026 (issue #63, owner sign-off) this covers the Sydney
   AUXILIARY blanks too: the aux dwelling's upgrade lines are written under
   the same rules and checks (`contract-docs.md` CD-6.3 reversed, CD-9.11).
+  Since 28 Oct 2026 (contract admin review of job 26059) it covers the SEQ
+  `PROMOTIONAL UPGRADES` section too: the named promotion copied in and the
+  request's upgrades written under the same rules and checks (CD-9.12).
 - **Gated write, not an exception (13 Oct 2026):** `/new-contract-template`
   step 8 creates a DocuSign **draft** envelope (`status: created`) with the
   job's own PDFs after a real build-contract save, through the local
@@ -115,7 +118,22 @@ skills are scoped to that folder and must not leak into another role.
   match, and reported with its request line and approval. Every other
   change the request asks for stays a person's. The NSW contract price
   split, deposit and progress payments are worked from the request price by
-  a fixed rule the same day (issue #62, CD-5.4).
+  a fixed rule the same day (issue #62, CD-5.4); QLD's item 2 and Part B
+  follow since 27 Oct 2026 (contract admin review of job 26059, reversing
+  issue #73), DataBuild figures a person gives winning in both regions.
+- **Sanctioned exception (23 Oct 2026, issue #84, owner sign-off):** the
+  Permit Officer workflow makes three kinds of OnSite Companion change, on
+  NSW jobs in pre-construction only: tick one of ten named building-approval
+  activities complete, add a message to the job or to one of those
+  activities, and attach a certifier or council email to that message
+  exactly as received. The gate's `permit-officer` allow-list holds them
+  apart from the intake's, so neither workflow can make the other's changes
+  (`job-roles/permit-officer/workflows/osc-updates.md`). The same
+  confirmation applies: one plain-words confirmation per job update, the
+  permit officer's own plain yes, a re-check before sending, a read-back,
+  and a log of every answer. RFI judgement, portals, payments, external
+  email, staff alerts and marking an activity not applicable stay a
+  person's.
 
 ## Security posture
 
@@ -159,15 +177,21 @@ skills are scoped to that folder and must not leak into another role.
   `osc-api` connection reached only a dev copy frozen on 21 Aug 2026 and is
   retired. Every OSC change is prepared, shown to the person in plain words with
   the values it overwrites, and sent only on their plain yes, then read back
-  (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes are possible,
-  each tied to the named job. Since 15 October 2026 the changes are grouped one
+  (`shared/mcp/osc-api/osc_mcp/gate.py`); only the intake changes and, since
+  23 October 2026, the Permit Officer changes (issue #84) are possible, each
+  tied to the named job and to the workflow that asked for it, and every
+  answer is logged under `runtime\<role>\logs\`. Since 15 October 2026 the changes are grouped one
   confirmation per intake stage (new client and job; the job's set-up;
   DataBuild done), each change still re-checked and read back. This is not an extension of automatic
   document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
-  activity 6 is completed only once that person confirms the entry. Multipart
+  activity 6 is completed only once that person confirms the entry. Since
+  29 Oct 2026 (issue #94, the job 26059 review) the intake also marks
+  activity 10 "Send EOI to Marketer" not applicable. That is the one N/A the
+  gate allows. Multipart
   uploads may read files only under `OSC_UPLOAD_ROOTS` (default `runtime\`).
-  Other OSC write workflows remain subject to their own discovery and review.
+  The Permit Officer changes are the second sanctioned set (see the 23 Oct 2026
+  exception above). Other OSC write workflows remain subject to their own discovery and review.
   DataBuild automation is ruled out (23 Aug 2026): the vendor confirmed it has
   no API access, so no MCP server or integration is possible — DataBuild stays
   manual, kept in the docs as background only.

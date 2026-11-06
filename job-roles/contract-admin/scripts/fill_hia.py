@@ -100,29 +100,49 @@ way a person typing in the value column would):
     Schedule 1   item 3 Owner(s): NAME, ADDRESS, SUBURB, STATE, POSTCODE,
                  MOBILE, EMAIL (company/trust buyer: the whole entity string
                  goes in NAME, as the executed 25163 contract does)
-    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - from the figures
-                 a person gives (issue #73: QLD is never worked out; typed or
-                 read off a DataBuild screenshot, at any time, no gate)
+    item 2       PRICE EXCLUDING GST / GST / CONTRACT PRICE - worked from the
+                 request's GST-inclusive `price` the way the HIA form the team
+                 fills works them out (27 Oct 2026 review, reversing issue #73's
+                 "never worked out"); figures a person gives from DataBuild,
+                 typed or read off a screenshot, at any time, still win
     Schedule 2   Part B amounts: DEPOSIT, BASE, FRAME, ENCLOSED, FIXING,
-                 PRACTICAL COMPLETION and TOTAL, from the same figures (QC2 has
-                 no item 2 deposit: the deposit is Part B's first row); the
-                 printed percentages are checked first (CD-5.6). The checks
-                 on the figures are warnings only
+                 PRACTICAL COMPLETION and TOTAL, worked from the same price
+                 (QC2 has no item 2 deposit: the deposit is Part B's first
+                 row); the printed percentages are checked first (CD-5.6).
+                 The checks on the figures are warnings only
     item 7       guarantors - only when sourced; a guarantor also completes
                  the deed's BUILDER IS / OWNER IS lines (deed date never)
-    item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE
+    item 11      The land: LOT, SP/RP, STREET ADDRESS:, SUBURB, STATE, POSTCODE;
+                 a job's `estate` goes after the street as "Street, (Estate)",
+                 and the cover SITE shows that street with SUBURB STATE
+                 POSTCODE below it, as the team's HIA form does (27-28 Oct
+                 2026 review)
     item 15      late completion damages, replaces the $25.00 "per day." prefill
-    signatures   owner name on the Owner NAME line only - the builder line
-                 ships prefilled (Michael CRONK, signed for TRANSPIRE
+    signatures   owner name on the Owner NAME line only, at the x and size of
+                 the builder's name below it (27 Oct 2026 review) - the builder
+                 line ships prefilled (Michael CRONK, signed for TRANSPIRE
                  CONSTRUCTIONS PTY LTD), so builders_rep is not typed here
 
 What it NEVER fills (CD-5.4): date, interest %, builder's margin %, and any
-figure that is neither keyed in the job JSON nor (NSW) worked from its
-contract price as above. Every amount types as "$nnn,nnn.nn".
+figure that is neither keyed in the job JSON nor worked from its contract
+price as above. Every amount types as "$nnn,nnn.nn", padded after the "$" so
+the amounts of one column line up on their digits (feedback sheet 5 Nov 2026
+row 5).
 The building and initial periods carry the template's own prefills (NSW build:
-52 weeks / 90 + 180 days; QLD build: 210 days / 90 days start / 10 days
-inclement weather) and are left untouched for the reviewer - on QLD check the
-210 against the job's CD-5.5 period.
+52 weeks / 90 + 180 days; QLD build: 90 days start / 10 days inclement
+weather) - except QLD item 13's 210 days, which becomes the team's figure for
+the job's storeys and house size: single 210, double under 300 m2 240, over
+260; unknown keeps 210, flagged (CD-5.5, feedback sheet row 11).
+
+Feedback sheet of 5 Nov 2026, also: a company owner (owner_names.py) names its
+ACN with the company everywhere, sized to its line (font_fit.py), with
+"<company_signatory> on behalf of <company> ACN: ..." under the owner's
+signature NAME and the QLD guide NAME(S); the deed reads "Transpire
+Constructions Pty Ltd"; a guarantor with no address takes the owner's,
+flagged (rows 8-13, CD-3.9). NSW Special Conditions clause 1 takes the
+request's price-validity date when the job JSON carries the request's line
+and that line is in the saved request text (row 6, CD-10.7). NSW site streets
+bracket their house number (street_format.py, row 7).
 
 Anchor discipline as everywhere else: --check first; a missing anchor is a
 revised template and stops the fill. The fill engine tolerates Word's habit
@@ -142,6 +162,9 @@ from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 
 import amendments
+import owner_names
+import street_format
+from owner_names import company_name   # one definition of a company owner for every document
 
 P_RE = re.compile(r"<w:p\b[^>]*>(?:(?!</w:p>|<w:p\b).)*?</w:p>", re.S)
 # text nodes and the layout elements that separate them visually
@@ -229,19 +252,20 @@ def _rebuild(p_xml, segs):
     for s in sorted((s for s in segs if not s["virtual"] and s["text"] != s["orig"]),
                     key=lambda s: -s["span"][0]):
         open_tag = s["open"]
-        if s["text"] != s["text"].strip() and "xml:space" not in open_tag:
+        # an aligned amount carries spaces inside it ("$  49,990.91")
+        if (s["text"] != s["text"].strip() or "  " in s["text"]) and "xml:space" not in open_tag:
             open_tag = open_tag[:-1] + ' xml:space="preserve">'
         a, b = s["span"]
         p_xml = p_xml[:a] + open_tag + xml_escape(s["text"]) + "</w:t>" + p_xml[b:]
     return p_xml
 
 
-def insert_value_run(p_xml, segs, offset, value, tab=False):
+def insert_value_run(p_xml, segs, offset, value, tab=False, rpr=None):
     """Insert the typed value as its OWN run right after the label text at
     `offset`, in the label's face minus bold/italic/underline (STRIP_RE) -
     the way the completed contracts key regular-weight values beside bold
-    printed labels. Mode "tab" leads with a tab (the line's value column)
-    instead of the two-space gap."""
+    printed labels - or in `rpr` when given. Mode "tab" leads with a tab
+    (the line's value column) instead of the two-space gap."""
     pos, seg, off_in = 0, None, 0
     for s in segs:
         ln = len(s["text"])
@@ -257,7 +281,8 @@ def insert_value_run(p_xml, segs, offset, value, tab=False):
     if run is None:
         return p_xml, False
     rpr_m = RPR_RE.search(run.group(0))
-    rpr = STRIP_RE.sub("", rpr_m.group(0)) if rpr_m else ""
+    if rpr is None:
+        rpr = STRIP_RE.sub("", rpr_m.group(0)) if rpr_m else ""
     lead = "<w:tab/>" if tab else ""
     text = value if tab else f"  {value}"
     new_run = f'<w:r>{rpr}{lead}<w:t xml:space="preserve">{xml_escape(text)}</w:t></w:r>'
@@ -285,6 +310,45 @@ def fill_para(p_xml, label, value, mode, occ=1):
             return p_xml, False
         return insert_value_run(p_xml, segs, hits[occ - 1].end(), value,
                                 tab=(mode == "tab"))
+    if isinstance(mode, tuple) and mode[0] == "tab_at":
+        # a value that must line up with a name typeset elsewhere on the
+        # page: its own tab stop at that name's x (twips from the margin) and
+        # that name's size (half-points) in the paragraph's own font. A
+        # paragraph that already sets tab stops is a revised template
+        _, pos, size = mode
+        hits = list(label_regex(label).finditer(concat))
+        ppr = re.search(r"<w:pPr>(.*?)</w:pPr>", p_xml, re.S)
+        # w:tabs goes first in the pPr, so nothing the schema orders ahead
+        # of it may be there already (the paragraph mark's own rPr aside)
+        if len(hits) < occ or not ppr or re.search(
+                r"<w:(?:pStyle|keepNext|keepLines|pageBreakBefore|framePr|widowControl|numPr"
+                r"|suppressLineNumbers|pBdr|shd|tabs)\b", ppr.group(1).split("<w:rPr>")[0]):
+            return p_xml, False
+        p_xml, ok = insert_value_run(p_xml, segs, hits[occ - 1].end(), value, tab=True,
+                                     rpr=f'<w:rPr><w:sz w:val="{size}"/><w:szCs w:val="{size}"/></w:rPr>')
+        return p_xml.replace("<w:pPr>", f'<w:pPr><w:tabs><w:tab w:val="left" w:pos="{pos}"/></w:tabs>',
+                             1), ok
+    if isinstance(mode, tuple) and mode[0] == "tab_rpr":
+        # mode "tab" in a given face - a company's name sized to its line
+        hits = list(label_regex(label).finditer(concat))
+        if len(hits) < occ:
+            return p_xml, False
+        return insert_value_run(p_xml, segs, hits[occ - 1].end(), value, tab=True, rpr=mode[1])
+    if isinstance(mode, tuple) and mode[0] == "replace_days":
+        # QLD item 13: the printed number of days, which must still be the template's
+        m = QLD_PERIOD_RE.search(concat)
+        if not m or m.group(1) != mode[1]:
+            return p_xml, False
+        _splice(segs, m.start(1), m.end(1), value)
+        return _rebuild(p_xml, segs), True
+    if isinstance(mode, tuple) and mode[0] == "replace_tail":
+        # NSW Special Conditions clause 1: the printed validity wording, which
+        # must still read as the template prints it, swapped for the request's
+        hits = list(re.finditer(r"\s+".join(re.escape(w) for w in mode[1].split()), concat))
+        if len(hits) != 1:
+            return p_xml, False
+        _splice(segs, hits[0].start(), hits[0].end(), value)
+        return _rebuild(p_xml, segs), True
     if mode == "replace_amount":
         m = AMOUNT_RE.search(concat)
         if not m:
@@ -326,10 +390,11 @@ STRIP_RE = re.compile(r"<w:(?:b|bCs|i|iCs|u)(?: [^>]*)?/>")
 def cell_value_run(label_p_xml, value):
     """A run for the empty value cell: the label run's own face minus
     bold/italic/underline, the way a typed entry renders beside a printed
-    label."""
+    label. A newline in the value is a line break (the QLD cover SITE)."""
     m = LABEL_RPR_RE.search(label_p_xml)
     rpr = STRIP_RE.sub("", m.group(1)) if m else ""
-    return f'<w:r>{rpr}<w:t xml:space="preserve">{xml_escape(value)}</w:t></w:r>'
+    text = '</w:t><w:br/><w:t xml:space="preserve">'.join(xml_escape(v) for v in value.split("\n"))
+    return f'<w:r>{rpr}<w:t xml:space="preserve">{text}</w:t></w:r>'
 
 
 def cell_slot(xml, para_end):
@@ -361,6 +426,24 @@ def cell_slot(xml, para_end):
         return None, "the value cell's paragraph does not close"
     a = cell_start + close
     return (a, a, "", ""), None
+
+
+CENTRED_RE = re.compile(r'<w:vAlign w:val="center"/>')
+
+
+def top_aligned(xml, para_start, slot_start):
+    """Edits that turn the label cell and the value cell from vertically
+    centred to top: a value on two lines (the QLD cover SITE) otherwise leaves
+    the label floating between them, where the team's form has it level with
+    the first line. A cell that is not centred is left as it is."""
+    label_cell = max(m.start() for m in re.finditer(r"<w:tc[ >]", xml[:para_start]))
+    value_cell = TC_OPEN_RE.search(xml, para_start).start()
+    edits = []
+    for lo, hi in ((label_cell, para_start), (value_cell, slot_start)):
+        m = CENTRED_RE.search(xml, lo, hi)
+        if m:
+            edits.append((m.start(), m.end(), '<w:vAlign w:val="top"/>'))
+    return edits
 
 
 # Anchor sets. Field tuples are (json key, printed label, mode[, occurrence]).
@@ -525,9 +608,14 @@ REGIONS = {
             ]),
             # Signatures: the owner NAME line only (occurrence 2 is the
             # witness, left for a person) - the builder's line ships
-            # prefilled with Michael CRONK in this build
+            # prefilled with Michael CRONK in this build, in a two-column
+            # section: a 1206 tw first column + 497 tw gap, then Heading 5's
+            # 516 tw indent puts the name 2219 tw in from the margin, at 12 pt.
+            # The owner's name types at a tab stop there, at that size, so the
+            # two names line up (27 Oct 2026 review; typed two spaces after
+            # the label at 10 pt it sat well left of the builder's)
             (("has read and understood this contract", "Michael CRONK"), [
-                ("_sch1_owner", "NAME", "after", 1),
+                ("_sch1_owner", "NAME", ("tab_at", 2219, 24), 1),
             ]),
             # Deed of guarantee and indemnity - completed only when the job
             # has a sourced guarantor; the deed date is never filled
@@ -545,8 +633,9 @@ REGIONS = {
         # CONTRACT PRICE labels share one paragraph) and the three
         # $ 000,000.00 placeholders stack in the next column, in the same
         # order - the third element picks the nth placeholder after the
-        # label. Filled only from the figures a person gives (CD-5.4, issue
-        # #73). No deposit item on QC2: the deposit is Part B's first row.
+        # label. Worked from the contract price, figures a person gives
+        # winning (CD-5.4, 27 Oct 2026 review). No deposit item on QC2: the
+        # deposit is Part B's first row.
         "amounts": [
             ("price_excl_gst", "PRICE EXCLUDING GST:",     1),
             ("gst_amount",     "GST ON THE ABOVE AMOUNT:", 2),
@@ -555,7 +644,8 @@ REGIONS = {
         # Schedule 2 Part B (CD-5.6, issue #73), the part the team completes:
         # six rows and a TOTAL row, each a printed "n.00%" cell then a
         # "$ 0.00" amount cell. Same source as item 2; the printed
-        # percentages are checked before anything is typed.
+        # percentages are checked before anything is typed, and the amounts
+        # are worked from these same percentages.
         "part_b": {
             "scope": ("Part B can be used where the parties agree",
                       "The total must equal the contract price"),
@@ -646,11 +736,21 @@ def derive_values(values, region):
             main = str(values.get(key) or "").strip()
             values[key] = f"{main}; {extra}" if main else extra
     # Schedule 1 / signature NAME: every executed multi-owner job keys the
-    # joined names; a company job keys the entity (owner_1) without the ACN
+    # joined names. A company or trust owner keys its full name WITH the ACN
+    # (feedback sheet 5 Nov 2026 rows 9, 12, 13: "ACN must be included with
+    # company name"; until then the entity went in without it)
+    company = company_name(values)
     if not values.get("_sch1_owner"):
         two = (values.get("owner_2") or "").strip()
-        values["_sch1_owner"] = (values.get("owners") if two
+        values["_sch1_owner"] = (values.get("owners") if two or company
                                  else values.get("owner_1", "")) or ""
+    if company:
+        values["_company"] = company
+        # "<guarantor> on behalf of <company> ACN: ..." under the company's
+        # name where the owner signs (rows 8, 12, 16)
+        signer = owner_names.signer_line(values, company)
+        if signer:
+            values["_signer_line"] = signer
     # NSW job JSONs written before the team build carried "SUBURB POSTCODE"
     # as one value; split it rather than forcing every JSON to be re-authored
     if region == "NSW" and not values.get("land_suburb") and values.get("land_suburb_pc"):
@@ -658,17 +758,218 @@ def derive_values(values, region):
         values["land_suburb"] = parts[0]
         if len(parts) == 2 and parts[1].isdigit() and not values.get("land_postcode"):
             values["land_postcode"] = parts[1]
-    # the deed is only in play when the job actually has a guarantor
+    # QLD item 11 STREET ADDRESS and the cover SITE, the way the team's HIA form
+    # writes them (27-28 Oct 2026 review of job 26059): "Street, (Estate)" -
+    # the team's own copy of 26059 and the latest SEQ estate contracts - and
+    # on the cover the same street with SUBURB STATE POSTCODE on the line
+    # below, as every executed SEQ contract shows (one form field feeds both)
+    if region == "QLD":
+        street = str(values.get("land_street") or "").strip()
+        estate = str(values.get("estate") or "").strip().strip("()").strip()
+        if street and estate:
+            typed = re.fullmatch(r"(.+?)[\s,]*\(\s*" + re.escape(estate) + r"\s*\)", street, re.I)
+            if typed:  # the estate already there in brackets: just the house comma
+                street = f"{typed.group(1).strip()}, ({estate})"
+            elif estate.lower() not in street.lower():
+                street = f"{street}, ({estate})"
+            values["land_street"] = street
+        place = " ".join(" ".join(str(values.get(k) or "") for k in ("land_suburb", "land_state",
+                                                                     "land_postcode")).split())
+        if street and place:
+            values["site_hia"] = f"{street}\n{place}"
+    # the deed is only in play when the job actually has a guarantor. The
+    # builder reads as the team types it ("Transpire Constructions Pty Ltd",
+    # CD-1.4; row 13) and the owner as item 3 does, ACN included
     if (values.get("guarantor_name") or "").strip():
-        values.setdefault("_deed_builder", "TRANSPIRE CONSTRUCTIONS PTY LTD")
+        values.setdefault("_deed_builder", "Transpire Constructions Pty Ltd")
         values.setdefault("_deed_owner", values["_sch1_owner"])
+        # The land contract's guarantee page names the guarantor and often
+        # leaves the address line blank; the team then types the buyer's own
+        # address (26039: the director's, the company's registered one).
+        # Used only with a flag for the person to confirm.
+        if company and not any(str(values.get(f"guarantor_{k}") or "").strip()
+                               for k in ("address", "suburb", "postcode")):
+            for k in ("address", "suburb", "state", "postcode"):
+                values[f"guarantor_{k}"] = str(values.get(f"owner_{k}") or "").strip()
+            values["_guarantor_address_from_owner"] = True
     return values
+
+
+# ---------------------------------------------------------------------------
+# Feedback sheet of 5 Nov 2026 (jobs 26060 and 26011 NSW, 26039 QLD): a company owner's name with its ACN, sized to its slot and
+# signed "on behalf of"; amounts in one column lined up on their digits; the
+# QLD building period from storeys and house size; the NSW price-validity
+# clause from the request.
+
+# Amounts that print in one column, each group lined up on its digits: the
+# printed placeholder is left-aligned, so "$49,990.91" under "$499,909.09"
+# started one digit to the left (row 5). The team pads after the "$"
+# ("$  49,990.91"). In Arial - every amount here prints in Arial - a digit is
+# exactly two spaces wide and a comma one, so the pad lines the digits up.
+ALIGN_GROUPS = {
+    "NSW": [("price_excl_gst", "gst_amount", "price_incl_gst"),
+            ("progress_1", "progress_2", "progress_3", "progress_4", "progress_5", "progress_6",
+             "progress_total")],
+    "QLD": [("price_excl_gst", "gst_amount", "price_incl_gst"),
+            ("deposit", "progress_1", "progress_2", "progress_3", "progress_4", "progress_5",
+             "progress_total")],
+}
+TYPED_AMOUNT_RE = re.compile(r"\$[\d,]+\.\d{2}")
+
+
+def aligned_amounts(values, region):
+    """{key: "$  49,990.91"} for every amount that needs a pad to line up with
+    the widest amount of its column."""
+    out = {}
+    for group in ALIGN_GROUPS.get(region, []):
+        vals = {k: str(values.get(k) or "").strip() for k in group}
+        vals = {k: v for k, v in vals.items() if TYPED_AMOUNT_RE.fullmatch(v)}
+        if len(vals) < 2:
+            continue
+        digits = {k: sum(c.isdigit() for c in v) for k, v in vals.items()}
+        commas = {k: v.count(",") for k, v in vals.items()}
+        dmax, cmax = max(digits.values()), max(commas.values())
+        for k, v in vals.items():
+            pad = 2 * (dmax - digits[k]) + (cmax - commas[k])
+            if pad:
+                out[k] = "$" + " " * pad + v[1:]
+    return out
+
+
+def run_face(rpr, default_font="Arial", default_size=20):
+    """(font family, size in half-points, bold) of a run's rPr."""
+    f = re.search(r'<w:rFonts\b[^>]*w:ascii="([^"]+)"', rpr or "")
+    s = re.search(r'<w:sz w:val="(\d+)"', rpr or "")
+    bold = bool(re.search(r'<w:b(?: w:val="(?:1|true|on)")?/>', rpr or ""))
+    return (f.group(1) if f else default_font), (int(s.group(1)) if s else default_size), bold
+
+
+def with_size(rpr, half_points):
+    """The rPr with its size (and complex-script size) set to half_points."""
+    rpr = rpr or "<w:rPr></w:rPr>"
+    rpr = re.sub(r'<w:sz(?:Cs)? w:val="\d+"/>', "", rpr)
+    return rpr.replace("</w:rPr>", f'<w:sz w:val="{half_points}"/><w:szCs w:val="{half_points}"/></w:rPr>')
+
+
+def text_width_at(xml, pos):
+    """Twips of text width governing pos: page width less margins, from the
+    first section break at or after it."""
+    m = re.search(r"<w:sectPr\b.*?</w:sectPr>", xml[pos:], re.S)
+    if not m:
+        return None
+    s = m.group(0)
+    w = re.search(r'<w:pgSz w:w="(\d+)"', s)
+    left = re.search(r'<w:pgMar\b[^>]*w:left="(\d+)"', s)
+    right = re.search(r'<w:pgMar\b[^>]*w:right="(\d+)"', s)
+    if not (w and left and right):
+        return None
+    return int(w.group(1)) - int(left.group(1)) - int(right.group(1))
+
+
+CELL_MARGINS = 230   # twips: Word's default 0.08" left + right cell padding
+
+
+def cell_width_at(xml, pos):
+    """Twips of the table cell holding pos, less its padding, or None."""
+    tc = max((m.start() for m in re.finditer(r"<w:tc[ >]", xml[:pos])), default=None)
+    if tc is None:
+        return None
+    m = re.search(r'<w:tcW w:w="(\d+)" w:type="dxa"', xml[tc:tc + 600])
+    return int(m.group(1)) - CELL_MARGINS if m else None
+
+
+def fitted(rpr, text, width, notes, where, floor=14, cap=None):
+    """rPr sized so text prints on one line within width twips (font_fit)."""
+    import font_fit
+    font, size, bold = run_face(rpr)
+    size = min(size, cap) if cap else size
+    hp, fits, exact = font_fit.fit_size(text, font, size, width, bold, floor)
+    notes.append(f"{where}: {hp / 2:g} pt {font}{' bold' if bold else ''} in {width / 20:.0f} pt"
+                 + ("" if fits else " - still wraps at the smallest size; check the line")
+                 + ("" if exact else " (width estimated - font file not found)"))
+    return with_size(rpr, hp)
+
+
+# NSW Special Conditions clause 1 (feedback sheet 5 Nov 2026 row 6): the
+# printed "valid for six (6) months after title registration" becomes the date
+# the request fixes the price until, "up to and including 30th March 2027"
+VALIDITY_TAIL = "for six (6) months after title registration of the subject land."
+VALIDITY_CLAUSE = "will be fixed and valid"
+VALIDITY_MENTION_RE = re.compile(r"\b(?:price\s+validity|fixed\s+until|valid(?:ity)?\s+until|"
+                                 r"locked\s+in\s+until|fixed\s+price\s+until)\b", re.I)
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+          "October", "November", "December"]
+
+
+def ordinal(n):
+    return f"{n}{'th' if 11 <= n % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def validity_until(values, job_path):
+    """(clause words, how, refusal) for the NSW validity clause, from the job's
+    `price_valid_until` (an ISO date a person or the run settled) and
+    `price_validity_line` (the request's line, verbatim). The line must be in the
+    saved request text, and the date must fall in the month the line names (a
+    quarter's last month for "Q1 2027"). Nothing given: (None, None, None)."""
+    import datetime
+    until = str(values.get("price_valid_until") or "").strip()
+    line = amendments.norm(values.get("price_validity_line"))
+    if not until and not line:
+        return None, None, None
+    if not until or not line:
+        return None, None, "needs both price_valid_until (a date) and price_validity_line (the request's line)"
+    try:
+        d = datetime.date.fromisoformat(until)
+    except ValueError:
+        return None, None, f"price_valid_until {until!r} is not a date like 2027-03-31"
+    text = amendments.request_text(job_path)
+    if text is None or line.lower() not in text.lower():
+        return None, None, f"the line {line!r} is not in the request text saved beside the job JSON"
+    q = re.search(r"\bQ([1-4])\s*'?\s*(\d{4}|\d{2})\b", line, re.I)
+    m = re.search(r"\b(" + "|".join(MONTHS) + r"|" + "|".join(x[:3] for x in MONTHS) + r")\w*\.?\s+(\d{4})\b",
+                  line, re.I)
+    if q:
+        year = int(q.group(2)) + (2000 if len(q.group(2)) == 2 else 0)
+        want = (year, int(q.group(1)) * 3)
+    elif m:
+        want = (int(m.group(2)), [x[:3].lower() for x in MONTHS].index(m.group(1)[:3].lower()) + 1)
+    else:
+        return None, None, f"the line {line!r} names no month or quarter to check {until} against"
+    if (d.year, d.month) != want:
+        return None, None, (f"{until} is not in {MONTHS[want[1] - 1]} {want[0]}, which the line "
+                            f"{line!r} names")
+    words = f"up to and including {ordinal(d.day)} {MONTHS[d.month - 1]} {d.year}."
+    return words, f"{line!r} -> {words}", None
+
+
+# QLD Schedule 1 item 13, from the team (feedback sheet 5 Nov 2026 row 11):
+# single storey 210 days; double storey under 300 m2 240 days, over 300 m2 260
+QLD_PERIOD_RE = re.compile(r"practical completion within\s+(\d+)\s+days after commencement")
+
+
+def building_period(values):
+    """(days, how) for QLD item 13, or (None, why) when the job does not say."""
+    up = values.get("upgrades") or {}
+    storeys = values.get("storeys", up.get("storeys"))
+    storeys = int(storeys) if str(storeys).strip() in ("1", "2") else storeys
+    size = re.search(r"\d+(?:\.\d+)?", str(values.get("house_size") or "").replace(",", ""))
+    size = float(size.group(0)) if size else None
+    if storeys == 1:
+        return 210, "single storey"
+    if storeys != 2:
+        return None, "storeys not stated in the job JSON (upgrades.storeys)"
+    if size is None:
+        return None, "double storey but no house size yet (the plans give it) - 240 under 300 m2, 260 over"
+    if size == 300:
+        return None, "double storey of exactly 300 m2 - the rule says under / over 300; a person picks"
+    return (240, f"double storey, {size:g} m2 (under 300)") if size < 300 else \
+           (260, f"double storey, {size:g} m2 (over 300)")
 
 
 def contract_figures(values, region):
     """Item 2 and the progress schedule from the contract price (CD-5.4 / CD-5.6,
-    issue #62, NSW). Returns (report lines, flags) and sets the money keys a
-    person has not keyed.
+    issue #62, NSW; QLD's item 2 and Part B go to part_b_figures). Returns
+    (report lines, flags) and sets the money keys a person has not keyed.
 
     The executed NSW contracts (26045, 26040) follow one convention, applied
     here to the request's GST-inclusive price (the price the inclusions carry):
@@ -691,7 +992,7 @@ def contract_figures(values, region):
             else:
                 values[key] = fmt_money(d)
     if REGIONS[region].get("part_b"):
-        return given_figures(values, region, lines, flags)
+        return part_b_figures(values, region, lines, flags)
     prog = REGIONS[region].get("progress")
     if not prog:
         return lines, flags
@@ -768,23 +1069,57 @@ def contract_figures(values, region):
     return lines, flags
 
 
-def given_figures(values, region, lines, flags):
-    """QLD item 2 and Schedule 2 Part B from the figures a person gives (issue #73).
+def part_b_figures(values, region, lines, flags):
+    """QLD item 2 and Schedule 2 Part B from the contract price (27 Oct 2026
+    review of job 26059, reversing issue #73's "nothing is worked out").
 
-    Nothing is worked out. The person types the DataBuild figures, or gives a
-    screenshot that is read back to them first, whenever they have them: with
-    the request, later in the chat, or after the documents are saved (then a
-    build-contract-only run). The checks are warnings: they never stop the fill
-    and never change a figure. With no figures at all the cells stay blank and
-    the report says how to add them - that is a note, not a flag."""
+    The executed SEQ contracts take one figure, the GST-inclusive contract
+    price, and the HIA form the team fills works out the rest from it: price
+    excluding GST = price / 1.1, GST the remainder, each Part B row its printed
+    % of the price, TOTAL the price. The run does the same from the request's
+    `price`, to the cent: GST = price / 11 half up (the same cents as the
+    form's, for any price in cents), the deposit rounded down so it never
+    passes the 5% the contract allows, practical completion the rounding
+    balance so Part B always totals the price. Figures a person gives from
+    DataBuild - typed, or a screenshot read back to them first, at any time -
+    are typed as given and the rest are worked from their contract price when
+    they give one. The checks are warnings: they never stop the fill and never
+    change a figure. No usable price and no figures: the cells stay blank,
+    flagged."""
     rows = REGIONS[region]["part_b"]["rows"]
     item2 = [("price_excl_gst", "excl. GST"), ("gst_amount", "GST"),
              ("price_incl_gst", "contract price")]
     keys = [k for k, _ in item2] + [k for k, _, _ in rows] + ["progress_total"]
-    if not any(str(values.get(k) or "").strip() for k in keys):
-        lines.append("contract figures (QLD, issue #73): none given - item 2 and Part B are left blank. "
-                     "Optional, at any time: give the DataBuild figures (typed, or a screenshot) and "
-                     "the build contract is filled again with them")
+    given = [k for k in keys if str(values.get(k) or "").strip()]
+    raw_price = str(values.get("price") or "").strip()
+    keyed_price = parse_money(values.get("price_incl_gst"))
+    base = keyed_price if keyed_price is not None else parse_money(raw_price)
+    if base is not None and base > 0:
+        gst = cents(base / 11)
+        amts = [cents(base * pct / 100, ROUND_DOWN if key == "deposit" else ROUND_HALF_UP)
+                for key, _, pct in rows[:-1]]
+        amts.append(base - sum(amts))
+        calc = {"price_incl_gst": base, "gst_amount": gst, "price_excl_gst": base - gst,
+                "progress_total": base}
+        calc.update({key: amt for (key, _, _), amt in zip(rows, amts)})
+        src = "the contract price given" if keyed_price is not None else "the request price"
+        lines += [f"contract figures (QLD, CD-5.4): from {src} {fmt_money(base)}",
+                  f"  GST              {fmt_money(base)} / 11 = {base / 11:.4f} -> {fmt_money(gst)} "
+                  "(to the cent, half up)",
+                  f"  excl. GST        {fmt_money(base)} - {fmt_money(gst)} = {fmt_money(base - gst)}"]
+        for n, ((key, name, pct), amt) in enumerate(zip(rows, amts)):
+            how = ("balance: the price less the rows above" if n == len(rows) - 1
+                   else "rounded down, never over the 5% cap" if key == "deposit"
+                   else "to the cent, half up")
+            lines.append(f"  {name[:20]:<20} {pct:>3}% {fmt_money(amt):>14}  ({how})")
+        lines.append(f"  {'TOTAL':<20} 100% {fmt_money(base):>14}  (= the contract price)")
+        for key, amt in calc.items():
+            if key not in given:
+                values[key] = fmt_money(amt)
+    elif not given:
+        flags.append((f"contract price {raw_price!r} is not a plain amount" if raw_price
+                      else "no contract price in the job JSON")
+                     + " - item 2 and Part B are left blank for a person")
         return lines, flags
     got = {k: parse_money(values.get(k)) for k in keys}   # None: blank, or not an amount
     price = got["price_incl_gst"]
@@ -794,12 +1129,14 @@ def given_figures(values, region, lines, flags):
         values["progress_total"] = fmt_money(price)
         got["progress_total"] = price
     show = lambda k: fmt_money(got[k]) if got[k] is not None else "(blank)"
-    src = str(values.get("figures_source") or "").strip()
-    lines += [f"contract figures (QLD, issue #73): as given" + (f" ({src})" if src else "")
-              + " - nothing worked out",
-              "  item 2   " + " | ".join(f"{name} {show(k)}" for k, name in item2),
-              "  Part B   " + " | ".join(f"{name} {pct}% {show(k)}" for k, name, pct in rows)
-              + f" | TOTAL {show('progress_total')}"]
+    if given:
+        src = str(values.get("figures_source") or "").strip()
+        names = dict(item2 + [(k, n) for k, n, _ in rows] + [("progress_total", "TOTAL")])
+        lines += [f"contract figures (QLD): given" + (f" ({src})" if src else "")
+                  + ", typed as given: " + ", ".join(names[k] for k in given),
+                  "  item 2   " + " | ".join(f"{name} {show(k)}" for k, name in item2),
+                  "  Part B   " + " | ".join(f"{name} {pct}% {show(k)}" for k, name, pct in rows)
+                  + f" | TOTAL {show('progress_total')}"]
 
     blank2 = [name for k, name in item2 if got[k] is None]
     if len(blank2) < len(item2) and blank2:
@@ -842,10 +1179,104 @@ def given_figures(values, region, lines, flags):
     return lines, flags
 
 
+def signer_line(p_xml, mode, signer, xml, start, notes):
+    """The paragraph with "<guarantor> on behalf of <company> ACN: ..." on a line
+    of its own under the typed name (feedback sheet 5 Nov 2026 rows 8 and 12,
+    as the team writes it on job 26039): a line break inside the paragraph, so
+    the owner's name, its signing line and the paragraph's tab stops all hold.
+    On a signature NAME line it starts at the name's tab stop; on the Consumer
+    Building Guide acknowledgement under NAME(S), in that line's own face."""
+    tabbed = mode != "after"
+    runs = [m.group(0) for m in RUN_RE.finditer(p_xml)]
+    face = RPR_RE.search(runs[-1]) if runs else None
+    rpr = face.group(0) if face else ""
+    if tabbed:
+        stop = mode[1] if isinstance(mode, tuple) and mode[0] == "tab_at" else 2233
+        room = (text_width_at(xml, start) or 11000) - stop
+        label_face = LABEL_RPR_RE.search(p_xml)
+        rpr = fitted(with_size(STRIP_RE.sub("", label_face.group(1)) if label_face else "", 20),
+                     signer, room, notes, "signer line (signature NAME)")
+        lead = "<w:tab/>"
+    else:
+        ind = re.search(r'<w:ind w:left="(\d+)"', p_xml)
+        room = (text_width_at(xml, start) or 11000) - (int(ind.group(1)) if ind else 0)
+        rpr = fitted(rpr, "  " + signer, room, notes, "signer line (guide NAME(S))")
+        lead = ""
+    run = (f'<w:r>{rpr}<w:br/>{lead}<w:t xml:space="preserve">'
+           f'{"" if tabbed else "  "}{xml_escape(signer)}</w:t></w:r>')
+    k = p_xml.rfind("</w:p>")
+    return p_xml[:k] + run + p_xml[k:]
+
+
+EMU_PER_PT = 12700
+
+
+def grow_text_box(xml, para_start, points, flags):
+    """Edits that make the text box holding the paragraph at para_start taller
+    by `points`, in both of Word's copies of a box (the DrawingML shape and the
+    VML fallback). The QLD Consumer Building Guide's owner acknowledgement is a
+    group of fixed-size boxes: the NAME(S) box holds exactly its four lines, so
+    a signer line under the name was clipped. The box only grows into empty
+    space: never past the group, never into a box below it - otherwise nothing
+    changes and the line is flagged for a person."""
+    emu = int(points * EMU_PER_PT)
+    wsp = xml.rfind("<wps:wsp>", 0, para_start)
+    if wsp >= 0 and xml.rfind("</wps:wsp>", 0, para_start) < wsp:
+        sp = xml[wsp:xml.find("<w:txbxContent", wsp)]
+        off = re.search(r'<a:off x="(-?\d+)" y="(-?\d+)"/>', sp)
+        ext = re.search(r'<a:ext cx="(\d+)" cy="(\d+)"/>', sp)
+        grp = xml.rfind("<wpg:wgp>", 0, wsp)
+        if not (off and ext and grp >= 0):
+            flags.append("signer line: the box holding it could not be measured - check it is not cut off")
+            return []
+        x0, y0, cx, cy = int(off.group(1)), int(off.group(2)), int(ext.group(1)), int(ext.group(2))
+        group = xml[grp:xml.find("</wpg:wgp>", grp)]
+        ch = re.search(r'<a:chExt cx="\d+" cy="(\d+)"/>', group)
+        limit = int(ch.group(1)) if ch else y0 + cy
+        for s in re.finditer(r'<a:off x="(-?\d+)" y="(-?\d+)"/>\s*<a:ext cx="(\d+)" cy="\d+"/>', group):
+            sx, sy, scx = int(s.group(1)), int(s.group(2)), int(s.group(3))
+            if sy >= y0 + cy and sx < x0 + cx and sx + scx > x0:
+                limit = min(limit, sy)
+        if y0 + cy + emu > limit:
+            flags.append(f"signer line: only {(limit - y0 - cy) / EMU_PER_PT:.1f} pt free under the name's box - "
+                         f"it may be cut off; check the page")
+            return []
+        a = wsp + ext.start()
+        edits = [(a, a + len(ext.group(0)), f'<a:ext cx="{cx}" cy="{cy + emu}"/>')]
+        return edits
+    shape = max(xml.rfind("<v:shape ", 0, para_start), xml.rfind("<v:rect ", 0, para_start))
+    if shape >= 0:
+        tag_end = xml.find(">", shape)
+        m = re.search(r'height:([\d.]+)pt', xml[shape:tag_end])
+        if m:
+            a = shape + m.start(1)
+            return [(a, a + len(m.group(1)), f"{float(m.group(1)) + points:g}")]
+    return []
+
+
 def run(template, job, out_path, check_only, region):
     anchors = REGIONS[region]
-    values = derive_values(json.loads(Path(job).read_text(encoding="utf-8")), region)
+    values = json.loads(Path(job).read_text(encoding="utf-8"))
+    street_notes = []
+    if street_format.applies(region):
+        # the site's house number in brackets, as in the inclusions and the
+        # preliminary agreement (feedback sheet 5 Nov 2026 row 7)
+        values, street_notes = street_format.bracket_job(values)
+    values = derive_values(values, region)
     fig_lines, fig_flags = contract_figures(values, region)
+    fig_flags += street_notes
+    aligned = aligned_amounts(values, region)
+    company = values.get("_company")
+    fit_notes, extra_lines = [], []   # sizes chosen for a company name; period / validity lines
+    if company and not values.get("_signer_line"):
+        fig_flags.append("company owner with no company_signatory in the job JSON - the '<name> on behalf "
+                         "of <company>' line under the owner's name is left for a person")
+    if company and region == "NSW":
+        fig_flags.append("Attachment A checklist: a company acknowledges through the person who signs for "
+                         "it - that person's Name (print) and Capacity are left for a person to complete")
+    if values.get("_guarantor_address_from_owner"):
+        fig_flags.append("guarantor address = the owner's address (the land contract's guarantee page names "
+                         "the guarantor without one; the team typed the buyer's address on 26039) - confirm")
     xml = __import__("zipfile").ZipFile(template).read("word/document.xml").decode("utf-8")
     paras = [(m.start(), m.end(), m.group(0)) for m in P_RE.finditer(xml)]
 
@@ -908,13 +1339,35 @@ def run(template, job, out_path, check_only, region):
                     blank_fields.append((key, label))
                     continue
                 s, e, before, after = slot
-                cell_edits.append(
-                    (s, e, before + cell_value_run(paras[idx][2], val) + after))
+                run_xml = cell_value_run(paras[idx][2], val)
+                width = cell_width_at(xml, s)
+                if company and key in ("_sch1_owner", "_deed_owner", "owners") and width:
+                    # a company's name with its ACN, sized to stay on one line
+                    rpr = re.search(r"<w:rPr>.*?</w:rPr>", run_xml, re.S)
+                    new = fitted(rpr.group(0) if rpr else "", val, width, fit_notes, f"{key} ({label})")
+                    run_xml = (run_xml[:rpr.start()] + new + run_xml[rpr.end():] if rpr
+                               else run_xml.replace("<w:r>", f"<w:r>{new}", 1))
+                cell_edits.append((s, e, before + run_xml + after))
+                if "\n" in val:
+                    cell_edits += top_aligned(xml, paras[idx][0], s)
                 cell_shown.append((idx, key, label, val))
                 continue
             if not val:
                 blank_fields.append((key, label))
                 continue
+            if company and key == "_sch1_owner" and mode != "cell":
+                # the owner's signature NAME line: the company's name with its
+                # ACN at the size that keeps it on the line from the name's tab
+                # stop to the margin (row 12)
+                start = mode[1] if isinstance(mode, tuple) else 2233
+                room = (text_width_at(xml, paras[idx][0]) or 11000) - start
+                face = LABEL_RPR_RE.search(paras[idx][2])
+                base = STRIP_RE.sub("", face.group(1)) if face else ""
+                if isinstance(mode, tuple):     # QLD: the builder's name size
+                    base = with_size(base, mode[2])
+                rpr = fitted(base, val, room, fit_notes, f"{key} (signature NAME)")
+                mode = (("tab_at", mode[1], int(re.search(r'w:sz w:val="(\d+)"', rpr).group(1)))
+                        if isinstance(mode, tuple) else ("tab_rpr", rpr))
             plan.append((idx, key, label, val, mode, para_occ))
 
     # item 2 amounts: the label's paragraph, then the nth $-placeholder in it
@@ -939,7 +1392,7 @@ def run(template, job, out_path, check_only, region):
         if not val:
             blank_fields.append((key, label))
             continue
-        plan.append((hits[nth - 1], key, label, val, "replace_amount", 1))
+        plan.append((hits[nth - 1], key, label, aligned.get(key, val), "replace_amount", 1))
 
     # progress payments schedule: each percentage row's lone "$" AMOUNT cell;
     # the template's percentages must be the ones the figures were worked from
@@ -965,7 +1418,7 @@ def run(template, job, out_path, check_only, region):
                     label = f"{'TOTAL' if n > len(prog['stages']) else 'stage ' + str(n)} {want[n - 1]}"
                     val = str(values.get(key, "") or "").strip()
                     if val:
-                        plan.append((i, key, label, val, "dollar_cell", 1))
+                        plan.append((i, key, label, aligned.get(key, val), "dollar_cell", 1))
                     else:
                         blank_fields.append((key, label))
 
@@ -993,7 +1446,7 @@ def run(template, job, out_path, check_only, region):
                     label = f"Part B {name[:10]} {pct}%"
                     val = str(values.get(key, "") or "").strip()
                     if val:
-                        plan.append((i, key, label, val, "replace_amount", 1))
+                        plan.append((i, key, label, aligned.get(key, val), "replace_amount", 1))
                     else:
                         blank_fields.append((key, label))
 
@@ -1008,6 +1461,60 @@ def run(template, job, out_path, check_only, region):
         plan.append((idx, key, label, val, "replace_amount", 1))
     else:
         blank_fields.append((key, label))
+
+    # NSW Special Conditions clause 1, price validity (feedback sheet 5 Nov 2026
+    # row 6): the request's own validity line, checked word for word against the
+    # saved request text, replaces the printed six-months wording; a request
+    # that names a validity the job JSON does not carry is flagged
+    if region == "NSW":
+        words, how, why = validity_until(values, job)
+        hits = [i for i, t in enumerate(ntexts) if VALIDITY_CLAUSE in t]
+        if len(hits) != 1:
+            missing_anchor.append(f"price validity: Special Conditions clause 1 ('{VALIDITY_CLAUSE}') found "
+                                  f"{len(hits)} times")
+        elif words:
+            if VALIDITY_TAIL not in ntexts[hits[0]]:
+                fig_flags.append(f"price validity NOT applied: clause 1 no longer ends {VALIDITY_TAIL!r} - "
+                                 f"a person makes the change")
+            else:
+                plan.append((hits[0], "price_validity", "Special Conditions 1", words,
+                             ("replace_tail", VALIDITY_TAIL), 1))
+                extra_lines.append(f"price validity: APPLIED - {how}")
+                if re.search(r"\bQ[1-4]\b", str(values.get("price_validity_line") or ""), re.I):
+                    # the drive shows no one day for a quarter: 30th March (26060),
+                    # 18th December (two Q4 jobs), the month alone on most signed ones
+                    fig_flags.append(f"price validity: the request names a quarter, not a day - {words[:-1]!r} "
+                                     f"written; confirm the day before issue")
+        elif why:
+            fig_flags.append(f"price validity NOT applied: {why}; the clause keeps its six months - a person "
+                             f"makes the change")
+        else:
+            said = VALIDITY_MENTION_RE.search(amendments.request_text(job) or "")
+            if said:
+                fig_flags.append(f"the request mentions a price validity (\"{said.group(0)}\") but the job JSON "
+                                 f"gives no price_valid_until - clause 1 keeps its six months")
+
+    # QLD item 13 building period (feedback sheet 5 Nov 2026 row 11): the
+    # printed 210 days becomes the team's figure for the job's storeys and size
+    if region == "QLD":
+        hits = [i for i, t in enumerate(ntexts) if QLD_PERIOD_RE.search(t)]
+        if len(hits) != 1:
+            missing_anchor.append(f"building period: 'practical completion within N days after "
+                                  f"commencement' found {len(hits)} times")
+        else:
+            printed = QLD_PERIOD_RE.search(ntexts[hits[0]]).group(1)
+            days, how = building_period(values)
+            if printed != "210":
+                missing_anchor.append(f"building period: the template prints {printed} days, not 210")
+            elif days is None:
+                extra_lines.append(f"building period: left at the printed 210 days - {how}")
+                fig_flags.append(f"building period not worked out: {how}")
+            elif days == 210:
+                extra_lines.append(f"building period: 210 days ({how}) - as printed")
+            else:
+                plan.append((hits[0], "building_period", "practical completion within", str(days),
+                             ("replace_days", "210"), 1))
+                extra_lines.append(f"building period: {days} days ({how}; the template prints 210)")
 
     # approved per-job amendments (CD-10, issue #61): checked here, applied
     # with the fills; a refused one is reported and the template wording stays
@@ -1078,9 +1585,22 @@ def run(template, job, out_path, check_only, region):
     print("-" * 80)
     for idx, key, label, val in sorted(
             [(i, k, l, v) for i, k, l, v, _, _ in plan] + cell_shown):
-        print(f"{key:<18} {idx:>5}  {label:<18} {val[:40]}")
+        print(f"{key:<18} {idx:>5}  {label:<18} {val.replace(chr(10), ' / ')[:40]}")
     for key, label in blank_fields:
         print(f"{key:<18} {'-':>5}  {label:<18} (no value - left blank)")
+    if aligned:
+        print()
+        print("amounts aligned on their digits (a pad after the $, rows lined up in Arial): "
+              + ", ".join(f"{k} {v!r}" for k, v in aligned.items()))
+    if company:
+        print()
+        print(f"company owner : {company} (the ACN rides with the name; feedback sheet 5 Nov 2026)")
+        if values.get("_signer_line"):
+            print(f"signer line   : {values['_signer_line']}")
+        for note in fit_notes:
+            print(f"  size  {note}")
+    for line in extra_lines:
+        print(line)
     if fig_lines or fig_flags:
         print()
         for line in fig_lines:
@@ -1112,6 +1632,8 @@ def run(template, job, out_path, check_only, region):
     by_para = {}
     for idx, key, label, val, mode, occ in plan:
         by_para.setdefault(idx, []).append((key, label, val, mode, occ))
+    signer = values.get("_signer_line")
+    shown_notes, shown_flags = len(fit_notes), len(fig_flags)
     for idx in sorted(by_para, reverse=True):
         start, end, p_xml = paras[idx]
         for key, label, val, mode, occ in by_para[idx]:
@@ -1119,6 +1641,12 @@ def run(template, job, out_path, check_only, region):
             if not ok:
                 print(f"FILL FAILED at paragraph {idx} for {key} - stopping, nothing written")
                 return 1
+            if signer and ((key == "_sch1_owner" and mode != "cell") or (key == "owners" and label == "NAME(S):")):
+                p_xml = signer_line(p_xml, mode, signer, xml, start, fit_notes)
+                if xml.rfind("<w:txbxContent", 0, start) > xml.rfind("</w:txbxContent>", 0, start):
+                    # the line sits in a fixed-size text box: one line taller
+                    size = int(re.findall(r'<w:sz w:val="(\d+)"', p_xml)[-1]) / 2
+                    edits += grow_text_box(xml, start, round(size * 1.25, 1), fig_flags)
         edits.append((start, end, p_xml))
     edits.sort(key=lambda e: e[0], reverse=True)
     applied_to = len(xml) + 1
@@ -1140,6 +1668,10 @@ def run(template, job, out_path, check_only, region):
                     else zin.read(item.filename))
             zout.writestr(item, data)
     tmp.replace(out_path)
+    for note in fit_notes[shown_notes:]:
+        print(f"  size  {note}")
+    for flag in fig_flags[shown_flags:]:
+        print(f"FLAG: {flag}")
     print(f"\nwritten  : {out_path}")
     if interim:
         print("Filled from the staged interim template (not yet MCR-filed) - a person "

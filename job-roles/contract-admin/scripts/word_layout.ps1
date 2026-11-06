@@ -161,6 +161,10 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
         if ($res.kind -eq 'pair') {
             $delta = (Flow (Pos $rp) $usable) - (Flow (Pos $lp) $usable)   # + : label sits above its wording
             if ([math]::Abs($delta) -le $tol) { break }
+            # a label more than a page from its wording is the wrong paragraph, not a gap to pad: padding
+            # it filled seven empty pages before the gate caught it (26059, 30 Oct 2026). Left as it is,
+            # the step stays OFF and the gate fails the document at once
+            if ([math]::Abs($delta) -gt $usable) { $actions += 'MISMATCH - over a page from its wording, not padded'; break }
             $first = Block-First $lp
             if (-not $res.pin -and $delta -lt 0 -and $first.Range.Start -ne $lp.Paragraphs.Item(1).Range.Start) {
                 # a heading glued above this label (section 18's) starts a page, with the wording above
@@ -206,7 +210,15 @@ function Adjust-Step($res, [double]$usable, [double]$lineH, [double]$tol, [int]$
                 # never the last blank between this label and the text above it: the two would be
                 # glued into one block (Block-First), and from then on levelling one moves the other -
                 # 15 Oct 2026, "Hinges & Drawer Runners" pushed a line off by the "Tiles" step below it
-                else { Insert-Blank-Before $rp.Paragraphs.Item(1); $actions += 'right +1' }
+                else {
+                    $w = $rp.Paragraphs.Item(1); $wp = $w.Previous(1)
+                    if (-$delta -lt $lineH -and $wp -ne $null -and (End-Page $wp.Range) -eq (Pos $w.Range).page) {
+                        # a fraction of a line lowers the wording by that fraction: a whole blank line
+                        # overshot and the label was then padded a line to follow, leaving two blank lines
+                        # between items (26059 "Rangehood", 30 Oct 2026; sheet row 6 wants one)
+                        $w.SpaceBefore = [double]$w.SpaceBefore - $delta; $actions += ("right space +{0:n1}" -f (-$delta))
+                    } else { Insert-Blank-Before $w; $actions += 'right +1' }
+                }
             }
             # InsertParagraphBefore grows the range to include the new blank: re-point at the text paragraph
             $lp = $lp.Paragraphs.Last.Range
@@ -456,6 +468,7 @@ function Get-CellParas($cell) {
             page = $(($q = Pos $r).page); top = [math]::Round($q.top, 2); end_page = (End-Page $r)
         })
         $i++
+        if ($i % 100 -eq 0) { Say "    $i paragraphs" }   # the watchdog's heartbeat (Write-Host: not returned)
     }
     return $out
 }
@@ -572,6 +585,8 @@ function Doc-Facts($doc, $lc, $rc) {
 $word = $null
 try {
     $word = Start-Word
+    # draft_contract.py's watchdog reads this line: it stops this Word, and only this one, if the pass hangs
+    Say "word pid $($script:WordPid)"
     # a UNC path opens in Protected View and Documents.Open returns nothing (Drive-Path)
     $src = Drive-Path (Resolve-Path -LiteralPath $Docx).Path
     $doc = $word.Documents.Open($src, $false, ($Mode -ne 'align'))
@@ -647,9 +662,16 @@ try {
                 $resObj = [pscustomobject]$res
                 $iters = $(if ($Mode -eq 'check') { 0 } else { $MaxIter })
                 $actions = @(Adjust-Step $resObj $usable $lineH $Target $iters)
+                # the next step searches from where this one ends AFTER its own edits: blanks deleted
+                # above the label pull the text below up, and the end read before them lands inside the
+                # next paragraph (26059, 29 Oct 2026: "left -3" above "Main Floor Tiles", then "Carpet"
+                # was looked up from inside the standard label and matched the PROMOTIONAL UPGRADES one
+                # pages below - the run padded seven empty pages trying to level the two)
+                $lastR = $resObj._rp.End
+                if ($resObj._lp -ne $null) { $lastL = $resObj._lp.End }
                 $resObj.actions = ($actions -join ', ')
                 $results.Add($resObj)
-                if ($stepNo % 20 -eq 0) { Say "  step $stepNo/$($steps.Count)" }
+                if ($stepNo % 10 -eq 0) { Say "  step $stepNo/$($steps.Count)" }   # the watchdog's heartbeat
             }
             Say "steps done - verifying"
             # verification pass: final positions after all edits; a later step's padding

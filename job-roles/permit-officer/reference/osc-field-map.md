@@ -1,13 +1,17 @@
 # OSC field map — weekly BA report
 
 How each part of the weekly BA report is read from OnSite Companion through
-the `osc-api-prod` MCP (production since 13 Oct 2026; this role only reads).
+the `osc-api-prod` MCP (production since 13 Oct 2026; the report only reads,
+and the role's OSC changes are `../workflows/osc-updates.md`).
 Mapped on **4 Sep 2026** (spec v7.3) against what was then the `osc-api`
 connection, a dev copy of production frozen on 21 Aug 2026, using one NSW job
-in the report and cross-checked against that week's report row. The field
-names hold; re-check the values against production before relying on them.
-OSC data is live client data, so no row content appears here. Query patterns
-follow the `osc-api` skill's
+in the report and cross-checked against that week's report row.
+**Re-checked against production on 23 Oct 2026** on the three pilot jobs and
+the 19 Oct 2026 export: every field name and query below works, and the
+seven mapped activity descriptions match exactly. The five columns the export
+gained on 28 Sep 2026 were mapped in the same pass (three verified, two
+unresolved). OSC data is live client data, so no row content appears here.
+Query patterns follow the `osc-api` skill's
 golden rules (always `$top`, body-filter GETs need `odata_filter={}`,
 resolve contract number → `jobID` GUID first).
 
@@ -17,7 +21,12 @@ The Monday report is an OSC **Executive Reporter** export (saved definition,
 "BA lodged jobs only" filter — procedure documented in the AI testing
 folder), saved as `BA REPORT - DD.MM.YYYY.xlsx` (one sheet, header row 1,
 one row per job) into the BA REPORTS archive under `Z:\ADMINISTRATION`.
-Columns:
+The definition changes: on **28 Sep 2026** it gained *Engineering Ordered*,
+*Receive Engineering*, *Review Engineering - Michael*, *Forward Engineering
+to Certifier* (E–H) and *Covenant Ordered* (J), moving "Submit all RFI
+Items" from G to L. The parser therefore locates every column by its
+header text and carries unknown columns verbatim. The letters below are the
+original (pre-28-Sep) layout, kept for the OSC mapping:
 
 | Col | Header | Kind |
 |---|---|---|
@@ -52,13 +61,50 @@ mapped job's activity completion dates equal the report's serials exactly.
 | BA Received | `h) Building Approval Received from Certifier` |
 | Deposit Paid | `Receive Deposit Claim Payment` |
 | Nominate Site Start | `Nominate Site Start Date` |
-| Site Start (Physical) | construction-template activity (appended after BA; confirm exact description once a pilot job crosses over) |
+| Site Start (Physical) | construction-template activity (appended after BA; confirm exact description once a pilot job crosses over; none had by 23 Oct 2026, `APPEND Construction Workflow Template` still pending on all three) |
+
+### Columns added 28 Sep 2026 (mapped 23 Oct 2026)
+
+Since 27 Oct 2026 the engineering and covenant columns are also aged on
+the Items sheet (PO-11b; engineering in two stages, PO-11c), read from the export
+itself, so the two unresolved columns below still count: their dates
+are what the officer typed as the engineering *Date submitted* on all
+three pilot jobs.
+
+| Report column | OSC job activity (description) | Status |
+|---|---|---|
+| Engineering Ordered | `Order Engineering - Piers, Footings & Slab Design` | verified (one job differed, but its OSC date was edited after the export) |
+| Receive Engineering | none found | **unresolved**, see Gaps |
+| Review Engineering (the header carries the reviewer's name) | none found | **unresolved**, see Gaps |
+| Forward Engineering to Certifier | `Forward Engineers Footing/Slab Design to Private Certiifier` | verified; the doubled *i* is OSC's own spelling, match it as written |
+| Covenant Ordered | `Submit Covenant Application` | verified |
+
+These cells can hold text instead of a date (`PENDING REVIEW` on one job),
+so read them like *Received RFI*.
 
 Activity descriptions come from the workflow template, so they are stable
 across jobs on the same template; treat the strings as config, re-verify per
-template version.
+template version. **Sequence numbers are not stable**: one pilot job carries
+two extra activities (`Gas Mains Check` straight after lodgement, `Request
+NOC from Certifier` late in the pre-construction steps), which shifts every
+later step by one. Match on the description, never on the sequence.
 
-## Query patterns (all verified live)
+Every job carries **two engineering chains**, *Piers, Footings & Slab
+Design* and *Structural Steel*, each running Order → Receive → Review →
+Amend Working Drawings → Forward to the certifier. OSC misspells two of the
+steps (`Review Engineering - Strucutral Steel`, and `Private Certiifier` on
+both Forward steps), so match on the start of the description. The
+report's ENGINEERING item is the footing and slab design only (the
+officer, November 2026, PO-11d), so the drafter's ENGINEERING patterns
+match the slab chain alone (`Order Engineering - Piers`, `Receive
+Engineering - Piers`, `Review Engineering - Piers`, `Amend Working
+Drawings to Suit Footing`, `Forward Engineers Footing/Slab`); the steel
+chain neither dates nor holds open an engineering item.
+
+## Query patterns (all verified live; re-checked on production 23 Oct 2026)
+
+On production these collection GETs answer in OData form, with the items
+under `value`.
 
 Resolve a report row's job:
 
@@ -82,10 +128,17 @@ osc_get path=/api/JobActivities
 ```
 
 Status is derived: `completionDate` set → complete; `isNotApplicable` → N/A;
-else pending. `user` is the assigned owner (the ageing view's "who it is
-with"); `*LastUpdatedOnUtc` companions (e.g.
-`completionDateLastUpdatedOnUtc`) give audit timestamps. `hasAlerts` marks
-activities carrying an alert thread.
+else pending. An N/A activity usually still carries a `completionDate`, and
+the export shows that date (the covenant steps on two pilot jobs), so check
+`isNotApplicable` before reading the date as a completion. `user` is the
+assigned owner (the ageing view's "who it is with"); it can be a team
+placeholder rather than a person (`DRAFTING`, `ESTIMATING`, `SUPERVISOR`).
+`*LastUpdatedOnUtc` companions (e.g. `completionDateLastUpdatedOnUtc`) give
+audit timestamps. `completionDate` is date-only and is whatever the person
+entered, so it can be back-dated: on one pilot job an engineering step was
+ticked seven weeks after the date it carries. `completionDateLastUpdatedOnUtc`
+is when the tick was entered. `hasAlerts` marks activities carrying an alert
+thread.
 
 Alerts on a job (coordination trail):
 
@@ -97,7 +150,9 @@ osc_get path=/api/Jobs/Alerts
 ```
 
 Per-activity alert threads: `GET /api/JobActivities/Alerts` filtered by
-`jobActivityID` (same body-filter form).
+`jobActivityID` (same body-filter form). `jobID` is not a property there
+(HTTP 400, checked 23 Oct 2026), so select `jobActivityID` on the activities
+first.
 
 Documents (names encode status; order/approval evidence):
 
@@ -118,12 +173,17 @@ Enumerating the report's job set:
 
 ```
 osc_get path=/api/Jobs
-        query={"$filter": "workflowStatusName eq '3. Pre-Construction'", "$top": 50,
+        query={"$filter": "workflowStatusName eq '3. Pre-Construction'",
+               "$orderby": "createdOnUtc desc", "$top": 50, "$skip": 0,
                "$select": "jobID,contractNumber,clientName,siteAddress,workflowStatusName"}
         odata_filter={}
 ```
 
-then keep jobs whose *Submit … for Building Approval Application* activity
+**Always page.** On 23 Oct 2026 Pre-Construction held 83 jobs, and without
+an `$orderby` one pilot job came back only on the second page of 50, so a
+single `$top` silently drops jobs. Keep the `$orderby` fixed and raise
+`$skip` by `$top` (both verified on this endpoint) until a page comes back
+short. Then keep jobs whose *Submit … for Building Approval Application* activity
 is complete. Workflow statuses are enumerable via
 `GET /api/Jobs/WorkflowStatuses` (a `20. Test Job` status exists — useful
 for safe write-phase testing later). The definitive membership rule is the
@@ -137,13 +197,18 @@ column M of last week's corrected report; the **oldest** order / application
 / receipt document for the item family (`submitted_docs` in
 `ba_report_draft.py`, e.g. `… - Energy Efficiency Request.msg`, `DRIVEWAY
 APPLICATION`, `SECTION 68 APPLICATION.msg`); for activity-backed families the
-matching *Order/Request … - X* step of the pending *Receive … - X*
-activity, or the immediately preceding step when it belongs to the same
-item chain; an alert whose subject matches the family **and was raised on
+last completed step before the first pending one in the same chain (so a
+pending *Receive Engineering - X* dates from *Order Engineering - X*, and a
+pending *Review* step from the *Receive* step; the slab and structural-steel
+chains are told apart by their subject words because OSC misspells some
+steps; a not-applicable step dates nothing); an alert whose subject matches the family **and was raised on
 or after *Submit for BA*** (pre-lodgement alerts such as `LODGE FOR CC` are
 instructions, not handovers — observed on the pilot jobs); else the first
 report sighting, flagged "assumed". Documents and activities may
 legitimately predate lodgement (engineering, s10.7 ordered early, PO-5).
+Document and alert timestamps are UTC, so the drafter reads them as Sydney
+dates (an upload at 08:30 on a Monday is Sunday evening in UTC); activity
+completion dates are stored at midnight UTC and keep their day.
 `attachedOnUtc` is when the `.msg` was dragged into OSC, which lags the
 actual send (PO-9), so document-derived dates are verify-grade and the
 officer's typed value always wins.
@@ -171,3 +236,13 @@ mailbox:
   `createdOnUtc`.
 - QLD certifier-portal facts (per PO-14): never readable; drafts mark them
   "manual check".
+- *Receive Engineering* and *Review Engineering* (export columns
+  since 28 Sep 2026): no activity matches. The export holds date-times
+  (a minute apart on two jobs), while the slab-engineering activities carry
+  other dates or are still pending. On each pilot job the *Receive
+  Engineering* time falls within one to four minutes of an engineering
+  document upload (a certificate of compliance or a design revision),
+  reading the export's times as UTC+10, and on two jobs the *Review
+  Engineering* time does too; none equals an upload time. The saved
+  Executive Reporter definition names each column's source; read it there
+  before mapping these two.

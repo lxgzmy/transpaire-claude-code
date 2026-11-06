@@ -46,6 +46,8 @@ testable; open questions are marked ❓.
   substantially repeats the outstanding items.
 - **PO-7 — RFI intake.** On receipt: update the OSC milestones (RFI
   received) and upload the RFI document to the job, then work the item list.
+  Since 23 Oct 2026 Claude may do the tick and the filing on the officer's
+  yes (`workflows/osc-updates.md`); working the items stays the officer's.
 - **PO-8 — RFI triage.** Each RFI item is either **own-action** (the permit
   officer orders/supplies it: insurances such as home-warranty and
   long-service levies, purchase orders, the energy-efficiency assessment,
@@ -70,7 +72,10 @@ testable; open questions are marked ❓.
   Follow-up on an unanswered alert is face-to-face or email. External
   parties (engineers, energy assessor, certifier in NSW) are emailed;
   engineering emails sent *from* OSC save to the job automatically, and all
-  other external email must be dragged into OSC manually as `.msg`.
+  other external email must be dragged into OSC manually as `.msg`. Since
+  23 Oct 2026 Claude may attach such an email to an OSC message on the
+  officer's yes, once the officer has saved it under `runtime\`
+  (`workflows/osc-updates.md`); alerts stay the officer's.
 
 ## Weekly BA report
 
@@ -99,14 +104,72 @@ testable; open questions are marked ❓.
   | External consultants (engineer, surveyor, other consultant) | ≤ 20 | > 20 |
   | Council applications (council referral assessments often carry a 20-day minimum) | ≤ 30 | > 30 |
 
-  Every open item is yellow or red; there is no unflagged state. The
+  Every open item that has gone out is yellow or red. One not yet
+  submitted (the officer empties its *Date submitted*) shows NOT SUBMITTED
+  and counts no days until she types the date. The
   earlier single 5-day default from the discovery meeting is superseded.
-  Six defaults are **assumed until the owner confirms them** (asked on #29):
-  Certifier → External consultants; Client → Internal; water authorities
-  (Sydney Water, Altogether) → Council; business days exclude NSW public
-  holidays; a resolved item stays on the report for one cycle (the Monday
-  after it resolves) then drops; the fill colour on a job row shows the
-  worst open item, with each item's own flag written as text.
+  Six defaults were **confirmed by the permit officer on 17 Sep 2026**
+  (asked on #29): Certifier → External consultants; Client → Internal;
+  water authorities (Sydney Water, Altogether) → Council; business days
+  exclude NSW public holidays (and, since November 2026, the Christmas
+  shutdown: PO-11d); a resolved item stays on the report for one
+  cycle (the Monday after it resolves) then drops; the fill colour on a job
+  row shows the worst open item, with each item's own flag written as text
+  (per-item colour was declined as too convoluted for the main sheet; since
+  v0.3 the one-row-per-item **Items** sheet carries it instead, and the
+  main sheet stays the export column for column).
+- **PO-11b — Engineering, covenant and two council items (answered by the
+  permit officer on 27 Oct 2026, issue #79).** The engineering and covenant
+  columns added to the export on 28 Sep 2026 are aged like RFI items:
+  covenant at **10 business days** whoever holds it, engineering by stage
+  (PO-11c, her correction). Each is tracked from its latest
+  dated step on the export (engineering: ordered, received, reviewed;
+  covenant: ordered) until engineering is forwarded to the certifier or the
+  covenant is approved, on the Items sheet only: the main sheet and the RFI
+  list stay as she types them. An engineering revision received or reviewed
+  after the last forward starts a new cycle; OSC does not re-date the
+  forward, so her *Date resolved* closes a cycle too. Two items join the
+  vocabulary, both sitting with Council: **ROP APPROVAL** (Road Opening
+  Approval) and **AMENDED DA APPROVAL** (Amended Development Application),
+  which typically takes about 60 business days and so turns red only after
+  60. The draft no longer adds "(PROPOSED)" items to her RFI cell: she did
+  not take them up, and orders insurances once most RFI items are done.
+- **PO-11c — Engineering in two stages (the permit officer's correction of
+  PO-11b, in her reply to the 27 Oct 2026 email, issue #79).** Her 10
+  business days meant Transpire's internal review only. The engineers are
+  external consultants, so engineering has two stages, each with its own
+  limit:
+
+  | Stage | Counted from | Until | Yellow | Red |
+  |---|---|---|---|---|
+  | Design, with the engineer | Engineering Ordered | the design is received | ≤ 15 | > 15 |
+  | Internal review at Transpire | the design received, or last reviewed | forwarded to the certifier | ≤ 10 | > 10 |
+
+  The stage is whoever she says has the item: her *Assigned to* on the
+  Items sheet, else "(W/O X)" on her RFI list. The engineer (the firm OSC
+  names on the order, or any external party) means design; Transpire means
+  internal review; a person's name says neither. Failing that, the export's
+  columns tell it: the latest dated step is *ordered* (design) or
+  *received* / *reviewed* (internal review, counted from that step, as she
+  dated the pilot jobs on 22 Oct 2026). Without column dates, OSC's slab
+  engineering chain tells it (ENGINEERING is the footing and slab design
+  only, PO-11d). With nothing to go on, the item is in internal
+  review, the stricter limit. When a newer engineering step is dated the
+  item has moved on: the count starts again from that date, and the *Date
+  submitted* and *Assigned to* she gave for the earlier stage are worked out
+  again (her Notes stay). Covenant stays at 10.
+- **PO-11d — The Christmas shutdown and what ENGINEERING covers (answered
+  by the permit officer, November 2026, issue #104).** The shutdown is
+  left out of the business-day count, as the industry is all but closed
+  then. Each break goes in `SHUTDOWNS` (`scripts/nsw_holidays.py`) the way
+  she gives it: her last business day and the day work resumes; the days
+  between are closed. 2026-27: last business day Wednesday 23 December
+  2026, work resumes Monday 11 January 2027 (her email, 5 November 2026).
+  From 1 December to 31 January every run says so while that break's pair
+  is missing. No draft is made while closed; the first Monday back takes
+  the last export before the break as its base. ENGINEERING on her RFI
+  list is the footing and slab design only, so the structural steel
+  chain in OSC is not read for it.
 
 ## Pre-lodgement checklist
 

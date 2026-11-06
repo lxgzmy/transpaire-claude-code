@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """Business-day arithmetic for the weekly BA report ageing (PO-11).
 
-Business days = Monday to Friday excluding NSW public holidays. The pilot is
+Business days = Monday to Friday excluding NSW public holidays and the
+Christmas shutdown (SHUTDOWNS). The pilot is
 NSW-first (role CLAUDE.md), so NSW is the only calendar carried; add a QLD set
 when QLD jobs join. Weekend-fall holidays that NSW does not substitute (Anzac
 Day) are listed anyway for completeness — they never affect the count.
 
 Verify each new year against the NSW Government's published list before the
 first Monday run of that year.
+
+Also turns OSC's UTC timestamps into Sydney calendar dates (``sydney_date``):
+a document dragged in at 08:30 on a Monday in Sydney is stamped Sunday
+evening in UTC.
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 NSW_PUBLIC_HOLIDAYS = {
     # 2026
@@ -42,15 +47,77 @@ NSW_PUBLIC_HOLIDAYS = {
 }
 
 
+LAST_YEAR = max(d.year for d in NSW_PUBLIC_HOLIDAYS)
+
+# The Christmas shutdown, left out of the count (PO-11d: the industry is all but closed then). One pair
+# per break in the officer's own words, (last business day, the day work resumes); the days between are
+# closed. Every run from 1 December to 31 January says so while that break's pair is missing.
+SHUTDOWNS = [
+    (date(2026, 12, 23), date(2027, 1, 11)),  # 2026-27, the officer, 5 November 2026
+]
+
+
+def covers(value):
+    """True while the holiday table reaches the year of ``value``; past it, counts would miss holidays."""
+    return _to_date(value).year <= LAST_YEAR
+
+
+def reopens(value):
+    """The day work resumes, when ``value`` falls in a Christmas shutdown; else None."""
+    d = _to_date(value)
+    return next((back for last_open, back in SHUTDOWNS if last_open < d < back), None)
+
+
+def in_shutdown(value):
+    return reopens(value) is not None
+
+
+def shutdown_missing(value):
+    """The break (e.g. "2026-27") whose shutdown dates are not set, while ``value`` falls between 1 December
+    and 31 January; else None."""
+    d = _to_date(value)
+    if d.month not in (12, 1):
+        return None
+    year = d.year if d.month == 12 else d.year - 1
+    if in_shutdown(date(year, 12, 29)):  # inside any Christmas shutdown
+        return None
+    return f"{year}-{str(year + 1)[2:]}"
+
+
 def _to_date(value):
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value)[:10])
 
 
+def sydney_date(value):
+    """The Sydney calendar date (ISO) of an OSC timestamp; a plain date is returned as it is.
+
+    No time-zone database is needed (the server's Python has none): NSW daylight
+    saving runs from the first Sunday in October to the first Sunday in April,
+    both changes at 16:00 UTC on the Saturday before. OSC activity completion
+    dates are stored at midnight UTC, which stays the same date.
+    """
+    text = str(value or "").strip()
+    if len(text) <= 10:
+        return text
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text[:10]
+    moment = (moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+    def change(month):
+        first = datetime(moment.year, month, 1, tzinfo=timezone.utc)
+        return first + timedelta(days=(6 - first.weekday()) % 7) - timedelta(hours=8)
+
+    summer = moment >= change(10) or moment < change(4)
+    return (moment + timedelta(hours=11 if summer else 10)).date().isoformat()
+
+
 def is_business_day(d, holidays=NSW_PUBLIC_HOLIDAYS):
     d = _to_date(d)
-    return d.weekday() < 5 and d not in holidays
+    return d.weekday() < 5 and d not in holidays and not in_shutdown(d)
 
 
 def business_days(start, end, holidays=NSW_PUBLIC_HOLIDAYS):

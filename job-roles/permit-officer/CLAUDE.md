@@ -19,14 +19,19 @@ Sequencing fixed by the business owner (21 Aug 2026): **AI integration starts
 with NSW approvals** — NSW status lives in email + OSC and is reachable, while
 QLD status sits in the certifier's portal, which AI cannot touch.
 
-1. **Weekly BA report pre-population** (pipeline v0.2 built 11 Sep 2026;
-   the pilot runs on three NSW jobs nominated on issue #29, OSC-only until
-   the permits mailbox is delegated to the AI account). Draft the Monday
-   report from OSC + last week's report; age each item in business days by
-   tier. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11a`.
-2. **Pre-lodgement checklist** (spec written, build gated on collecting the
-   RFI corpus into the AI testing folder on `Z:`). Once per job, before
-   lodgement. Spec: `workflows/pre-lodgement-checklist.md`; rule `PO-12`.
+1. **Weekly BA report pre-population** (pipeline v0.4, 27 Oct 2026:
+   columns by header text, per-item values on an Items sheet the officer
+   corrects and the next draft reads back, engineering and covenant aged
+   from their columns, snapshots from production OSC; the pilot runs on
+   three NSW jobs nominated on issue #29, OSC-only until mailbox evidence is
+   wired in, restarting on a clean week 1 on Monday 2 Nov 2026). Draft the
+   Monday report from OSC + last week's report; age each item in business
+   days by tier. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11c`.
+2. **Pre-lodgement checklist** (spec written; the RFI corpus gate cleared
+   24 Sep 2026 with eight NSW RFIs in the AI testing folder on `Z:`; the
+   trigger is still to confirm with the officer; no code yet). Once per
+   job, before lodgement. Spec: `workflows/pre-lodgement-checklist.md`;
+   rule `PO-12`.
 3. **Form pre-fill** (not started; needs blank council/certifier forms
    collected). No spec yet — write one before building.
 
@@ -36,9 +41,11 @@ OnSite Companion (OSC) is the primary record: job activities/milestones,
 alerts (the internal communication channel), and the per-job Document
 Manager. Claude reads OSC through the **`osc-api-prod` MCP server**
 (project-scoped, the production OnSite Companion since 13 Oct 2026 — see
-`.claude/skills/osc-api/` and `docs/mcp-servers.md`). This role only reads;
-its workflows make no OSC change. Every read is **live client data**, so treat
-it accordingly. Reads before 13 Oct 2026 came from a dev copy frozen on
+`.claude/skills/osc-api/` and `docs/mcp-servers.md`). This role reads OSC
+and, since 23 Oct 2026 (issue #84, owner sign-off), makes the listed
+building-approval changes through the confirmation gate, each on the permit
+officer's own yes: `workflows/osc-updates.md`. Every read is **live client
+data**, so treat it accordingly. Reads before 13 Oct 2026 came from a dev copy frozen on
 21 Aug 2026 and were out of date. Microsoft 365 / Outlook carries all external
 correspondence. QLD jobs: the certifier's online portal holds lodgement + all
 certifier communication (notifications land in the mailbox). NSW jobs: no
@@ -77,3 +84,8 @@ Every artefact (report draft, checklist, alert text, form fill) is a draft
 with an evidence bundle for the permit officer to review. Nothing is sent,
 lodged, uploaded, or written to OSC without explicit human approval. This
 role has **no** sanctioned auto-save exception.
+
+An OSC confirmation is answered only by the permit officer, typing the reply
+in their own Claude session. Whoever else operates Claude never answers for
+the officer, and Claude never answers its own confirmation. A named backup
+may be added here later by the same kind of sign-off.

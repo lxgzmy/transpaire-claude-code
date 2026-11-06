@@ -1,4 +1,4 @@
-"""Quality gate for a finished Sydney inclusions document. Fail = it does not ship. Stdlib only.
+"""Quality gate for a finished Sydney or SEQ inclusions document. Fail = it does not ship. Stdlib only.
 
     python gate_inclusions.py --docx <final.docx> --measure <align_report.json|measure.json>
                               --plan <layout_plan.json> [--report <gate_inclusions.txt>]
@@ -19,9 +19,20 @@ Checks (NSW inclusions feedback sheet 9.9, issue #35):
   page 13   the signature lines (a text box, which Word cannot measure) carry
             the tab stops that put the owner's name under the builder's and
             every "Date:" at one x (rows 14, 15) - checked in the XML
+  site box  the address is typed in the box under "located at;", the same in
+            both of Word's copies, and nothing after the sentence itself - a
+            flat-text read cannot tell the two apart (SEQ blank 1, 31 Oct 2026)
+  items     the upgraded section(s): no wording line twice under one label,
+            exactly one blank line between items (CD-9.6; feedback sheet
+            5 Nov 2026 rows 14-15, job 26039)
 
 The measurement comes from word_layout.ps1 (the align report carries one under
 "measure"; a plain measure JSON is accepted too). Exit 0 = PASS, 1 = FAIL.
+
+--family seq (SEQ ESSENTIALS blanks, CD-9.12, 28 Oct 2026): layout, pages,
+colour, notes, section 18 (absent there), page 13 (the same tab stops since
+issue #94) and footer run as for Sydney; page 1 is Sydney's tab-stop rule,
+which the SEQ fill does not set, so it is reported as not checked.
 """
 import argparse
 import json
@@ -32,8 +43,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from fill_inclusions import EDITOR_NOTES, SIG_LABELS, run_text, RUN_RE  # noqa: E402
-from edit_inclusions import P_RE, REGIONAL_RIGHT_BLANKS, is_package_heading, ptext  # noqa: E402
+from fill_inclusions import EDITOR_NOTES, PARA_RE, SIG_LABELS, SITE_ANCHOR, run_text, RUN_RE, site_box  # noqa: E402
+from edit_inclusions import REGIONAL_RIGHT_BLANKS, is_package_heading, ptext  # noqa: E402
 
 XTOL = 1.0   # pt - horizontal agreement for tab-stopped values
 TEXT_LINE_PT = 13.5   # pt - one line of body text in the Sydney blanks (measured 13.1-14.6)
@@ -133,7 +144,7 @@ def check_xml(docx, out):
                   if re.match(r"word/(header|footer)\d*\.xml", n)}
     ok = True
     # The package headings keep the template's blue (issue #58); every other run is black.
-    heads = [m for m in P_RE.finditer(xml) if not re.search(r"<w:p[ >]", m.group(0)[4:])
+    heads = [m for m in PARA_RE.finditer(xml) if not re.search(r"<w:p[ >]", m.group(0)[4:])
              and is_package_heading(ptext(m.group(0)))]
     rest, pos = [], 0
     for m in heads:
@@ -270,18 +281,18 @@ def check_footer_total(docx, out):
     return True
 
 
-def check_signature_lines(docx, out):
+def check_signature_lines(docx, out, family="sydney"):
     """Page 13 (a text box - Word cannot measure x there): the signature lines carry
     the two tab stops fill_inclusions.py sets, the owner's name follows a tab and the
     builder's name follows the label directly, so the names share one x and every
     Date: sits at one x by construction (sheet rows 14, 15)."""
     from fill_inclusions import FAMILIES, run_text as rt
-    tabs = FAMILIES["sydney"].get("tabs") or {}
+    tabs = FAMILIES[family].get("tabs") or {}
     t_name, t_date = tabs.get("sig_name"), tabs.get("sig_date")
     with zipfile.ZipFile(docx) as z:
         xml = z.read("word/document.xml").decode("utf-8")
     ok, seen, problems = True, 0, []
-    for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.S):
+    for m in PARA_RE.finditer(xml):
         p = m.group(0)
         runs = [r.group(0) for r in RUN_RE.finditer(p)]
         text = "".join(rt(r) for r in runs)
@@ -300,14 +311,29 @@ def check_signature_lines(docx, out):
             problems.append(f"{label} line lacks tab stops {t_name}/{t_date}")
         body = text[len(label):text.index("Date:")].replace("\u2026", "").replace(".", "")
         tabs_in = p.count("<w:tab/>")
+        if label == "Name of Owner 1:" and "<w:br/>" in p and "on behalf of" in text:
+            # a company owner (feedback sheet 5 Nov 2026 row 16): name at the name
+            # stop, the signer's line under it, Date: on a line of its own taken
+            # past the name stop to the Date: stop by two tabs
+            first, last = p.split("<w:br/>")[0], p.split("<w:br/>")[-1]
+            if first.count("<w:tab/>") != 1 or last.count("<w:tab/>") != 2 or "Date:" not in rt(last):
+                problems.append("Name of Owner 1: (company) needs one tab before the name and Date: on its "
+                                "own line after two tabs")
+            continue
         if label == "Builders Representative:":
             if not text[len(label):].startswith(" ") or tabs_in != 1:
                 problems.append("Builders Representative: name must follow the label directly, one tab before Date:")
         else:
+            # a blank line's dotted run reaches past the name stop, so one tab
+            # takes Date: to its stop; with no dots the first tab stops at the
+            # name stop and a second is needed (SEQ blank 1's Name of Owner 2:)
+            dots = "…" in text[len(label):text.index("Date:")]
             if body.strip() and tabs_in != 2:
                 problems.append(f"{label} needs a tab before the name and one before Date:")
-            if not body.strip() and tabs_in != 1:
+            if not body.strip() and dots and tabs_in != 1:
                 problems.append(f"{label} (blank) needs one tab before Date:")
+            if not body.strip() and not dots and tabs_in != 2:
+                problems.append(f"{label} (blank, no dotted line) needs two tabs before Date:")
     if seen == 0:
         out.append("page 13  : no tab-stopped signature lines found (non-Sydney template?)")
     elif problems:
@@ -319,12 +345,84 @@ def check_signature_lines(docx, out):
     return ok
 
 
+def check_upgrade_items(docx, out, family="sydney"):
+    """The upgraded section(s) read as the team writes them: no wording line twice
+    under one label, and one blank line between items (CD-9.6). Job 26039 shipped
+    the September promotion's Plumbing and Electrical lines twice and two blank
+    lines after Plumbing (feedback sheet 5 Nov 2026 rows 14-15); the word-diff
+    against the real document showed both, but nothing failed on them."""
+    import edit_inclusions as E
+    if family not in E.FAMILY_RULES:
+        out.append(f"items    : not checked - no upgraded-section rules for the {family} family")
+        return True
+    E.use_family(family)
+    with zipfile.ZipFile(docx) as z:
+        cols = E.Columns(z.read("word/document.xml").decode("utf-8"))
+    try:
+        secs = E.upgraded_sections(cols)
+    except SystemExit as e:
+        out.append(f"items    : FAIL - the upgraded section cannot be read ({e})")
+        return False
+    problems = []
+    for sec in secs:
+        for n, (s, e) in enumerate(sec["groups"]):
+            seen = set()
+            for k in range(s, e):
+                t = norm(E.ptext(cols.right[k])).lower()
+                if t in seen:
+                    lab = norm(E.ptext(cols.left[sec["labels"][n]])) if n < len(sec["labels"]) else "?"
+                    problems.append(f"{lab!r} repeats {norm(E.ptext(cols.right[k]))[:50]!r}")
+                seen.add(t)
+    for heading, label, s, e in E.item_gaps(cols):
+        if e - s != 1:
+            problems.append(f"{e - s} blank lines after {label!r} in {heading}")
+    if problems:
+        out.append("items    : FAIL - " + "; ".join(problems) + " (CD-9.6)")
+        return False
+    out.append(f"items    : {sum(len(s['groups']) for s in secs)} item(s) in "
+               f"{' / '.join(s['heading'] for s in secs)}, no line repeated, one blank line between items")
+    return True
+
+
+def check_site_box(docx, out):
+    """The site address sits in the box under the "located at;" sentence, once per
+    copy of that box, and the sentence ends at "located at;" - as on every
+    completed job. Flattened text reads a doubled inline address and the box's two
+    copies alike, which is how blank 1 shipped the address outside its box."""
+    with zipfile.ZipFile(docx) as z:
+        xml = z.read("word/document.xml").decode("utf-8")
+    hits = [m.start() for m in re.finditer(re.escape(SITE_ANCHOR), xml)]
+    if not hits:
+        out.append("site box : not checked - no \"located at;\" sentence in this blank")
+        return True
+    problems = []
+    for n, at in enumerate(hits, 1):
+        end = at + len(SITE_ANCHOR)
+        seg = xml[end:xml.find("</w:p>", at)]
+        if (seg[:seg.find("<")] + run_text(seg)).strip():
+            problems.append(f"sentence {n}: text typed after \"located at;\"")
+        copies = [run_text(xml[s:e]).strip() for s, e in site_box(xml, at, end)]
+        if not copies:
+            problems.append(f"sentence {n}: no address box with it")
+        elif not copies[0].upper().startswith("LOT"):
+            problems.append(f"sentence {n}: the address box is empty or does not start with Lot")
+        elif len(set(copies)) != 1:
+            problems.append(f"sentence {n}: the address box's copies differ")
+    if problems:
+        out.append("site box : FAIL - " + "; ".join(problems))
+        return False
+    out.append(f"site box : the address in its box under each of {len(hits)} \"located at;\" sentence(s), "
+               "both copies alike, nothing typed after the sentence")
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--docx", required=True)
     ap.add_argument("--measure", required=True, help="align report (with 'measure') or a measure JSON")
     ap.add_argument("--plan", required=True)
     ap.add_argument("--report")
+    ap.add_argument("--family", default="sydney", help="template family (fill_inclusions.pick_family)")
     args = ap.parse_args()
 
     data = json.loads(Path(args.measure).read_text(encoding="utf-8"))
@@ -333,9 +431,18 @@ def main():
         measure["line_height"] = data["line_height"]
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     out = []
-    results = [check_layout(measure, plan, out), check_pages(measure, plan, out),
-               check_xml(args.docx, out), check_anchors(measure, out), check_section18(measure, out),
-               check_signature_lines(args.docx, out), check_footer_total(args.docx, out)]
+    sydney = args.family == "sydney"
+    results = [check_layout(measure, plan, out), check_pages(measure, plan, out), check_xml(args.docx, out)]
+    if sydney:
+        results.append(check_anchors(measure, out))
+    else:
+        out.append(f"page 1   : not checked - the page-1 tab stops are Sydney's; the {args.family} blank's "
+                   f"typed spacing is kept")
+    results.append(check_section18(measure, out))
+    results.append(check_signature_lines(args.docx, out, args.family))
+    results.append(check_site_box(args.docx, out))
+    results.append(check_upgrade_items(args.docx, out, args.family))
+    results.append(check_footer_total(args.docx, out))
     verdict = "PASS" if all(results) else "FAIL"
     lines = [f"gate_inclusions : {Path(args.docx).name}", ""] + out + ["", f"verdict  : {verdict}"
              + ("" if verdict == "PASS" else " - the document does not ship until every FAIL above is fixed")]

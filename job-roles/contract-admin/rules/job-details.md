@@ -69,27 +69,58 @@ These scoped changes leave the other field rules and document pricing rules inta
 
 ## JD-3 Job details fields
 
+The fixed values below (JD-3.4 to 3.7, 3.11) fill an **empty** field only. A
+value already in OSC is a person's, and is never overwritten by a default
+(issue #94 follow-up, 31 Oct 2026).
+
 - **JD-3.1** Stage number: from `Z:\ESTATES INFORMATION` or the request email.
-- **JD-3.2** Design Type: from the request email. **Only a granny flat
-  qualifies as an Auxiliary Dwelling.**
+- **JD-3.2** Design Type: the job's storeys, as staff key them: `Single
+  Storey`, `Double Storey`, and `Single Storey with AUX Dwelling` / `Double
+  Storey with AUX Dwelling` (29 of the 32 newest jobs, 5 Nov 2026). The storeys
+  come from the request email, else the SA / EOI's Storey tick, else the plans.
+  **Only a granny flat qualifies as an Auxiliary Dwelling.** Written at intake
+  wherever OSC has no value yet; not known is left blank with a flag.
+  *(Feedback sheet 5 Nov 2026 row 2, job 26060: the rule read "from the request
+  email" only, so a Double Storey ticked on the SA went to the manual list.
+  On the SA the tick is an ink mark, not a form field: read it off the
+  rendered page.)*
 - **JD-3.3** Design & Façade: from the request email.
-- **JD-3.4** Property type: most jobs are **investment** (confirm from EOI).
-- **JD-3.5** Progress Payment Schedule: set per the EOI.
-- **JD-3.6** Private Certifier: **all QLD projects are marked "Buildable"**
-  (NSW rule: confirm — not stated in the manual).
+- **JD-3.4** Property type: **`Investment`**, unless the request or EOI says
+  the buyer will live in it (owner-occupier, or an Owner Occupier template):
+  then **`Owner Occupied`**. Never left blank. *(Job 26059 review, issue #94:
+  the run left it blank. The sheet says "always Investment", but 6 of the 10
+  newest OSC jobs read `Owner Occupied` (29 Oct 2026), so the exception stays.)*
+- **JD-3.5** Progress Payment Schedule: the stage names only. `CLAIM 1 - Stage`
+  to `CLAIM 6 - Stage` = `Deposit`, `Base`, `Frame`, `Enclosed`, `Fixing`,
+  `Practical Completion`; `CLAIM 7` stays blank. Every recent job in both
+  regions reads exactly this (29 Oct 2026). The sheet's "Fixed" is OSC's
+  `Fixing`. Claim amounts and percentages are contract values and stay out of
+  OSC.
+- **JD-3.6** Private Certifier: **QLD `Buildable`**; **NSW left blank**
+  (issue #94).
 - **JD-3.7** Local Council: web-search `suburb + state + Local Council`
-  (do not omit any words). If the result is ambiguous (combination of two
-  councils), check the Estimate folder for the project's storage location.
+  (do not omit any words) and enter the council's name in **CAPITALS**. If
+  the result is ambiguous (combination of two councils), check the Estimate
+  folder for the project's storage location. Never left blank: a search
+  that fails is a flag, not a skip.
 - **JD-3.8** Legal information: from the EOI.
 - **JD-3.9** Marketer fields: Company in **ALL CAPITALS**; Contact Person with
   **SURNAME IN CAPITALS**; email as given.
 - **JD-3.10** After any entry: click **Save and Refresh**.
+- **JD-3.11** Job Notes (Reporting): **`CONTRACT SENT, AWAITING EXECUTION`**
+  at intake (issue #94).
 
 ## JD-4 Job activities
 
 - **JD-4.1** Mark activities **1, 2 and 6** as completed.
 - **JD-4.2** Items 1 and 2: double-click "Completion", then OK.
 - **JD-4.3** Item 6: double-click "Completion" and tick the box in the pop-up.
+  Every question is ticked **Complete**. The only thing to ask the person is
+  whether the job is in DataBuild yet. Never ask for DataBuild details
+  (issue #94).
+- **JD-4.4** Activity 10 "Send EOI (Expression of Interest) to Marketer":
+  **N/A**. The marketer sent the EOI, so Transpire never sends one. It is N/A
+  on all of the 12 newest jobs (29 Oct 2026, issue #94).
 
 ## JD-5 Request-email attachments
 
@@ -110,7 +141,11 @@ These scoped changes leave the other field rules and document pricing rules inta
 
 - **JD-7.1** Client address: Address 1 only, Address 2 blank; suburb in
   **ALL CAPITALS**; State `QLD`/`NSW`. This is the client's **current
-  residence**, not the site.
+  residence**, not the site. In the API it is the client's **`workAddress`**,
+  the address OSC shows on the client and the one staff fill (10 of 10
+  staff-created clients, 5 Nov 2026). *(Feedback sheet 5 Nov 2026 row 4: the
+  integration wrote `postalAddress`, so 26059's and 26060's client address
+  showed blank until a person typed it.)*
 - **JD-7.2** Client record: Add full name; Edit to fill Mobile + Email; Primary
   Comm = **Email**.
 - **JD-7.3** Purchaser slots (per the manual): male clients → Primary; female
@@ -122,10 +157,20 @@ These scoped changes leave the other field rules and document pricing rules inta
   (15 Oct 2026, the 10 newest jobs):* staff key `MARKETER_CC IN ALL EMAILS`,
   and both the sales and the marketer contact sit on the **client** (no job
   contacts at all); purchasers carry OSC's default `Client Contact`. The
-  integrated intake follows the live practice.
+  integrated intake follows the live practice. The contact is the **Marketer
+  Contact Person's own record** (the person the request names), never a
+  record for the marketing company. That person's Primary Comm is
+  **Email** (issue #94).
 - **JD-7.6** Tick the Purchaser(s) as primary contact(s) unless the marketer
   has noted otherwise.
 - **JD-7.7** Finish with **Save and Close**.
+- **JD-7.8** Phone numbers - Legal Reps, Marketers, every person's mobile -
+  are typed **4-3-3**: `0412 345 678`, a landline `0290 000 000`, `1300 123
+  456`, whatever spacing the source uses. An overseas number stays as given.
+  *(Feedback sheet 5 Nov 2026 row 3: the run copied the SA's `02 9000 0000`.
+  All 19 Legal Reps and 19 Marketers numbers on the 32 newest jobs read 4-3-3;
+  older landlines were keyed 2-4-4 until 2026, so the change is recent
+  practice, not the manual.)*
 
 ## JD-8 Wait state
 
@@ -166,6 +211,12 @@ These scoped changes leave the other field rules and document pricing rules inta
 - **JD-10.4** Region folder ≠ OSC Region code: `Z:\PROJECTS\` uses
   GUNNEDAH / SEQ / SYDNEY / TAMWORTH / CUDGEN; OSC uses SEQ1 / SYDNEY01.
   Map per job.
+- **JD-10.5** The contract request email goes into the job's `CONTRACT
+  DOCUMENTATION` as a `.msg`, named as Outlook's Save As names it (the
+  subject, `:` and `,` written `_`). Every Sydney job checked holds one
+  (26011, 26019, 26032, 26058), and the team added 26060's by hand
+  (feedback sheet 5 Nov 2026 row 1). `draft_contract.py` saves it with the
+  first drafts on any run that saves into the job folder (CD-7.8).
 
 ## Escalations
 

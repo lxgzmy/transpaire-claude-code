@@ -43,7 +43,15 @@
       "mcp__docusign-upload__docusign_create_draft",
       "mcp__docusign-upload-prod__docusign_create_draft",
       "Edit(C:/**)",
-      "Edit(C:\\**)"
+      "Edit(C:\\**)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(gh pr *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push *)",
+      "PowerShell(git merge *)",
+      "PowerShell(gh pr *)"
     ],
     "deny": [
       "mcp__docusign-demo__createEnvelopeFromTemplate",

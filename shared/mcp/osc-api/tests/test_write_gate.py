@@ -89,6 +89,19 @@ class ConfirmationTests(GateTestCase):
         self.assertEqual(len(out["confirmation_code"]), 6)
         self.assertEqual(self.fake.writes, [], "preparing must never write")
 
+    async def test_a_phone_not_in_the_433_form_is_named_with_the_form_to_send(self):
+        # feedback sheet 5 Nov 2026 row 3: staff key every Australian number 4-3-3
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "02 9000 0000"}]})
+        self.assertTrue(out["ok"], out)
+        self.assertTrue(any('"0290 000 000"' in w for w in out["warnings"]), out["warnings"])
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "0290 000 000"}]})
+        self.assertFalse(any("4-3-3" in w for w in out["warnings"]), out["warnings"])
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "+86 138 0013 8000"}]})
+        self.assertFalse(any("4-3-3" in w for w in out["warnings"]), "an overseas number is left as given")
+
     async def test_overwrite_and_clear_are_spelled_out(self):
         out = await self.prepare("PATCH", f"/api/Clients/{self.fake.client_id}",
                                  body={"postalAddress": {"line1": "2 NEW STREET", "suburb": ""}})
@@ -358,6 +371,31 @@ class RefusedTargetTests(GateTestCase):
         self.assertTrue(out["ok"], out)
         self.assertIn("Warning: say yes only if the job has been entered in DataBuild.", out["confirmation_text"])
 
+    async def test_only_send_eoi_is_marked_not_applicable(self):
+        f = self.fake
+        alone = {"shouldNotNALinkedActivities": True}
+        send = f.add_activity(f.job_id, 10, "Send EOI (Expression of Interest) to Marketer")
+        path = f"/api/JobActivities/{send}/NotApplicable"
+        # never the linked activities with it; activity 6 is never N/A; Send EOI is never completed
+        await self.assert_blocked(await self.prepare("POST", path, body={"shouldNotNALinkedActivities": False}),
+                                  "never the activities linked to it")
+        await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{f.act6}/NotApplicable",
+                                                     body=alone),
+                                  "not one of the activities the intake marks not applicable")
+        await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{send}/Complete",
+                                                     body={"completionDate": "2026-10-29"}),
+                                  "not one of the intake activities")
+        out = await self.prepare("POST", path, body=alone)
+        self.assertIn('activity 10 "Send EOI (Expression of Interest) to Marketer" is marked not applicable',
+                      out["confirmation_text"])
+        self.assertIn("- Not applicable: now no, will be yes", out["confirmation_text"])
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertEqual(result["state"], "verified", result)
+        self.assertEqual(f.writes[-1]["body"], alone)
+        again = await self.prepare("POST", path, body=alone)
+        self.assertFalse(again["ok"])
+        self.assertIn("already marked not applicable", again["confirmation_text"])
+
     async def test_completed_activity_and_existing_link_are_not_redone(self):
         f = self.fake
         await self.assert_blocked(await self.prepare("POST", f"/api/JobActivities/{f.act2}/Complete",
@@ -604,6 +642,81 @@ class BatchTests(GateTestCase):
         self.assertEqual(f.writes, [])
 
 
+class CreateReplyTests(GateTestCase):
+    """Production did not answer a create the way this fake did (job 26059, 23 Oct 2026): every new
+    client, person and job was made but read back as "sent, not verified", which stopped its stage, so
+    the person confirmed five times instead of three. Whatever the answer looks like, the new record is
+    found, read back field by field and used by the changes after it - or, when that cannot be done
+    with certainty, the stage still stops."""
+
+    async def batch(self, changes, job_id=""):
+        return await server.osc_prepare_changes(job_id, changes)
+
+    def stage_one(self, surname="NEWBUYER", lot="77"):
+        site = {"line1": "NEW ROAD", "suburb": "BOX HILL", "state": "NSW", "postcode": "2765"}
+        if lot:
+            site["lotNumber"] = lot
+        return [
+            {"method": "POST", "path": "/api/Clients",
+             "body": {"name": f"Jamie {surname}", "postalAddress": {"line1": "5 HOME STREET", "suburb": "TESTVILLE",
+                                                                    "state": "NSW", "postcode": "2000"},
+                      "workAddress": {}, "workContactDetails": {}}},
+            {"method": "POST", "path": "/api/Jobs",
+             "body": {"clientID": "{{1.clientID}}", "regionID": self.fake.region_nsw,
+                      "workflowTemplateID": self.fake.template, "siteAddress": site}},
+        ]
+
+    async def test_a_new_intake_takes_one_yes_per_stage_whatever_the_create_answer(self):
+        f = self.fake
+        for n, mode in enumerate(("id", "pascal", "bare", "location", "empty")):
+            with self.subTest(create_reply=mode):
+                f.create_reply = mode
+                surname = f"NEWBUYER{'ABCDE'[n]}"
+                stage_one = await self.batch(self.stage_one(surname, lot=str(71 + n)))
+                done = await server.osc_confirm_write(stage_one["confirmation_code"], "yes")
+                self.assertTrue(done["ok"], done)
+                self.assertEqual([c["state"] for c in done["changes"]], ["verified", "verified"])
+                client_id, job_id = done["created"]["{{1.clientID}}"], done["created"]["{{2.jobID}}"]
+                self.assertEqual(f.clients[client_id]["name"], f"Jamie {surname}")
+                self.assertEqual(f.jobs[job_id]["clientID"], client_id)
+                if mode == "empty":
+                    self.assertIn("found by searching", done["changes"][0]["result_text"])
+                stage_two = await self.batch([
+                    {"method": "POST", "path": "/api/Persons",
+                     "body": {"givenName": "Jamie", "surname": surname,
+                              "personalContactDetails": {"email": f"jamie.{n}@example.invalid"},
+                              "personalAddress": {}, "postalAddress": {}, "workAddress": {}, "workContactDetails": {}}},
+                    {"method": "POST", "path": f"/api/Clients/{client_id}/Contacts/{{{{1.personID}}}}",
+                     "body": {"relationship": "Client Contact", "isPrimaryContact": True}},
+                ], job_id=job_id)
+                done = await server.osc_confirm_write(stage_two["confirmation_code"], "yes")
+                self.assertTrue(done["ok"], done)
+                person_id = done["created"]["{{1.personID}}"]
+                self.assertEqual(f.persons[person_id]["surname"], surname)
+                self.assertIn((client_id, person_id), {(c["clientID"], c["personID"]) for c in f.client_contacts})
+
+    async def test_two_new_records_that_match_are_never_guessed_between(self):
+        f = self.fake
+        f.create_reply = "empty"
+
+        def someone_else_adds_the_same_client(route, new_id):
+            if route == "Clients":
+                f.add_client("Jamie NEWBUYER")
+        f.create_hook = someone_else_adds_the_same_client
+        out = await self.batch(self.stage_one())
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "sent_unverified")
+        self.assertEqual(len(f.writes), 1, "the job is not sent without a client the gate is sure of")
+
+    async def test_a_new_job_with_no_lot_number_is_not_guessed_either(self):
+        self.fake.create_reply = "empty"
+        out = await self.batch(self.stage_one(lot=None))
+        result = await server.osc_confirm_write(out["confirmation_code"], "yes")
+        self.assertFalse(result["ok"])
+        self.assertEqual([c["state"] for c in result["changes"]], ["verified", "sent_unverified"])
+
+
 class DuplicateCheckTests(GateTestCase):
     async def test_client_names_match_whatever_the_case_or_order(self):
         body = {"postalAddress": {}, "workAddress": {}, "workContactDetails": {}}
@@ -683,11 +796,12 @@ class ApiVersionTests(GateTestCase):
 
 class ReplyAndConfigTests(unittest.TestCase):
     def test_reply_kinds(self):
-        for text in ("yes", "Yes.", "YES!", "yes please", "ok", "Yes, go ahead", "是", "确认", "yes ABC123"):
+        for text in ("yes", "Yes.", "YES!", "yes please", "ok", "Yes, go ahead", "yes ABC123"):
             self.assertEqual(reply_kind(text, "ABC123"), "yes", text)
-        for text in ("no", "No.", "cancel", "不要", "取消"):
+        for text in ("no", "No.", "cancel", "Cancel!"):
             self.assertEqual(reply_kind(text), "no", text)
-        for text in ("yes but change it", "yesterday", "", "y n", "sounds good but wait"):
+        # English only: anything else is not a yes, so nothing is sent
+        for text in ("yes but change it", "yesterday", "", "y n", "sounds good but wait", "oui", "si"):
             self.assertEqual(reply_kind(text), "other", text)
 
     def test_only_production_and_its_own_env_file(self):

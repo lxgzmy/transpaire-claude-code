@@ -31,10 +31,12 @@ that dead time instead of after. With many simultaneous jobs, orders
 
 ## Build gates
 
-1. **RFI corpus** — past RFIs (QLD and NSW) collected into the AI testing
-   folder agreed at discovery (`Z:\AI test\Permit Officer`; the folder
-   exists and holds procedure documents, but no past RFIs yet). NSW
-   standard-form RFIs are the priority training material.
+1. **RFI corpus — CLEARED (24 Sep 2026).** Eight past NSW RFIs sit in
+   `Z:\AI test\Permit Officer\PAST RFIs\` (jobs 23029, 24064, 24067,
+   25063, 25168, 26001, 26029, 26052; seven from one certifier, one from
+   another; all text-extractable PDFs). The standard RFI item vocabulary
+   (`Standard RFI Tasks .docx`) is in `..\GENERAL PROCEDURES\`. This is
+   the training material for step 4; nothing from it goes into the repo.
 2. **Trigger wiring** — confirm how the pre-lodgement notification reaches
    the workflow (mailbox rule vs manual invocation) with the officer.
 

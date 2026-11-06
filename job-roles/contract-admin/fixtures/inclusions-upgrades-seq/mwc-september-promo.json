@@ -1,0 +1,252 @@
+{
+ "_fixture": "SYNTHETIC - invented names, lot and street. SEQ MWC job taking the September 2023 promotion plus the request lines of the 26059 review (28 Oct 2026, CD-9.12); upgrade wording only, no client data.",
+ "lot_no": "9101",
+ "street": "Placeholder Drive",
+ "suburb": "SAMPLETOWN QLD",
+ "estate": "Sample Estate",
+ "house_type": "Sample 230",
+ "house_size": "230.00 m²",
+ "facade": "Sample Façade",
+ "garage_side": "Right Hand Side",
+ "price": "450,000.00",
+ "owner_1": "Alex PLACEHOLDER",
+ "owner_2": "",
+ "owners": "Alex PLACEHOLDER",
+ "site_address": "9101, Placeholder Drive (Sample Estate), SAMPLETOWN QLD 4000",
+ "builders_rep": "Michael CRONK",
+ "upgrades": {
+  "storeys": 1,
+  "items": [
+   {
+    "category": "Benchtops",
+    "wording": "40mm engineered stone bench tops arris edge profile to Kitchen only\n40mm engineered stone “waterfall” gable end with mitred edge to Kitchen Island\n20mm engineered stone bench tops with arris edge to Bathroom and Ensuite vanities",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "mode": "replace"
+   },
+   {
+    "category": "Hinges & Drawer Runners",
+    "wording": "Fully adjustable soft close hinges and drawer runners to all cabinetry throughout\nNote: Excludes white melamine drawer units to wardrobes (if applicable).",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Plumbing"
+   },
+   {
+    "category": "Handles",
+    "wording": "Handle-less system to Kitchen, Bathroom and Ensuite cabinetry\nNote: Built in pantry cupboard doors (if applicable) will include a Momo Ferrara lip pull",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Plumbing"
+   },
+   {
+    "category": "Shower Screens",
+    "wording": "Clear glazed semi-frameless shower screen with overlap pivot door to Bathroom and Ensuite shower compartment",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Plumbing"
+   },
+   {
+    "category": "Mirrors",
+    "wording": "Frameless polished edge 900mm high (nominal size) mirror over width of Bathroom and Ensuite vanity",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Plumbing"
+   },
+   {
+    "category": "Plumbing",
+    "wording": "One (1) cold water only point including chrome finish mini stop to fridge provision\nMemo Hugo double bowl undermount sink with no taphole (2402706) to Kitchen\nNote: Includes polished edge to engineered stone benchtop cut out.\nNote: Sink mixer is relocated to be mounted within benchtop.\nMizu Soothe square gooseneck sink mixer chrome (9504417) to Kitchen",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "mode": "add"
+   },
+   {
+    "category": "Oven",
+    "wording": "Technika TB90FSS-5 900mm wide stainless steel electric under bench oven",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Electrical"
+   },
+   {
+    "category": "Cooktop",
+    "wording": "Technika TB95GWFSS-3 900mm wide stainless steel gas cooktop\nNote: Gas appliances will be supplied suitable for either Natural Gas or LPG depending on availability of Natural Gas to the building allotment.\nNote: If LPG is utilised the gas service will run to the required points terminating on an external wall, including a manual regulator for future connection to LPG bottles.\nNote: It is the responsibility of the owner to arrange for the supply, installation and connection of the gas bottles after handover.",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Electrical"
+   },
+   {
+    "category": "Rangehood",
+    "wording": "Technika GSL90RDS 900mm wide stainless steel slide out rangehood (ducted externally)",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "before": "Electrical"
+   },
+   {
+    "category": "Electrical",
+    "wording": "Two (2) Beacon Marcel 300mm pendant lights black with clear glass (011036) positioned above Kitchen Island",
+    "request": "MWC Exclusive Upgrade Pack – September Promotion – contract price included",
+    "variation_row": null,
+    "confidence": "high",
+    "note": "promotion: the September 2023 promotion (MWC version where it has one)",
+    "mode": "add"
+   },
+   {
+    "category": "Air-Conditioning",
+    "request": "New Builder Promotion – Ducted Air Conditioning in lieu of split air con – contract price included",
+    "variation_row": 299,
+    "wording": "Reverse cycle ducted air-conditioning system.\nNote: Includes five (5) zones. Outlets are house specific.",
+    "confidence": "high",
+    "note": ""
+   },
+   {
+    "category": "Timber Flooring",
+    "request": "Hybrid flooring in lieu of tiles – includes floor preparation, excludes lounge – $1,622",
+    "variation_row": 264,
+    "wording": "Wood Effects Plus 6.5mm hybrid floor covering to Single storey main floor areas.\nNote: Excluding wet areas and Lounge.\nNote: Installation of floating floor requires fixing of additional trims at penetrations and intersection between flooring and skirting to allow for movement and expansion.",
+    "confidence": "high",
+    "note": ""
+   },
+   {
+    "category": "Carpet",
+    "request": "Carpet to lounge in lieu of tiles – $237 Credit",
+    "variation_row": null,
+    "wording": "Heavy duty polypropylene textured sisal carpet from the Essentials Range including 7mm foam underlay to Lounge",
+    "confidence": "high",
+    "note": "a credit: standard Carpet wording (inclusions page 10) narrowed to the Lounge"
+   },
+   {
+    "category": "Cooktop",
+    "request": "Technika induction cooktop replacing gas cooktop - contract price included",
+    "variation_row": 193,
+    "wording": "Technika Venini GECE9004 900mm electric cooktop",
+    "confidence": "high",
+    "mode": "replace",
+    "note": "replaces the promotion's gas cooktop and its gas notes"
+   },
+   {
+    "category": "Tiling Walls",
+    "request": "Shower niches to both bathrooms – $680",
+    "variation_row": 152,
+    "wording": "400mm high x 600mm wide feature tiled wall niche/recess to Bathroom and Ensuite.",
+    "confidence": "high",
+    "before": "Wardrobes",
+    "note": ""
+   },
+   {
+    "category": "Window Furnishings",
+    "request": "Remove insect screens – $665 Credit; Remove all window blinds (shutters to be installed after handover) – $716 Credit",
+    "variation_row": null,
+    "wording": "Blinds and insect screens to be supplied and installed By Owner after handover",
+    "confidence": "high",
+    "note": ""
+   },
+   {
+    "category": "Entrance Door",
+    "request": "Black door handles – internal doors and front entry – $342",
+    "variation_row": null,
+    "wording": "Lane 'Oxford' Touch Plus lever lockset in matte black to Front Entry door\nNote: Matt Black door hinges to Front Entry door",
+    "confidence": "medium",
+    "before": "Benchtops",
+    "note": ""
+   },
+   {
+    "category": "Internal Doors",
+    "request": "Cavity sliding door to walk-in pantry – $422; Cavity sliding door to ensuite – $190; Black door handles – $342",
+    "variation_row": null,
+    "wording": "One (1) 2040mm high x 720mm wide cavity sliding flush panel painted door to WIP\nOne (1) 2040mm high x 720mm wide cavity sliding flush panel painted door to Ensuite with access from Master room\nLane slimline single cylinder deadbolt in matte black to Garage internal hinged door\nLane 'Oxford' round privacy lever sets in matte black to internal hinged doors throughout\nNote: Matt Black door hinges to all internal hinged doors\nLane Round Cavity Sliding Door Set Matt Black to WIP and Ensuite cavity sliding doors",
+    "confidence": "medium",
+    "before": "Benchtops",
+    "note": ""
+   },
+   {
+    "category": "Glazing",
+    "request": "Additional black hardware to sliding doors, windows, mirrored robes and shower screens – $349",
+    "variation_row": null,
+    "wording": "Windows and Sliding Doors Frame colour to be black from standard range",
+    "confidence": "medium",
+    "before": "Benchtops",
+    "note": ""
+   },
+   {
+    "category": "Wardrobes",
+    "request": "Mirrored wardrobe doors – 3 wardrobes – $420; Additional black hardware – $349",
+    "variation_row": null,
+    "wording": "Aluminium framed sliding doors with mirror inserts to robes in Bedroom 2, 3 and 4\nNote: Matt Black sliding door frame to robe and linen doors",
+    "confidence": "medium",
+    "mode": "replace",
+    "note": ""
+   },
+   {
+    "category": "Shower Screens",
+    "request": "Additional black hardware to ... shower screens – $349",
+    "variation_row": null,
+    "wording": "Note: Matt Black frames to Ensuite and Bathroom shower screens",
+    "confidence": "medium",
+    "mode": "add",
+    "note": ""
+   },
+   {
+    "category": "Plumbing",
+    "request": "Mizu Drift black tapware – kitchen and bathrooms – $920",
+    "variation_row": null,
+    "wording": "Posh ‘Domaine’ single rail shower Matt Black (2213360) to Bathroom and Ensuite",
+    "confidence": "medium",
+    "replaces": "Posh ‘Bristol’",
+    "note": ""
+   },
+   {
+    "category": "Plumbing",
+    "request": "Mizu Drift black tapware – kitchen and bathrooms – $920",
+    "variation_row": null,
+    "wording": "Mizu Drift MK2 gooseneck sink mixer Matte Black to Kitchen",
+    "confidence": "medium",
+    "replaces": "Mizu Soothe square gooseneck",
+    "note": ""
+   },
+   {
+    "category": "Plumbing",
+    "request": "Mizu Drift black tapware – kitchen and bathrooms – $920",
+    "variation_row": null,
+    "wording": "Mizu Drift tapwares in Matte Black to Bathroom and Ensuite\nNote: The pop up wastes, towel rails and toilet roll holders are in Matt Black",
+    "confidence": "medium",
+    "mode": "add",
+    "note": ""
+   },
+   {
+    "category": "Plumbing",
+    "request": "Kado Lux rimless toilets – 2 bathrooms – $760",
+    "variation_row": 190,
+    "wording": "Kado Lux Close Coupled Back To Wall Rimless Overheight Toilet Suite (1805492) to Bathroom and Ensuite",
+    "confidence": "high",
+    "mode": "add",
+    "note": ""
+   },
+   {
+    "category": "Plumbing",
+    "request": "Double Vanity to Ensuite – included in the plan",
+    "variation_row": 186,
+    "wording": "Double vanity unit to Ensuite including the following:\n- Additional floor cabinetry with cupboard doors and standard benchtop (up to a maximum of 1800mm wide)\n- One (1) additional hand basin with black pop-up waste and Mizu Drift basin mixer in Matt Black\n- Additional mirror over width of vanity unit\n- Additional tiled splashback over width of vanity unit.\nNote: All items selected from Builders standard range excluding tapware",
+    "confidence": "high",
+    "mode": "add",
+    "note": "'excluding tapware': the request's black Mizu Drift tapware overrides the standard-range note"
+   }
+  ]
+ }
+}

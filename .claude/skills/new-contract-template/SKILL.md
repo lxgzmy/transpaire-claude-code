@@ -25,7 +25,8 @@ a contract administrator would open, with the same fields, wording and layout.
 own.** If the right template can't be found, say so and stop. A contract that
 looks plausible but isn't the company's document is worse than no draft. The
 one place wording is written per job is the Sydney `UPGRADED INCLUSIONS`
-section (CD-9, 10 Sep 2026) — and there it comes from the company's Standard
+section (CD-9, 10 Sep 2026) and, since 28 Oct 2026, the SEQ `PROMOTIONAL
+UPGRADES` section (CD-9.12) — and there it comes from the company's Standard
 Variation workbook, normalised per CD-9.6, with the row you chose and the
 final line reported for a person to confirm. A request with no row is a
 custom item: still written, always flagged low confidence for approval. The
@@ -113,10 +114,11 @@ works item 2 (price excluding GST, GST, contract price, deposit) and the
 Part B progress schedule from the job's `price` - GST = price / 11 to the
 cent, deposit 10% rounded down, each stage its printed % with the last
 stage taking the rounding balance - and shows the arithmetic in the report.
-Keyed DataBuild figures win, with a flag on any difference. QLD is never
-worked out (issue #73): item 2 and Schedule 2 Part B take the figures the
-person gives, whenever they give them - see "QLD contract figures" in step
-5. The date is never filled.
+Keyed DataBuild figures win, with a flag on any difference. QLD is worked
+out the same way since the 27 Oct 2026 review (reversing issue #73): item 2
+and Schedule 2 Part B from the job's `price`, the way the HIA form the team
+fills works them out, with DataBuild figures the person gives winning - see
+"QLD contract figures" in step 5. The date is never filled.
 
 ## Where the documents go
 
@@ -277,8 +279,8 @@ once per field:
 | Stage | One confirmation covers | When |
 |---|---|---|
 | 1. New client and job | the client (unless a verified existing one is reused) and the job, the job taking `"clientID": "{{1.clientID}}"` | New intake, after the duplicate search |
-| 2. Set up the job | job details and custom fields, purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`), the sales and marketer links, activities 1 and 2, the `NEW JOB` email on the job and on task 11, task 11's answers and completion, and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
-| 3. DataBuild done | activity 6's answers and its completion | When the person says the DataBuild entry is done |
+| 2. Set up the job | job details and custom fields, including the intake defaults on every field still empty (Design Type from the storeys, Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94 and the 5 Nov 2026 sheet; a value OSC already holds is never overwritten), every phone number 4-3-3 (`0290 000 000`), the client's address in its `workAddress`; purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete, activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
+| 3. DataBuild done | activity 6's eight answers, all `Complete`, and its completion | When the person answers yes to *"Is the job in DataBuild yet?"*. Never ask for DataBuild details |
 
 1. `osc_prepare_changes(job_id, changes)` with the stage's changes in order
    (`job_id` empty for stage 1 only). It sends nothing. Anything OSC already
@@ -400,7 +402,7 @@ unsourceable value stays `""` and is flagged, never guessed:
 | Key | Format — follow it exactly | Source |
 |---|---|---|
 | `lot_no` | digits only: `"143"` | Subject + EOI |
-| `street` | keeps the house number in brackets when the job folder does: `"(3) Pioneer Close"` | Job folder name (CD-2.2) |
+| `street` | the street as the request / plans give it; on NSW the fillers bracket a single leading house number in every document (`"(3) Sample Close"`, CD-2.2, feedback sheet 5 Nov 2026 row 7) - write it bare or bracketed, the documents come out alike | Request / job folder / plans (CD-2.2) |
 | `suburb` | `"SUBURB STATE"` in CAPS: `"WESTDALE NSW"` | EOI / subject (CD-2.3) |
 | `estate` | SEQ: when the job-folder name carries a bracketed estate (`(FORESTONE ESTATE)`, `(SOMERFIELD WEST)`), fill it in title case as the **most recently contracted** completed neighbour spells it (`"Forestone Estate"`, `"Somerfield West"`) — older neighbours may be blank, recency wins (observed 26038/26050/26051 vs 26033/26034). No estate in the folder name (infill like 26053) → `""`. An unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"` (CD-2.4) | Job folder name + most recent completed neighbour |
 | `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2) | Email "Design:" |
@@ -410,9 +412,10 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `price` | `"606,000.00"` — thousands separators + `.00`, **no `$`** (the filler writes it). The GST-inclusive contract price: on NSW the build contract's item 2 and progress schedule are worked from it (CD-5.4). Email ≠ EOI → **stop** (CD-2.5) | Email + EOI |
 | `amendments` | only when the request marks a contract change approved **on its own line** (CD-10). One object per change: `{"id": "A1", "kind": "schedule", "field": "interest_rate", "from": "15%", "to": "12%", "request_line": "<the line, verbatim>"}`, `{"kind": "strike_clause", "clause": 14, "title": "Hidden Site Conditions", "request_line": ...}` (NSW), `{"kind": "prelim_words", "clause": 4, "expect": "<the new paragraph exactly as the request quotes it>", "request_line": ...}`. Copy, never paraphrase: the scripts refuse a line or paragraph they cannot find word for word in `email*.txt` | Email |
 | `amendments_for_person` | every other contract change the request asks for, verbatim: no approval marker, a new clause or special condition, rewording, any other schedule item. Reported, never applied (CD-10.6) | Email |
+| `price_validity_line` / `price_valid_until` | NSW only: the request's price-validity line verbatim ("Price Validity: Fixed until Q1 2027") and the date it fixes, ISO (`"2027-03-31"`). A quarter is written as its last day and the run flags it TO CONFIRM - the drive shows no one day per quarter. The build contract's Special Conditions clause 1 then reads "up to and including 31st March 2027." (CD-10.7, feedback sheet 5 Nov 2026 row 6); the line must be in the saved request text word for word. A request with no validity line: leave both out | Email |
 | `deposit_request` | only when the request asks for a deposit other than 10%: an amount (`"25,000.00"`) or `"5%"`. Lower than 10% goes into item 2(b) with a flag; higher is refused (CD-5.4) | Email |
 | `owner_1`, `owner_2` | `"First name Middle name SURNAME"` — the middle name is included whenever the client ID shows one, and it is usually absent from the email, so read it off the licence/passport (CD-3.1, team-confirmed 28 Aug 2026). Single owner → `owner_2: ""`. **Three or more owners:** key `owner_3` too — the **preliminary agreement** takes it natively (9.1 round, 4 Sep 2026: third name joins the client row, which keeps `("Client")` for three per the sheet + manual 26011, and the second signing row is cloned for the third name). The **inclusions and build contract** still fill owner_1/owner_2 only — FLAG the rest there (the one observed job hand-repurposed the witness rows into "Name of Owner 3", a template-wording edit a person makes, CD-3.8) | EOI (CD-0.2); ID confirms spelling and the middle name (CD-0.3) |
-| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"VWJJ INVESTMENT No.1 PTY LTD ATF WANG AND LIU No.1 FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 693 135 572"`). On the **preliminary agreement**, a sourced `company_signatory` key (the person named by the signed land contract) types the page-3 signing line as `<signatory>` ⏎ `on behalf of <owners incl. ABN/ACN>` and relabels that row `Client Name / Company` (9.1 round, CD-4.5); on the **inclusions/build contract** the signer line ("<Director> on behalf of ...") stays typed by a person at signing, never filled (observed 26039) | EOI / signed land contract |
+| `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 600 000 000"`). Every document then names the company WITH its ACN, sized to its line. Set `company_signatory` (`"Firstname SURNAME"`) to the guarantor the land contract's *Guarantee and Indemnity (If Company or Trustee Buyer)* page names - read that page off the rendered PDF, its text layer is a shifted font - and the same person as `guarantor_name`. The preliminary agreement types `<signatory>` ⏎ `on behalf of <owners incl. ABN/ACN>` (CD-4.5); the inclusions put `<signatory> on behalf of <company> ACN: ...` under every `Name of Owner 1:` line and the build contract under the owner's signature NAME and the QLD guide NAME(S) (feedback sheet 5 Nov 2026 rows 8, 12, 16 - until then a person typed it at signing). No signatory named: leave the key out; the line is flagged for a person | EOI / signed land contract (its guarantee page) |
 | `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026) | Job folder + lookup |
 | `builders_rep` | `"Michael CRONK"` (CD-3.5) | Manual |
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
@@ -450,6 +453,8 @@ air conditioning and the upgrade items from the request, with the Standard
 Variation row you chose and a confidence flag per item. Its keys and rules
 are in step 5 below (CD-9); build it before running the fill, because the
 content edit, the layout pass and the gate all run inside the one command.
+**SEQ jobs carry one too** (CD-9.12, 28 Oct 2026): `storeys` and `items`
+only, the promotion's items first — see "SEQ inclusions content" in step 5.
 
 ### 5. Fill, diff, export and save — one command
 
@@ -474,8 +479,10 @@ preview stop (removed 17 Aug 2026):
    **if the lot is 12.5m wide or less a person must also delete the
    accessible-entrance block it governed** (observed: 26039/26037 deleted it,
    10m sites; 26053/26008 kept it).
-3. **Sydney inclusions content edit** (`edit_inclusions.py`, from the job's
-   `upgrades` block — CD-9, 10 Sep 2026): section 18 trimmed to the job's
+3. **Sydney and SEQ inclusions content edit** (`edit_inclusions.py`, from the job's
+   `upgrades` block — CD-9, 10 Sep 2026; SEQ's `PROMOTIONAL UPGRADES` the
+   same way since 28 Oct 2026, CD-9.12, with no section 18 / Bathroom 2 /
+   air-con note steps, on every SEQ job, with or without an `upgrades` block, since issue #94: the NCC `19.` highlight cleared, the page-13 signature lines on Sydney's tab stops). Sydney: section 18 trimmed to the job's
    area, Bathroom 2 and air-conditioning notes actioned, the upgrade items
    written into `UPGRADED INCLUSIONS` (replace / one line / add / new label
    at the Standard Variation order), every run black except the blue package
@@ -528,7 +535,12 @@ owner address parts, contact keys `owner_mobile`/`owner_email` **plus
 them `"; "`; every purchaser's mobile and email rides on the contract for
 DocuSign (team review item 8) — NSW `dp_no`/`land_suburb`/`land_postcode`
 (legacy `land_suburb_pc` still accepted and split) or QLD `sp_rp`/
-`land_suburb`/`land_state`/`land_postcode`, and `liq_damages` only when the
+`land_suburb`/`land_state`/`land_postcode` (`land_street` is the street
+alone: on QLD the filler writes item 11 as `Street, (Estate)` from the
+job's `estate`, and builds the cover SITE from the same street with
+`SUBURB STATE POSTCODE` on the line below, as the team's HIA form does -
+`site_hia` is used on QLD only when the land keys are missing; 27-28 Oct
+2026 review), and `liq_damages` only when the
 job's LD is sourced to differ from the template's $25.00 prefill). On both
 team builds the fill also types the owner signature name and accepts
 **explicitly sourced** extras: DataBuild figures a person keys -
@@ -539,31 +551,48 @@ Part B's `deposit` (its first row: QC2 has no item 2 deposit),
 `progress_1`..`progress_5` (BASE, FRAME, ENCLOSED, FIXING, PRACTICAL
 COMPLETION) and `progress_total`, with `figures_source` saying where they
 came from (below); any
-amount types as `$nnn,nnn.nn` however it is keyed; and `guarantor_name`/
+amount types as `$nnn,nnn.nn` however it is keyed, padded after the `$` so
+each column lines up on its digits (CD-5.4); and `guarantor_name`/
 `guarantor_address`/`guarantor_suburb`/`guarantor_state`/`guarantor_postcode`/
-`guarantor_email` only when a signed source names them (these also complete the deed's
-BUILDER IS / OWNER IS lines; the deed date is never filled). Region
+`guarantor_email` only when a signed source names them - for a company buyer, the land
+contract's guarantee page (CD-3.9). They also complete the deed's BUILDER IS
+(`Transpire Constructions Pty Ltd`) / OWNER IS (the company with its ACN)
+lines; a guarantor with no address of their own there takes the buyer's,
+flagged; the deed date is never filled. Region
 specifics: NSW types `builders_rep` on the Builder NAME line (executed
 contracts all key Michael CRONK there) and the Attachment A checklist owner
 names; QLD types the Consumer Building Guide acknowledgement NAME(S) on both
 copies (executed 25163 keys the owner at each) and leaves the builder line
-alone — the QLD build ships it prefilled (Michael CRONK). The QLD build also
-prefills a 210-day building period — the data sheet still carries the job's
-CD-5.5 period for the reviewer to check against it.
+alone — the QLD build ships it prefilled (Michael CRONK); the owner's
+signature NAME types at that name's x and size so the two line up (27 Oct
+2026 review). The QLD build
+prefills a 210-day building period; the fill writes the team's figure from
+`storeys` (top level, or `upgrades.storeys`) and `house_size`: single storey
+210, double storey under 300 m² 240, over 300 m² 260 (CD-5.5, feedback sheet
+5 Nov 2026 row 11). Unknown storeys, a double storey without a house size,
+or exactly 300 m² keep 210 with a flag.
 `--no-build-contract` skips the stage.
 
-**QLD contract figures (issue #73, 15 Oct 2026, contract admin feedback).**
-DataBuild is never a step that has to come first. On QLD nothing is worked
-out: the figures are the person's, from DataBuild, given whenever they have
-them.
-- **Never ask for them and never wait.** Run everything else straight away.
-  With no figures, item 2 and Part B stay blank. The report ends with one
-  optional line: "QLD build contract: give me the DataBuild figures (type
-  them, or paste a screenshot of the DataBuild screen) whenever you have
-  them, and I'll fill item 2 and Part B."
+**QLD contract figures (27 Oct 2026 review of job 26059, reversing issue
+#73's "never worked out").** DataBuild is never a step that has to come
+first. The run works item 2 and Part B out from the request's `price`, the
+way the HIA form the team fills does from the one contract price: GST =
+price / 11 to the cent, price excluding GST = price - GST, each Part B row
+its printed % (DEPOSIT 5% rounded down, never over the cap; PRACTICAL
+COMPLETION the rounding balance), TOTAL = the price. The arithmetic is in the
+report's `contract figures` block. The person can still give DataBuild
+figures, whenever they have them, and those win:
+- **Never ask for them and never wait.** Run everything straight away from
+  the request price. A request with no usable price leaves item 2 and Part B
+  blank with a FLAG - say so and ask for the price.
+- **A contract price change the person asks for** ("amend the contract price
+  to $467,200") is not a wording edit: put it in the job JSON as
+  `price_incl_gst` (with `figures_source`) and re-run; item 2 and Part B are
+  worked from it.
 - **Typed figures** go into the job JSON as given (keys above), with
   `figures_source` such as `typed by the person`. Don't recalculate,
-  round or "correct" them.
+  round or "correct" them; the figures not given are worked from the
+  contract price given (or the request price).
 - **A screenshot** is read like any image (step 1). Show the numbers you
   read back in one message - price excluding GST, GST, contract price,
   deposit, Base, Frame, Enclosed, Fixing, Practical Completion, total - and
@@ -587,12 +616,15 @@ them.
   is within the 5% the contract prints for $20,000 or more. Every figure is
   typed as given; pass each FLAG to the person in plain words.
 
-Expect ~3s of fills/diffs, 2–5 minutes for the Sydney layout pass (Word
-measures ~1,000 paragraphs and re-levels them), and ~10–20s per PDF (Word
-start-up dominates; the PDF is half the deliverable pair, never cut it): a
-Sydney run is 3–7 minutes, a Gunnedah/SEQ run 25–70 seconds. Say so before
-you start it. The first run against a newly revised blank adds ~3 minutes
-to measure the blank once (`runtime\contract-admin\state\layout\`). The
+Expect ~3s of fills/diffs, 4–10 minutes for the Sydney or SEQ layout pass
+(Word measures ~1,000 paragraphs and re-levels them; up to ~16 minutes when
+another Word job runs on the server at the same time - measured 31 Oct
+2026), and ~10–20s per PDF (Word start-up dominates; the PDF is half the
+deliverable pair, never cut it): a Sydney or SEQ run is 5–11 minutes, a
+Gunnedah run 25–70 seconds. Say so before you start it. The first run
+against a new or revised blank adds 5–15 minutes to measure the blank once
+(cached in `runtime\contract-admin\state\layout\`; every live SEQ and Sydney
+blank is measured already). The
 underlying commands (`fill_inclusions.py`, `edit_inclusions.py`,
 `word_layout.ps1`, `gate_inclusions.py`, `fill_prelim.py`, `fill_hia.py`,
 `docx_diff.py`, `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a
@@ -646,9 +678,60 @@ What is still a person's edit, flagged verbatim in the report:
 | "Delete NCC" / chain answers NCC **excluded** | Remove the `NCC 2022 Livable Housing` section and renumber the following sections (observed 26039/26037/26022) |
 | "NCC included" / "Leave in NCC" | Section stays — nothing to do (26053, 26008) |
 | NCC question asked, **no answer in the chain** | FLAG the open question; do not guess either way |
-| "Sep promotion" / "September Promotion pack" | Promo lines are hand-curated per job — even the promo's own items vary between jobs of the same week (26050 kept Colorbond roofing, 26039 dropped it) |
 | Plan-change bullets (relocate door, add screen…) | Drafting updates the plans; the matching inclusions lines are keyed by a person (26037) |
-| Gunnedah / SEQ upgrade bullets | Those templates have no two-column content rules yet — still keyed by a person, house wording |
+| Gunnedah upgrade bullets | That template has no two-column content rules yet — still keyed by a person, house wording |
+
+**SEQ inclusions content (contract admin review of job 26059, 28 Oct 2026 —
+CD-9.12).** The 26059 run left `PROMOTIONAL UPGRADES` as the blank had it,
+on the reading that contract wording is a person's job everywhere but
+Sydney. The review called that the defect: SEQ follows the Sydney rules. Build
+the `upgrades` block (`storeys`, `items[]` as in the table above; no `area`,
+`bathroom2_ground` or `aircon` — QLD air conditioning is an ordinary item
+under `Air-Conditioning`) in this order:
+
+1. **The promotion the request names** (e.g. "MWC Exclusive Upgrade Pack –
+   September Promotion"): run
+   `python job-roles/contract-admin/scripts/promotion.py --doc "<REGION - SEQ\INCLUSIONS\INVESTOR & FIRST HOME OWNER\SALES INCLUSIONS - SEPTEMBER PROMOTION 2023.docx>" --marketer <MWC|…> --json`
+   and put its items first. It applies the review's placement: Benchtops
+   replaces the blank's (an MWC job takes `Benchtops – MWC ONLY`); Hinges &
+   Drawer Runners, Handles, Shower Screens and Mirrors go in before
+   Plumbing; Plumbing and Electrical lines go under the existing labels;
+   Oven, Cooktop and Rangehood go after Plumbing. This reverses the earlier
+   "promo lines are hand-curated per job" row for SEQ.
+2. **Each request line**, through the **QLD** sheet
+   (`variation_list.py --region QLD --search "<line>"`), normalised per
+   CD-9.6. An item whose label exists replaces its wording; one that does
+   not is a new label at the Standard Variation order (`before` when the
+   agreed order differs). A request that changes a promotion line comes
+   after it with `mode: "replace"` (a whole label: the induction cooktop
+   replaces the promotion's gas cooktop and its gas notes) or `replaces`
+   (one line: black Mizu Drift tapware replaces the chrome sink mixer).
+
+**Builders Brokers blank (7)** carries its own promotion, whose Electrical
+item lists the lights and power points twice, for a SINGLE STOREY and a
+DOUBLE STOREY home, under a "DELETE AS REQUIRED" note. Set
+`upgrades.storeys` (the table above) on every job on that blank. The run
+keeps that list with its heading and deletes the other list and the note
+(owner's choice, 31 Oct 2026), flagged TO CONFIRM. Without `storeys` it
+stops before the Word step with STOREYS NEEDED: read the storeys off the
+request or the plans and run again.
+
+The review's worked rulings for 26059:
+
+| Request | Written |
+|---|---|
+| Ducted air in lieu of split | `Air-Conditioning` replaced: "Reverse cycle ducted air-conditioning system." + "Note: Includes five (5) zones. Outlets are house specific." (row 299) |
+| Hybrid flooring, excludes lounge (single storey) | new `Timber Flooring` below Electrical: the single-storey row (264) + "Note: Excluding wet areas and Lounge." |
+| Induction cooktop replacing gas | `Cooktop` replaced: "Technika Venini GECE9004 900mm electric cooktop" (row 193) |
+| Awning windows (bedrooms, lounge) | nothing — windows are on the plans, not in the inclusions |
+| Shower niches "both bathrooms", toilets "2 bathrooms" | "… to Bathroom and Ensuite", as the plans name them: niche under a new `Tiling Walls`, the Kado Lux toilet under Plumbing |
+| Remove insect screens, remove blinds | `Window Furnishings` replaced: "Blinds and insect screens to be supplied and installed By Owner after handover" |
+| A **credit** (carpet to lounge in lieu of tiles) | a standard item, not an upgrade: the standard wording from inclusions pages 1–11 narrowed to the request ("… 7mm foam underlay to Lounge") under a new `Carpet` |
+| Double vanity to Ensuite, with black tapware requested | row 186, its "All items selected from Builders standard range" note made "… excluding tapware" |
+
+A request line the sheet has no row for (black hardware, door furniture) is
+still a custom item: written, `confidence` medium or low, confirmed before
+issue.
 
 `--prelim` is used only after this decision (CD-4.4), never by default
 (SEQ has no preliminary-agreement template at all — the analogous "custom plan
@@ -664,15 +747,15 @@ agreement" seen at 26053 is a different document this skill does not produce):
 ### 6. Draft the build contract data sheet
 
 The values a person needs to key into the contract (CD-5): cover page (owners,
-job, lot, site), the building period in contract days (single storey 180,
-single-storey duplex 210, double storey 210, double-storey duplex 240 — CD-5.5),
+job, lot, site), the building period in contract days (NSW per the manual:
+single storey 180, single-storey duplex 210, double storey 210, double-storey
+duplex 240; QLD per the team: 210 / 240 under 300 m² / 260 over — CD-5.5),
 and the land details. Contract price excluding GST, GST, total, deposit and
 the Part B progress payment schedule: on NSW, copy the `contract figures`
 block from `fill_buildcontract.txt` (worked from the request price, CD-5.4)
-and any FLAG under it; on QLD, the same block (the figures as given, issue
-#73) and its FLAGs, or, with none given, `not given yet - optional, any
-time (typed or a DataBuild screenshot)`; when no build contract was filled,
-`to be typed in` for any figure not in the job JSON.
+and any FLAG under it; on QLD the same (worked from the request price, and
+the figures the person gave, if any, listed as given); when no build
+contract was filled, `to be typed in` for any figure not in the job JSON.
 
 Also list what the pack still needs: general conditions, concept plan, consumer
 building guide, internal colour selection options.
@@ -694,10 +777,10 @@ document and clause → APPLIED or REFUSED (with the reason) → approval — an
 the `amendments_for_person` list, so a person sees every change the request
 asked for. **NSW build contract:** the contract figures (price,
 GST, price excluding GST, deposit, each stage) and every FLAG the run
-summary printed under them (CD-5.4). **QLD build contract:** the figures
-as given and their FLAGs; with none given, end the report with the one
-optional line from step 5 ("QLD contract figures"), never a question
-that holds anything up. **Sydney:** also the `edit_inclusions.txt` items table —
+summary printed under them (CD-5.4). **QLD build contract:** the same -
+the figures worked from the price (item 2 and Part B), any DataBuild figures
+the person gave, and every FLAG; never a request for figures, never a
+question that holds anything up. **Sydney:** also the `edit_inclusions.txt` items table —
 one row per upgrade line: request → Standard Variation row (its normalised
 sheet wording) → the wording written → confidence — plus the TO CONFIRM
 list, and the gate verdict line from `gate_inclusions.txt`. Say plainly
@@ -795,6 +878,17 @@ three CD-10 kinds, each approved on its own line, checked word for word
 against the saved request text, applied to a draft a person reads before it
 is issued, and reported line by line.
 
+**A run never changes the solution.** This skill is used by staff to raise
+contracts; it does not edit the scripts, rules, templates or this file, and it
+never runs `git commit`, `git push`, `git merge` or `gh pr`. When a stage fails
+(a quality-gate FAIL, an anchor missing, a script error), the document does not
+save and the run stops: tell the person in plain words what failed and on
+which job, say the developers need to look at it, and leave the workdir as it
+is for them. A fix is a developer's change on their own branch and pull
+request, never part of a contract run - even when the cause looks obvious.
+(PR #106, 4 Nov 2026, was written and opened from a staff login during a 26039
+run; the shared checkout now refuses commits and pushes from staff accounts.)
+
 **Outward acts stay human.** Never send email, never send or issue a DocuSign envelope, never sign or
 initial anything, and never write to DataBuild. The one DocuSign write the
 run makes is a `created` draft through the gated `docusign_create_draft` call
@@ -812,9 +906,10 @@ signing) are a person's job, described here only so the checklist is complete.
 **Never guess a contract value.** Price, house size, garage side: sourced or
 escalated. A plausible number in a contract is a liability. The GST split,
 deposit and progress payments are worked from the sourced price by the fixed
-NSW rule (CD-5.4), never estimated; with no usable price they stay blank and
-flagged. QLD figures are the person's, typed exactly as given (a
-screenshot's numbers read back first), never worked out (issue #73). The preliminary fee is the standard $30,000 unless the request names
+rule for the region (CD-5.4: NSW 10% deposit and its stages, QLD Part B's
+printed 5/15/20/25/20/15%), never estimated; with no usable price they stay
+blank and flagged. DataBuild figures a person gives are typed exactly as
+given (a screenshot's numbers read back first) and win over the working. The preliminary fee is the standard $30,000 unless the request names
 another (CD-4.3).
 
 **Saves are automatic, but only ever to two destinations.** Routing is decided

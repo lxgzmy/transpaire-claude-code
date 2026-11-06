@@ -161,6 +161,29 @@ def body_text(cfb):
     return ""
 
 
+def subject(cfb):
+    """The message's own subject (PR_SUBJECT), "" when it has none."""
+    streams = dict(cfb.tree())
+    ent = streams.get("__substg1.0_0037001F")
+    if ent:
+        return cfb.read_stream(ent).decode("utf-16-le", "replace").strip("\x00")
+    ent = streams.get("__substg1.0_0037001E")
+    return cfb.read_stream(ent).decode("cp1252", "replace").strip("\x00") if ent else ""
+
+
+# Outlook's "Save As" file name for a message: its subject, with the characters
+# a Windows file name cannot hold - and the comma - written as "_". Read off the
+# request emails the team saved into the Sydney job folders (26011, 26019, 26060:
+# "Request Contract : Lot ..." -> "Request Contract _ Lot ...msg", "Lot 209, 3 ..."
+# -> "Lot 209_ 3 ...msg"); spaces and every other character stay as typed.
+OUTLOOK_NAME_SUBS = '\\/:*?"<>|,'
+
+
+def outlook_file_name(subj, fallback="Contract request"):
+    name = "".join("_" if c in OUTLOOK_NAME_SUBS or ord(c) < 32 else c for c in subj or "")
+    return (name if name.strip() else fallback) + ".msg"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("msg")

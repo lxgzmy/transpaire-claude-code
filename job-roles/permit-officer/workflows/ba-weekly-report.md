@@ -30,38 +30,109 @@ testing folder (see `../reference/README.md`).
    the certifier during the week. Mailbox evidence is additive — the draft
    works from OSC alone and improves when the mailbox lands.
 4. **Draft the new report**: mark items evidenced complete as RESOLVED
-   (shown once, then dropped), keep the rest, add newly detected items, and
-   populate the four per-item columns L–O — *Assigned to*, *Date
-   submitted*, *Date resolved*, *Days outstanding* in NSW business days —
-   with the YELLOW/RED flag by tier (Internal 10, Energy 10, External
-   consultants 20, Council 30; PO-11a, confirmed on issue #29).
+   (shown once, then dropped), keep the rest, track engineering and
+   covenant from their columns (PO-11b), and write one row per item on the
+   **Items** sheet — *Assigned to*, *Date submitted*, *Date resolved*, *Days
+   outstanding* in NSW business days — with the YELLOW/RED flag by tier
+   (Internal 10, Energy 10, External consultants 20, Council 30; PO-11a,
+   confirmed on issue #29) or by the item's own limit (engineering 15 while
+   the engineer designs it and 10 in Transpire's internal review, PO-11c;
+   covenant 10, an amended DA 60, PO-11b). The main sheet and the RFI list
+   stay hers: the export, column for column, plus RESOLVED lines.
 5. **Evidence bundle**: for every removed or added item, cite the OSC
    activity/alert/document or email that justifies it. Low-confidence
    changes are flagged, not silently applied (org HITL rule).
-6. **Human review**: the permit officer corrects the draft; the corrected
-   version becomes next week's carry-forward base.
+6. **Human review**: the permit officer corrects the draft's Items sheet;
+   her changes are read back the next Monday and kept from then on, while
+   her own export stays the base.
 
 ## Explicitly out of scope
 
-- Writing anything to OSC.
+- Writing anything to OSC. The report only reads; the officer's OSC
+  record-keeping through Claude is its own workflow (`osc-updates.md`).
 - Reading or operating the QLD certifier portal (PO-14) — portal-only facts
   stay manual and are marked as such in the draft.
 - Deciding whether an RFI item is satisfied when evidence conflicts —
   flag for the officer (PO-13).
 
-## How to run (v0.2 — the pilot cycle)
+## How to run (v0.4 — the pilot, from week 1 on Monday 2 November 2026)
 
 Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**. Each Monday
-for 3–4 weeks:
+for 3–4 weeks, from the repo root:
 
-1. **Snapshot step (Claude + `osc-api-prod` MCP, read-only).** For each pilot
-   job: resolve the contract number to its `jobID`, read activities (add
-   `jobActivityID` to the `$select`), alerts and documents (queries in
-   `../reference/osc-field-map.md`), and save one JSON per job to
-   `runtime\permit-officer\state\snapshots\<jobno>.json` (shape documented in
-   `../scripts/ba_report_draft.py`). A pilot job that is not yet lodged
-   (26052 until its *Submit … for Building Approval* activity completes) is
-   not a row in the export; the draft notes it, never fabricates a row.
+```
+python job-roles\permit-officer\scripts\ba_weekly_run.py --dry-run
+python job-roles\permit-officer\scripts\ba_weekly_run.py
+```
+
+It does steps 0 to 2 below and delivers the draft and its evidence note to
+the drop folder. It stops, with nothing half done, when last week's export
+is not in the archive yet (it never falls back to an older one), when the
+snapshot fails, or when the draft for that Monday in the drop folder has been
+changed since it was delivered (she may be working on it; `--force` only once
+you know it can go). Re-running a Monday is fine while the draft there is
+still exactly what was delivered. It keeps a copy of what it delivered in `outputs\delivered\`, so next
+week her edits are read against exactly what she was given.
+
+Checks it makes on every run (since 31 Oct 2026), each with a regression
+check behind it:
+
+- **Self-check first.** The regression suite runs beside the snapshot and
+  is waited for before anything is copied: code that fails its own checks
+  drafts nothing. Code that already passed (the same scripts, the same OSC
+  client, the same Python; recorded in `state\self-check.json`) is not
+  checked again, so it costs time only on the first Monday after a change.
+  `--no-self-check` is for when a person has judged a failing check itself
+  wrong.
+- **The network step first.** The OSC snapshot runs before the base is
+  copied or the state set aside, and retries a timeout, a dropped
+  connection or a busy answer twice (2 s, then 5 s); any other error stops
+  it at once. The jobs are read side by side, at most four requests at a
+  time (about 7 s for the pilot instead of 14).
+- **Her copy found, or its absence said.** If the draft under its own name
+  is exactly as delivered but another copy of that Monday's draft in the
+  drop folder was changed (a Save As), the newest changed copy is read. A
+  draft open in Excel when the run starts (unsaved changes cannot be read)
+  and a draft with no changes at all are both said in the summary.
+- **A restart is done once.** Running a `--restart` command again stops
+  before any network step and says so; leave `--restart` off to redo the
+  week.
+- **No draft over the Christmas shutdown (PO-11d).** A Monday inside the
+  break stops before any network step and names the day to run (2026-27:
+  no runs on 28 December or 4 January; run on Monday 11 January 2027).
+  The first Monday back takes her last export before the break (21
+  December) as its base and reads her edits on the last draft she had.
+- **Delivery read back.** The delivered draft is compared byte for byte
+  with the one written, checked to hold the base's jobs in order, and read
+  back the way next Monday will read it.
+- The summary ends with how long each step took. Sixty days before the
+  NSW holiday table runs out, every run says to add the next year. From
+  1 December to 31 January, every run says so while that break's
+  Christmas shutdown dates are not set (PO-11d).
+
+The steps, for reference or to run by hand:
+
+0. **Base report.** Copy the officer's latest export from the BA REPORTS
+   archive under `Z:\ADMINISTRATION` into `runtime\permit-officer\reports\`
+   as `BA REPORT - dd.mm.yyyy.xlsx` (the archive's own spacing varies; the
+   date in the name is what matters). Copy last week's draft as she left it
+   in the drop folder (`Z:\AI test\Permit Officer\BA Report test`) into the
+   same folder as `BA REPORT DRAFT - dd.mm.yyyy (officer-edited).xlsx`.
+1. **Snapshot step (read-only, production OSC):**
+
+   ```
+   "shared\mcp\osc-api\.venv\Scripts\python.exe" ../scripts/osc_snapshot.py
+          --jobs 26029,26052,26001
+          --out runtime\permit-officer\state\snapshots
+   ```
+
+   writes one JSON per job (job, activities, alerts, documents — the
+   queries in `../reference/osc-field-map.md`) through the same client and
+   credentials the `osc-api-prod` MCP server uses, GET only, after checking
+   the connection is the live system. It prints counts and dates, never
+   names. It reads every job before writing any file, so a run that stops
+   part-way writes nothing. A pilot job that is not yet lodged is not a row in the export;
+   the draft notes it, never fabricates a row.
 2. **Draft step (deterministic, no network):**
 
    ```
@@ -71,22 +142,47 @@ for 3–4 weeks:
           --out runtime\permit-officer\outputs
           --state runtime\permit-officer\state
           --jobs 26029,26052,26001
+          --edited "runtime\permit-officer\reports\BA REPORT DRAFT - dd.mm.yyyy (officer-edited).xlsx"
    ```
 
-   Produces the draft workbook (A–K unchanged, plus L–O per item — layout
-   in `../fixtures/ba-report-layout.md`) and the evidence bundle
-   (`…-evidence.md` / `.json`). Pilot rows are aged and coloured; every
-   other row is carried forward verbatim with L–O blank. Carried values are
-   never overwritten; an item resolves only on fresh completion evidence and
-   is shown once on a `RESOLVED` line; everything else is kept and flagged.
-   Per-item state (first seen, date submitted, assigned-to, and what the AI
-   wrote last time) persists in `state\ba-items-first-seen.json`.
-3. **Review (the officer):** correct the draft — type the real *Assigned
-   to* and *Date submitted* where the draft guessed (`⚠`, `(assumed)`) —
-   and distribute as today. **Week 1 is a data-entry week**: every carried
-   item's date is assumed from the base report and flagged until typed.
-   Officer-typed values win and stick from then on, even if a later base is
-   a plain A–K export.
+   Produces the draft workbook — main sheet = the base's columns exactly
+   (located by header text, so the 28 Sep 2026 template's engineering and
+   covenant columns carry through), plus an **Items** sheet with one row
+   per outstanding item — layout in `../fixtures/ba-report-layout.md`, and
+   the evidence bundle (`…-evidence.md` / `.json`). Pilot rows are aged and
+   coloured; every other row is carried forward verbatim with no Items
+   rows. Carried values are never overwritten; an item resolves only on
+   fresh completion evidence and is shown once on a `RESOLVED` line;
+   everything else is kept and flagged. An application or request document
+   never resolves an item, and an approval document never does while the
+   item's OSC step is still open (kept, flagged "still open"). An item name
+   that fits two evidence rules, or names an engineering discipline OSC
+   does not track (hydraulic, civil…), gets no rule and is flagged for the
+   officer. A snapshot taken before the base report, or for another job, is
+   not used (row carried, flagged). RFI-cell text that is not a `PENDING`
+   list is carried verbatim and flagged. Per-item state (first seen, date
+   submitted, assigned-to, and what the AI wrote last time) persists in
+   `state\ba-items-first-seen.json`, swapped in whole each run with the run
+   before kept as `ba-items-first-seen.prev.json`; an unreadable state file
+   stops the run rather than starting afresh.
+   `--edited` reads her changes from last week's draft (compared with the
+   draft as written, found in `--out` by the same name, or `--drafted`).
+3. **Review (the officer):** correct the draft on the **Items sheet**, in
+   the drop folder, and save it there — and keep typing the PENDING list on
+   the main sheet as today. Type the real *Assigned to* and *Date
+   submitted* where the draft guessed (`⚠`, "assumed"); empty *Date
+   submitted* for an item that has not gone out yet (NOT SUBMITTED, no
+   days counted); type *Date resolved* to close an item; write anything
+   she wants kept in *Notes* (hers, carried week to week); *Draft notes*
+   are rewritten every run. One row per item, no merged or multi-line
+   cells. Her values win and stick from then on. Each row's *Draft notes*
+   starts with what changed since the draft she checked ("new this
+   week", "since last week: now RED (was YELLOW)", "after your change"
+   when it follows her own edit, or "no change since last week"), so she
+   can pass over the rows that did not move. A day count in her own note
+   that differs from the row's limit ("council says 20 days") is pointed
+   out on the row and in the evidence note, so a rule she writes down is
+   not missed.
 4. **Compare (the pilot metric):** once the officer's real Monday report
    exists,
 
@@ -101,11 +197,36 @@ for 3–4 weeks:
    matched / missed / extra items per pilot job and the "% correctly
    pre-populated" headline (criterion ≥ 90 %). Record the officer's review
    time (target < 30 min) and "unapproved writes: 0" by hand in that file.
-5. **Next base:** the officer files the copy they want as next week's base
-   into `runtime\permit-officer\reports\`, **keeping the
+5. **Next base:** her next export from the archive (step 0), **keeping the
    `BA REPORT - dd.mm.yyyy.xlsx` name** — the date in the filename is what
    the drafter uses as "since"; without it, evidence freshness falls back
    to asof − 7 days.
+
+### Week 1 restart (Monday 2 November 2026, agreed with the officer 27 Oct)
+
+The first week starts clean: nothing from the September test is carried,
+only the corrections she typed on the 22.10.2026 preview. From the repo
+root, check first, then run:
+
+```
+python job-roles\permit-officer\scripts\ba_weekly_run.py --asof 2026-11-02 --restart september-test --dry-run
+python job-roles\permit-officer\scripts\ba_weekly_run.py --asof 2026-11-02 --restart september-test
+```
+
+`--restart` renames the state to `ba-items-first-seen.september-test.json`
+(nothing is deleted). Her 22.10.2026 edits are read from the drop folder
+against `outputs\BA REPORT DRAFT - 22.10.2026.xlsx`.
+
+**Done on 31 Oct 2026 at 10:49** (the merged v0.4 with engineering stages,
+a same-day production snapshot): the 02.11.2026 draft is in the drop
+folder, identical to the kept copy, and reads back cleanly. Running the
+command again stops before any network step, saying the restart is done.
+From Monday 9 November, run the plain command above.
+
+Rehearsed on 27 Oct 2026 with the real archive, a copy of the drop folder
+and state, and a same-day production snapshot: all 13 of her changed rows
+were read back. Her renamed item kept its values, and the main sheet
+differed from her export only where OSC filled a blank BA Received.
 
 Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
 
@@ -114,7 +235,7 @@ Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
 1. **OSC access — CLEARED.** The `osc-api-prod` MCP server reads the
    production OnSite Companion (since 13 Oct 2026; before that the reads came
    from a dev copy frozen on 21 Aug 2026; see `.claude/skills/osc-api/`). This
-   workflow makes no OSC change. Still
+   workflow makes no OSC change (`osc-updates.md` does, on the officer's yes). Still
    required before code: a **field-mapping pass** against real jobs —
    how to enumerate BA-stage jobs (the Executive Reporter filter's
    equivalent), activity completion semantics, alert recipients and
@@ -128,12 +249,12 @@ Regression: `python ../scripts/regress_ba_report.py` (synthetic data only).
    authorities, NSW holidays, one-cycle RESOLVED display, row-level fill)
    are listed on #29 for confirmation; each is a config change, not a
    redesign.
-3. **Mailbox access — PENDING IT.** The owner nominated the permits mailbox
-   for NSW certifier correspondence (read-only). The AI account has no
-   delegate access yet (Graph returns FORBIDDEN), so the pilot runs from OSC
-   alone. When access lands: verify with an `outlook_email_search` scoped
-   to that mailbox, then extend the snapshot with an `emails` array and add
-   `done_emails` evidence to `FAMILIES` — a separate PR.
+3. **Mailbox access — CLEARED (14 Sep 2026); wiring PENDING.** The owner
+   nominated the permits mailbox for NSW certifier correspondence, IT
+   granted the AI account read-only access, and an `outlook_email_search`
+   scoped to that mailbox was verified working on 22 Oct 2026. The pilot
+   still runs from OSC alone: extending the snapshot with an `emails`
+   array and adding `done_emails` evidence to `FAMILIES` is a separate PR.
 
 ## Success measure
 

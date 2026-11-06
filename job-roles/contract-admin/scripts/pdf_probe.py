@@ -16,8 +16,9 @@ import sys
 import zlib
 
 
-def _with_object_streams(data):
-    """Raw bytes plus every decompressed Flate stream, so packed objects are scanned too."""
+def with_object_streams(data):
+    """Raw bytes plus every decompressed Flate stream, so packed objects are
+    scanned too (hia_probe.py counts a template's text fields with it)."""
     parts = [data]
     for m in re.finditer(rb"stream\r?\n(.*?)\r?\nendstream", data, re.S):
         try:
@@ -30,7 +31,7 @@ def _with_object_streams(data):
 def probe(path):
     with open(path, "rb") as f:
         raw = f.read()
-    data = _with_object_streams(raw)
+    data = with_object_streams(raw)
 
     print(f"=== {path.rsplit(chr(92), 1)[-1]}  ({len(raw)/1024:,.0f} KB)")
     print(f"    version   : {raw[:8].decode('latin-1', 'replace').strip()}")
