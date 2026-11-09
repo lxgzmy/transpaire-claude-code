@@ -132,21 +132,47 @@ def split_pending_resolved(g_text):
     return text[:m.start()].strip(), m.group(1).strip()
 
 
-def _split_items(text):
-    """Split on commas and line breaks outside brackets: "ENGINEERING (W/O CLIENT, DRAFTING)" is one item."""
-    parts, depth, cur = [], 0, []
-    for ch in text:
+def _bracket_pairs(text):
+    """{index of "(": index of its ")"}; a bracket opened and never closed is left out."""
+    pairs, stack = {}, []
+    for i, ch in enumerate(text):
         if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth = max(0, depth - 1)
+            stack.append(i)
+        elif ch == ")" and stack:
+            pairs[stack.pop()] = i
+    return pairs
+
+
+def unclosed_brackets(text):
+    return text.count("(") - len(_bracket_pairs(text))
+
+
+def _split_items(text):
+    """Split on commas and line breaks outside brackets: "ENGINEERING (W/O CLIENT, DRAFTING)" is one item.
+    A bracket opened and never closed holds nothing together ("S307 (PENDING X - (Y), WASTE MAN PLAN" is
+    two items) and is closed at the end of its own item."""
+    pairs = _bracket_pairs(text)
+    closes = set(pairs.values())
+    parts, depth, cur = [], 0, []
+    for i, ch in enumerate(text):
+        depth += (i in pairs) - (i in closes)
         if ch in ",\n" and depth == 0:
             parts.append("".join(cur))
             cur = []
         else:
             cur.append(ch)
     parts.append("".join(cur))
-    return parts
+    return [p + ")" * unclosed_brackets(p) for p in parts]
+
+
+def _name_state(part):
+    """("S307 APPROVAL", "PENDING X - (Y)") from "S307 APPROVAL (PENDING X - (Y))": the bracket that ends
+    the item, nested ones included, is its state."""
+    if part.endswith(")"):
+        start = next((o for o, c in _bracket_pairs(part).items() if c == len(part) - 1), None)
+        if start is not None:
+            return part[:start].strip(), part[start + 1:-1].strip()
+    return part, ""
 
 
 def parse_items(g_text):
@@ -162,9 +188,7 @@ def parse_items(g_text):
         part = " ".join(raw.split())
         if not part:
             continue
-        m = re.search(r"\(([^)]*)\)\s*$", part)
-        state = m.group(1).strip() if m else ""
-        name = re.sub(r"\s*\([^)]*\)\s*$", "", part).strip()
+        name, state = _name_state(part)
         if name:
             items.append({"name": name, "state": state})
     return items
@@ -405,6 +429,7 @@ def parse_report(path):
         g["other_text"] = is_text and not g["pending"]
         pending_text, resolved_text = split_pending_resolved(str(g["raw"])) if g["pending"] else ("", "")
         g["items"] = parse_items(pending_text) if g["pending"] else []
+        g["unclosed"] = unclosed_brackets(pending_text)  # said on the pilot job's flags
         g["resolved"] = parse_items(resolved_text) if resolved_text else []
         for r in g["resolved"]:
             r["date_resolved"] = text_to_iso(r["state"])

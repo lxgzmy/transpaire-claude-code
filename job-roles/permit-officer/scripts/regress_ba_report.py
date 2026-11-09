@@ -758,7 +758,8 @@ def weekly_run_checks(tmp, check):
     check("run: draft and note delivered, and the delivered copy kept for next week",
           (drop / name).exists() and (drop / name.replace(".xlsx", "-evidence.md")).exists()
           and (rt / "outputs" / "delivered" / name).exists(), str(first.get("delivered")))
-    edit_draft(drop / name, drop / name, {("90002", "ENERGY REPORT"): {"C": "Synthetic Assessor"}})
+    edit_draft(drop / name, drop / name, {("90002", "ENERGY REPORT"): {"C": "Synthetic Assessor"},
+                                          ("90002", "ENGINEERING"): {"H": "with the engineer"}})
     (rt / "state" / STATE_FILE).write_text(json.dumps({}), encoding="utf-8")
     second = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot,
                  restart="september-test")
@@ -779,6 +780,18 @@ def weekly_run_checks(tmp, check):
     before = (drop / name2).read_bytes()
     plan = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, dry_run=True, force=True)
     check("run: --dry-run changes nothing", plan.get("dry_run") and (drop / name2).read_bytes() == before)
+
+    # 9 Nov 2026: a run tidies an item she resolved out of the state, so a re-run of that Monday has to
+    # start from the state before its first run, or what she typed on the item in earlier weeks is lost.
+    edit_draft(drop / name2, drop / name2, {("90002", "ENGINEERING"): {"E": "03/11/2026"}})
+    synth_prev_report(archive / "BA REPORT - 02.11.2026.xlsx")
+    name3 = "BA REPORT DRAFT - 09.11.2026.xlsx"
+    run(date(2026, 11, 9), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    rows3 = items_rows(drop / name3)
+    run(date(2026, 11, 9), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    check("run: a re-run of a Monday gives the same draft, her earlier note on an item she resolved kept",
+          items_rows(drop / name3) == rows3 and rows3[("90002", "ENGINEERING")].get("Notes") == "with the engineer",
+          f'{rows3.get(("90002", "ENGINEERING"))} / {items_rows(drop / name3).get(("90002", "ENGINEERING"))}')
 
 
 def hardening_checks(tmp, check, snapshot_tests=None):
@@ -1257,6 +1270,29 @@ def main():
               [(i["name"], i["state"]) for i in items] == [("ENGINEERING", "W/O CLIENT, DRAFTING"),
                                                            ("ENERGY REPORT", ""), ("S68 APPLICATION", "")],
               str(items))
+        # the officer's 02.11.2026 report: an outer bracket left open swallowed the two items after it
+        items = parse_items("PENDING AMENDED DA APPROVAL, S307 APPROVAL (PENDING SEWER PUMP INSTALLATION - "
+                            "(TO CONFIRM LOCATION), WASTE MAN PLAN, INSURANCES")
+        check("fix: a bracket opened and never closed holds nothing together; a nested bracket stays in the state",
+              [(i["name"], i["state"]) for i in items] == [
+                  ("AMENDED DA APPROVAL", ""), ("S307 APPROVAL", "PENDING SEWER PUMP INSTALLATION - (TO CONFIRM LOCATION)"),
+                  ("WASTE MAN PLAN", ""), ("INSURANCES", "")]
+              and [i["name"] for i in parse_items("PENDING PLANS (SETBACK PENDING, INSURANCES.")] == ["PLANS", "INSURANCES."]
+              and parse_items("PENDING INSURANCES (LSL, COC).")[0]["name"] == "INSURANCES (LSL, COC).", str(items))
+        bdir = tmp / "bracket"
+        (bdir / "snaps").mkdir(parents=True)
+        base = bdir / "BA REPORT - 26.10.2026.xlsx"
+        xlsx_min.write_xlsx(base, [[(h, xlsx_min.S_HEADER) for h in HEADER],
+                                   row16("90071", "Lot 71, 71 Sample Road, NOWHERE NSW 0000", serial("2026-07-01"),
+                                         serial("2026-07-20"), "", "PENDING S307 APPROVAL (PENDING X - (Y), INSURANCES")])
+        (bdir / "snaps" / "90071.json").write_text(json.dumps({"retrievedAtUtc": "2026-11-02T00:00:00Z",
+                                                              "contractNumber": "90071", "activities": [],
+                                                              "alerts": [], "documents": []}), encoding="utf-8")
+        _, _, ev_b = build_draft(base, bdir / "snaps", bdir / "out", asof="2026-11-02", state_dir=bdir / "state",
+                                 jobs=["90071"])
+        check("fix: an unclosed bracket is said on the job, with how its list was read",
+              any("not closed, so it was read as 2 items (S307 APPROVAL; INSURANCES)" in f
+                  for f in ev_b["jobs"][0]["flags"]), str(ev_b["jobs"][0]["flags"]))
 
         sd = tmp / "state-atomic"
         save_state(sd, {"90001": {}})
