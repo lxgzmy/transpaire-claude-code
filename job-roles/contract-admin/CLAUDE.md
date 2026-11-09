@@ -57,6 +57,13 @@ builder). Claude assists by reading requests, applying rules, and producing
    confidence flag. **SEQ `PROMOTIONAL UPGRADES` the same way since 28 Oct
    2026** (CD-9.12, contract admin review of job 26059): the named promotion
    copied in (`promotion.py`), then the request's upgrades from the QLD sheet.
+   **Gunnedah since 9 Nov 2026** (CD-6.6, job 26061 feedback sheet row 5): a
+   request that sends another job's inclusions as the base is built from the
+   current blank with the sample's specification (`sample_base.py`), so every
+   client value is this job's. The request's removals are the only content
+   edit: a label goes with its last line. The same layout pass and gate
+   follow, then a scan that nothing of the sample's client is left. Writing
+   Gunnedah upgrade lines stays a person's edit.
 3. **Variation Stage 1** (not started). Blocked on transcribing the variation
    manual into `rules/variation-rules.md` — do not build against guessed rules.
 

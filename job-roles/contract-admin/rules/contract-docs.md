@@ -528,20 +528,57 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-6.6** **A request that sends another job's inclusions as the base**
   (job 26061: "sample inclusions from an Aux dwelling at another lot -
   just remove the note about infrastructure fees"; feedback sheet 9 Nov 2026
-  rows 4-6). The pipeline fills blanks, not another client's document, so
-  that run refilled the sample by hand in chat - outside every check - and
-  three faults went out: Owner 1's `Date:` out of line, a section label left
-  with nothing under it, and (in the blank-based copy saved first) the
-  blank's highlights. Until the pipeline takes a sample as its base: every
-  client and lot value of the sample is replaced (page 1, signature pages,
-  acknowledgements, site box - the estate after the street, CD-2.4); a note
-  the request removes takes its label with it when nothing else is left
-  under that label (`Statutory Regulations` held only the infrastructure
-  fee note: both go); then `fill_inclusions.py --finish <docx> --template
-  <the family's blank> --out <docx>` puts the signature lines on the tab
-  stops, clears highlights and makes the page total Word's count, and the
-  PDF is read by eye before the routed save (`draft_contract.py --job-dir`
-  with no `--template`).
+  rows 4-6). The Gunnedah family (Gunnedah and Tamworth) has no AUXILIARY
+  blank, so an aux dwelling's upgrades exist only in such a sample. The
+  26061 run refilled the sample by hand in chat, outside every check, and
+  three faults went out: Owner 1's `Date:` out of line, a section label
+  left with nothing beside it, and (in the blank-based copy saved first)
+  the blank's highlights. Since 9 Nov 2026 the pipeline takes the sample:
+  - **Job JSON.** The sample is saved into the workdir from the request
+    and named in `sample_base` (a path, relative to the job JSON). The
+    run names it only when the request says to use another job's
+    inclusions as the base, and reports it.
+  - **The base** (`sample_base.py`). It is the family's current blank with
+    the sample's body table, the two-column specification, in place of the
+    blank's. Page 1, the signature and acknowledgement pages, the site box,
+    and the headers and footers stay the blank's, so every client and lot
+    value is filled for this job as on any job (the estate after the
+    street, CD-2.4). It stops, writing nothing, when:
+    - the sample's standard sections do not read exactly as the blank's
+      (built on another blank or version);
+    - its upgrade labels do not pair with their wording;
+    - its specification names its own lot, street, owner or price;
+    - it uses a list, style or link the blank does not define.
+    A Sydney or SEQ job with a sample base stops too: those regions have
+    AUXILIARY blanks, and what a sample adds there is a person's edit.
+  - **The request's removals only.** Each removal is an `upgrades.items[]`
+    entry with `mode: "remove"` and the `dwelling` it is under:
+    - without `replaces`, the label and all its lines go;
+    - with `replaces`, the one line containing that text goes. The label
+      goes with it when that was its last line (`Statutory Regulations`
+      held only the infrastructure-fee note: both go, row 5).
+    Any other item mode is refused on this family. Writing upgrade lines on
+    a Gunnedah job stays a person's edit, because the content-edit
+    exceptions of 10 Sep, 15 Oct and 28 Oct 2026 name Sydney and SEQ only.
+  - **Then the Sydney/SEQ machinery** (CD-9). That is one blank line
+    between items; everything black except the blue package headings (a
+    sample heading left black takes the blank heading's formatting); no
+    highlights; the layout plan; the Word layout pass (the base is measured
+    once and the measurement cached by content, so a sample sent again
+    reuses it); and the quality gate. The gate does not apply Sydney's
+    section 18 spacing rule (issue #57) here. Gunnedah's section 18 is the
+    blank's own, one area the run never edits, and all 11 completed
+    Gunnedah and Tamworth jobs checked keep its spacing. Last, `sample_base.py --scan` checks
+    that no text of the document (body, text boxes, headers, footers) names
+    the sample's client. Any stop or failure blocks the save.
+  - **Still a person's check.** The sample's upgrade wording is copied as
+    it stands. Room names and items that depend on this job's plans (26061:
+    "Bathroom 2" became "Bathroom", "and Ensuite" was added) are flagged
+    for confirmation, not edited.
+  A document filled outside the pipeline still takes
+  `fill_inclusions.py --finish <docx> --template <the family's blank> --out
+  <docx>` (signature tab stops, highlights cleared, Word's page total)
+  before the routed save.
 
 ## CD-7 Output naming and location
 

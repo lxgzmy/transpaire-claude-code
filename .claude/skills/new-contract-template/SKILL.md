@@ -391,15 +391,33 @@ and choose on region → client type → range → promotion (CD-1). Then check:
 - Not named for a different marketer or estate.
 
 **A request that sends another job's inclusions as the base** (26061: "sample
-inclusions from an Aux dwelling at another lot") is not a blank: the
-pipeline does not take it. Follow CD-6.6 - every client and lot value
-replaced (the estate after the street), a note the request removes taken out
-with its label when nothing else is left under it, then
-`fill_inclusions.py --finish` for the signature tab stops, highlights and
-page count, an eye read of the PDF, and the routed save
-(`draft_contract.py --job-dir` with no `--template`). 26061's hand refill
-skipped all of that and shipped three faults (feedback sheet 9 Nov 2026
-rows 4-6).
+inclusions from an Aux dwelling at another lot - just remove the note about
+infrastructure fees"). Choose the family's blank as usual, then:
+
+- Save the sample from the request into the workdir and name it in the job
+  JSON as `"sample_base": "<file name>"`.
+- Put each removal the request names into `upgrades.items[]` as
+  `{"category": "<the label>", "dwelling": "aux" | "main", "mode": "remove",
+  "replaces": "<a fragment of the one line>", "request": "<the email line,
+  verbatim>", "confidence": "high"}`. Leave out `replaces` to drop a whole
+  label with its lines.
+
+The run builds the base from the current blank with the sample's
+specification (`sample_base.py`, CD-6.6), so page 1, the signature pages
+and the site box are filled for this job. It applies the removals: a label
+whose last line goes leaves with it. Then come the layout pass, the gate,
+and a last scan that nothing of the sample's client is left. It stops
+instead of saving when:
+- the sample's standard wording is not the current blank's;
+- the sample's specification names its own client;
+- the job is Sydney or SEQ (they have AUXILIARY blanks).
+
+Only removals are applied on a Gunnedah job. Report the sample's lines the
+run flags (room names that depend on this job's plans) for a person to
+check. Never refill a sample by hand in chat: 26061's hand refill shipped
+three faults (feedback sheet 9 Nov 2026 rows 4-6). A document already
+filled outside the pipeline still takes `fill_inclusions.py --finish`
+before the routed save.
 
 **State the full path of the template you chose and why**, before filling it,
 and where the job folder holds any existing contract document, confirm the
@@ -503,7 +521,11 @@ preview stop (removed 17 Aug 2026):
    headings, section 18 one blank line below NBN. The script refuses to
    write if anything outside those regions would change. Report:
    `edit_inclusions.txt` — request → row → wording → confidence per item,
-   plus a TO CONFIRM list.
+   plus a TO CONFIRM list. **Gunnedah** takes this step only with a
+   `sample_base` or a removal (CD-6.6): `sample_base.py` first puts the
+   sample's specification on the current blank (`sample_base.txt`), the
+   removals are the only edit, and after the gate `sample_base.py --scan`
+   checks that nothing of the sample's client is left.
 4. **Layout pass through Word** (`word_layout.ps1 -Mode align`, ~2–5 min):
    the inclusions body is one table row with two independent columns, so
    every content change above shifts the wording under its labels. The pass
@@ -699,7 +721,7 @@ What is still a person's edit, flagged verbatim in the report:
 | "NCC included" / "Leave in NCC" | Section stays — nothing to do (26053, 26008) |
 | NCC question asked, **no answer in the chain** | FLAG the open question; do not guess either way |
 | Plan-change bullets (relocate door, add screen…) | Drafting updates the plans; the matching inclusions lines are keyed by a person (26037) |
-| Gunnedah upgrade bullets | That template has no two-column content rules yet — still keyed by a person, house wording |
+| Gunnedah upgrade bullets | Still keyed by a person, house wording: the run writes no upgrade line on a Gunnedah job. A removal the request names is an `upgrades.items[]` entry with `mode: "remove"` (CD-6.6) |
 
 **SEQ inclusions content (contract admin review of job 26059, 28 Oct 2026 —
 CD-9.12).** The 26059 run left `PROMOTIONAL UPGRADES` as the blank had it,

@@ -87,6 +87,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import hia_probe  # noqa: E402  (region mapping + blank classification)
 from fill_inclusions import pick_family  # noqa: E402  (which inclusions family a blank belongs to)
+import sample_base  # noqa: E402  (another job's inclusions as the base, CD-6.6)
 
 # Layout measurements of the blank templates (word_layout.ps1 -Mode measure),
 # one JSON per blank, refreshed when the blank changes. The Sydney inclusions
@@ -944,8 +945,28 @@ def main():
     # contract admin review of job 26059), with or without an upgrades block:
     # the blank's highlighted "19." NCC number is cleared on every QLD job and
     # the layout pass and gate level the NCC and signature lines (issue #94).
+    # Gunnedah (also Tamworth) takes the same path when the request sends another
+    # job's inclusions as the base (`sample_base`, CD-6.6) or names a removal
+    # (job 26061 feedback sheet, 9 Nov 2026 row 5): the sample's specification on
+    # the current blank (sample_base.py), the request's removals only, then the
+    # layout pass and the gate, and a last check that nothing of the sample's
+    # client is left. A plain Gunnedah job keeps the fill alone.
     inc_family = pick_family(args.template)[0] if args.template else None
-    edit_inclusions_doc = inc_family in ("sydney", "seq")
+    sample = None
+    if args.template and values.get("sample_base"):
+        sample = Path(values["sample_base"])
+        if not sample.is_absolute():
+            sample = Path(job_path).parent / sample
+    up_items = (values.get("upgrades") or {}).get("items") or []
+    edit_inclusions_doc = inc_family in ("sydney", "seq") or (inc_family == "gunnedah" and bool(sample or up_items))
+    if sample and made.get("inclusions") and (inc_family not in sample_base.FAMILIES or not sample.is_file()):
+        why = (f"sample_base {sample} not found" if not sample.is_file() else
+               f"a sample base is used on the {', '.join(sample_base.FAMILIES)} inclusions only - this job's "
+               f"blank is {inc_family}; its AUXILIARY blank carries the aux dwelling, and anything a sample "
+               f"adds there is a person's edit (CD-6.6)")
+        print(f"  inclusions: SAMPLE BASE STOPPED - {why}")
+        failures.append("inclusions: sample base")
+        made.pop("inclusions")
     if args.template and made.get("inclusions") and edit_inclusions_doc:
         if args.no_layout:
             print("  inclusions: --no-layout - content edit, layout pass and gate SKIPPED (not for a save)")
@@ -954,6 +975,31 @@ def main():
         else:
             doc = made["inclusions"]
             plan = workdir / "layout_plan.json"
+            # the blank the edit, plan and gate read against: the Z: blank, or the
+            # blank with the sample's specification (cached under LAYOUT_STATE by
+            # content, so a sample sent again reuses its Word measurement)
+            base = LAYOUT_STATE / sample_base.cache_name(args.template, sample) if sample else Path(args.template)
+
+            def do_sample():
+                LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
+                r = run_py("sample_base.py", "--blank", args.template, "--sample", sample, "--job", job_path,
+                           "--out-blank", base, "--docx", doc, "--report", workdir / "sample_base.txt")
+                for line in r.stdout.splitlines():
+                    if line.startswith(("standard ", "section ", "client ", "headings ", "base ", "STOP", "  ")):
+                        print(f"  {line.rstrip()}")
+                if r.returncode != 0:
+                    print(f"  inclusions: SAMPLE BASE STOPPED - see sample_base.txt")
+                    return False
+                diff = run_py("docx_diff.py", args.template, doc)
+                (workdir / "diff_inclusions_vs_blank.txt").write_text(diff.stdout, encoding="utf-8")
+                return True
+
+            def do_scan():
+                r = run_py("sample_base.py", "--scan", doc, "--sample", sample, "--job", job_path)
+                for line in r.stdout.splitlines():
+                    if line.strip():
+                        print(f"  {line.rstrip()}")
+                return r.returncode == 0
 
             def do_edit():
                 # SEQ blank 7's promotion lists the Electrical items per storey count: a
@@ -965,12 +1011,12 @@ def main():
                           "items for a SINGLE STOREY and a DOUBLE STOREY home. Set upgrades.storeys to 1 or 2 "
                           "in the job JSON (the request or the plans) and run again.")
                     return False
-                bm = blank_measure_for(args.template)
+                bm = blank_measure_for(base)
                 if not bm:
                     return False
-                r = run_py("edit_inclusions.py", "--docx", doc, "--job", job_path, "--blank", args.template,
+                r = run_py("edit_inclusions.py", "--docx", doc, "--job", job_path, "--blank", base,
                            "--blank-measure", bm, "--out", doc, "--report", workdir / "edit_inclusions.txt",
-                           "--plan", plan)
+                           "--plan", plan, "--family", inc_family)
                 if r.returncode != 0:
                     (workdir / "edit_inclusions.txt").write_text(r.stdout + r.stderr, encoding="utf-8")
                     print(f"  inclusions: CONTENT EDIT FAILED - see edit_inclusions.txt\n"
@@ -1002,9 +1048,11 @@ def main():
                         print(f"  {line.strip()}")
                 return r.returncode == 0
 
-            if stage("inclusions: content edit (upgrades block)", do_edit):
+            if (not sample or stage("inclusions: sample base (CD-6.6)", do_sample)) and \
+                    stage("inclusions: content edit (upgrades block)", do_edit):
                 if stage("inclusions: layout pass (Word)", do_layout):
-                    stage("inclusions: quality gate", do_gate)
+                    if stage("inclusions: quality gate", do_gate) and sample:
+                        stage("inclusions: sample client scan", do_scan)
     if args.prelim:
         stage("prelim: check+fill+diff", lambda: bool(
             made.setdefault("prelim", fill_doc(
