@@ -13,6 +13,8 @@ server without approval, and no credentials in the repo.
 | Server | Scope | Environment | State |
 |---|---|---|---|
 | `docusign-demo` | User (all projects) | DocuSign **developer sandbox** | Installed, needs sign-in |
+| `docusign-upload` | Project (`.mcp.json` in repo root) | DocuSign **developer sandbox** (`demo`), synthetic jobs only | Code in repo; needs the per-checkout venv, `.env` and the DocuSign admin prerequisites. Create on `ask` per call. Step 8 uses it for synthetic jobs under `runtime\docusign-sandbox` |
+| `docusign-upload-prod` | Project (to be added to `.mcp.json`) | DocuSign **production**, real job folders | **Not registered** (production Go-Live). Its create is already on `ask`, its token and preview tools on `allow`. Until it is registered, step 8 creates no draft for a real job |
 | `osc-api-prod` | Project (`.mcp.json` in repo root) | Companion Systems OSC API — **production** (since 13 Oct 2026) | Loads in every session started in this repo; needs the per-checkout venv + `production.env` (see below). Every write is prepared, confirmed by the person in plain words, re-checked and read back |
 | ~~`osc-api`~~ | — | OSC API — dev copy frozen 21 Aug 2026 | **Retired 13 Oct 2026.** Writes through it never reached staff. Its tool names are denied in `.claude/settings.json` |
 
@@ -126,18 +128,35 @@ claude mcp get docusign-demo
 DocuSign actions are external, legally significant, and mostly irreversible once an
 envelope goes out. The org HITL rule ("human approval before external email,
 signature, or legal / financial change") is enforced in
-[`.claude/settings.json`](../.claude/settings.json):
+[`.claude/settings.json`](../.claude/settings.json): only these read-only tools are
+allowed:
 
 ```json
-"ask": ["mcp__docusign-demo"]
+"allow": [
+  "mcp__docusign-demo__getUserInfo",
+  "mcp__docusign-demo__getTemplates",
+  "mcp__docusign-demo__getEnvelopes",
+  "mcp__docusign-demo__getEnvelopeVsAgreementSkill"
+]
 ```
 
-Every DocuSign tool call therefore prompts for approval, including read-only ones.
-That is the intended starting posture. Once the tool list has been enumerated after
-first sign-in, the genuinely read-only tools (envelope status, template list) can be
-moved to `allow` and the sending and voiding tools left on `ask`. Do not widen this
-before that list is confirmed — the tool names are not documented publicly and are
-not guessed here.
+Every DocuSign write prompts for approval. Four read-only tools are on
+`allow` (since 13 Oct 2026): `getUserInfo`, `getTemplates`, `getEnvelopes`,
+`getEnvelopeVsAgreementSkill`. They were added for the contract workflow's
+draft step; step 8 now uses `docusign-upload` (below), and they stay on
+`allow` for read-only checks. Every write tool on the server (`createEnvelope`,
+`updateEnvelope`, `updateEnvelopeRecipients`, `updateEnvelopeTabs`,
+`sendReminder`, the workflow tools, `cloneDVEnabledTemplates`, `installDVApps`)
+is listed under `ask` per tool, and `createEnvelopeFromTemplate` is under `deny`
+because it sends and cannot be held at draft. Do not reintroduce a server-wide
+`ask` entry: Claude Code evaluates deny, then ask, then allow, so an `ask` entry
+beats an `allow` regardless of specificity and would silence the allows (removed
+13 Oct 2026). Do not widen this further without the same review.
+
+A template's own default recipients count toward the plan's recipient cap: the
+restricted developer plan rejected a five-recipient template with
+`RECIPIENT_LIMIT_EXCEEDED` on 13 Oct 2026, so sandbox tests should use a
+two-recipient template or an unrestricted account.
 
 On top of the prompt, the role rules still apply: Claude drafts the envelope, the
 recipients, and the document set as an **evidence bundle** for review. A person
@@ -149,7 +168,10 @@ Roles do not configure anything. The server is present in every session, so a ro
 workflow just references it.
 
 - **Contract Administration** — signature requests for variation authorities and
-  contract correspondence. See
+  contract correspondence. The draft envelope in step 8 of
+  /new-contract-template goes through `docusign-upload` instead (below; CD-11);
+  whether this server returns as a fallback is an open owner decision
+  (CD-11.8). See
   [`job-roles/contract-admin/CLAUDE.md`](../job-roles/contract-admin/CLAUDE.md).
   DocuSign is listed there as a role system; the connection details stay here so
   the next role inherits them rather than re-documenting them.
@@ -168,6 +190,50 @@ sandbox workflow has been reviewed:
 2. Add `mcp__docusign` to `ask` **before** first use.
 3. Keep `docusign-demo` installed for testing, and keep the names distinct so a
    workflow cannot send a real envelope while someone thinks they are testing.
+
+## DocuSign drafts with the job's PDFs (`docusign-upload`)
+
+A **local (stdio) MCP server**, our code, at
+[`shared/mcp/docusign-upload/`](../shared/mcp/docusign-upload/). The hosted
+`docusign-demo` server takes documents only by public URL, so its drafts
+carry the templates' placeholder PDFs. This server reads the job's PDFs
+itself and creates the draft through the eSignature REST API with JWT Grant,
+as the user who owns the six templates. Design:
+[`2026-10-13-docusign-upload-mcp.md`](superpowers/brainstorms/2026-10-13-docusign-upload-mcp.md).
+
+- **Tools.** `docusign_token_info` and `docusign_draft_preview` are read-only
+  and on `allow`; `docusign_create_draft` is on `ask`, so every create prompts.
+  It creates drafts only (status `created`); nothing in the code can send, void
+  or delete an envelope.
+- **Sandbox data rule.** With `DOCUSIGN_ENVIRONMENT=demo` (set in `.mcp.json`)
+  the server reads documents only from the checkout's `runtime\docusign-sandbox`
+  folder, not the rest of `runtime`, where contract runs keep real jobs' working
+  files (owner's ruling, 13 Oct 2026). Real job folders need a production server, `docusign-upload-prod`, whose `ask` entry is
+  already in place.
+- **Key custody.** The RSA private key lives on `Z:` outside the checkout, in a
+  folder only the accounts running Claude Code can read, named `*.pem` so the
+  `Z:` deny rules keep Claude's own file tools off it. Only the public key goes
+  to DocuSign. Never on `C:`, in a prompt, a log or a commit.
+- **Setup.** Install steps are in the server's
+  [README](../shared/mcp/docusign-upload/README.md); the DocuSign admin
+  prerequisites are in the design document.
+- **Step 8 of `/new-contract-template`** (CD-11, switched 13 Oct 2026) runs
+  `docusign_token_info`, `docusign_draft_preview` and `docusign_create_draft`
+  with the arguments `docusign_payload.py` writes. The server is picked from
+  the job folder: a real job's goes only to `docusign-upload-prod`, a
+  synthetic job under `runtime\docusign-sandbox` to `docusign-upload`. With
+  no production server registered, a real run creates no draft and reports
+  why; any fallback is an open owner decision (CD-11.8).
+- **Tabs.** The six templates' tabs are fixed to a page and an x/y position,
+  not anchored. They carry onto a job document with the template's page
+  count; any other document goes in untagged and is flagged for staff.
+- **Production Go-Live** (a separate decision): DocuSign's Go-Live review of
+  the integration key's sandbox calls, a production key pair, redirect URI
+  and consent at `account.docusign.com`, the production user and account ids
+  in the server's `.env`, and a `docusign-upload-prod` entry in `.mcp.json`
+  (`DOCUSIGN_ENVIRONMENT=production`, `DOCUSIGN_UPLOAD_ROOTS` set to the job
+  folders' root, writes on) plus `enabledMcpjsonServers`. The permission
+  entries are already in `.claude/settings.json`.
 
 ## OSC API (Companion Systems)
 

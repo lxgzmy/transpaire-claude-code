@@ -67,6 +67,26 @@ def check(cond, msg):
     print(f"  ok  {msg}")
 
 
+def check_write_routes_and_company():
+    wd = SCRATCH / "routes-wd"
+    wd.mkdir(parents=True, exist_ok=True)
+    routes = {"BUILD CONTRACT": ("PRODUCTION", Path(r"Z:\PROJECTS\X\CONTRACT DOCUMENTATION")),
+              "INCLUSIONS": ("TEST", Path(r"Z:\T\template-testing\job"))}
+    out = dc.write_routes(wd, routes)
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines == ["BUILD CONTRACT\tPRODUCTION\tZ:\\PROJECTS\\X\\CONTRACT DOCUMENTATION",
+                     "INCLUSIONS\tTEST\tZ:\\T\\template-testing\\job"], lines
+    assert dc.is_company_owner("EXAMPLE HOLDINGS PTY LTD ATF EXAMPLE FAMILY TRUST")
+    assert dc.is_company_owner("Sample Nominees Pty. Ltd.")
+    assert dc.is_company_owner("THE EXAMPLE FAMILY TRUST")
+    assert not dc.is_company_owner("Alex EXAMPLE")
+    (wd / "routes.txt").write_text("stale\n", encoding="utf-8")
+    dc.clear_routes(wd)
+    assert not (wd / "routes.txt").exists(), "stale routes.txt survived clear_routes"
+    dc.clear_routes(wd)  # absent file is fine
+    print("  write_routes + clear_routes + is_company_owner: ok")
+
+
 def main():
     suffix = dc.doc_suffix(VALUES)
     check(suffix == "LOT 1_TESTVILLE_EXAMPLE&SAMPLE", f"suffix {suffix}")
@@ -141,6 +161,8 @@ def main():
           and not (tdir / f"INCLUSIONS_{suffix}.docx").exists()
           and not (tdir / f"PRELIMINARY AGREEMENT_{suffix}.docx").exists(),
           "build-contract-only: the refilled contract refreshes to template-testing, nothing else")
+
+    check_write_routes_and_company()
 
     shutil.rmtree(SCRATCH)
     print("PASS: per-document routing")

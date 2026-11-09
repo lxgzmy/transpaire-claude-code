@@ -821,13 +821,97 @@ Until 15 Oct 2026 a person retyped each of these; the team's review of
   26060 copy; Q4 became "18th December" twice; most others name the last
   month alone. Which day a quarter means is the business's to settle.
 
+## CD-11 DocuSign draft envelope (instruction, 13 Oct 2026)
+
+- **CD-11.1** After a run whose build contract routed PRODUCTION (CD-7.7),
+  the skill creates a DocuSign envelope with `status: created`, a draft, with
+  the job's own PDFs in it, through the local `docusign-upload` server's
+  `docusign_create_draft`. It never sends. The approval prompt on that call is
+  the person's yes, per call; a decline ends the step, and an error from the
+  create call is a stop, reported verbatim, never retried. A real job's folder
+  goes only to the production server, `docusign-upload-prod`; the sandbox
+  server, `docusign-upload`, reads only `runtime\docusign-sandbox\` and takes
+  synthetic jobs only. A template-testing refresh produces the payload files
+  only. *(switched from the hosted `docusign-demo` `createEnvelope`,
+  13 Oct 2026)*
+- **CD-11.2** Template by region × buyer type, matched by exact name after
+  trimming whitespace, never by a stored id: NSW/QLD × Single Buyer (one
+  owner), 2 Buyers (two or more; owner 3+ flagged, as CD-3.8), Company (a
+  company or trust owner, the CD-3.9 condition, or a sourced
+  `company_signatory`). A person who holds the land as trustee (`<name> ATF
+  <trust>`, "as trustee for") is a trust buyer and takes the Company
+  template, which then needs its guarantor. The server matches the name;
+  zero or several matches stop the step. *The two DocuSign accounts name the
+  same templates differently* (issue #77, 6 Nov 2026): the sandbox's
+  `NSW Build _ Single Buyer`, `NSW Build _ 2 Buyers`, `QLD Build _ 2 Buyer`
+  are `NSW BUILD CONTRACT _ Single Buyer`, `NSW Build Contract _ Multi
+  Buyers`, `Build Contract _2 Buyer QLD` in production, so the payload picks
+  the name by server. The production names of the NSW Company, QLD Single
+  Buyer and QLD Company templates are not confirmed yet: a production run
+  that needs one stops and says so (open question 10).
+- **CD-11.3** Only buyer-side roles are set. The buyers' full legal names
+  and emails come from **OSC** (issue #77, step 3): the job client's contact
+  list (`GET /api/Clients/{ClientID}/Contacts`, read-only), purchasers only
+  (not the SALES or MARKETER links). **Buyer 1 is always the principal buyer
+  recorded in OSC**: the one purchaser marked primary; when OSC marks several
+  (or none), the one whose email is the request's owner 1's, flagged for a
+  person to confirm, and a stop when none matches. A different purchaser
+  count in OSC and the job JSON stops the step; a name or email that differs
+  from the request is OSC's in the draft and flagged. Without an OSC read the
+  job JSON's `owner_1`/`owner_2` with `owner_email`/`owner_2_email` are used
+  and the report says they were not checked against OSC. On the Company
+  template the guarantor (`guarantor_name`, `guarantor_email`) comes from
+  the land contract's guarantee page (CD-3.9), flagged when OSC holds no
+  contact with that email. Builder, Builder Witness, Date Contract, Signer 1
+  and Buyer Witness keep the template defaults and are listed in the report;
+  the preview shows every role in signing order with its type (signer, copy,
+  witness) so the person approving sees the order. Buyer Witness is a staff
+  change before sending. A missing buyer or guarantor email stops the step.
+- **CD-11.4** Subject and message as issue #77's workflow shows them
+  (6 Nov 2026): subject `Complete with Docusign: BUILD CONTRACT_LOT<lot>
+  <SUBURB>`; message `Hi <full name> & <full name>,` (the recipients' names
+  as set) / `Please find the build contract for you to review and sign.` /
+  `Thank you` / `Sales Admin`. Custom field `JobNo` = job number, used to
+  find an existing envelope (any status but voided, declined or deleted,
+  last 180 days) before creating another. *(13 Oct 2026 wording, `Complete
+  with DocuSign: BUILD CONTRACT - LOT <lot>, <SUBURB>` and `Dear <first
+  names>,`, replaced.)*
+- **CD-11.5** The draft holds the job's PDFs from its `CONTRACT
+  DOCUMENTATION` under their CD-7.2 names: the build contract (required),
+  and the inclusions, preliminary agreement and plans when a file with
+  exactly that name exists. Another file is never guessed at. Each replaces
+  the template's document of its kind; a template document with no job file
+  is left out, so no past job's PDF reaches the draft. The templates' tabs
+  are fixed to a page and an x/y position, not anchored, so they carry only
+  onto a job document with the same page count as the template's. Any other
+  document goes in with no tabs and the report flags it for staff to tag. The
+  build contract must carry: a different page count means its layout
+  changed, and the step stops.
+- **CD-11.6** Evidence in the workdir only: `osc_contacts.json` (the OSC
+  read), `docusign_envelope.json`, `docusign_payload.txt`,
+  `docusign_result.json`. Nothing from this step goes into the job folder.
+- **CD-11.7** The report names the environment: PRODUCTION
+  (`docusign-upload-prod`) or SANDBOX (`docusign-upload`, no legal effect).
+  Production needs its own registration and DocuSign's Go-Live review first
+  (`docs/mcp-servers.md`).
+- **CD-11.8** *Open, owner's decision pending (13 Oct 2026).* What step 8
+  does when no draft can be created: production not connected yet, a stop,
+  or a decline. The step reports the reason and creates nothing, as for any
+  stop. Whether staff then create the envelope by hand from the payload, or
+  the hosted `docusign-demo` placeholder draft returns as a fallback, is not
+  decided; neither is built until it is.
+
 ## CD-8 What only a person does
 
 Recorded so the checklist is complete, not so Claude attempts any of it:
 keying and assembling the build contract; emailing the contract to the marketer;
 checking initials and signatures; signing and witnessing; attaching documents in
 OnSite Companion; scanning the executed set; the manila folder for the filing
-cabinet; and any DocuSign issue to a client.
+cabinet; placing tabs on any document the DocuSign draft flags, checking the
+draft (recipients and signing order against OSC, each recipient's required
+fields on every page), and sending it; then, from DocuSign's Sent folder, a
+screenshot of the signing order emailed to the sales agent (issue #77,
+step 6) (CD-11).
 
 ## Escalations
 
@@ -932,3 +1016,26 @@ cabinet; and any DocuSign issue to a client.
    answered 14 Oct 2026: they stay blue (CD-9.8, issue #58);
    Bathroom 2 on the ground floor writes "Bathroom 2" into the descriptions
    as 26019 did rather than leaving the note text in the contract. (CD-9)
+9. When step 8 cannot create a DocuSign draft (production upload server not
+   connected yet, a stop, or a decline), should staff create the envelope by
+   hand from the payload, or should the hosted `docusign-demo` placeholder
+   draft come back as a fallback? Proposed: by hand from the payload, since
+   the placeholder draft carries a past job's PDFs and would put real buyers
+   into the sandbox. Nothing is built either way until the owner decides.
+   Also open: whether inclusions whose page count differs from the
+   template's get their tabs re-based (see the tab placement write-up,
+   13 Oct 2026). (CD-11.5, CD-11.8)
+10. The production DocuSign account's templates (issue #77, 6 Nov 2026):
+    its screenshot lists three names, read off the image -
+    `NSW BUILD CONTRACT _ Single Buyer`, `NSW Build Contract _ Multi Buyers`,
+    `Build Contract _2 Buyer QLD` - and none for the NSW Company, QLD Single
+    Buyer and QLD Company templates. What are those three called, and are
+    the spaces in the three listed exact (the server matches the trimmed
+    name exactly)? Are each production template's role names the sandbox's
+    (`Buyer`, `Buyer 1`/`Buyer 2`, `BUYER 1`, `Buyer - Company Guarantor`)?
+    Until confirmed, a production run on an unnamed template stops, and a
+    wrong name or role stops at the preview with the account's own list.
+    Also to confirm: who OSC's principal buyer is when the intake marks
+    every purchaser primary (step 8 then follows the request's owner 1,
+    flagged), and the message's closing lines, which the issue's screenshot
+    cuts off after "Th" (kept as `Thank you` / `Sales Admin`). (CD-11.2-11.4)
