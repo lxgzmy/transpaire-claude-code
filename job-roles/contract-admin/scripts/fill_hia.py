@@ -116,7 +116,9 @@ way a person typing in the value column would):
                  a job's `estate` goes after the street as "Street, (Estate)",
                  and the cover SITE shows that street with SUBURB STATE
                  POSTCODE below it, as the team's HIA form does (27-28 Oct
-                 2026 review)
+                 2026 review). NSW item 5 takes the same "Street, (Estate)"
+                 and its cover SITE reads "Street, (Estate), SUBURB NSW
+                 postcode" on one line (job 26061 feedback, 9 Nov 2026)
     item 15      late completion damages, replaces the $25.00 "per day." prefill
     signatures   owner name on the Owner NAME line only, at the x and size of
                  the builder's name below it (27 Oct 2026 review) - the builder
@@ -758,25 +760,37 @@ def derive_values(values, region):
         values["land_suburb"] = parts[0]
         if len(parts) == 2 and parts[1].isdigit() and not values.get("land_postcode"):
             values["land_postcode"] = parts[1]
-    # QLD item 11 STREET ADDRESS and the cover SITE, the way the team's HIA form
-    # writes them (27-28 Oct 2026 review of job 26059): "Street, (Estate)" -
-    # the team's own copy of 26059 and the latest SEQ estate contracts - and
-    # on the cover the same street with SUBURB STATE POSTCODE on the line
-    # below, as every executed SEQ contract shows (one form field feeds both)
+    # The land's STREET ADDRESS and the cover SITE with the job's estate after
+    # the street, "Street, (Estate)" (street_format.with_estate): QLD item 11
+    # since the 27-28 Oct 2026 review of job 26059 (the team's own copy of
+    # 26059 and the latest SEQ estate contracts); NSW item 5 since the job
+    # 26061 feedback sheet (9 Nov 2026 rows 9-10) - 26042 and 26057, the latest
+    # NSW estate contracts, read "(60) Sample Road, (Sample Estate)". The
+    # Oct fix pinned NSW as untouched, which is how 26061 lost its estate.
+    street = bare_street = str(values.get("land_street") or "").strip()
+    estate = street_format.estate_name(values.get("estate"))
+    if street and estate:
+        street = street_format.with_estate(street, estate)
+        values["land_street"] = street
     if region == "QLD":
-        street = str(values.get("land_street") or "").strip()
-        estate = str(values.get("estate") or "").strip().strip("()").strip()
-        if street and estate:
-            typed = re.fullmatch(r"(.+?)[\s,]*\(\s*" + re.escape(estate) + r"\s*\)", street, re.I)
-            if typed:  # the estate already there in brackets: just the house comma
-                street = f"{typed.group(1).strip()}, ({estate})"
-            elif estate.lower() not in street.lower():
-                street = f"{street}, ({estate})"
-            values["land_street"] = street
+        # the cover: that street with SUBURB STATE POSTCODE on the line below,
+        # as every executed SEQ contract shows (one form field feeds both)
         place = " ".join(" ".join(str(values.get(k) or "") for k in ("land_suburb", "land_state",
                                                                      "land_postcode")).split())
         if street and place:
             values["site_hia"] = f"{street}\n{place}"
+    elif region == "NSW":
+        # the cover SITE on one line, "<street>, SUBURB NSW <postcode>", the
+        # estate after the street - every NSW cover the team typed (26042,
+        # 26056, 26057, the team's 26061). The run had written "26 Sample
+        # Street, Sampleville": no estate, no postcode, suburb not in capitals.
+        suburb = " ".join(str(values.get("land_suburb") or "").split()).upper()
+        postcode = str(values.get("land_postcode") or "").strip()
+        if street and suburb and postcode:
+            values["site_hia"] = f"{street}, {suburb} NSW {postcode}"
+        elif values.get("site_hia") and estate:
+            given = bare_street or str(values.get("street") or "").strip()
+            values["site_hia"] = street_format.site_with_estate(values["site_hia"], given, estate)
     # the deed is only in play when the job actually has a guarantor. The
     # builder reads as the team types it ("Transpire Constructions Pty Ltd",
     # CD-1.4; row 13) and the owner as item 3 does, ACN included
@@ -1657,17 +1671,33 @@ def run(template, job, out_path, check_only, region):
         xml = xml[:start] + new + xml[end:]
         applied_to = start
 
-    import shutil
+    import time
     import zipfile
-    shutil.copy2(template, out_path)
+    # Written straight from the template into a temporary file, then put in
+    # place. Until 9 Nov 2026 the template was first copied over the
+    # workdir's previous contract and replaced a moment later, and on a
+    # second run into the same workdir Windows refused that replace now and
+    # then ("Access is denied" on a file it had only just written - twice in
+    # the 26061 end-to-end runs). A revision now routinely re-runs a workdir,
+    # so the replace is retried for a few seconds before it gives up.
     tmp = Path(str(out_path) + ".tmp")
-    with zipfile.ZipFile(out_path) as zin, \
+    with zipfile.ZipFile(template) as zin, \
          zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             data = (xml.encode("utf-8") if item.filename == "word/document.xml"
                     else zin.read(item.filename))
             zout.writestr(item, data)
-    tmp.replace(out_path)
+    for attempt in range(8):
+        try:
+            tmp.replace(out_path)
+            break
+        except PermissionError:
+            if attempt == 7:
+                tmp.unlink(missing_ok=True)
+                print(f"ERROR: {Path(out_path).name} in the workdir could not be replaced (in use by "
+                      f"another program?) - close it and re-run", file=sys.stderr)
+                return 1
+            time.sleep(0.5 * (attempt + 1))
     for note in fit_notes[shown_notes:]:
         print(f"  size  {note}")
     for flag in fig_flags[shown_flags:]:

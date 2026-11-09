@@ -20,10 +20,12 @@ builder). Claude assists by reading requests, applying rules, and producing
    relies on them.
 2. **Contract documents** (built; fills **and saves** with automatic routing —
    issuing and every outward act stays human). Build contract request → filled
-   templates, saved in the same pass and routed per document: a document the
-   job's `CONTRACT DOCUMENTATION` does not hold yet goes into it; a document
-   it already holds refreshes to the template-testing folder (CD-7.6/7.7,
-   per-document since 8 Sep 2026 — no preview stop). Rules from
+   templates, saved in the same pass into the job's `CONTRACT DOCUMENTATION`,
+   per document: a document it does not hold yet is the first version; one
+   it already holds is a revision, saved there with the version it replaces
+   moved into `SS\` once the new one is in (CD-7.5-7.7; revisions since
+   9 Nov 2026, job 26061 feedback — until then they went to the
+   template-testing folder; no preview stop since 17 Aug 2026). Rules from
    the manual's "RAISING CONTRACTS" section plus the blank templates diffed
    against completed jobs (`rules/contract-docs.md`); workflow spec
    `workflows/new-contract.md`; skill `/new-contract-template`. Produces the
@@ -76,8 +78,11 @@ automation can be built against it. DataBuild stays manual — a person keys its
 figures into the job JSON where they should override the ones worked from the
 price (CD-5.4). The legacy JD-6 handoff and wait are excluded
 from the integrated OSC intake; contacts and document drafting proceed without
-them. OSC activity 6 is completed only on the person's word that the DataBuild
-entry is done, and stays pending (never N/A) until then.
+them. OSC activity 6 ("Create Job within Databuild") is completed at the job's
+set-up, in stage 2 with activities 1 and 2, whether or not DataBuild has the job
+yet: DataBuild work can only start once it is complete (job 26061 feedback
+sheet, 9 Nov 2026 row 2; until then it waited for the person's word that the
+DataBuild entry was done). It is never marked N/A.
 It is retiring in favour of Estimator Companion. Background on the
 tool: `docs/01-solution-architecture.md`.
 
@@ -123,11 +128,15 @@ DocuSign) is produced as a **draft with an evidence bundle** for review. Nothing
 sent to a client/owner or written to a system of record without explicit approval.
 
 **Sanctioned exception (17 Aug 2026):** the `/new-contract-template` save is
-automatic — routed by CD-7.6/7.7 per document: into the job folder for a
-document the job does not hold yet (never overwriting), to the template-testing
-folder for a document it already holds — with the full report following the
-save. Issuing, sending, signing, OSC/DataBuild
-writes, and promoting test output into a job folder stay human.
+automatic — routed by CD-7.6/7.7 per document into the job folder — with the
+full report following the save. **Since 9 Nov 2026** (job 26061 feedback, by
+the same kind of explicit instruction) a revision is saved there too and the
+version it replaces moves into the folder's `SS\`: the new copy is in place
+before anything moves, a failure puts everything back, nothing in `SS\` is
+overwritten, and a signed or executed copy stops the run. That move inside
+the job's own `CONTRACT DOCUMENTATION` is the only business-file move a run
+makes. Issuing, sending, signing, and OSC/DataBuild writes outside the gate
+stay human.
 
 **DocuSign draft (13 Oct 2026):** after a build contract saves into the job
 folder, `/new-contract-template` creates a DocuSign envelope with
@@ -140,20 +149,24 @@ no draft and reports why; any fallback is an open owner decision (CD-11.8).
 Tagging any document the report flags, fixing witness/date roles and sending
 stay human (CD-11).
 
-**Where the contract documents go (four rules, 8 Sep 2026)**
+**Where the contract documents go (four rules; rule 3 since 9 Nov 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's
    `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
    notes which contract documents are already there: inclusions, preliminary
    agreement, build contract (`SS\` included).
-2. A document the job folder does **not** have is a **real contract, not a
-   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
-   DOCUMENTATION` folder. It never goes to template-testing.
-3. A document the job folder **already** has is treated as a **test /
-   refresh**. Its `.docx` + `.pdf` go only to
-   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
-   The original in the job folder is never overwritten; a person swaps it in
-   (old version to `SS\`).
+2. A document the job folder does **not** have is its **first version**.
+   Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder.
+3. A document the job folder **already** has is a **revision**. The new
+   `.docx` + `.pdf` are saved into the same `CONTRACT DOCUMENTATION` folder
+   and the version they replace moves into its `SS\` subfolder (made if
+   missing) - only after the new copy is safely in the folder, so a failed
+   save never loses the current contract. An archived copy is never
+   overwritten: a name `SS\` already holds takes the next ` V2`, ` V3`.
+   A signed or executed copy stops the run instead (job 26061 feedback,
+   9 Nov 2026; until then a revision went to the template-testing folder
+   for a person to swap in).
 4. The build contract is **no longer blocked**. While NSW / QLD has no
    MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
    staged interim template under the real file name; the run report names

@@ -172,6 +172,72 @@ def use_lot_street(values, street, source):
     return out, note
 
 
+# The estate after the street (job 26061 feedback sheet, 9 Nov 2026, rows 7-10).
+# Wherever a street line runs on into the address, the team writes the job's
+# estate straight after the street - "(26) Sample Street, (Sample Estate)" - in
+# NSW and QLD alike: the inclusions' signature-page STREET: and the "located
+# at;" site box, the build contract's cover SITE and The Land's STREET ADDRESS.
+# Seen on the three latest NSW estate jobs (26042, 26055, 26057) and the SEQ
+# estate jobs (26050, 26051, the team's copy of 26059). The page-1 STREET :
+# stays bare: the estate has its own ESTATE : there.
+def estate_name(estate):
+    """The job's estate as a plain name ("Sample Estate"), or "" when ESTATE is
+    blank or holds a pre-registration parent address ("37 Sample Road, (Sample
+    Estate)", CD-2.4) - that one stays where the job puts it and nowhere else."""
+    e = str(estate or "").strip()
+    if not e or re.search(r"\d", e) or "," in e:
+        return ""
+    return e.strip("()").strip()
+
+
+def with_estate(street, estate):
+    """"<street>, (<Estate>)" - the estate once, after the street, whether the
+    street comes bare or with the estate already bracketed (with or without the
+    comma). A street that names the estate some other way is left as given."""
+    s, e = str(street or "").strip(), estate_name(estate)
+    if not s or not e:
+        return s
+    typed = re.fullmatch(r"(.+?)[\s,]*\(\s*" + re.escape(e) + r"\s*\)", s, re.I)
+    if typed:
+        return f"{typed.group(1).strip()}, ({e})"
+    if e.lower() in s.lower():
+        return s
+    return f"{s}, ({e})"
+
+
+def site_with_estate(site, street, estate):
+    """A "<lot>, <street>, <SUBURB> <STATE> <postcode>" site address with the
+    estate after the street when it does not name the estate yet. One that
+    already does (SEQ writes "<street> (<Estate>)", CD-2.4) is left as it is."""
+    s, st, e = str(site or ""), str(street or "").strip(), estate_name(estate)
+    if not s.strip() or not st or not e or e.lower() in s.lower():
+        return s
+    i = s.lower().find(st.lower())
+    if i < 0:
+        return s
+    return s[:i] + with_estate(s[i:i + len(st)], e) + s[i + len(st):]
+
+
+def estate_job(values):
+    """A copy of the job values with the estate after the street where the team
+    writes it in the inclusions - `street_estate` (the signature pages'
+    STREET:) and `site_address` - and the notes for anything it could not place."""
+    out, notes = dict(values), []
+    e = estate_name(values.get("estate"))
+    street = str(values.get("street") or "")
+    out["street_estate"] = with_estate(street, e) if e else street
+    site = str(values.get("site_address") or "")
+    if e and site.strip():
+        out["site_address"] = site_with_estate(site, street, e)
+        if e.lower() not in out["site_address"].lower():
+            notes.append(f"estate {e!r} not added to the site address {site!r}: the street {street!r} "
+                         f"is not in it - check the address under 'located at;'")
+    elif str(values.get("estate") or "").strip() and not e:
+        notes.append(f"ESTATE {str(values.get('estate')).strip()!r} is a parent address, not an estate "
+                     f"name (CD-2.4) - written in ESTATE only, not after the street")
+    return out, notes
+
+
 if __name__ == "__main__":
     for a in sys.argv[1:]:
         print(bracket_street(a)[0], "|", bracket_site(a))

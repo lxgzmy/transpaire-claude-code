@@ -78,7 +78,7 @@ Nine fields, all on page 1. *(manual, confirmed observed)*
 | **CD-2.1** Lot No | Email subject / EOI | Number only |
 | **CD-2.2** Street | Email / job folder | **NSW: the house number is always in brackets, in every document** - inclusions, preliminary agreement, build contract: `(3) Sample Close` (feedback sheet 5 Nov 2026 row 7). Until then the rule kept the brackets only when the job folder did, and job 26011 came out bracketed in one document and bare in the others. The NSW drive agrees: every job since about Sep/Oct 2025 brackets the number everywhere, registered land or not, folder name or not (11 jobs; 5 mixed jobs, 26011 among them, are the defect). `street_format.py` formats it once for all three fillers: a single leading number only; a parent address naming two numbers is left as given and reported. **A parent address is not the lot's street (CD-2.4, job 26060, team correction 3 Nov 2026):** the request and SA gave only `29 Sample & 25 Example Street`; the team's documents and OSC read `Lot 5, Example Street`, the street the plans put the lot on. `draft_contract.py` reads the plans among the run's files (the request's attachments, the job's CONTRACT DOCUMENTATION folder) and, when they name exactly one street for the lot, writes it in every street and site field, flagged to confirm; plans that name none, or disagree, leave the address as given with a flag. ESTATE is left as the job gives it (26024 put the parent address there, 26060 left it blank) SEQ is not changed (its few numbered jobs disagree between documents) |
 | **CD-2.3** Suburb | Email / EOI | `SUBURB STATE`, CAPS: `WESTDALE NSW` |
-| **CD-2.4** Estate | Job folder / neighbouring lot | Blank on the four observed Tamworth jobs — but **not retired**: Sydney job 26004 (Lot 113, Box Hill) fills it with the pre-registration parent address plus estate, `37 Mason Road, (Luxus Estate)`. When a lot is unregistered and the request email carries a parent street address that is not the lot's street, that address belongs here, not in STREET. **SEQ (observed 16 Aug 2026, 7 jobs):** when the job-folder name carries a bracketed estate, fill it in title case as the most recently contracted completed neighbour spells it (`Forestone Estate`, `Somerfield West`) — the older Forestone jobs (26033/26034) left it blank, the newer ones (26038/26050/26051) fill it; recency wins. No estate in the folder name (infill, 26053) → blank. The same estate goes into the SEQ site address as `<street> (<Estate>),` — no comma before the bracket (majority; 26050's `, (` is one typist) |
+| **CD-2.4** Estate | Job folder / neighbouring lot | Blank on the four observed Tamworth jobs — but **not retired**: Sydney job 26004 (Lot 113, Box Hill) fills it with the pre-registration parent address plus estate, `37 Mason Road, (Luxus Estate)`. When a lot is unregistered and the request email carries a parent street address that is not the lot's street, that address belongs here, not in STREET. **SEQ (observed 16 Aug 2026, 7 jobs):** when the job-folder name carries a bracketed estate, fill it in title case as the most recently contracted completed neighbour spells it (`Forestone Estate`, `Somerfield West`) — the older Forestone jobs (26033/26034) left it blank, the newer ones (26038/26050/26051) fill it; recency wins. No estate in the folder name (infill, 26053) → blank. The same estate goes into the SEQ site address as `<street> (<Estate>),` — no comma before the bracket (majority; 26050's `, (` is one typist). **NSW and QLD alike, any source (job 26061 feedback sheet, 9 Nov 2026 rows 3, 7-10):** a lot in a named estate carries it whether or not the folder name does - the request's subject or text ("Contract Order - Lot 1323 <Estate>"), the `Z:\ESTATES INFORMATION\<state>\<region>\<estate>` folder it points at, the OSC site address line 2 the same run writes (JD-2.3), or the latest neighbour in the estate. Gunnedah's estate jobs fill it (26042, 26055, 26057; only the oldest, 26016, left it blank); 26061 went out blank though its own OSC intake wrote the estate in the site address. The plain estate name then follows the street as `<street>, (<Estate>)` wherever a street runs on into the address: the inclusions' signature-page `STREET:` and the `located at;` box (`Lot 1307, (33) Sample Street, (Sample Estate), SAMPLEVILLE NSW 2380`), the build contract's land STREET ADDRESS and cover SITE (CD-5.3). Page 1's `STREET :` stays the bare street. The fillers do this from `estate` (`street_format.estate_job`/`with_estate`); a parent-address ESTATE (26004's) stays in ESTATE only. When the job JSON leaves ESTATE blank but the request names one estate folder for the job's state AND names that estate again outside the path (the `.msg` subject counts), `draft_contract.py` writes it with a flag; a folder that is the job's suburb (Tamworth's `WESTDALE`) or carries a digit (a lot or street folder) is never taken for an estate |
 | **CD-2.5** Price | Request email | `$` + thousands separators + `.00`. Disagrees with the EOI → **stop**, do not average or prefer one |
 | **CD-2.6** House Type | Email "Design:" | Design name; auxiliary dwellings read `<design> + Auxiliary Unit`, not the email's shorthand (CD-6) |
 | **CD-2.7** House Size | **PLANS** | `nnn.nn m²`. Not in the email — absent until plans arrive (JD-9.3) |
@@ -159,6 +159,18 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   formatting, as the team did by hand on 26032 (26020's person typed
   "18"). The Sydney gate fails a typed total. *(16 Oct 2026, from the
   26058 run that grew to 17 pages)*
+- **CD-3.11** **Gunnedah / Tamworth signature lines and highlights** (job
+  26061 feedback sheet, 9 Nov 2026 rows 4 and 6). The Gunnedah blank types
+  the signature-page lines (Owner 1, Owner 2, Owners Witness, Builders
+  Representative, each with its `Date:`) with spaces and default tabs, so a
+  typed name moved Owner 1's `Date:` (26061: left of the others), and the
+  team re-spaced each line by hand (26042, 26055, 26056, 26057 all differ).
+  Those lines now take Sydney's two tab stops, as SEQ's did (issue #94): the
+  blank types them in the same font and the same 568.15 pt / 551.8 pt text
+  boxes. The blank's six yellow highlights (in its upgrade lines) are
+  cleared and listed in the fill report: no completed Gunnedah/Tamworth
+  inclusions keeps one. Gunnedah has no layout pass or gate, so these are
+  checked by `test_feedback_0911.py` and an eye read of the PDF.
 
 ## CD-4 Preliminary agreement
 
@@ -393,7 +405,14 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   of 26059 and the latest SEQ estate contracts. The cover SITE shows that
   same street with `SUBURB STATE POSTCODE` on the line below, its label level
   with the first line: on the team's HIA form one field feeds both places,
-  so every executed SEQ contract reads that way (28 Oct 2026).
+  so every executed SEQ contract reads that way (28 Oct 2026). **NSW since
+  the job 26061 feedback sheet (9 Nov 2026 rows 9-10)**: item 5's STREET
+  ADDRESS carries the estate the same way, `(60) Sample Road, (Sample
+  Estate)`, and the cover SITE is one line, `<street>, SUBURB NSW <postcode>`
+  with the estate after the street when there is one - the team's 26042,
+  26056, 26057 and corrected 26061. The Oct fix had pinned NSW as untouched
+  in its test, so 26061 went out as `(26) Sample Street, Sampleville`: no
+  estate, no postcode, suburb not in capitals.
   Signatures, initials and dates stay human (CD-3.7).
 - **CD-5.4** ~~Price excluding GST, GST, total, and the fixed-price component
   all come from DataBuild. Never calculated or inferred.~~ *(manual)*
@@ -440,8 +459,8 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   DataBuild figures the person gives (typed, or read off a screenshot that
   is read back to them first) still win, at any time: with the request,
   later in the chat, or after the documents are saved (a
-  build-contract-only run, which refreshes to template-testing under
-  CD-7.7). They are typed as given and the figures not given are worked
+  build-contract-only run, which saves the contract as a revision under
+  CD-7.7, the old one moved into `SS\`). They are typed as given and the figures not given are worked
   from the contract price given. The run never asks for them or waits. The
   checks only warn: item 2 adds up, the GST is 1/11 of the price, the price
   matches the request, Part B totals the price with each row at its printed
@@ -483,7 +502,12 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
 - **CD-6.1** An EOI marked dual key, or a request mentioning an auxiliary
   dwelling, means the standard range inclusions **do not cover the second
   dwelling**. *(observed — the sales manager's email said so explicitly)*
-- **CD-6.2** House type reads `<design> + Auxiliary Unit`. *(observed)*
+- **CD-6.2** House type reads `<design> + Auxiliary Unit`. *(observed)* That
+  is the documents' wording only: OSC's `Design` field names the same job
+  `<design> + 60` (`Hyams 145 + 60`, `Breamlea 205 Mod + 60`, `Custom + 60` -
+  every one of the 11 aux jobs since 26027, read 9 Nov 2026; JD-3.3). The
+  26061 intake sent the documents' wording to OSC (feedback sheet 9 Nov 2026
+  row 1); the OSC gate now warns on it.
 - **CD-6.3** ~~The aux inclusions text itself is a pricing and specification
   decision. Claude does not write it.~~ **Reversed, signed off 15 Oct 2026**
   (issue #63, option B; built 8 Oct 2026 for job 26032): on the Sydney AUXILIARY blanks the run writes the
@@ -501,23 +525,44 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   interim fields-only skip proposed on 8 Oct 2026, never merged.) A hand-added section that
   is in neither blank — 26032's `SPECIAL CONDITIONS` — stays a person's edit:
   decided 8 Oct 2026 (option C declined).
+- **CD-6.6** **A request that sends another job's inclusions as the base**
+  (job 26061: "sample inclusions from an Aux dwelling at another lot -
+  just remove the note about infrastructure fees"; feedback sheet 9 Nov 2026
+  rows 4-6). The pipeline fills blanks, not another client's document, so
+  that run refilled the sample by hand in chat - outside every check - and
+  three faults went out: Owner 1's `Date:` out of line, a section label left
+  with nothing under it, and (in the blank-based copy saved first) the
+  blank's highlights. Until the pipeline takes a sample as its base: every
+  client and lot value of the sample is replaced (page 1, signature pages,
+  acknowledgements, site box - the estate after the street, CD-2.4); a note
+  the request removes takes its label with it when nothing else is left
+  under that label (`Statutory Regulations` held only the infrastructure
+  fee note: both go); then `fill_inclusions.py --finish <docx> --template
+  <the family's blank> --out <docx>` puts the signature lines on the tab
+  stops, clears highlights and makes the page total Word's count, and the
+  PDF is read by eye before the routed save (`draft_contract.py --job-dir`
+  with no `--template`).
 
 ## CD-7 Output naming and location
 
-**Where the contract documents go (four rules, 8 Sep 2026)**
+**Where the contract documents go (four rules; rule 3 since 9 Nov 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's
    `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
    notes which contract documents are already there: inclusions, preliminary
    agreement, build contract (`SS\` included).
-2. A document the job folder does **not** have is a **real contract, not a
-   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
-   DOCUMENTATION` folder. It never goes to template-testing.
-3. A document the job folder **already** has is treated as a **test /
-   refresh**. Its `.docx` + `.pdf` go only to
-   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
-   The original in the job folder is never overwritten; a person swaps it in
-   (old version to `SS\`).
+2. A document the job folder does **not** have is its **first version**.
+   Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder.
+3. A document the job folder **already** has is a **revision**. The new
+   `.docx` + `.pdf` are saved into the same `CONTRACT DOCUMENTATION` folder
+   and the version they replace moves into its `SS\` subfolder (made if
+   missing) - only after the new copy is safely in the folder, so a failed
+   save never loses the current contract. An archived copy is never
+   overwritten: a name `SS\` already holds takes the next ` V2`, ` V3`.
+   A signed or executed copy stops the run instead (job 26061 feedback,
+   9 Nov 2026; until then a revision went to the template-testing folder
+   for a person to swap in).
 4. The build contract is **no longer blocked**. While NSW / QLD has no
    MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
    staged interim template under the real file name; the run report names
@@ -542,37 +587,49 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
   `,` as `_`) - the team's practice on every Sydney job checked. Never
   overwritten; an email the folder already holds (same subject) is left;
   no `.msg` in the workdir (a request read through the mail connector) or
-  more than one is reported for a person. A TEST-only run writes nothing
-  into the job folder, the email included.
+  more than one is reported for a person. Since 9 Nov 2026 every routed
+  save lands in the job folder (CD-7.7), so a revision run saves the email
+  too when the folder does not hold it yet.
 - **CD-7.3** The manual's older convention is
   `J# L# Street, Estate Stage - Inclusions`. No current file uses it. Follow the
   files; flag the discrepancy.
 - **CD-7.4** Both the `.docx` and its `.pdf` export are kept. *(observed)*
 - **CD-7.5** Superseded versions move to an `SS\` subfolder **within the job's
-  contract folder**, suffixed ` V2`, ` V3`. Never overwrite — existing file at
-  the target name → stop and ask. *(observed)*
+  contract folder**. The name is kept when `SS\` does not hold it yet (91 of
+  the 112 archived contract files on the drive, 9 Nov 2026); a name `SS\`
+  already holds takes the next ` V2`, ` V3` (the other 21 - e.g. Lot 5085
+  Gables `V1`..`V4`). A `.docx` and its `.pdf` keep one suffix. Never
+  overwrite. *(observed)* **Since 9 Nov 2026 the run makes this move itself**
+  for every revision it saves (CD-7.7); a person no longer swaps documents in.
 - **CD-7.6** Routing is decided **per document, not per job** *(business rule,
-  8 Sep 2026, replacing the 17 Aug whole-run switch)*. A document type
-  (`INCLUSIONS`, `PRELIMINARY AGREEMENT`, `BUILD CONTRACT`) already in the
-  job's `CONTRACT DOCUMENTATION` (`SS\` included) **already exists in
-  production**, so a new copy of *that document* is a **test/refresh** and goes
-  only to the test destination in CD-7.7; a person promotes it with the CD-7.5
-  `SS\` move. A document type **not yet in the folder is a real first draft**
-  and is saved into the job folder — whatever else the folder holds. A job that
-  already has its inclusions but no build contract therefore gets the build
-  contract saved into `Z:\PROJECTS` while the inclusions refresh lands in
-  template-testing.
+  8 Sep 2026; revisions changed 9 Nov 2026)*. A document type (`INCLUSIONS`,
+  `PRELIMINARY AGREEMENT`, `BUILD CONTRACT`) **not yet in the job's
+  `CONTRACT DOCUMENTATION`** (`SS\` included) is its **first version** and is
+  saved there — whatever else the folder holds. A document type **already
+  there is a revision**: it is saved there too and the version it replaces
+  moves into `SS\` (CD-7.5, CD-7.7). A document is a revision only because
+  that document exists - never because some other document does.
 - **CD-7.7** **Destination routing, automatic (17 Aug 2026 — the preview/
   approval gate of 12/16 Aug was removed by explicit instruction; per-document
-  since 8 Sep 2026).** The fill run saves in the same pass, each document to
-  exactly one of two places: **TEST** (that document already in the job
-  folder) →
-  `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`,
-  finals at the root, working files in `temp\`, refreshable in place;
-  **PRODUCTION** (that document not yet in the job folder) → the job's own
-  `CONTRACT DOCUMENTATION`, final `.docx`+`.pdf` pair only, never
-  overwriting. Enforced by `draft_contract.py --job-dir`, which prints the
-  route per document before anything runs. Data gates stay: anchor miss
+  since 8 Sep 2026; revisions into the job folder since 9 Nov 2026, job 26061
+  feedback).** The fill run saves in the same pass, every document into the
+  job's own `CONTRACT DOCUMENTATION`, final `.docx`+`.pdf` pair only:
+  **PRODUCTION** (first version) is copied in, never overwriting;
+  **REVISION** (that document already there) is saved in this order - the new
+  pair copied in under temporary `~saving <name>` names and its size checked;
+  then every file of that type in the folder's top level moves into `SS\`
+  (made if missing; a person's own subfolders are left alone); then the new
+  pair takes its real names. Any failure on the way (a file open in another
+  program, a copy that does not complete, a name that cannot be taken) puts
+  everything back, so the folder is as it was and the previous version stays
+  in use; the run says so and stops. A file of that type whose name says
+  signed, executed or DocuSign stops the revision before anything is written:
+  superseding a signed contract is a person's decision. Until 9 Nov 2026 a
+  revision went to `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`
+  and a person swapped it in; that folder is no longer written by a routed
+  save. Enforced by `draft_contract.py --job-dir`, which prints the route per
+  document before anything runs (`test_routing.py` covers first save, first
+  and repeated revisions, and each failure). Data gates stay: anchor miss
   aborts, unsourced mandatory values refuse, failed stages block the save,
   price conflicts stop the run.
 
@@ -831,8 +888,10 @@ Until 15 Oct 2026 a person retyped each of these; the team's review of
   create call is a stop, reported verbatim, never retried. A real job's folder
   goes only to the production server, `docusign-upload-prod`; the sandbox
   server, `docusign-upload`, reads only `runtime\docusign-sandbox\` and takes
-  synthetic jobs only. A template-testing refresh produces the payload files
-  only. *(switched from the hosted `docusign-demo` `createEnvelope`,
+  synthetic jobs only. A build contract saved as a revision (CD-7.7, since
+  9 Nov 2026; a template-testing refresh before that) produces the payload
+  files only: whether a revision's envelope replaces an earlier one is a
+  person's call. *(switched from the hosted `docusign-demo` `createEnvelope`,
   13 Oct 2026)*
 - **CD-11.2** Template by region × buyer type, matched by exact name after
   trimming whitespace, never by a stored id: NSW/QLD × Single Buyer (one
@@ -928,7 +987,7 @@ step 6) (CD-11).
 | Plans not yet received | Produce the rest; state which fields are unfilled |
 | Auxiliary / dual key | Fill fields, route for review before issue (CD-6.3) |
 | Template anchor not found by `--check` | Stop; template revised, needs a person |
-| A document type already in the job folder | That document refreshes to the template-testing folder; documents not yet there still save into the job folder (CD-7.6/7.7, per document) |
+| A document type already in the job folder | That document is a revision: saved into the job folder, the version it replaces moved into `SS\` once the new one is in (CD-7.5-7.7, per document, since 9 Nov 2026). A signed or executed copy there stops it for a person |
 | Preliminary agreement requirement unclear | Ask (CD-4.4) |
 | Preliminary fee not stated in the request | Proceed; the standard $30,000 stands (CD-4.3) |
 | Client ID missing from the request | Note it; do not guess the name spelling |

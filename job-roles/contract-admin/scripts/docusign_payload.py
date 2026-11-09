@@ -441,7 +441,8 @@ def write_payload(workdir, env, call, stop=None):
     found = [f"    {d['kind']}: {Path(d['path']).name}" for d in env["documents"]]
     lines = [f"DOCUSIGN DRAFT PAYLOAD ({stamp})",
              f"CALL: {'yes' if call else 'no'}"
-             + ("" if call else "  (build contract routed TEST - payload for inspection only)"),
+             + ("" if call else "  (build contract is not a first version - a revision, or an older "
+                                "TEST route - payload for inspection only)"),
              f"server        : {env['server']}  ({where})",
              f"template      : {env['templateName']}  (resolved by exact trimmed name on the server)",
              "status        : created  (fixed in the server, which cannot send)",

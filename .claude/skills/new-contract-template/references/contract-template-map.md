@@ -155,10 +155,11 @@ lands). (The 17 Aug reflow trial in `_hia-conversion-trial\` is superseded.)
 Z:\PROJECTS\<REGION>\<job folder>\CONTRACT\CONTRACT DOCUMENTATION\
 ```
 
-**Per document** (CD-7.6/7.7, 8 Sep 2026): a document type that folder already
-holds is a refresh and saves to
-`Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`
-instead; a document type not there yet saves into the job folder above.
+**Per document** (CD-7.5-7.7): a document type not there yet saves into the
+job folder above as its first version; one that folder already holds is a
+revision - saved there too, and the version it replaces moves into the
+folder's `SS\` (since 9 Nov 2026; until then it went to the template-testing
+folder for a person to swap in).
 `draft_contract.py --job-dir` routes this automatically and prints the route
 per document.
 

@@ -8,9 +8,10 @@ description: >
   and updates in the production OnSite Companion through the osc-api-prod MCP,
   each stage of changes confirmed by the person first. Reads the email and its
   attachments, picks the correct blank template off the Z: drive, fills it, and
-  saves the finished documents in one pass, routed per document - a document
-  the job folder does not hold yet goes into the job folder under Z:\PROJECTS;
-  one it already holds refreshes to the template-testing folder. Creates a DocuSign draft envelope
+  saves the finished documents in one pass into the job folder under
+  Z:\PROJECTS, per document - a document the folder does not hold yet is the
+  first version; one it already holds is a revision, saved there with the old
+  version moved into SS\ once the new one is in. Creates a DocuSign draft envelope
   (never sent) after a real build contract saves; never sends, signs, or
   issues anything.
 ---
@@ -122,20 +123,24 @@ fills works them out, with DataBuild figures the person gives winning - see
 
 ## Where the documents go
 
-**Where the contract documents go (four rules, 8 Sep 2026)**
+**Where the contract documents go (four rules; rule 3 since 9 Nov 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's
    `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
    notes which contract documents are already there: inclusions, preliminary
    agreement, build contract (`SS\` included).
-2. A document the job folder does **not** have is a **real contract, not a
-   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
-   DOCUMENTATION` folder. It never goes to template-testing.
-3. A document the job folder **already** has is treated as a **test /
-   refresh**. Its `.docx` + `.pdf` go only to
-   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
-   The original in the job folder is never overwritten; a person swaps it in
-   (old version to `SS\`).
+2. A document the job folder does **not** have is its **first version**.
+   Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder.
+3. A document the job folder **already** has is a **revision**. The new
+   `.docx` + `.pdf` are saved into the same `CONTRACT DOCUMENTATION` folder
+   and the version they replace moves into its `SS\` subfolder (made if
+   missing) - only after the new copy is safely in the folder, so a failed
+   save never loses the current contract. An archived copy is never
+   overwritten: a name `SS\` already holds takes the next ` V2`, ` V3`.
+   A signed or executed copy stops the run instead (job 26061 feedback,
+   9 Nov 2026; until then a revision went to the template-testing folder
+   for a person to swap in).
 4. The build contract is **no longer blocked**. While NSW / QLD has no
    MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
    staged interim template under the real file name; the run report names
@@ -199,10 +204,9 @@ named like a credential (`credential.pdf`) is never opened.
 
 `<workdir>` is `Z:\CLAUDE CODE\transpire-claude-code\runtime\contract-admin\outputs\<job>\`
 where `<job>` is `<jobno>-lot<lot>` (e.g. `26050-lot2`; `lot<lot>-<suburb>` only
-until a job number exists). One convention, always — the test-folder name in
-`template-testing\` is derived from the workdir name, so drift here becomes
-drift there (older workdirs used the bare job number; the hyphenated form is
-the standard now). Never `C:`, never inside the tracked repo.
+until a job number exists). One convention, always (older workdirs used the
+bare job number; the hyphenated form is the standard now). Never `C:`, never
+inside the tracked repo.
 
 These emails are forwarded two or three deep — marketer → sales manager →
 contract admin — and **the instruction to you is usually in the newest layer while
@@ -279,8 +283,7 @@ once per field:
 | Stage | One confirmation covers | When |
 |---|---|---|
 | 1. New client and job | the client (unless a verified existing one is reused) and the job, the job taking `"clientID": "{{1.clientID}}"` | New intake, after the duplicate search |
-| 2. Set up the job | job details and custom fields, including the intake defaults on every field still empty (Design Type from the storeys, Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94 and the 5 Nov 2026 sheet; a value OSC already holds is never overwritten), every phone number 4-3-3 (`0290 000 000`), the client's address in its `workAddress`; purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete, activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line | Straight after stage 1, or on an established job that needs them |
-| 3. DataBuild done | activity 6's eight answers, all `Complete`, and its completion | When the person answers yes to *"Is the job in DataBuild yet?"*. Never ask for DataBuild details |
+| 2. Set up the job | job details and custom fields, including the intake defaults on every field still empty (Design Type from the storeys, Property Type, Job Notes, the six claim stages, Private Certifier on QLD, Local Council: the reference's table, issue #94 and the 5 Nov 2026 sheet; a value OSC already holds is never overwritten), every phone number 4-3-3 (`0290 000 000`), the client's address in its `workAddress`; purchaser people and their client-contact links (a new person's link uses `{{N.personID}}`); the sales link and the marketer link, which goes to the named Marketer Contact Person with Primary Comm Email, never to a company record; activities 1 and 2 complete; activity 6 "Create Job within Databuild": its eight answers, all `Complete`, then its completion - whether or not DataBuild has the job yet, because DataBuild work can only start once it is complete (job 26061 feedback sheet, 9 Nov 2026 row 2; "Create Job File within Z:\ Drive" only once the folder exists); activity 10 "Send EOI to Marketer" N/A; the `NEW JOB` email on the job and on task 11, task 11's answers and completion; and on a new intake the job folder line. `Design` in OSC's own form: an aux job is `<design> + 60` (`Hyams 145 + 60`), never the documents' `+ Auxiliary Unit` (CD-6.2, JD-3.3; the gate warns) | Straight after stage 1, or on an established job that needs them |
 
 1. `osc_prepare_changes(job_id, changes)` with the stage's changes in order
    (`job_id` empty for stage 1 only). It sends nothing. Anything OSC already
@@ -306,9 +309,10 @@ way with one change. The confirmation the person approved is the record of
 their approval: note the code and their reply against the stage in
 `osc-state.json`, with every returned ID (`created`) and each change's state.
 DataBuild is excluded:
-no handoff email or wait, no OSC contract-value writes; activity 6 is completed
-only when the person confirms the DataBuild entry is done, never before.
-Missing API fields are reported for manual entry.
+no handoff email or wait, no OSC contract-value writes, no question about
+DataBuild. Activity 6 is completed in stage 2 with the job's set-up (9 Nov
+2026; until then it waited for a third stage on the person's word that the
+DataBuild entry was done). Missing API fields are reported for manual entry.
 
 For an established job's document-only refresh, verify the selected identity
 and use the existing folder. Do not mutate OSC just to regenerate documents.
@@ -346,17 +350,16 @@ them and ask. Never rerun OSC creation to solve a missing folder.
 Two things to check before going further:
 
 - **Which contract documents that job's `CONTRACT DOCUMENTATION` folder already
-  holds** (`SS\` included). Routing is **per document** (business rule, 8 Sep
-  2026, replacing the 17 Aug whole-run test switch): a document type already
-  there (inclusions, preliminary agreement, build contract) already exists in
-  production, so a new copy of *that document* refreshes to
-  `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\` for a
-  person to promote (old version to `SS\`, CD-7.5); a document type **not in the
-  folder is a real contract document** and saves into the job folder under
-  `Z:\PROJECTS`. Never treat a document as a test because some *other*
-  document exists — a job with inclusions but no build contract gets its build
-  contract saved into the job folder. `draft_contract.py --job-dir` prints the
-  route per document; state it in the report.
+  holds** (`SS\` included). Routing is **per document**: a document type
+  **not in the folder is its first version** and saves into the job folder
+  under `Z:\PROJECTS`; a document type already there (inclusions, preliminary
+  agreement, build contract) is a **revision** - saved into the same folder,
+  and the version it replaces moves into `SS\` once the new one is in (job
+  26061 feedback, 9 Nov 2026; until then it went to the template-testing
+  folder for a person to swap in). Never treat a document as a revision
+  because some *other* document exists. `draft_contract.py --job-dir` prints
+  the route per document and every file it moves into `SS\`; state both in
+  the report.
 - **A cancelled job at the same lot.** Neighbouring lots in one close are often
   contracted within weeks of each other and a cancelled twin is easy to mistake
   for the live job.
@@ -387,6 +390,17 @@ and choose on region → client type → range → promotion (CD-1). Then check:
 - Not marked "DONT USE", not under `TO BE AMENDED`.
 - Not named for a different marketer or estate.
 
+**A request that sends another job's inclusions as the base** (26061: "sample
+inclusions from an Aux dwelling at another lot") is not a blank: the
+pipeline does not take it. Follow CD-6.6 - every client and lot value
+replaced (the estate after the street), a note the request removes taken out
+with its label when nothing else is left under it, then
+`fill_inclusions.py --finish` for the signature tab stops, highlights and
+page count, an eye read of the PDF, and the routed save
+(`draft_contract.py --job-dir` with no `--template`). 26061's hand refill
+skipped all of that and shipped three faults (feedback sheet 9 Nov 2026
+rows 4-6).
+
 **State the full path of the template you chose and why**, before filling it,
 and where the job folder holds any existing contract document, confirm the
 choice against it (step 2's fingerprint) — the pick must agree with the job's
@@ -404,8 +418,8 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `lot_no` | digits only: `"143"` | Subject + EOI |
 | `street` | the street as the request / plans give it; on NSW the fillers bracket a single leading house number in every document (`"(3) Sample Close"`, CD-2.2, feedback sheet 5 Nov 2026 row 7) - write it bare or bracketed, the documents come out alike. A request that gives only a parent address (two numbers, `29 Sample & 25 Example Street`) is not the lot's street: write the street the plans put the lot on, no number (`Example Street`); with no plans to hand, write it as given - `draft_contract.py` looks for the lot's street in the plans in the workdir and the job folder and flags either way (CD-2.2/2.4, job 26060) | Request / job folder / plans (CD-2.2) |
 | `suburb` | `"SUBURB STATE"` in CAPS: `"WESTDALE NSW"` | EOI / subject (CD-2.3) |
-| `estate` | SEQ: when the job-folder name carries a bracketed estate (`(FORESTONE ESTATE)`, `(SOMERFIELD WEST)`), fill it in title case as the **most recently contracted** completed neighbour spells it (`"Forestone Estate"`, `"Somerfield West"`) — older neighbours may be blank, recency wins (observed 26038/26050/26051 vs 26033/26034). No estate in the folder name (infill like 26053) → `""`. An unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"` (CD-2.4) | Job folder name + most recent completed neighbour |
-| `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2) | Email "Design:" |
+| `estate` | **NSW and QLD alike** (job 26061 feedback, 9 Nov 2026): the estate the lot is in, as the **most recently contracted** completed neighbour in that estate spells it (`"Sample Heights"`, `"Forestone Estate"`) — from the job-folder name's bracket (`(FORESTONE ESTATE)`), the request's subject or text (`Contract Order - Lot 1323 Sample Heights`), the `Z:\ESTATES INFORMATION\<state>\<region>\<estate>` folder it points at, or the OSC site address line 2 this same run writes (JD-2.3) — they must agree. 26061 left it blank though its own OSC intake wrote the estate in the site address, and every address went out without it. No estate anywhere (infill like 26053, Tamworth's Westdale lots) → `""`. An unregistered lot carries the parent address + estate `"37 Mason Road, (Luxus Estate)"` (CD-2.4). Write the plain name only: the fillers put it after the street where the team does (signature-page STREET:, site box, the build contract's land street and cover SITE); `draft_contract.py` fills a blank one from the request's estate folder when the request names it again, with a flag | Job folder name / request / OSC / most recent completed neighbour |
+| `house_type` | design name; dual-key/aux reads `"<design> + Auxiliary Unit"` — never the email's `+ 60` shorthand (CD-2.6, CD-6.2). That is the documents' wording: OSC's `Design` takes `"<design> + 60"` (JD-3.3) | Email "Design:" |
 | `house_size` | `"nnn.nn m²"` — the plans' Total Areas sum, all dwellings + garages/porches/alfresco | PLANS only (CD-2.7) |
 | `facade` | `"<name> Façade"` with the cedilla — the dominant convention (3 of 4 completed Tamworth jobs); a completed doc's plain `Facade` is that job's typing, not a rule | Email "Facade:" (CD-2.8) |
 | `garage_side` | `"Left Hand Side"` / `"Right Hand Side"`, judged facing the house. **Sydney corner block or lane lot:** `"Via <the street or lane the driveway uses>"`, spelt as the site plan labels it (`"Via Sample Road"`, `"Via Example Lane"`, `"Via Lane"` for an unnamed lane). Always read off the rendered site plan (see "Reading the site plan" below), never from text alone. Can't tell → `""` + a flag naming the streets the site plan carries, for the reviewer. Never guess (CD-2.9, JD-9.5). The filler refuses anything else (`LHS`, `Via`, a placeholder) | PLANS only (CD-2.9) |
@@ -416,7 +430,7 @@ unsourceable value stays `""` and is flagged, never guessed:
 | `deposit_request` | only when the request asks for a deposit other than 10%: an amount (`"25,000.00"`) or `"5%"`. Lower than 10% goes into item 2(b) with a flag; higher is refused (CD-5.4) | Email |
 | `owner_1`, `owner_2` | `"First name Middle name SURNAME"` — the middle name is included whenever the client ID shows one, and it is usually absent from the email, so read it off the licence/passport (CD-3.1, team-confirmed 28 Aug 2026). Single owner → `owner_2: ""`. **Three or more owners:** key `owner_3` too — the **preliminary agreement** takes it natively (9.1 round, 4 Sep 2026: third name joins the client row, which keeps `("Client")` for three per the sheet + manual 26011, and the second signing row is cloned for the third name). The **inclusions and build contract** still fill owner_1/owner_2 only — FLAG the rest there (the one observed job hand-repurposed the witness rows into "Name of Owner 3", a template-wording edit a person makes, CD-3.8) | EOI (CD-0.2); ID confirms spelling and the middle name (CD-0.3) |
 | `owners` | every owner joined `" & "` — feeds the acknowledgements box (CD-3.1a). **Company/trust buyer:** `owner_1` takes the full entity exactly as the signed land contract writes it (`"SAMPLE HOLDINGS No.2 PTY LTD ATF SAMPLE FAMILY TRUST"`), `owner_2` `""`, and `owners` appends the ACN (`"... ACN: 600 000 000"`). Every document then names the company WITH its ACN, sized to its line. Set `company_signatory` (`"Firstname SURNAME"`) to the guarantor the land contract's *Guarantee and Indemnity (If Company or Trustee Buyer)* page names - read that page off the rendered PDF, its text layer is a shifted font - and the same person as `guarantor_name`. The preliminary agreement types `<signatory>` ⏎ `on behalf of <owners incl. ABN/ACN>` (CD-4.5); the inclusions put `<signatory> on behalf of <company> ACN: ...` under every `Name of Owner 1:` line and the build contract under the owner's signature NAME and the QLD guide NAME(S) (feedback sheet 5 Nov 2026 rows 8, 12, 16 - until then a person typed it at signing). No signatory named: leave the key out; the line is flagged for a person | EOI / signed land contract (its guarantee page) |
-| `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026) | Job folder + lookup |
+| `site_address` | `"<lot>, <street>, <SUBURB> <STATE> <postcode>"` — no leading `Lot` (the fillers add it); postcode verified by lookup (JD-2.6). **SEQ job with an estate:** the estate goes in brackets after the street with no comma before it — `"58, Zhang Street (Somerfield West), HOLMVIEW QLD 4207"` (all completed SEQ estate jobs; observed 16 Aug 2026). **NSW job with an estate:** the filler adds it as `"1307, (33) Sample Street, (Sample Estate), SAMPLEVILLE NSW 2380"` (26042, 26055, 26057) when the value does not name it already | Job folder + lookup |
 | `builders_rep` | `"Michael CRONK"` (CD-3.5) | Manual |
 | `residential_address` | prelim only: `"<street>, <SUBURB> <STATE> <postcode>"` | EOI |
 | `prelim_fee` | prelim only: plain figure `"5,000"` — **only when the request names a fee**; left empty, the template's standard $30,000 stands (CD-4.3, reversed 28 Aug 2026 — do not stop or ask for a missing fee) | Request email, else standard |
@@ -514,13 +528,16 @@ preview stop (removed 17 Aug 2026):
    completed documents plus a word-level diff against each
    (`worddiff_*_vs_real.txt`) — classify **every** differing block as a
    field, human spec content, or known variance before calling the run good.
-9. **The save.** `--job-dir` routes it **per document** (CD-7.6/7.7, 8 Sep
-   2026): a document type the job folder already holds → TEST, finals plus a
-   `temp\` of working files to `template-testing\<job>\`, refreshed in place;
-   a document type not there yet → PRODUCTION, the final `.docx` + `.pdf`
-   pair into the job's `CONTRACT DOCUMENTATION` itself (CD-7.1/7.4), never
-   overwriting — a name clash stops the run (CD-7.5). One run can do both.
-   Any failed stage blocks the save: nothing partial ever ships.
+9. **The save.** `--job-dir` routes it **per document** (CD-7.6/7.7), always
+   into the job's `CONTRACT DOCUMENTATION` (CD-7.1/7.4): a document type not
+   there yet → PRODUCTION, the final `.docx` + `.pdf` pair, never
+   overwriting; a document type already there → REVISION (9 Nov 2026), the
+   new pair copied in under `~saving <name>`, then the old version moved into
+   `SS\` (made if missing; a name `SS\` holds takes ` V2`, ` V3`), then the
+   new pair renamed into place. A failure at any step puts everything back
+   and the run says the old version is still in use; a signed or executed
+   copy stops it (CD-7.5). One run can do both. Any failed stage blocks the
+   save: nothing partial ever ships.
 
 Every `--job-dir` fill run also handles the **build contract** in the same
 pass (CD-5.2b, 18 Aug 2026): it probes the region's template folder
@@ -540,7 +557,10 @@ alone: on QLD the filler writes item 11 as `Street, (Estate)` from the
 job's `estate`, and builds the cover SITE from the same street with
 `SUBURB STATE POSTCODE` on the line below, as the team's HIA form does -
 `site_hia` is used on QLD only when the land keys are missing; 27-28 Oct
-2026 review), and `liq_damages` only when the
+2026 review. NSW the same since the job 26061 feedback, 9 Nov 2026: item 5
+reads `(26) Sample Street, (Sample Estate)` and the cover SITE one line,
+`(26) Sample Street, (Sample Estate), SAMPLEVILLE NSW 2380`, built from the
+land keys - `site_hia` only when they are missing), and `liq_damages` only when the
 job's LD is sourced to differ from the template's $25.00 prefill). On both
 team builds the fill also types the owner signature name and accepts
 **explicitly sourced** extras: DataBuild figures a person keys -
@@ -607,9 +627,9 @@ figures, whenever they have them, and those win:
   python job-roles/contract-admin/scripts/draft_contract.py --job <workdir>/job.json --job-dir "<the job's CONTRACT DOCUMENTATION folder>" --build-contract-only
   ```
 
-  The job folder already holds the contract, so the refilled copy goes to
-  template-testing (CD-7.7), and the person swaps it in (old version to
-  `SS\`). The inclusions and the prelim are not touched.
+  The job folder already holds the contract, so the refilled copy is a
+  revision: saved into the job folder, the old version moved into `SS\`
+  (CD-7.7). The inclusions and the prelim are not touched.
 - **The checks only warn** (FLAG lines under `contract figures`): item 2
   adds up, the GST is 1/11 of the price, the price matches the request,
   Part B totals the price with each row at its printed %, and the deposit
@@ -769,8 +789,8 @@ and in a region with no template at all, it is the whole deliverable.
 ### 7. Report the run, and leave the evidence
 
 The save already happened in step 5 — this step is information, not a gate.
-Report, as a short table: **the destination per document (job folder or
-template-testing)**, the template path (naming an interim build-contract
+Report, as a short table: **the route per document (first version, or
+revision with the file names moved into `SS\`)**, the template path (naming an interim build-contract
 template when one was used), every field with its value and source, and every
 unresolved flag. **Amendments (CD-10):** one row each — request line →
 document and clause → APPLIED or REFUSED (with the reason) → approval — and
@@ -794,8 +814,8 @@ read-back findings, and the "Before sending, in DocuSign" list) once step 8
 has run, or the reason no draft was created.
 A requested change is simply a new
 run — after a production save that document exists in the job folder, so its
-fixed version routes to the test folder and a person promotes it (old version
-to the job folder's `SS\`, CD-7.5); any document still missing from the job
+fixed version is a revision: saved into the job folder, the old version moved
+into its `SS\` by the run (CD-7.5, since 9 Nov 2026); any document still missing from the job
 folder saves straight into it.
 
 Every save is the `.docx` **and its PDF export** side by side (CD-7.4 —
@@ -918,12 +938,14 @@ blank and flagged. DataBuild figures a person gives are typed exactly as
 given (a screenshot's numbers read back first) and win over the working. The preliminary fee is the standard $30,000 unless the request names
 another (CD-4.3).
 
-**Saves are automatic, but only ever to two destinations.** Routing is decided
-per document before any save (8 Sep 2026): a document type the job folder
-already holds refreshes ONLY to `template-testing\<job>\`; a document type not
-yet there writes ONLY its final docx+PDF pair into that job's `CONTRACT
-DOCUMENTATION`, never overwriting (superseding a version is a person's copy +
-`SS\` move, CD-7.5).
+**Saves are automatic, and only ever into the job's own `CONTRACT
+DOCUMENTATION`.** Routing is decided per document before any save: a document
+type not yet there writes ONLY its final docx+PDF pair, never overwriting; a
+document type already there is a revision (9 Nov 2026) - the new pair goes in
+under a temporary name first, then the old version moves into `SS\` (never
+over an archived name: ` V2`, ` V3`), then the new pair takes its name. Any
+failure puts it all back and the old version stays in use; a signed or
+executed copy stops it for a person (CD-7.5-7.7).
 The preview/approval stop was removed 17 Aug 2026 (it superseded the 12/16 Aug
 "permanent" preview gate, by explicit instruction) — but every **data** gate
 stays: a missing anchor aborts its document, an unsourced mandatory value
