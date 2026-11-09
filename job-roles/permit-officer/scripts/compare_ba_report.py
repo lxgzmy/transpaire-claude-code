@@ -15,6 +15,10 @@ Usage:
                               --jobs 26029,26052,26001
                               [--out runtime\\permit-officer\\reports\\compare-07.09.2026.md]
 
+The Monday run (ba_weekly_run.py) does this itself since 9 Nov 2026: it scores
+last week's draft as written against her report for the same week and says the
+headline in its summary. Run this by hand only to score another pair.
+
 Read-only on both inputs; the scorecard goes to the runtime folder only.
 """
 import argparse
@@ -89,9 +93,29 @@ def compare(draft_path, actual_path, jobs):
     return report
 
 
-def render(report, draft_path, actual_path, jobs):
+def name_date(path):
+    """The dd.mm.yyyy date in a report or draft file name ("BA REPORT -26.10.2026.xlsx"), or None."""
+    m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", Path(path).name)
+    try:
+        return date(int(m.group(3)), int(m.group(2)), int(m.group(1))) if m else None
+    except ValueError:
+        return None
+
+
+def headline(report):
+    """The pilot measure in one line, as the scorecard and the Monday run's summary both say it."""
+    if not report["officer_items"]:
+        return "no officer items to score (all pilot jobs complete or absent)"
+    pct = 100.0 * report["matched"] / report["officer_items"]
+    return (f"{pct:.0f} % pre-populated ({report['matched']} of {report['officer_items']}; at least 90 % "
+            f"needed), dates {report['date_agree']} of {report['date_cells']}, {report['extra']} extra")
+
+
+def render(report, draft_path, actual_path, jobs, week=None):
+    """The scorecard, titled by the week scored: ``week``, else the draft's file-name date, else today."""
     pct = (100.0 * report["matched"] / report["officer_items"]) if report["officer_items"] else None
-    lines = [f"# BA report pilot scorecard — {date.today().strftime('%d.%m.%Y')}", "",
+    week = week or name_date(draft_path) or date.today()
+    lines = [f"# BA report pilot scorecard: week of {week:%d.%m.%Y}", "",
              f"Draft: `{draft_path}`  ", f"Actual: `{actual_path}`  ",
              f"Pilot jobs: {', '.join(jobs)}", "",
              "## Headline", "",

@@ -28,6 +28,10 @@ In order, stopping at the first problem with nothing half done:
 6. Delivery: the draft and its evidence note copied to the drop folder. A file already there under
    that name is never overwritten (she may have started on it) unless --force. The delivered draft
    is then read back the way next Monday will read it.
+7. Score (the pilot measure): last week's draft as written against the base, when the two are for
+   the same week, into runtime\\permit-officer\\reports\\compare-dd.mm.yyyy.md, its headline in the
+   summary. A scorecard already there is kept (it may hold the review time typed into it). A
+   problem scoring is said and never costs the draft.
 
 A Monday inside the Christmas shutdown (nsw_holidays.SHUTDOWNS) drafts nothing and says when to
 run; the first Monday back takes the last export before the break as its base.
@@ -54,6 +58,7 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 from ba_report_draft import DraftInputError, StateError, STATE_FILE, STATE_PREVIOUS, build_draft  # noqa: E402
 from ba_report_parse import officer_edits, parse_report  # noqa: E402
+from compare_ba_report import compare, headline, render  # noqa: E402
 from nsw_holidays import covers, in_shutdown, reopens  # noqa: E402
 
 RUNTIME = REPO / "runtime" / "permit-officer"
@@ -128,6 +133,34 @@ def find_last_draft(drop, outputs, asof):
     elif copies:
         notes.append("also in the drop folder for that Monday, not read: " + ", ".join(p.name for p in copies))
     return edited, drafted, notes
+
+
+def last_week_score(drafted, base_date, reports):
+    """(the draft's Monday, its scorecard path) when last week's draft as written and her report are
+    for the same week, Monday to Sunday; else None. A draft from another week (the 22.10 preview
+    against her 26.10 report) is not hers to be scored against."""
+    m = DRAFT_NAME.match(drafted.name) if drafted else None
+    if not m:
+        return None
+    week = date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    if week - timedelta(days=week.weekday()) != base_date - timedelta(days=base_date.weekday()):
+        return None
+    return week, Path(reports) / f"compare-{week:%d.%m.%Y}.md"
+
+
+def score_last_week(score, drafted, base, base_src, jobs):
+    """Score last week's draft against her report and write the scorecard unless one is there.
+    A problem is returned to be said, never raised: the score is a side report, not the draft."""
+    week, card = score
+    try:
+        report = compare(drafted, base, jobs)
+        kept = card.exists()
+        if not kept:
+            card.parent.mkdir(parents=True, exist_ok=True)
+            card.write_text(render(report, drafted, base_src, jobs, week=week), encoding="utf-8")
+        return {"week": week, "card": card, "report": report, "kept": kept}
+    except Exception as exc:  # noqa: BLE001 (any failure here is reported in the summary instead)
+        return {"week": week, "card": card, "error": f"{type(exc).__name__}: {exc}"}
 
 
 def copy_in(src, dst):
@@ -270,7 +303,14 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
             f"restart: state set aside as .{restart}.json" if restart else
             "state: as it was before this Monday's first run (a re-run)" if before_first.exists() else "state: carried on",
             f"snapshot: jobs {','.join(jobs)} -> {state / 'snapshots'}",
-            f"draft: BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx -> {outputs}, delivered to {drop}"] + found
+            f"draft: BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx -> {outputs}, delivered to {drop}"]
+    score = last_week_score(drafted, base_date, reports)
+    if score:
+        plan.append(f"score: last week's draft ({score[0]:%d.%m.%Y}) against {base_src.name} -> {score[1]}"
+                    + (" (already there: kept, the headline said again)" if score[1].exists() else ""))
+    else:
+        plan.append(f"score: none (no draft of ours for the week of {base_src.name})")
+    plan += found
     there = Path(drop) / f"BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx"
     if there.exists():
         saved = time.strftime("%d/%m/%Y %H:%M", time.localtime(there.stat().st_mtime))
@@ -328,8 +368,11 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
     delivered = deliver([Path(draft), Path(ev_md)], drop, outputs / "delivered", force=force)
     checked = verify_delivered(Path(draft), delivered[0], base)
     lap("delivery")
+    scored = score_last_week(score, drafted, base, base_src, jobs) if score else None
+    if scored:
+        lap("score")
     return {"plan": plan, "moved": moved, "draft": draft, "evidence": evidence, "delivered": delivered,
-            "found": found, "checked": checked, "took": took}
+            "found": found, "checked": checked, "took": took, "scored": scored}
 
 
 def _summary(result):
@@ -346,7 +389,14 @@ def _summary(result):
         lines.append(f"  {j['job_no']}: {len(j['outstanding'])} open ({red} red), {len(j['resolved'])} resolved, "
                      f"{len(j['flags'])} to check")
     lines += [f"  note: {n}" for n in ev["notes"]]
-    lines.append("Took " + ", ".join(f"{step} {secs:.0f} s" for step, secs in result["took"].items()))
+    sc = result.get("scored")
+    if sc and "error" in sc:
+        lines.append(f"Last week ({sc['week']:%d.%m.%Y}) not scored: {sc['error']}. The draft is unaffected; "
+                     "score it by hand with compare_ba_report.py")
+    elif sc:
+        lines.append(f"Last week ({sc['week']:%d.%m.%Y}): {headline(sc['report'])}. "
+                     f"Scorecard {'kept' if sc['kept'] else 'written'}: {sc['card']}")
+    lines.append("Took "+ ", ".join(f"{step} {secs:.0f} s" for step, secs in result["took"].items()))
     return "\n".join(lines)
 
 
