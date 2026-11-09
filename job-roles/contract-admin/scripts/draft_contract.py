@@ -353,6 +353,15 @@ def save_request_email(workdir, job_dir):
     Returns a report line."""
     import msg_extract
     msgs = sorted(p for p in Path(workdir).glob("*.msg") if p.is_file())
+    if not msgs:
+        # The skill reads PDF attachments only from the .msg (the connector cannot
+        # return them), looking in the workdir and then in the job folder - so a
+        # request dragged straight into the job folder is already where it belongs.
+        there = sorted(p.name for p in Path(job_dir).glob("*.msg") if p.is_file())
+        if there:
+            line = f"  email     : already in the job folder ({there[0]}) - not saved again"
+            print(line)
+            return line
     if len(msgs) != 1:
         why = ("no .msg in the workdir (the request came through the mail connector)" if not msgs
                else f"{len(msgs)} .msg files in the workdir: {', '.join(p.name for p in msgs)}")
@@ -492,6 +501,47 @@ def export_pdfs(pairs, force):
                           capture_output=True, text=True, encoding="utf-8")
 
 
+def plan_pdfs(workdir, job_dir):
+    """The plans a run can read: PDFs named *plan* in the workdir (the request's
+    attachments) and in the job's CONTRACT DOCUMENTATION folder (SS\\ included)."""
+    found = []
+    for root, deep in ((workdir, True), (job_dir, False), (job_dir / "SS" if job_dir else None, False)):
+        if not root or not Path(root).is_dir():
+            continue
+        for p in (Path(root).rglob("*.pdf") if deep else Path(root).glob("*.pdf")):
+            if "plan" in p.name.lower() and not p.name.upper().startswith(("PREVIEW_", "REAL_")):
+                found.append(p)
+    return found
+
+
+def resolve_lot_street(values, job_path, workdir, job_dir):
+    """CD-2.4, feedback sheet 5 Nov 2026 (job 26060): a request that gives only a
+    parent address ("29 Sample & 25 Example Street") gets the lot's own street
+    from the plans, when the plans name exactly one. The job JSON is not edited:
+    a resolved copy is written beside it and used for every document. Without
+    plans naming the lot's street the address stays as given and is flagged."""
+    import street_format
+    street = values.get("street") or values.get("land_street")
+    if not street_format.is_parent_address(street):
+        return job_path, values
+    plans = plan_pdfs(workdir, job_dir)
+    lot_street, source = street_format.lot_street_from_plans(plans, values.get("lot_no"), among=street)
+    if not lot_street:
+        why = (f"{len(plans)} plan PDF(s) read, none puts lot {values.get('lot_no')} "
+               f"on just one of its streets" if plans else "no plans among the run's files")
+        print(f"  FLAG: street {str(street).strip()!r} is a parent address and {why} - left as "
+              f"given; write the lot's own street from the plans (CD-2.4)")
+        return job_path, values
+    resolved, note = street_format.use_lot_street(values, lot_street, Path(source).name)
+    # Beside the job JSON, not in the workdir: the fillers read the request text
+    # (email*.txt) from the job JSON's folder for the CD-10 amendments and the
+    # validity clause, and --workdir may be another folder.
+    out = job_path.parent / (job_path.stem + ".lot-street.json")
+    out.write_text(json.dumps(resolved, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"  FLAG: {note}")
+    return out, resolved
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--job", required=True)
@@ -610,6 +660,9 @@ def main():
             return 0
         sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim "
                  "(add --job-dir to save in the same pass)")
+
+    job_path, values = resolve_lot_street(values, job_path, workdir,
+                                          Path(args.job_dir) if args.job_dir else None)
 
     suffix = doc_suffix(values)
     timings, artifacts, failures = [], [], []

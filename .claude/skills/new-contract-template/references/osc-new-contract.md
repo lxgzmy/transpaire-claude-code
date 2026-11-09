@@ -193,7 +193,7 @@ sourced diff. Blank/missing EOI values mean “leave existing value alone”, no
 
 | Word field/group | Field mapping |
 |---|---|
-| Site lot, address, suburb, state, postcode | `siteAddress.lotNumber`, `.line1`, `.line2`, `.suburb`, `.state`, `.postcode`; `line2` is the parenthesised estate where applicable. Apply `JD-2` for unregistered land, CAPS and postcode verification. Keep site and purchaser addresses separate. |
+| Site lot, address, suburb, state, postcode | `siteAddress.lotNumber`, `.line1`, `.line2`, `.suburb`, `.state`, `.postcode`; `line2` is the parenthesised estate where applicable. Apply `JD-2` for unregistered land, CAPS and postcode verification. A parent address (`29 Sample & 25 Example Street`) is not `line1`: `line1` is the lot's own street as the plans name it, no number (`Example Street`; staff corrected 26060 this way on 3 Nov 2026), the same street the documents carry (CD-2.4); with no plans naming it, `line1` takes the request's text and the confirmation flags it. Keep site and purchaser addresses separate. |
 | Workflow start date | `startDate`, only a sourced date. Never use the screenshot's date. |
 | Contract number / region | Read and retain the verified values from creation. Do not rewrite them during field entry. |
 | Job status / contract details / locations | No general write mapping established for these screenshot controls. Report any requested change as manual unless the runtime API schema establishes the exact operation. Do not use `/Contract` to guess at a UI status change. |
