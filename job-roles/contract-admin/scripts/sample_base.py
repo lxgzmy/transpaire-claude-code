@@ -23,6 +23,8 @@ plan, the Word layout pass and the quality gate run as they do for Sydney and
 SEQ.
 
 It stops, writing nothing, when:
+  - the sample is not a Word .docx (5 of 2026's 7 samples were PDFs) - with a
+    plain message saying what to ask for, never a traceback;
   - the blank is not a Gunnedah-family blank (Sydney and SEQ have AUXILIARY
     blanks of their own: a sample base there is a person's edit);
   - the sample's standard sections do not read exactly as the blank's (it was
@@ -301,12 +303,35 @@ def cache_name(blank, sample):
     return f"sample-base-{h.hexdigest()[:12]}.docx"
 
 
+def readable(sample):
+    """Stop with a plain message when the sample is not a Word document the run can
+    use. 5 of the 7 samples requests attached in 2026 were PDFs (9 Nov 2026 scan);
+    until then a PDF ended in a "not a zip file" traceback and no report."""
+    p = Path(sample)
+    fix = ("ask the requester for the Word file (.docx), or start from the standard template "
+           "and add the aux section by hand")
+    if not p.is_file():
+        raise SystemExit(f"STOP: the sample {p.name} is not in the workdir")
+    if p.suffix.lower() == ".pdf":
+        raise SystemExit(f"STOP: the sample {p.name} is a PDF. A PDF cannot be the base - the run needs the "
+                         f"Word document to take its specification from: {fix}.")
+    if p.suffix.lower() == ".doc":
+        raise SystemExit(f"STOP: the sample {p.name} is an old-format Word file (.doc). Open it in Word, "
+                         f"save it as .docx and run again - or {fix}.")
+    if not zipfile.is_zipfile(p):
+        raise SystemExit(f"STOP: the sample {p.name} is not a Word document (.docx): {fix}.")
+    with zipfile.ZipFile(p) as z:
+        if "word/document.xml" not in z.namelist():
+            raise SystemExit(f"STOP: the sample {p.name} is not a Word document (.docx): {fix}.")
+
+
 def build(args, job, log, flags):
     fam = pick_family(args.blank)[0]
     if fam not in FAMILIES:
         raise SystemExit(f"STOP: a sample base is used on the {', '.join(FAMILIES)} inclusions only - this blank "
                          f"is {fam or 'not a known family'}. Sydney and SEQ have AUXILIARY blanks of their own; "
                          f"anything a sample adds there is a person's edit (CD-6.6).")
+    readable(args.sample)
     E.use_family(fam)
     blank_xml, sample_xml = E.read_xml(args.blank), E.read_xml(args.sample)
     blank_cols, sample_cols = E.Columns(blank_xml), E.Columns(sample_xml)
@@ -402,7 +427,13 @@ def main():
         ap.error("--blank and --out-blank are required (or --scan)")
     log, flags = [], []
     try:
-        rc = build(args, job, log, flags)
+        try:
+            rc = build(args, job, log, flags)
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile) as e:
+            # anything else the sample can throw ends as a plain stop, never a traceback
+            raise SystemExit(f"STOP: the sample {Path(args.sample).name} could not be read as an inclusions "
+                             f"document ({type(e).__name__}: {str(e)[:120]}) - ask the requester for the Word "
+                             f"file (.docx), or start from the standard template and add the aux section by hand.")
     except SystemExit as e:
         msg = str(e)
         lines = log + ["", msg if msg.startswith("STOP") else f"STOP: {msg}", "Nothing written."]

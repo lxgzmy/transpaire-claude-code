@@ -194,6 +194,19 @@ def run():
     check(r.returncode == 1 and "list numbering 9999 is not defined in the blank" in r.stdout,
           "a list the blank does not define stops")
 
+    for name, data, words in (("SAMPLE_LOT 8.pdf", b"%PDF-1.4\n% a sample sent as a PDF\n", "is a PDF"),
+                              ("SAMPLE_LOT 8.doc", b"\xd0\xcf\x11\xe0 old Word", "old-format Word file (.doc)"),
+                              ("SAMPLE_LOT 8.docx", b"not really a docx", "is not a Word document")):
+        f = SCRATCH / name
+        f.write_bytes(data)
+        rep = SCRATCH / (name + ".txt")
+        r = py("sample_base.py", "--blank", GUNNEDAH, "--sample", f, "--job", job, "--out-blank",
+               SCRATCH / "b5.docx", "--report", rep)
+        out = r.stdout + r.stderr
+        check(r.returncode == 1 and words in r.stdout and "Traceback" not in out and rep.exists()
+              and "ask the requester for the Word file" in rep.read_text(encoding="utf-8"),
+              f"a {name.rsplit('.', 1)[1]} sample stops with a plain message and a report, no traceback")
+
     print("== removals")
     E.use_family("gunnedah")
     measure = SCRATCH / "base.measure.json"

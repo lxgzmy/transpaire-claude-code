@@ -544,6 +544,9 @@ Pages 10–13. *(manual: "Page 10 … Page 13"; confirmed observed)*
     and the headers and footers stay the blank's, so every client and lot
     value is filled for this job as on any job (the estate after the
     street, CD-2.4). It stops, writing nothing, when:
+    - the sample is not a Word `.docx`. Five of the seven samples requests
+      attached in 2026 were PDFs, so the message says to ask for the Word
+      file or to start from the template;
     - the sample's standard sections do not read exactly as the blank's
       (built on another blank or version);
     - its upgrade labels do not pair with their wording;
