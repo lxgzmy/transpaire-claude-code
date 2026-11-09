@@ -1671,17 +1671,33 @@ def run(template, job, out_path, check_only, region):
         xml = xml[:start] + new + xml[end:]
         applied_to = start
 
-    import shutil
+    import time
     import zipfile
-    shutil.copy2(template, out_path)
+    # Written straight from the template into a temporary file, then put in
+    # place. Until 9 Nov 2026 the template was first copied over the
+    # workdir's previous contract and replaced a moment later, and on a
+    # second run into the same workdir Windows refused that replace now and
+    # then ("Access is denied" on a file it had only just written - twice in
+    # the 26061 end-to-end runs). A revision now routinely re-runs a workdir,
+    # so the replace is retried for a few seconds before it gives up.
     tmp = Path(str(out_path) + ".tmp")
-    with zipfile.ZipFile(out_path) as zin, \
+    with zipfile.ZipFile(template) as zin, \
          zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             data = (xml.encode("utf-8") if item.filename == "word/document.xml"
                     else zin.read(item.filename))
             zout.writestr(item, data)
-    tmp.replace(out_path)
+    for attempt in range(8):
+        try:
+            tmp.replace(out_path)
+            break
+        except PermissionError:
+            if attempt == 7:
+                tmp.unlink(missing_ok=True)
+                print(f"ERROR: {Path(out_path).name} in the workdir could not be replaced (in use by "
+                      f"another program?) - close it and re-run", file=sys.stderr)
+                return 1
+            time.sleep(0.5 * (attempt + 1))
     for note in fit_notes[shown_notes:]:
         print(f"  size  {note}")
     for flag in fig_flags[shown_flags:]:
