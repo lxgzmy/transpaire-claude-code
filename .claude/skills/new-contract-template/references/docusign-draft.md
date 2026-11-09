@@ -57,7 +57,10 @@ stops (no purchaser, a different number of buyers, no principal to be
 found, a buyer with no email).
 
 Exit 2 = stop 3; put its `REASON:` line in the report and finish.
-`CALL: no` = a template-testing refresh; mention the payload files and finish.
+`CALL: no` = the build contract was a revision (the job folder already held
+one; since 9 Nov 2026 the revision is saved there and the old copy moved into
+`SS\`). A revision creates no new draft: whether its envelope replaces an
+earlier one is a person's call. Mention the payload files and finish.
 Otherwise read `docusign_envelope.json`: `server`, `templateName`,
 `draftArgs`, `sources`, `flags`, `defaultRoles`, `documentsMissing`,
 `staffBeforeSending` and `staffAfterSending`.

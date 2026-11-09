@@ -75,7 +75,11 @@ COMMON_FIELDS = [
     ("Name of Owner 1:",    "owner_1",     "gap",         True),
     ("Name of Owner 2:",    "owner_2",     "dotted_next", True),
     ("LOT No:",             "lot_no",      "gap",         True),
-    ("STREET:",             "street",      "gap",         True),
+    # the street with the job's estate after it, "(26) Sample Street, (Sample
+    # Estate)", as the team writes it here in NSW and QLD (job 26061 feedback
+    # sheet 9 Nov 2026 row 7; street_format.estate_job) - the bare street when
+    # the job has no estate
+    ("STREET:",             "street_estate", "gap",       True),
     ("SUBURB",              "suburb",      "gap",         True),
     ("Builders Representative:", "builders_rep", "dotted", False),
     # Every completed job puts ALL the owners in this box joined by " & ", not
@@ -129,6 +133,21 @@ FAMILIES = {
             "HOUSE TYPE :": 4, "HOUSE SIZE :": 5, "HOUSE FA\u00c7ADE :": 0,
             "GARAGE SIDE :": 3, "PRICE : $": 5,
         },
+        # The signature lines on Sydney's two tab stops (job 26061 feedback
+        # sheet, 9 Nov 2026 row 6: Owner 1's Date: sat left of the others). The
+        # blank types them with spaces and default tabs, so every name length
+        # moves the Date:, and the team re-spaces each one by hand (26042,
+        # 26055, 26056, 26057 all differ). The Gunnedah blank types those lines
+        # as Sydney's do - Segoe UI Light bold at 11 pt in the same 568.15 pt
+        # and 551.8 pt text boxes, same insets - so Sydney's measured stops
+        # hold unchanged, as they did for SEQ (issue #94). Page 1 keeps its
+        # typed spaces: its pads match the completed jobs.
+        "tabs": {"sig_name": 2235, "sig_date": 7560},
+        # The blank carries six yellow highlights (in the upgrade lines); no
+        # completed Gunnedah/Tamworth inclusions keeps one (26042, 26055,
+        # 26056, 26057) and the team clears them (sheet row 4). Sydney and SEQ
+        # clear theirs in the content edit (issue #58, #94).
+        "clear_highlight": True,
     },
     "sydney": {
         "match": "REGION - SYDNEY",
@@ -249,6 +268,23 @@ EDITOR_NOTES = [
 FIELD_PLACEHOLDERS = {
     "HOUSE TYPE :": {"AUXILIARY"},
 }
+
+
+def clear_highlights(xml):
+    """(xml without any highlight, [the text each highlighted run carried]) -
+    the text is reported so a person still sees what the blank had marked."""
+    texts = []
+
+    def strip(m):
+        run = m.group(0)
+        if re.search(r'<w:highlight w:val="(?!none")', run):
+            t = run_text(run).strip()
+            if t:
+                texts.append(t)
+        return re.sub(r"<w:highlight [^>]*/>", "", run)
+
+    xml = RUN_RE.sub(strip, xml)
+    return re.sub(r"<w:highlight [^>]*/>", "", xml), texts   # paragraph marks too
 
 
 def editor_notes_left(xml):
@@ -931,13 +967,54 @@ def footer_parts(template):
 GARAGE_RE = re.compile(r"Left Hand Side|Right Hand Side|Rear Lane|Via [A-Z0-9][\w'-]*(?: [A-Z0-9][\w'-]*)*")
 
 
+def finish(docx, template, out):
+    """The finishing a fill gives, applied to an inclusions document someone
+    filled another way - a sample job's document refilled for this job (CD-6.6,
+    job 26061: Owner 1's Date: went out of line and nothing checked it). The
+    family's signature lines on their tab stops, every highlight cleared, the
+    footer's typed page total made Word's page count. Wording is not touched."""
+    fam_name, family = pick_family(template)
+    if not family:
+        print(f"ERROR: no template family matches {template}", file=sys.stderr)
+        return 2
+    xml = read_xml(docx)
+    xml, sig_lines = signature_tabs(xml, {}, family)
+    xml, cleared = clear_highlights(xml)
+    footers, n_total, n_left = footer_parts(docx)
+    print(f"finish   : {Path(docx).name} ({fam_name} family)")
+    print(f"tabs     : {sig_lines} signature line(s) on tab stops - name under the builder's, every Date: at one x"
+          if family.get("tabs") else "tabs     : this family has no signature tab stops")
+    print(f"highlight: {len(cleared)} highlighted run(s) cleared"
+          + (": " + "; ".join(repr(t[:40]) for t in cleared) if cleared else ""))
+    print(f"footer   : {n_total} typed page total(s) made Word's page count")
+    notes = editor_notes_left(xml)
+    if notes:
+        print(f"WARNING: template editor instructions still in the document: {', '.join(map(repr, notes))}")
+    if n_left:
+        print(f"WARNING: {n_left} footer page number(s) with a total this run does not recognise")
+    print(f"written  : {write_docx(docx, out, xml, footers)}")
+    print("Wording untouched (the signature lines' dotted leaders end before their Date: stop): "
+          "a person reads the PDF before the routed save.")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--template", required=True)
-    ap.add_argument("--job", required=True)
+    ap.add_argument("--job")
     ap.add_argument("--out")
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--finish", metavar="DOCX",
+                    help="finish an inclusions document filled another way (a sample job's document "
+                         "refilled for this job, CD-6.6): signature tab stops, highlights cleared, "
+                         "Word's page count - with --template for the family and --out")
     args = ap.parse_args()
+    if args.finish:
+        if not args.out:
+            ap.error("--finish needs --out")
+        return finish(args.finish, args.template, args.out)
+    if not args.job:
+        ap.error("--job is required")
 
     values = json.loads(Path(args.job).read_text(encoding="utf-8"))
     garage = str(values.get("garage_side") or "").strip()
@@ -964,6 +1041,10 @@ def main():
     street_notes = []
     if street_format.applies(fam_name):
         values, street_notes = street_format.bracket_job(values)
+    # the estate after the street on the signature pages and in the site box,
+    # every family (job 26061 feedback sheet 9 Nov 2026 rows 7-8)
+    values, estate_notes = street_format.estate_job(values)
+    street_notes += estate_notes
 
     xml = read_xml(args.template)
     report = []
@@ -971,6 +1052,9 @@ def main():
     new_xml, dropped_notes = drop_instruction_paras(new_xml, fam_name)
     new_xml, sig_lines = signature_tabs(new_xml, values, family)
     new_xml, company_notes = company_owner_lines(new_xml, values, default_size(args.template))
+    cleared = None
+    if family.get("clear_highlight"):
+        new_xml, cleared = clear_highlights(new_xml)
 
     print(f"template : {Path(args.template).name}")
     print(f"family   : {fam_name} - {family['label']}")
@@ -1001,7 +1085,11 @@ def main():
     if family.get("tabs"):
         page1 = "page-1 values and " if family["tabs"].get("page1") else ""
         print(f"tabs     : {page1}{sig_lines} signature line(s) on tab stops "
-              f"(sheet 9.9 rows 1, 14, 15) - gate_inclusions.py verifies the x positions")
+              f"(sheet 9.9 rows 1, 14, 15; 26061 sheet row 6) - name under the builder's, every Date: at one x")
+    if cleared is not None:
+        shown = "; ".join(repr(t[:40]) for t in cleared)
+        print(f"highlight: {len(cleared)} highlighted run(s) in the blank cleared (26061 sheet row 4)"
+              + (f": {shown}" if shown else ""))
 
     for n in company_notes:
         print(n)

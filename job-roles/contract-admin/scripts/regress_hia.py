@@ -747,22 +747,40 @@ def contract_figures_unit():
     v, lines, f = figs({"price_incl_gst": "11,000.00", "deposit": "1,100.00"}, "QLD")
     if any("over 5%" in x for x in f) or not any("DEPOSIT $1,100.00 is not 5%" in x for x in f):
         fails.append(f"QLD small price: {f}")
-    # the estate goes in brackets after the street on QLD item 11, once
-    # "Street, (Estate)" whether the JSON gives the street bare, with the estate
-    # already bracketed (with or without the comma) or mentioning it otherwise;
-    # NSW untouched. The QLD cover SITE: that street, then the place below it.
+    # the estate goes in brackets after the street on the land's STREET ADDRESS,
+    # once, "Street, (Estate)", whether the JSON gives the street bare, with the
+    # estate already bracketed (with or without the comma) or mentioning it
+    # otherwise - QLD item 11 and, since the job 26061 feedback (9 Nov 2026),
+    # NSW item 5. The QLD cover SITE: that street, then the place below it; the
+    # NSW cover SITE: one line, "Street, (Estate), SUBURB NSW postcode", the
+    # estate left out when the job has none. A parent-address ESTATE (CD-2.4)
+    # never goes after the street.
     land = {"land_suburb": "SAMPLEVILLE", "land_state": "QLD", "land_postcode": "4999"}
-    streets = [fill_hia.derive_values({"land_street": s, "estate": "Sample Estate", **land}, "QLD")["land_street"]
-               for s in ("Sample Street", "Sample Street (Sample Estate)", "Sample Street, (sample estate)",
-                         "Sample Street, Sample Estate")]
-    nsw = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate",
-                                  "site_hia": "Sample Street, SAMPLEVILLE", **land}, "NSW")
+    nsw_land = {"land_suburb": "Sampleville", "land_postcode": "2999"}
+    streets = {r: [fill_hia.derive_values({"land_street": s, "estate": "Sample Estate", **land}, r)["land_street"]
+                   for s in ("Sample Street", "Sample Street (Sample Estate)", "Sample Street, (sample estate)",
+                             "Sample Street, Sample Estate")] for r in ("QLD", "NSW")}
+    nsw = fill_hia.derive_values({"land_street": "(9) Sample Street", "estate": "Sample Estate",
+                                  "site_hia": "9 Sample Street, Sampleville", **nsw_land}, "NSW")
+    bare = fill_hia.derive_values({"land_street": "(9) Sample Street", "estate": "",
+                                   "site_hia": "9 Sample Street, Sampleville", **nsw_land}, "NSW")
+    parent = fill_hia.derive_values({"land_street": "Sample Street", "estate": "37 Example Road, (Sample Estate)",
+                                     **nsw_land}, "NSW")
+    old_json = fill_hia.derive_values({"land_street": "(9) Sample Street", "estate": "Sample Estate",
+                                       "site_hia": "(9) Sample Street, SAMPLEVILLE NSW 2999"}, "NSW")
     cover = fill_hia.derive_values({"land_street": "Sample Street", "estate": "Sample Estate",
                                     "site_hia": "anything", **land}, "QLD")["site_hia"]
-    if streets != ["Sample Street, (Sample Estate)"] * 3 + ["Sample Street, Sample Estate"] \
-            or (nsw["land_street"], nsw["site_hia"]) != ("Sample Street", "Sample Street, SAMPLEVILLE") \
+    want = ["Sample Street, (Sample Estate)"] * 3 + ["Sample Street, Sample Estate"]
+    if streets != {"QLD": want, "NSW": want} \
+            or (nsw["land_street"], nsw["site_hia"]) != ("(9) Sample Street, (Sample Estate)",
+                                                         "(9) Sample Street, (Sample Estate), SAMPLEVILLE NSW 2999") \
+            or (bare["land_street"], bare["site_hia"]) != ("(9) Sample Street", "(9) Sample Street, SAMPLEVILLE NSW 2999") \
+            or (parent["land_street"], parent["site_hia"]) != ("Sample Street", "Sample Street, SAMPLEVILLE NSW 2999") \
+            or old_json["site_hia"] != "(9) Sample Street, (Sample Estate), SAMPLEVILLE NSW 2999" \
             or cover != "Sample Street, (Sample Estate)\nSAMPLEVILLE QLD 4999":
-        fails.append(f"QLD estate/cover: {streets} / NSW {nsw['land_street']!r} {nsw['site_hia']!r} / {cover!r}")
+        fails.append(f"estate/cover: {streets} / NSW {nsw['land_street']!r} {nsw['site_hia']!r} / "
+                     f"bare {bare['site_hia']!r} / parent {parent['land_street']!r} / old {old_json['site_hia']!r} "
+                     f"/ QLD {cover!r}")
     print("  contract figures (#62): " + ("PASS" if not fails else "FAIL - " + "; ".join(fails)))
     return not fails
 

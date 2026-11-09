@@ -2,9 +2,9 @@
 
 Assists the manual's **RAISING CONTRACTS** procedure. Claude selects the correct
 blank template, fills the fields it can source, and **saves the finished
-documents in the same pass** — to the job folder for a genuine first draft, or
-to the template-testing folder when the job already exists in production
-(CD-7.7; the preview/approval stop was removed 17 Aug 2026). Issuing, sending,
+documents in the same pass** into the job folder — a first version as it is, a
+revision with the version it replaces moved into `SS\` once the new one is in
+(CD-7.7, since 9 Nov 2026; the preview/approval stop was removed 17 Aug 2026). Issuing, sending,
 signing and every flagged field stay with a person. All field rules live in
 [`../rules/contract-docs.md`](../rules/contract-docs.md) (referenced as `CD-*`);
 address, CAPS and garage-side rules stay in
@@ -57,14 +57,15 @@ after reading the request and before the document steps below. It contains
 the field-to-API map, lookup rules, example multipart call and recovery protocol.
 OSC changes go to the person a stage at a time (15 Oct 2026), one confirmation
 each: stage 1 is Word 1–4 (client and job), stage 2 is Word 5–9 plus a new job
-folder, and stage 3 is activity 6 once the DataBuild entry is done.
+folder, activity 6 included (job 26061 feedback, 9 Nov 2026: DataBuild can only
+proceed once it is complete; until then a stage 3 waited for the DataBuild entry).
 
 | Sequence | Action |
 |---|---|
 | Word 1–4 | Read request + EOI (+ ID when attached — optional since 24 Sep 2026), check duplicates, resolve region/template, create or resume client/job through approved MCP writes; read back the generated contract number. |
 | Folder handoff | Resolve the existing folder or use `z-drive-ops` and the approved `new_job_folders.ps1` path. |
 | Word 5–6 | Update sourced site, job, design, authority, legal and marketer fields; verify read-back. Exclude OSC contract values. |
-| Word 7–8 | Resolve activities and questions by current IDs; complete 1 and 2 (the request email is the evidence), attach the email to the job and task 11 and complete 11. Activity 6 completes only on the person's confirmation that the DataBuild entry is done; until then it stays pending and heads the manual list. |
+| Word 7–8 | Resolve activities and questions by current IDs; complete 1 and 2 (the request email is the evidence), attach the email to the job and task 11 and complete 11. Activity 6 completes in the same stage, whether or not DataBuild has the job yet (job 26061 feedback, 9 Nov 2026). |
 | Word 9 | Create/update verified person and contact links; purchaser primary contacts follow the EOI/marketer instruction. Report unsupported Client Notes for manual entry. |
 | Document handoff | Use verified job number/folder and original field sources in the existing document pipeline. |
 
@@ -83,7 +84,7 @@ retrying; disabled writes produce a draft, never a success claim.
 | 2 | Locate the verified job folder (all lifecycle levels); route **each document separately** based on whether that document type exists, and check for any cancelled twin. Confirm the required template from the job's documents where present; unclear or multiple candidates → stop and present options | Claude (via `z-drive-ops`) | CD-7.6, CD-7.7, CD-1.6 |
 | 3 | **Select the template**, state its full path + reason, and confirm it agrees with the job's existing documents | Claude | CD-1 |
 | 4 | Assemble field values with a source per field; flag what the plans have to supply. Contract changes the request approves on their own line go into `amendments`, verbatim (CD-10: interest rate, a struck NSW clause, prelim clause words); every other change into `amendments_for_person`. **Sydney:** also the `upgrades` block — area, storeys, Bathroom 2, air con, and one item per upgrade line with the Standard Variation row chosen (`variation_list.py --search`), the house wording and a confidence flag; a request with no row is a custom item at low confidence | Claude | CD-2, CD-3, CD-9 |
-| 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, **Sydney inclusions content edit + Word layout pass + quality gate** (CD-9, 10 Sep 2026 — section 18 area, notes, `UPGRADED INCLUSIONS` items, black throughout; both columns re-levelled; a gate FAIL blocks the save), blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — TEST → finals + `temp\` to `template-testing\<job>\`; PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`, never overwriting. `--prelim` only after the CD-4.4 decision (standard $30,000 fee unless the request names another, CD-4.3); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
+| 5 | **`draft_contract.py --job-dir`** — one timed command ending in the save: anchor checks (a miss aborts that document), fills, **Sydney inclusions content edit + Word layout pass + quality gate** (CD-9, 10 Sep 2026 — section 18 area, notes, `UPGRADED INCLUSIONS` items, black throughout; both columns re-levelled; a gate FAIL blocks the save), blank-vs-filled diffs, complete PDF exports through a single Word launch, then automatic routing — PRODUCTION → the docx+PDF pair into the job's `CONTRACT DOCUMENTATION`; REVISION → the same, the old version moved into `SS\` once the new one is in (9 Nov 2026), never overwriting. `--prelim` only after the CD-4.4 decision (standard $30,000 fee unless the request names another, CD-4.3); in TEST mode `--real-dir` defaults to the job folder for REAL_ exports + word-level diffs, every differing block classified. A failed stage blocks the save | Claude | CD-1.3, CD-2–4, CD-7.7 |
 | 6 | Draft the build contract **data sheet** (the contract figures block from `fill_buildcontract.txt`, worked from the price in both regions, CD-5.4 - QLD since 27 Oct 2026 - with any figures the person gave and their FLAGs; guarantors, special conditions, resident-owner), carrying the run's `hia contract:` status; it complements the driver's filled build contract and is the whole deliverable only when PRODUCTION is BLOCKED | Claude | CD-5 |
 | 7 | Report destination + mode, field table, flags, each amendment APPLIED or REFUSED with its request line (CD-10), and — Sydney — the `edit_inclusions.txt` items table (request → row → wording → confidence) and the gate verdict; send the final PDFs inline. Evidence bundle stays in `runtime\contract-admin\outputs\<job>\` (job JSON, check/fill/edit/gate reports, layout plan + align report, diffs, timings) | Claude | CD-9.10 |
 | 8 | **DocuSign draft**, only when the build contract routed PRODUCTION: `docusign_payload.py` writes the tool arguments (template by region × buyer type, named as the server's account names it; buyers' full legal names and emails from the job client's OSC contacts, Buyer 1 the principal buyer there (issue #77); subject/message; `JobNo`) and lists the job's PDFs under their CD-7.2 names; Claude checks the connection, previews (template by name, page counts, existing `JobNo` envelope) and calls `docusign_create_draft`, which creates the draft with `status: created` and the job's own PDFs. The approval prompt is the gate. Tabs carry onto documents with the template's page count; others go in untagged and flagged for staff. No production server yet, or any stop: no draft, reason reported; any fallback is open (CD-11.8) | Claude (via the `docusign-upload` MCP: `docusign-upload-prod` for a real job, `docusign-upload` sandbox for synthetic jobs) | CD-11 |
@@ -102,9 +103,10 @@ scan the six executed documents separately; manila folder to the filing cabinet.
 - **Plans not received** → produce everything else, name the unfilled fields.
 - **Auxiliary / dual key** → fill fields, route for review before issue (CD-6).
 - **Anchor missing on `--check`** → template revised; stop.
-- **A document type already in the folder** → that document refreshes to the
-  template-testing folder; missing types save to the job folder. A genuine amendment is promoted by a person
-  (CD-7.6/7.7).
+- **A document type already in the folder** → that document is a revision:
+  saved into the job folder, the old version moved into `SS\` once the new
+  one is in; missing types save as first versions (CD-7.5-7.7, 9 Nov 2026).
+  A signed or executed copy there stops the revision for a person.
 - **Prelim agreement requirement unclear** → ask (CD-4.4).
 
 ## HITL gates
@@ -112,28 +114,32 @@ scan the six executed documents separately; manila folder to the filing cabinet.
 The preview/approval gates that used to sit at the old steps 6 and 8 were
 **removed on 17 Aug 2026 by explicit instruction** (they had been declared
 permanent on 12/16 Aug — the removal supersedes that). Saving is now automatic
-and bounded by CD-7.6/7.7's per-document routing (8 Sep 2026): a document the
-job already holds refreshes only to the test folder, a document it does not
-hold yet saves into the job folder, and production saves never overwrite. What stays with a person, permanently: every
+and bounded by CD-7.6/7.7's per-document routing: every document saves into the
+job folder, a revision moving the version it replaces into `SS\` (9 Nov 2026),
+and nothing there is ever overwritten. What stays with a person, permanently: every
 outward-facing act — email, signature, sending a DocuSign envelope (the run creates only a draft, behind the approval prompt on the create call, CD-11) — plus approval of every OSC
 write through the integrated MCP procedure (one confirmation per stage), resolving
 flagged fields, aux inclusions wording, and promoting test/amendment output
 into a job folder.
 
-**Where the contract documents go (four rules, 8 Sep 2026)**
+**Where the contract documents go (four rules; rule 3 since 9 Nov 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's
    `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
    notes which contract documents are already there: inclusions, preliminary
    agreement, build contract (`SS\` included).
-2. A document the job folder does **not** have is a **real contract, not a
-   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
-   DOCUMENTATION` folder. It never goes to template-testing.
-3. A document the job folder **already** has is treated as a **test /
-   refresh**. Its `.docx` + `.pdf` go only to
-   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
-   The original in the job folder is never overwritten; a person swaps it in
-   (old version to `SS\`).
+2. A document the job folder does **not** have is its **first version**.
+   Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder.
+3. A document the job folder **already** has is a **revision**. The new
+   `.docx` + `.pdf` are saved into the same `CONTRACT DOCUMENTATION` folder
+   and the version they replace moves into its `SS\` subfolder (made if
+   missing) - only after the new copy is safely in the folder, so a failed
+   save never loses the current contract. An archived copy is never
+   overwritten: a name `SS\` already holds takes the next ` V2`, ` V3`.
+   A signed or executed copy stops the run instead (job 26061 feedback,
+   9 Nov 2026; until then a revision went to the template-testing folder
+   for a person to swap in).
 4. The build contract is **no longer blocked**. While NSW / QLD has no
    MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
    staged interim template under the real file name; the run report names
@@ -142,10 +148,8 @@ into a job folder.
 
 ## Outputs
 
-Saved automatically to the routed destination (CD-7.7): the job's
-`CONTRACT DOCUMENTATION` for a first draft, or
-`Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\` when
-the job already exists in production.
+Saved automatically into the job's `CONTRACT DOCUMENTATION` (CD-7.7): a first
+version as it is; a revision with the version it replaces moved into `SS\`.
 
 - Completed inclusions `.docx` + `.pdf` export (CD-2, CD-3, CD-7.4)
 - Completed preliminary agreement `.docx` + `.pdf` export, where required (CD-4)

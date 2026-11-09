@@ -10,9 +10,11 @@ send a DataBuild handoff email, wait for its entry, or write contract values to
 OSC (the Word document itself says the contract price is entered only in
 DataBuild). Continue to OSC contacts and contract drafting independently.
 Existing `CD-*` document pricing rules remain in force. OSC activity 6 ("Create
-Job within Databuild") is completed only on the person's confirmation that the
-DataBuild entry is done (issue #34 step 5); exclusion is not evidence of
-completion.
+Job within Databuild") is completed at the job's set-up (stage 2), whether or
+not DataBuild has the job yet: DataBuild work can only start once it is
+complete (job 26061 feedback sheet, 9 Nov 2026 row 2). Until then it waited
+for the person's confirmation that the DataBuild entry was done (issue #34
+step 5).
 
 The `osc-api-prod` MCP is the only OSC transport, and it reaches the
 **production** OnSite Companion staff use (owner approval, 13 Oct 2026). The
@@ -230,6 +232,7 @@ their work.
 
 | Custom field | Value | Rule |
 |---|---|---|
+| `Design` | the design name from the request; an auxiliary dwelling is `<design> + 60` - `Hyams 145 + 60`, `Breamlea 205 Mod + 60`, `Custom + 60`, as on every one of the 11 aux jobs since 26027 (read 9 Nov 2026). Never the documents' `+ Auxiliary Unit` (CD-6.2): 26061's intake sent it (feedback sheet 9 Nov 2026 row 1), and the gate now warns, naming the form to send. A value OSC already holds is left alone | JD-3.3 |
 | `Design Type` | `Single Storey` or `Double Storey` from the job's storeys (the request, else the SA / EOI's Storey tick - an ink mark on the SA, so read it off the rendered page, not the form fields - else the plans); `Single Storey with AUX Dwelling` / `Double Storey with AUX Dwelling` only for a granny flat. The same storeys the inclusions edit uses (`upgrades.storeys`). Not known: left blank and flagged | JD-3.2 |
 | `Property Type` | `Investment`, or `Owner Occupied` when the request or EOI says the buyer will live in it | JD-3.4 |
 | `Job Notes (Reporting)` | `CONTRACT SENT, AWAITING EXECUTION` | JD-3.11 |
@@ -280,14 +283,16 @@ Word item 8 (and `JD-4.1`) marks activities **1, 2 and 6** complete at intake an
 ticks activity 6's questions. The contract request email is the evidence for 1
 and 2: a marketer does not send a contract request before the initial contact
 and its follow-up have happened, so no further proof is asked for. Activity 6
-is the one exception, because its questions describe DataBuild work that a
-person does in issue #34's step 5, after this OSC stage.
+was held back to a third stage until 9 Nov 2026, because its questions
+describe DataBuild work; the team's answer (26061 feedback, row 2) is that
+DataBuild can only proceed once it is complete, so it goes with 1 and 2 as
+the Word item says.
 
 | Sequence | Description | Action |
 |---|---|---|
 | 1 | Initial Contact | Complete, `completionDate` = the day of entry (the manual's double-click sets today). |
 | 2 | Follow Up Initial Contact | Complete, same date. |
-| 6 | Create Job within Databuild | Complete **only when the person has confirmed in chat that the DataBuild entry is done** (issue #34 step 5); that is stage 3, one confirmation. The only question for the person is *"Is the job in DataBuild yet?"*. Never ask for DataBuild details or figures: the eight questions are ticks, not data (job 26059 review, issue #94). Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 3 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. The gate adds a warning to this completion: yes only once the job is in DataBuild. Without that confirmation it stays pending, is never marked N/A, and heads the report's manual list so it is not forgotten. |
+| 6 | Create Job within Databuild | Complete **in stage 2, with the job's set-up**, whether or not DataBuild has the job yet - DataBuild work can only start once it is complete (job 26061 feedback sheet, 9 Nov 2026 row 2; until then it waited for a stage 3 on the person's word that the DataBuild entry was done). Never ask about DataBuild: the eight questions are ticks, not data (job 26059 review, issue #94). Answer its eight questions first, then complete it. Staff answer all eight `Complete` (every one of the 9 recent jobs on this template, 15 Oct 2026, contour survey and soil report included), so stage 2 does the same; "Create Job File within Z:\ Drive, Projects Folder" only when the folder exists (step 3), otherwise the stage leaves that one question out and says why. Never marked N/A. |
 | 10 | Send EOI (Expression of Interest) to Marketer | **Not applicable**, in stage 2: `POST /api/JobActivities/{JobActivityID}/NotApplicable` with `{"shouldNotNALinkedActivities": true}` (OSC dates it itself; `true` leaves linked activities alone). The marketer sent the EOI, so Transpire never sends one. It is N/A on all of the 12 newest jobs (JD-4.4, issue #94). It is the only activity the gate marks N/A. |
 | 11 | Receive EOI Approval to Proceed from Marketer (may carry `a)` prefix) | Attach the request email (below), then complete: the request email *is* the marketer's approval to proceed (`JD-5.2`). Answer any questions it carries the same way. |
 
@@ -438,7 +443,6 @@ subfolder). Return to step 2 of the skill and the existing template selection,
 fill, diff, PDF and **per-document** routing. Do not replace the EOI/ID/plan
 sources for document fields with stale OSC values. Report OSC verified changes,
 manual/unverified fields, then document destinations and flags. The manual list
-opens with the DataBuild entry (issue #34 step 5) and, until the person confirms
-it, OSC activity 6 - say plainly that 6 is still pending in OSC and will be
-completed on their word. Never describe the whole OSC setup as complete while
-manual fields or unverified writes remain.
+opens with the DataBuild entry (issue #34 step 5), a person's step that can
+start now activity 6 is complete. Never describe the whole OSC setup as
+complete while manual fields or unverified writes remain.

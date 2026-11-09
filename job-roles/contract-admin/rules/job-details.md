@@ -10,10 +10,12 @@ For `/new-contract-template`, issue #34's Word items 1–9 are implemented throu
 the [OSC MCP execution reference](../../../.claude/skills/new-contract-template/references/osc-new-contract.md).
 Its field map uses live API schemas and IDs. The user's scope excludes DataBuild:
 `JD-6` and its wait do not block this intake, and contract values are not
-written to OSC. `JD-4.1` still stands: activities 1 and 2 are completed at
-intake (the request email is the evidence), activity 6 is completed only once
-the person confirms the DataBuild entry (issue #34 step 5) and stays pending
-until then. `JD-7.3`'s legacy sex-based slots are
+written to OSC. `JD-4.1` stands as written: activities 1, 2 and 6 are
+completed at intake (the request email is the evidence for 1 and 2). Activity
+6 goes with the job's set-up whether or not DataBuild has the job yet,
+because DataBuild work can only start once it is complete (job 26061
+feedback sheet, 9 Nov 2026 row 2; until then it waited for the person's word
+that the DataBuild entry was done). `JD-7.3`'s legacy sex-based slots are
 not used: Word item 9 makes purchasers primary contacts unless the marketer's
 sourced instruction says otherwise. Read `JD-8` as the later plan-update stage,
 not a prohibition on completing this intake's OSC contacts or contract drafts.
@@ -84,7 +86,12 @@ value already in OSC is a person's, and is never overwritten by a default
   email" only, so a Double Storey ticked on the SA went to the manual list.
   On the SA the tick is an ink mark, not a form field: read it off the
   rendered page.)*
-- **JD-3.3** Design & Façade: from the request email.
+- **JD-3.3** Design & Façade: from the request email. An auxiliary dwelling's
+  Design reads `<design> + 60` (`Hyams 145 + 60`, `Breamlea 205 Mod + 60`,
+  `Custom + 60`): every one of the 11 aux jobs in OSC since 26027, read
+  9 Nov 2026. The inclusions' `<design> + Auxiliary Unit` (CD-6.2) is the
+  documents' wording, not OSC's - 26061's intake sent it (feedback sheet
+  9 Nov 2026 row 1); the gate warns on it.
 - **JD-3.4** Property type: **`Investment`**, unless the request or EOI says
   the buyer will live in it (owner-occupier, or an Owner Occupier template):
   then **`Owner Occupied`**. Never left blank. *(Job 26059 review, issue #94:

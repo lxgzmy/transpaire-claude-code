@@ -102,6 +102,24 @@ class ConfirmationTests(GateTestCase):
             "customFieldValues": [{"customFieldID": self.fake.f_legal_phone, "value": "+86 138 0013 8000"}]})
         self.assertFalse(any("4-3-3" in w for w in out["warnings"]), "an overseas number is left as given")
 
+    async def test_an_aux_design_in_the_documents_wording_is_named_with_the_osc_form(self):
+        # job 26061 feedback sheet 9 Nov 2026 row 1: OSC names an aux design "+ 60"
+        for sent, want in (("Hyams 145 + Auxiliary Unit", '"Hyams 145 + 60"'),
+                           ("Breamlea 205 Mod + Auxiliary Dwelling", '"Breamlea 205 Mod + 60"'),
+                           ("Custom + AUX", '"Custom + 60"')):
+            out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+                "customFieldValues": [{"customFieldID": self.fake.f_design, "value": sent}]})
+            self.assertTrue(out["ok"], out)
+            self.assertTrue(any(want in w for w in out["warnings"]), (sent, out["warnings"]))
+        for sent in ("Hyams 145 + 60", "Sapphire 200", "Custom 240 with Studio"):
+            out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+                "customFieldValues": [{"customFieldID": self.fake.f_design, "value": sent}]})
+            self.assertFalse(any("+ 60" in w for w in out["warnings"]), (sent, out["warnings"]))
+        # the warning is about Design only: the same words in Facade say nothing
+        out = await self.prepare("PATCH", f"/api/Jobs/{self.fake.job_id}", body={
+            "customFieldValues": [{"customFieldID": self.fake.f_facade, "value": "Kent + Auxiliary Unit"}]})
+        self.assertFalse(any("+ 60" in w for w in out["warnings"]), out["warnings"])
+
     async def test_overwrite_and_clear_are_spelled_out(self):
         out = await self.prepare("PATCH", f"/api/Clients/{self.fake.client_id}",
                                  body={"postalAddress": {"line1": "2 NEW STREET", "suburb": ""}})
@@ -367,9 +385,11 @@ class RefusedTargetTests(GateTestCase):
         out = await self.prepare("POST", f"/api/JobActivities/{eoi}/Complete", body={"completionDate": "2026-10-15"})
         self.assertTrue(out["ok"], out)
         self.assertNotIn("DataBuild", out["confirmation_text"])
+        # activity 6 is completed at the job's set-up, whether or not DataBuild has the job yet
+        # (job 26061 feedback sheet 9 Nov 2026 row 2): no "only if in DataBuild" warning any more
         out = await self.prepare("POST", f"/api/JobActivities/{f.act6}/Complete", body={"completionDate": "2026-10-15"})
         self.assertTrue(out["ok"], out)
-        self.assertIn("Warning: say yes only if the job has been entered in DataBuild.", out["confirmation_text"])
+        self.assertNotIn("DataBuild", out["confirmation_text"])
 
     async def test_only_send_eoi_is_marked_not_applicable(self):
         f = self.fake

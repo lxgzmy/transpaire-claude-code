@@ -12,35 +12,36 @@ in the same pass. The preview/approval stop was REMOVED by instruction on
 17 Aug 2026: the run no longer pauses for a human between fill and save.
 
 --job-dir points at the job's CONTRACT DOCUMENTATION folder and decides the
-destination automatically, PER DOCUMENT (business rule, 8 Sep 2026, replacing
-the whole-run TEST/PRODUCTION switch of 17 Aug 2026):
+destination automatically, PER DOCUMENT. Every document lands in the job
+folder (business rule, 9 Nov 2026 - job 26061 feedback, replacing the 8 Sep
+2026 template-testing refresh):
 
   PRODUCTION - a document type (INCLUSIONS, PRELIMINARY AGREEMENT, BUILD
-     CONTRACT) that the job folder does NOT yet hold, SS\ included, is a real
-     contract document: its final .docx + .pdf pair is copied into the job
-     folder itself (CD-7.1/7.4). Never overwrites - a name clash stops the
-     run; superseding a version stays a person's copy + SS\ move (CD-7.5).
-  TEST - a document type the job folder ALREADY holds is a refresh of an
-     existing contract document: its finals go to
-     Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\
-     (refreshed in place), working files to its temp\, and the job folder is
-     not touched for that document - a person promotes it (CD-7.5). --real-dir
-     defaults to the job folder so the refresh is worddiffed against the
-     completed document.
+     CONTRACT) that the job folder does NOT yet hold, SS\ included: the first
+     version. Its final .docx + .pdf pair is copied into the job folder
+     itself (CD-7.1/7.4). Never overwrites - a name clash stops the run.
+  REVISION - a document type the job folder ALREADY holds: the new pair is
+     saved into the same CONTRACT DOCUMENTATION folder and the version it
+     replaces (every file of that type in the folder's top level) moves into
+     its SS\ subfolder, created when missing (CD-7.5). The new pair is copied
+     in under temporary names FIRST; the old version moves only after that,
+     and the new pair takes its real names last. Any failure on the way puts
+     everything back, so the current contract is never lost to a failed save.
+     An archived name already in SS\ is never overwritten: the copy takes the
+     next free " V2", " V3" (the team's own SS\ naming). --real-dir defaults
+     to the job folder, so the revision is worddiffed against the version it
+     replaces before the save.
 
-  One run can do both: on a job whose folder holds the inclusions but no
-  build contract yet, the inclusions refresh lands in template-testing and
-  the build contract is saved into the job folder. A document is a test
-  document only because that document already exists in production - never
-  because some other document does.
+  A document is a revision only because that document already exists in the
+  job folder - never because some other document does.
 
 The gates that remain are data gates, not preview gates: a missing anchor
 still aborts its document, an unsourced mandatory value still refuses the
-fill, any failed stage blocks delivery, production never overwrites, and the
-workdir still may not sit under Z:\PROJECTS - the only thing ever written
-into a job folder is the final pair, by deliver_production. --real-dir stays
-read-only (the real documents are opened read-only by Word and exported INTO
-the workdir).
+fill, any failed stage blocks delivery, nothing in the job folder is ever
+overwritten, and the workdir still may not sit under Z:\PROJECTS - the only
+things ever written into a job folder are the final pairs (deliver_production,
+deliver_revisions) and the request email. --real-dir stays read-only (the
+real documents are opened read-only by Word and exported INTO the workdir).
 
 Every --job-dir run also probes the HIA build contract status (hia_probe.py,
 CD-5.2a) and - since 18 Aug 2026, by explicit instruction - FILLS the build
@@ -58,7 +59,7 @@ in the summary and ships as hia_status.txt with the evidence.
 --no-build-contract skips the stage. --build-contract-only runs that stage
 alone and routes only the build contract (issue #73: QLD figures a person
 gives after the documents were saved; the job folder already holds the
-contract, so the refilled copy refreshes to template-testing).
+contract, so the refilled copy is a revision - saved there, the old one to SS\).
 
 Each stage is timed and the summary lands in <workdir>/timings.txt, so a slow
 run shows exactly where the time went (in practice: Word start-up - which is
@@ -72,6 +73,7 @@ owners - and 26045 - a single owner).
 """
 import argparse
 import json
+import os
 import queue
 import re
 import shutil
@@ -95,13 +97,19 @@ PRELIM_BLANK = Path(r"Z:\PROCEDURES & FORMS\CONTRACTS\REGION - SYDNEY\CONTRACT"
                     r"\NSW PRELIMINARY AGREEMENT 2024.docx")
 STATES = {"NSW", "QLD", "VIC", "ACT", "SA", "WA", "TAS", "NT"}
 
-# Test destination: a document type the job's CONTRACT DOCUMENTATION already
-# holds (SS\ included) already exists in production, so a new copy of THAT
-# document is a refresh and lands here; every other document type is a real
-# first draft and goes into the job folder (per-document routing, 8 Sep 2026).
-TEST_ROOT = Path(r"Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing")
+# Per-document routing (9 Nov 2026, job 26061): a document type the job's
+# CONTRACT DOCUMENTATION does not hold yet is its first version; one it holds
+# (SS\ included) is a revision, saved into the same folder with the version it
+# replaces moved into SS\. Until 9 Nov a revision refreshed to the
+# template-testing folder for a person to swap in; that step is gone.
 DOC_KINDS = ("INCLUSIONS", "PRELIMINARY AGREEMENT", "BUILD CONTRACT")
 CONTRACT_DOC_EXTS = {".docx", ".doc", ".pdf"}
+SS_DIR = "SS"
+# A signed or executed copy is never swept into SS\ by a run: none of the 598
+# contract files in the PROJECTS roots looked like one on 9 Nov 2026, so this
+# only ever stops a run that would otherwise bury an executed contract.
+SIGNED_RE = re.compile(r"sign|execut|docusign", re.I)
+STAGING_PREFIX = "~saving "   # the new pair's name in the job folder until the old one is in SS\
 LEGACY_TEST_BC_TAG = " - TEST UNAPPROVED TEMPLATE"  # pre-8 Sep 2026 output name, no longer produced
 
 # HIA build contract (CD-5.2a/5.2b, driver-integrated 18 Aug 2026 by explicit
@@ -191,11 +199,11 @@ def doc_suffix(values):
 def existing_contract_docs(job_dir):
     """{document kind: [existing files]} in the job's CONTRACT DOCUMENTATION, SS\\ included.
 
-    A kind with hits already exists in production, so a new copy of THAT
-    document is a refresh and routes to the test folder; a kind with none is
-    a genuine first draft and saves into the job folder (per-document routing,
-    8 Sep 2026). Only the three contract document kinds are looked at - the
-    request email, plans or ID scans in the folder never make anything a test.
+    A kind with hits already exists in the job folder, so a new copy of THAT
+    document is a revision; a kind with none is its first version (per-document
+    routing). Only the three contract document kinds are looked at - the
+    request email, plans or ID scans in the folder never make anything a
+    revision.
     """
     found = {kind: [] for kind in DOC_KINDS}
     for p in job_dir.rglob("*"):
@@ -212,18 +220,139 @@ def existing_contract_docs(job_dir):
     return {k: sorted(v) for k, v in found.items()}
 
 
-def route_kind(kind, existing, job_dir, workdir):
-    """(mode, destination folder) for one document kind."""
+def route_kind(kind, existing, job_dir, workdir=None):
+    """(mode, destination folder) for one document kind: PRODUCTION for its
+    first version, REVISION when the job folder already holds it. Both save
+    into the job folder."""
     if existing.get(kind):
-        return "TEST", TEST_ROOT / workdir.name
+        return "REVISION", Path(job_dir)
     return "PRODUCTION", Path(job_dir)
+
+
+def previous_versions(job_dir, kind):
+    """The files a revision of `kind` supersedes: every Word/PDF file of that
+    type in the job folder's top level (SS\\ and other subfolders are left
+    alone - they are already archived, or a person's own)."""
+    out = []
+    for p in sorted(Path(job_dir).iterdir()):
+        if not p.is_file() or p.suffix.lower() not in CONTRACT_DOC_EXTS:
+            continue
+        stem = p.stem.upper()
+        if stem.startswith(kind) and "REQUEST" not in stem:
+            out.append(p)
+    return out
+
+
+def ss_targets(ss, files):
+    """{file: its path in SS\\}. The name is kept when SS\\ does not hold it yet
+    (91 of the 112 archived contract files on the drive, 9 Nov 2026); otherwise
+    the next free " V2", " V3" ... as the team numbers repeated versions. A
+    .docx and its .pdf move under one suffix, and no existing name is reused."""
+    taken = {p.name.lower() for p in ss.iterdir()} if ss.is_dir() else set()
+    groups = {}
+    for f in files:
+        groups.setdefault(f.stem.lower(), []).append(f)
+    out = {}
+    for fs in groups.values():
+        n = 1
+        while True:
+            suffix = "" if n == 1 else f" V{n}"
+            names = [f"{f.stem}{suffix}{f.suffix}" for f in fs]
+            if not any(x.lower() in taken for x in names):
+                break
+            n += 1
+        for f, name in zip(fs, names):
+            out[f] = ss / name
+            taken.add(name.lower())
+    return out
+
+
+def plan_revisions(rev, job_dir):
+    """(files to archive, {file: SS target}) for the revised kinds, checked
+    before anything is written: a signed or executed copy among them stops the
+    run - superseding a signed contract is a person's decision."""
+    kinds = sorted({k for _, _, k in rev})
+    old = [p for k in kinds for p in previous_versions(job_dir, k)]
+    signed = [p.name for p in old if SIGNED_RE.search(p.stem)]
+    if signed:
+        sys.exit("ERROR: " + ", ".join(signed) + " looks signed or executed. A run never moves a "
+                 "signed contract into SS\\ - a person decides how it is superseded. Nothing was saved.")
+    return old, ss_targets(Path(job_dir) / SS_DIR, old)
+
+
+def deliver_revisions(rev, job_dir, plan=None):
+    """Save each revised pair into the job folder and move the version it
+    replaces into SS\\ - in an order that never loses the current contract
+    (9 Nov 2026, job 26061 feedback):
+
+      1. the new files are copied into the job folder under temporary names
+         ("~saving <name>") and their sizes checked;
+      2. only then does the old version move into SS\\ (created if missing),
+         under a name SS\\ does not hold yet;
+      3. last, the new files take their real names.
+
+    A failure at any step undoes the steps before it: the temporary copies are
+    removed and anything already moved comes back out of SS\\, so the folder is
+    exactly as it was and the old version stays in use. Returns report lines."""
+    job_dir = Path(job_dir)
+    ss = job_dir / SS_DIR
+    old, targets = plan or plan_revisions(rev, job_dir)
+    staged, moved, placed = [], [], []
+    made_ss = False
+
+    def undo():
+        for final in reversed(placed):
+            final.unlink(missing_ok=True)
+        for tmp, _ in staged:
+            tmp.unlink(missing_ok=True)
+        for src, dst in reversed(moved):
+            dst.rename(src)
+        if made_ss and not any(ss.iterdir()):
+            ss.rmdir()
+
+    step = "saving the new version"
+    try:
+        for src, name, _ in rev:
+            tmp = job_dir / f"{STAGING_PREFIX}{name}"
+            if tmp.exists():
+                raise FileExistsError(f"{tmp.name} is left from an earlier run - a person removes it")
+            staged.append((tmp, job_dir / name))
+            shutil.copy2(src, tmp)
+            if tmp.stat().st_size != Path(src).stat().st_size:
+                raise OSError(f"{tmp.name} did not copy completely")
+        step = "moving the previous version into SS\\"
+        if old and not ss.is_dir():
+            ss.mkdir()
+            made_ss = True
+        for p in old:
+            p.rename(targets[p])       # Windows refuses to rename onto an existing name
+            moved.append((p, targets[p]))
+        step = "giving the new version its name"
+        for tmp, final in staged:
+            tmp.rename(final)
+            placed.append(final)
+    except OSError as e:
+        try:
+            undo()
+            restored = "The job folder is as it was and the previous version is still in use"
+        except OSError as e2:
+            restored = (f"PUTTING IT BACK ALSO FAILED ({e2}) - a person checks the folder and "
+                        f"{job_dir / SS_DIR} now")
+        sys.exit(f"ERROR: revision not saved - {step} failed: {e}. Is a file open in another "
+                 f"program? {restored}. Close it and re-run with --job-dir and no --template "
+                 f"to save the already-filled workdir.")
+    lines = [f"  saved     : {final}   (revision)" for _, final in staged]
+    lines += [f"  archived  : {src.name} -> {SS_DIR}\\{dst.name}" for src, dst in moved]
+    for line in lines:
+        print(line)
+    return lines
 
 
 def write_routes(workdir, routes):
     """Record each document kind's decided route so later steps (the DocuSign
     draft, step 8) can read it without re-deriving it after the save - after
     the save the job folder holds the document, so a recomputation would say
-    TEST for what was in fact a PRODUCTION first draft."""
+    REVISION for what was in fact a PRODUCTION first version."""
     out = Path(workdir) / "routes.txt"
     lines = [f"{kind}\t{mode}\t{dest}" for kind, (mode, dest) in routes.items()]
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -308,47 +437,55 @@ def deliver_test(workdir, finals, dest, force):
 
 
 def deliver_production(finals, job_dir):
-    """First-draft save into the job's own CONTRACT DOCUMENTATION (CD-7.1).
+    """First-version save into the job's own CONTRACT DOCUMENTATION (CD-7.1).
 
     Writes the final docx + PDF pairs and nothing else - evidence stays in the
-    workdir. Never overwrites: a name clash stops the run, because superseding
-    a version is a person's copy + SS\\ move (CD-7.5).
+    workdir. Never overwrites: a name clash stops the run (a first version
+    cannot clash unless the folder changed during the run).
     """
     targets = [(src, Path(job_dir) / name) for src, name, _ in finals]
     clash = [b for _, b in targets if b.exists()]
     if clash:
         sys.exit("ERROR: already in the job folder: " + ", ".join(c.name for c in clash)
-                 + ". Production never overwrites - superseding a version is a person's "
-                 "copy with the old one moved to the folder's SS\\ (CD-7.5).")
+                 + ". A run never overwrites - re-run so the document is saved as a revision "
+                 "(the folder's copy moves into SS\\).")
     for a, b in targets:
         copy_final(a, b)
         print(f"  saved     : {b}")
 
 
 def deliver_routed(workdir, values, job_dir, existing, kinds=None):
-    """Per-document delivery: each kind to its own destination (8 Sep 2026).
+    """Per-document delivery into the job folder (9 Nov 2026).
 
-    Production kinds are checked for clashes BEFORE anything is copied, so a
-    run never ships half of itself. Test kinds refresh in place. `kinds`
-    limits the delivery to those documents (a build-contract-only run).
+    A first version is copied in (never overwriting); a revision is saved by
+    deliver_revisions, the version it replaces moved into SS\\. Every check -
+    first-version name clashes, a signed copy among the files a revision would
+    archive - runs BEFORE anything is written. `kinds` limits the delivery to
+    those documents (a build-contract-only run). Returns (first, revised).
     """
     finals = [f for f in collect_finals(workdir, values) if kinds is None or f[2] in kinds]
-    prod = [f for f in finals if route_kind(f[2], existing, job_dir, workdir)[0] == "PRODUCTION"]
-    test = [f for f in finals if f not in prod]
+    prod = [f for f in finals if route_kind(f[2], existing, job_dir)[0] == "PRODUCTION"]
+    rev = [f for f in finals if f not in prod]
+    clash = [Path(job_dir) / name for _, name, _ in prod if (Path(job_dir) / name).exists()]
+    if clash:
+        sys.exit("ERROR: already in the job folder: " + ", ".join(c.name for c in clash)
+                 + ". Nothing was saved.")
+    plan = plan_revisions(rev, job_dir) if rev else None
     if prod:
         deliver_production(prod, job_dir)
+    if rev:
+        deliver_revisions(rev, job_dir, plan)
+    if prod or rev:
         save_request_email(workdir, job_dir)
-    if test:
-        deliver_test(workdir, test, TEST_ROOT / workdir.name, force=True)
-    return prod, test
+    return prod, rev
 
 
 def save_request_email(workdir, job_dir):
     """The contract request email into the job's CONTRACT DOCUMENTATION beside the
-    first drafts (feedback sheet 5 Nov 2026 row 1, job 26060: the run saved only
+    documents (feedback sheet 5 Nov 2026 row 1, job 26060: the run saved only
     the documents; the team saves the request .msg there on every job - 26011,
     26019, 26032, 26058 - and added 26060's by hand). Named as Outlook's Save As
-    names it. Only on a run that saves into the job folder; never overwrites; an
+    names it. On every run that saves into the job folder; never overwrites; an
     email the folder already holds (same subject, any name) is left alone.
     Returns a report line."""
     import msg_extract
@@ -542,6 +679,86 @@ def resolve_lot_street(values, job_path, workdir, job_dir):
     return out, resolved
 
 
+# "Z:\ESTATES INFORMATION\<STATE>\<REGION>\<ESTATE>" - the sales manager points
+# the drafter at the estate's folder in the request (26061: ...\NSW\GUNNEDAH\
+# <ESTATE>). The drive files QLD estates under SEQ.
+ESTATE_FOLDER_STATE = {"SEQ": "QLD"}
+
+
+def estates_named(text, state, suburb=""):
+    """Estate names the request's "ESTATES INFORMATION\\<state>\\<region>\\<estate>"
+    paths give for the job's state. The drive's folders there are mixed, so
+    three are never an estate: one with a digit in its name (a lot or a street
+    address - 26061's request also points at an SEQ lot folder for the plan),
+    the job's own suburb (Tamworth's WESTDALE, whose jobs leave ESTATE blank),
+    and the ", <SUBURB>" tail some estate folders carry is dropped."""
+    found = []
+    sub = " ".join(str(suburb or "").split()).upper()
+    for line in str(text or "").splitlines():
+        i = line.upper().find("ESTATES INFORMATION\\")
+        if i < 0:
+            continue
+        parts = [p.strip() for p in re.split(r"\\+", line[i + len("ESTATES INFORMATION\\"):])]
+        if len(parts) < 3 or not parts[2]:
+            continue
+        folder_state = ESTATE_FOLDER_STATE.get(parts[0].upper(), parts[0].upper())
+        name = re.split(r"\s{2,}|[<>\"]", parts[2])[0].strip(" .,;:")
+        if sub and name.upper().endswith(", " + sub):
+            name = name[:-len(sub) - 2].strip()
+        if folder_state != state or not name or re.search(r"\d", name) or name.upper() == sub:
+            continue
+        title = name.title() if name.isupper() else name
+        if title not in found:
+            found.append(title)
+    return found
+
+
+def resolve_estate(values, job_path, workdir):
+    """ESTATE left blank in the job JSON while the request names the estate
+    (job 26061, feedback sheet 9 Nov 2026 rows 3, 7-10: the request pointed at
+    ...\\GUNNEDAH\\<ESTATE> and its subject named the estate again; the run
+    left ESTATE blank and every address went out without it, though the same
+    run wrote the estate in OSC). Filled only when the request
+    names one estate folder for the job's state AND names that estate again
+    outside the path (its subject or its text) - a folder path alone can be a
+    street subdivision or a suburb. Written in a resolved copy of the job JSON,
+    with a flag; anything less is a flag and ESTATE stays as the JSON has it."""
+    if str(values.get("estate") or "").strip():
+        return job_path, values
+    words = str(values.get("suburb") or "").split()
+    state = words[-1].upper() if words and words[-1].upper() in STATES else None
+    suburb = " ".join(words[:-1]) if state else ""
+    texts = []
+    for folder in {job_path.parent, Path(workdir)}:
+        texts += [p.read_text(encoding="utf-8", errors="replace") for p in sorted(folder.glob("email*.txt"))]
+    names = estates_named("\n".join(texts), state, suburb) if state else []
+    if not names:
+        return job_path, values
+    if len(names) > 1:
+        print(f"  FLAG: ESTATE is blank and the request names {len(names)} estate folders "
+              f"({', '.join(names)}) - left blank; set `estate` in the job JSON (CD-2.4)")
+        return job_path, values
+    outside = [l for t in texts for l in t.splitlines() if "ESTATES INFORMATION" not in l.upper()]
+    try:
+        import msg_extract
+        for p in sorted(Path(workdir).glob("*.msg")):
+            outside.append(msg_extract.subject(msg_extract.Cfb(p.read_bytes())))
+    except Exception:   # an unreadable .msg only means less evidence
+        pass
+    if names[0].lower() not in "\n".join(outside).lower():
+        print(f"  FLAG: ESTATE is blank; the request points at the estate folder {names[0].upper()} "
+              f"but names it nowhere else - left blank. If the lot is in that estate, set `estate` "
+              f"in the job JSON (CD-2.4)")
+        return job_path, values
+    resolved = dict(values, estate=names[0])
+    out = job_path.parent / (job_path.stem + ".estate.json")
+    out.write_text(json.dumps(resolved, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"  FLAG: estate: the job JSON left ESTATE blank; the request names the estate folder "
+          f"{names[0].upper()}, so {names[0]!r} is written in ESTATE and after the street "
+          f"(CD-2.4) - confirm the spelling against the latest neighbour in the estate")
+    return out, resolved
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--job", required=True)
@@ -557,12 +774,12 @@ def main():
                     help="skip PDF exports (regression/timing use only - the deliverable is "
                          "always the docx+pdf pair, so this cannot combine with a save)")
     ap.add_argument("--job-dir",
-                    help="the job's CONTRACT DOCUMENTATION folder. Decides the destination PER "
-                         "DOCUMENT and saves in the same pass: a document type already in the "
-                         "folder (SS\\ included) -> TEST (refreshed in the template-testing "
-                         "folder); a document type not there yet -> PRODUCTION (final pair into "
-                         "the job folder, never overwriting). Without --template/--prelim it "
-                         "routes and delivers an already-filled workdir.")
+                    help="the job's CONTRACT DOCUMENTATION folder. Saves every document there in "
+                         "the same pass, PER DOCUMENT: a document type not there yet -> "
+                         "PRODUCTION (first version, never overwriting); one already there "
+                         "(SS\\ included) -> REVISION (new pair saved there, the version it "
+                         "replaces moved into SS\\ once the new pair is in). Without "
+                         "--template/--prelim it routes and delivers an already-filled workdir.")
     ap.add_argument("--deliver",
                     help="explicit destination (handover/test folders, never Z:\\PROJECTS): copy "
                          "the final docx+pdf under their real deliverable names to this folder, "
@@ -575,8 +792,8 @@ def main():
                          "(regression/timing use only - a routed save always runs them)")
     ap.add_argument("--no-build-contract", action="store_true",
                     help="skip the HIA build-contract fill (it otherwise runs on every "
-                         "--job-dir fill: approved blank when one exists, staged UNAPPROVED "
-                         "template in TEST mode, data sheet otherwise)")
+                         "--job-dir fill: approved blank when one exists, the staged interim "
+                         "template otherwise, data sheet when neither exists)")
     ap.add_argument("--build-contract-only", action="store_true",
                     help="fill and route the build contract alone, e.g. QLD figures given after "
                          "the documents were saved (issue #73); the inclusions and the prelim "
@@ -627,15 +844,15 @@ def main():
             wanted = ["BUILD CONTRACT"]
         elif not (args.template or args.prelim):
             wanted = DOC_KINDS  # route-only run: whatever the workdir holds
-        routes = {k: route_kind(k, existing, job_dir, workdir) for k in wanted}
-        mode = "PRODUCTION" if any(m == "PRODUCTION" for m, _ in routes.values()) else "TEST"
-        print(f"  mode      : {mode} - routed per document (8 Sep 2026): a document the "
-              f"job folder already holds refreshes to template-testing; one it does not "
-              f"hold yet is saved into the job folder")
+        routes = {k: route_kind(k, existing, job_dir) for k in wanted}
+        mode = "PRODUCTION" if any(m == "PRODUCTION" for m, _ in routes.values()) else "REVISION"
+        print(f"  mode      : {mode} - routed per document (9 Nov 2026): every document is "
+              f"saved into the job folder; a document it already holds is a revision and the "
+              f"version it replaces moves into SS\\ once the new one is in")
         for k in wanted:
             m, d = routes[k]
-            why = (f"already in the job folder ({existing[k][0]})" if existing[k]
-                   else "not in the job folder yet")
+            why = (f"already in the job folder ({existing[k][0]}) - previous version to SS\\"
+                   if existing[k] else "not in the job folder yet")
             print(f"  route     : {k:<21} -> {m:<10} {d}   ({why})")
         if any(existing.values()) and not args.real_dir:
             args.real_dir = str(job_dir)
@@ -663,6 +880,7 @@ def main():
 
     job_path, values = resolve_lot_street(values, job_path, workdir,
                                           Path(args.job_dir) if args.job_dir else None)
+    job_path, values = resolve_estate(values, job_path, workdir)
 
     suffix = doc_suffix(values)
     timings, artifacts, failures = [], [], []
@@ -895,11 +1113,12 @@ def main():
     # still blocks the save - the run fails closed, it never ships a partial.
     if mode and not failures:
         def do_deliver():
-            prod, test = deliver_routed(workdir, values, job_dir, existing,
-                                        kinds=wanted if args.build_contract_only else None)
+            prod, rev = deliver_routed(workdir, values, job_dir, existing,
+                                       kinds=wanted if args.build_contract_only else None)
             write_routes(workdir, routes)  # only after a delivery that did not stop
             kinds = lambda fs: ", ".join(sorted({k.lower() for _, _, k in fs})) or "none"
-            print(f"  delivered : job folder <- {kinds(prod)}; template-testing <- {kinds(test)}")
+            print(f"  delivered : job folder <- first version: {kinds(prod)}; "
+                  f"revision (previous version in SS\\): {kinds(rev)}")
             return True
         stage(f"deliver ({mode.lower()})", do_deliver)
 

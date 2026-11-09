@@ -350,6 +350,20 @@ def phone_433(value: Any) -> str | None:
     return f"{digits[:4]} {digits[4:7]} {digits[7:]}"
 
 
+AUX_DESIGN = re.compile(r"\s*\+\s*aux(?:iliary)?(?:\s+(?:unit|dwelling))?\s*$", re.I)
+
+
+def design_form_warning(plan: "Plan", value: Any) -> None:
+    """A warning, not a block: OSC's Design names an auxiliary dwelling "+ 60" -
+    "Hyams 145 + 60", "Breamlea 205 Mod + 60" on every aux job since 26027 (11 jobs,
+    9 Nov 2026). "+ Auxiliary Unit" is the inclusions' HOUSE TYPE wording (CD-6.2);
+    the 26061 intake sent it to OSC (feedback sheet 9 Nov 2026 row 1)."""
+    if isinstance(value, str) and AUX_DESIGN.search(value):
+        plan.warnings.append(f"OSC's Design names an aux dwelling \"+ 60\" - send "
+                             f"\"{AUX_DESIGN.sub(' + 60', value).strip()}\", not \"{value.strip()}\" "
+                             f"(the documents' wording).")
+
+
 def phone_form_warning(plan: "Plan", name: str, value: Any) -> None:
     """A warning, not a block (one confirmation, no second prompt): a phone number
     that is not in the 4-3-3 form names the form to send instead."""
@@ -938,6 +952,8 @@ class Gate:
             new = item.get("value")
             if "phone" in labels[fid].lower():
                 phone_form_warning(plan, labels[fid], new)
+            if labels[fid].strip().lower() == "design":
+                design_form_warning(plan, new)
             if not same(merged.get(fid), new):
                 changed = True
                 plan.changes.append(self._change(f"{CUSTOM}.{fid}", labels[fid], merged.get(fid), new,
@@ -1247,8 +1263,10 @@ class Gate:
         # fill other activity fields when it completes one, so no whole-record compare.
         plan.request = {"json": await self._diff(plan, body, {"completionDate": None})}
         plan.headline = f"{name} is marked complete"
-        if _activity_name(activity.get("description")) == DATABUILD_ACTIVITY:
-            plan.warnings.append("say yes only if the job has been entered in DataBuild.")
+        # "Create Job within Databuild" is completed at the job's set-up, with
+        # the rest of stage 2: DataBuild work can only start once it is
+        # complete (job 26061 feedback sheet, 9 Nov 2026 row 2). Until then the
+        # gate warned "say yes only if the job has been entered in DataBuild".
 
     async def _plan_not_applicable_activity(self, plan, job, body, form, files):
         activity = await self._activity_for_job(

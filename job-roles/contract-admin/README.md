@@ -15,10 +15,11 @@ Proof-of-concept, read-only and draft-first. Three workflows:
    (`.docx` + PDF export each; the build contract fills whenever a usable Word
    template exists — approved blank → real name, otherwise the staged interim
    template → real name too, in production as well as test since 8 Sep 2026,
-   no template at all → data sheet, CD-5.2b) → saved to the routed
-   destination per document: the job folder for a document not yet there,
-   the template-testing folder for a document the job already holds
-   (CD-7.6/7.7 — no preview stop; issuing stays human).
+   no template at all → data sheet, CD-5.2b) → saved into the job folder
+   per document: a document not yet there as its first version, one the job
+   already holds as a revision with the old version moved into `SS\`
+   (CD-7.5-7.7, revisions since 9 Nov 2026 — no preview stop; issuing stays
+   human).
    Verified character-for-character against completed jobs in all three
    template families. Skill: `/new-contract-template`. It now includes
    [OSC job setup](../../.claude/skills/new-contract-template/references/osc-new-contract.md)
@@ -36,20 +37,24 @@ only the job-specific `Z:` rules (`JD-10`, `scripts/new_job_folders.ps1`).
 
 ## Where the documents go
 
-**Where the contract documents go (four rules, 8 Sep 2026)**
+**Where the contract documents go (four rules; rule 3 since 9 Nov 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's
    `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
    notes which contract documents are already there: inclusions, preliminary
    agreement, build contract (`SS\` included).
-2. A document the job folder does **not** have is a **real contract, not a
-   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
-   DOCUMENTATION` folder. It never goes to template-testing.
-3. A document the job folder **already** has is treated as a **test /
-   refresh**. Its `.docx` + `.pdf` go only to
-   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
-   The original in the job folder is never overwritten; a person swaps it in
-   (old version to `SS\`).
+2. A document the job folder does **not** have is its **first version**.
+   Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder.
+3. A document the job folder **already** has is a **revision**. The new
+   `.docx` + `.pdf` are saved into the same `CONTRACT DOCUMENTATION` folder
+   and the version they replace moves into its `SS\` subfolder (made if
+   missing) - only after the new copy is safely in the folder, so a failed
+   save never loses the current contract. An archived copy is never
+   overwritten: a name `SS\` already holds takes the next ` V2`, ` V3`.
+   A signed or executed copy stops the run instead (job 26061 feedback,
+   9 Nov 2026; until then a revision went to the template-testing folder
+   for a person to swap in).
 4. The build contract is **no longer blocked**. While NSW / QLD has no
    MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
    staged interim template under the real file name; the run report names

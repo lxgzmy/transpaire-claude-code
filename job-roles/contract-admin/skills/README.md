@@ -19,11 +19,11 @@ Built:
   template off `Z:\PROCEDURES & FORMS\CONTRACTS\`, fills it via
   `../scripts/fill_inclusions.py`, diffs filled against blank, and **saves in the
   same pass** (the preview/approval stop was removed 17 Aug 2026), **routed
-  per document** (8 Sep 2026): a document type the job's `CONTRACT
-  DOCUMENTATION` already holds refreshes to
-  `cowork-projects\3.new_contract\template-testing\<job>\`; a document type
-  not there yet saves its pair into the job folder, never overwriting
-  (CD-7.6/7.7). Produces the inclusions and preliminary agreement as completed
+  per document** into the job's `CONTRACT DOCUMENTATION`: a document type
+  not there yet saves its pair as the first version, never overwriting; one
+  already there is a revision, the old version moved into `SS\` once the new
+  one is in (CD-7.5-7.7, 9 Nov 2026; until then revisions went to the
+  template-testing folder). Produces the inclusions and preliminary agreement as completed
   `.docx` **plus the PDF export** (CD-7.4 — every completed job keeps the
   pair); the **build contract is filled in the same pass** whenever a usable
   Word template exists (`../scripts/fill_hia.py`, NSW+QLD, CD-5.2b, 18 Aug
@@ -82,20 +82,24 @@ Planned:
 
 ## Where `/new-contract-template` saves its documents
 
-**Where the contract documents go (four rules, 8 Sep 2026)**
+**Where the contract documents go (four rules; rule 3 since 9 Nov 2026)**
 
 1. Every `/new-contract-template` run first looks in the job's
    `Z:\PROJECTS\<region>\<job>\CONTRACT\CONTRACT DOCUMENTATION\` folder and
    notes which contract documents are already there: inclusions, preliminary
    agreement, build contract (`SS\` included).
-2. A document the job folder does **not** have is a **real contract, not a
-   test**. Its `.docx` + `.pdf` are saved straight into that `CONTRACT
-   DOCUMENTATION` folder. It never goes to template-testing.
-3. A document the job folder **already** has is treated as a **test /
-   refresh**. Its `.docx` + `.pdf` go only to
-   `Z:\CLAUDE CODE\cowork-projects\3.new_contract\template-testing\<job>\`.
-   The original in the job folder is never overwritten; a person swaps it in
-   (old version to `SS\`).
+2. A document the job folder does **not** have is its **first version**.
+   Its `.docx` + `.pdf` are saved straight into that `CONTRACT
+   DOCUMENTATION` folder.
+3. A document the job folder **already** has is a **revision**. The new
+   `.docx` + `.pdf` are saved into the same `CONTRACT DOCUMENTATION` folder
+   and the version they replace moves into its `SS\` subfolder (made if
+   missing) - only after the new copy is safely in the folder, so a failed
+   save never loses the current contract. An archived copy is never
+   overwritten: a name `SS\` already holds takes the next ` V2`, ` V3`.
+   A signed or executed copy stops the run instead (job 26061 feedback,
+   9 Nov 2026; until then a revision went to the template-testing folder
+   for a person to swap in).
 4. The build contract is **no longer blocked**. While NSW / QLD has no
    MCR-filed Word blank in its `CONTRACT\` template folder, the run fills the
    staged interim template under the real file name; the run report names

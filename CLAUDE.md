@@ -181,11 +181,14 @@ skills are scoped to that folder and must not leak into another role.
   23 October 2026, the Permit Officer changes (issue #84) are possible, each
   tied to the named job and to the workflow that asked for it, and every
   answer is logged under `runtime\<role>\logs\`. Since 15 October 2026 the changes are grouped one
-  confirmation per intake stage (new client and job; the job's set-up;
-  DataBuild done), each change still re-checked and read back. This is not an extension of automatic
+  confirmation per intake stage (new client and job; the job's set-up),
+  each change still re-checked and read back. This is not an extension of automatic
   document-save permission.
   DataBuild itself stays a human step (no handoff email, no waiting); OSC
-  activity 6 is completed only once that person confirms the entry. Since
+  activity 6 "Create Job within Databuild" is completed at the job's set-up
+  whether or not DataBuild has the job yet, because DataBuild work can only
+  start once it is complete (job 26061 feedback, 9 Nov 2026; until then it
+  waited for the person's word that the entry was done). Since
   29 Oct 2026 (issue #94, the job 26059 review) the intake also marks
   activity 10 "Send EOI to Marketer" not applicable. That is the one N/A the
   gate allows. Multipart
