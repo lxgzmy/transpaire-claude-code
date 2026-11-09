@@ -408,6 +408,8 @@ and the site box are filled for this job. It applies the removals: a label
 whose last line goes leaves with it. Then come the layout pass, the gate,
 and a last scan that nothing of the sample's client is left. It stops
 instead of saving when:
+- the sample is a PDF or anything else but a Word `.docx`. Ask the requester
+  for the Word file, or start from the template and key the aux section by hand;
 - the sample's standard wording is not the current blank's;
 - the sample's specification names its own client;
 - the job is Sydney or SEQ (they have AUXILIARY blanks).
