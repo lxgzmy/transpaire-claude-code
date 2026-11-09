@@ -7,6 +7,9 @@ sheet row it guards:
 
   row 1   the request email saved into the job folder as Outlook names it
   row 5   amounts in one column line up on their digits
+  row 7   the house number bracketed alike in every NSW document; a parent
+          address ("29 Sample & 25 Example Street") replaced by the lot's own
+          street when the plans name exactly one (CD-2.4, job 26060)
   row 11  QLD building period from storeys and house size
   rows 8-10, 12, 13, 16  a company owner: name with its ACN, sized to its
           line, "<signatory> on behalf of <company> ACN: ..." under it
@@ -231,6 +234,84 @@ def test_row_7_brackets():
     check(S.applies("NSW") and S.applies("sydney") and S.applies("gunnedah"), "NSW documents bracket")
 
 
+def plan_pdf(path, *lines):
+    """A minimal PDF whose one Flate content stream shows the given text lines."""
+    import zlib
+    body = b"BT " + b" ".join(b"(" + s.encode("latin-1") + b") Tj" for s in lines) + b" ET"
+    blob = zlib.compress(body)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_bytes(b"%%PDF-1.4\n1 0 obj << /Length %d /Filter /FlateDecode >>\nstream\n" % len(blob)
+                           + blob + b"\nendstream\nendobj\n%%EOF\n")
+    return path
+
+
+def test_row_7_parent_address():
+    print("row 7 / CD-2.4: a parent address gives way to the lot's own street from the plans")
+    import street_format as S
+    import draft_contract as D
+    f = S.lot_street_from_plan_text
+    check(f("Cossies 170 - Karri facade Lot  5  Example  Street  Sampleville NSW Floor Plan", "5") == "Example Street",
+          "the title block's street is found, spacing ignored")
+    check(f("Lot 5 Example St Sampleville", "5") == "Example Street", "an abbreviated type is written out")
+    check(f("Lot 5 Example Street ... Lot 5 Other Road", "5") is None, "plans naming two streets give none")
+    check(f("Lot 15 Example Street", "5") is None and f("Lot 5 - Cossies 170", "5") is None,
+          "another lot, or no street after the lot, gives none")
+    check(f("Lot 5 29 Example Street", "5") is None, "a numbered street is not the lot's")
+    parent = "29 Sample & 25 Example Street"
+    check(f("Lot 5 New Road ... Lot 5 Example Street Sampleville", "5", parent) == "Example Street",
+          "with the request's address: a placeholder New Road on the plans is ignored")
+    check(f("Lot 5 Other Court Sampleville", "5", parent) is None,
+          "with the request's address: a street it does not name is never taken (a suburb, a neighbour)")
+    check(f("Lot 5 Sample Road ... Lot 5 Example Street", "5", parent) is None,
+          "plans naming both of the request's streets give none")
+    check(S.parent_street_names(parent) == {"SAMPLE", "EXAMPLE"}, "the parent address's street names")
+    check(S.is_parent_address("29 Sample & 25 Example Street") and not S.is_parent_address("(3) Sample Road"),
+          "a two-number street is a parent address")
+    job = {"lot_no": "5", "street": "29 Sample & 25 Example Street", "land_street": "29 Sample & 25 Example Street",
+           "site_address": "5, 29 Sample & 25 Example Street, SAMPLEVILLE NSW 2000",
+           "site_hia": "29 Sample & 25 Example Street, SAMPLEVILLE NSW 2000", "estate": ""}
+    v, note = S.use_lot_street(job, "Example Street", "PLANS.pdf")
+    check(v["street"] == v["land_street"] == "Example Street"
+          and v["site_address"] == "5, Example Street, SAMPLEVILLE NSW 2000"
+          and v["site_hia"] == "Example Street, SAMPLEVILLE NSW 2000" and v["estate"] == "" and note,
+          "every street and site key takes the lot's street, ESTATE untouched, with a note")
+    v2, _ = S.bracket_job(v)
+    check(v2["street"] == "Example Street", "the bracket step leaves a numberless street alone")
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        work, jobdir = t / "work", t / "CONTRACT DOCUMENTATION"
+        work.mkdir(); jobdir.mkdir()
+        jp = work / "job.json"
+        import json
+        jp.write_text(json.dumps(job), encoding="utf-8")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            p0, v0 = D.resolve_lot_street(job, jp, work, jobdir)
+        check(p0 == jp and v0 == job and "no plans" in buf.getvalue(), "no plans: as given, flagged")
+        plan_pdf(jobdir / "PLANS_LOT 5_SAMPLEVILLE.pdf", "Lot 5 Example Street Sampleville", "Floor Plan")
+        plan_pdf(jobdir / "Sales Advice.pdf", "Lot 5 Wrong Road")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            p1, v1 = D.resolve_lot_street(job, jp, work, jobdir)
+        check(p1 != jp and p1.parent == jp.parent and v1["street"] == "Example Street" and "confirm" in buf.getvalue()
+              and json.loads(p1.read_text(encoding="utf-8"))["site_address"].startswith("5, Example Street,")
+              and json.loads(jp.read_text(encoding="utf-8"))["street"] == job["street"],
+              "plans in the job folder: the lot's street in a resolved copy, the job JSON untouched")
+        other = t / "other-workdir"; other.mkdir()
+        with redirect_stdout(io.StringIO()):
+            p3, _ = D.resolve_lot_street(job, jp, other, jobdir)
+        check(p3.parent == jp.parent, "another --workdir: the resolved copy still sits beside the job JSON "
+              "and its request text")
+        plan_pdf(work / "attachments" / "Contract Plans.pdf", "Lot 5 Sample Road")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            p2, v2 = D.resolve_lot_street(job, jp, work, jobdir)
+        check(p2 == jp and v2 == job and "none puts lot 5" in buf.getvalue(),
+              "plans that disagree: as given, flagged")
+        single = dict(job, street="3 Sample Road")
+        check(D.resolve_lot_street(single, jp, work, jobdir) == (jp, single), "a normal street is not touched")
+
+
 def test_row_1_email_name():
     print("row 1: the request email named as Outlook saves it")
     n = msg_extract.outlook_file_name
@@ -240,11 +321,26 @@ def test_row_1_email_name():
           "New Build Contract Order_  Lot 209_ 3 SAMPLE ROAD_ SAMPLEVILLE NSW 2000.msg", "commas become _")
     check(n("") == "Contract request.msg", "no subject: a plain name")
     check(n('a/b\\c*d?e"f<g>h|i') == "a_b_c_d_e_f_g_h_i.msg", "characters Windows refuses become _")
+    import draft_contract as D
+    with tempfile.TemporaryDirectory() as t:
+        work, jobdir = Path(t) / "work", Path(t) / "CONTRACT DOCUMENTATION"
+        work.mkdir(); jobdir.mkdir()
+        with redirect_stdout(io.StringIO()):
+            none = D.save_request_email(work, jobdir)
+            (jobdir / "Request _ Lot 1 Sample Road.msg").write_bytes(b"x")
+            held = D.save_request_email(work, jobdir)
+            (work / "a.msg").write_bytes(b"x"); (work / "b.msg").write_bytes(b"x")
+            two = D.save_request_email(work, jobdir)
+        check("NOT saved" in none and "no .msg" in none, "no request email anywhere: reported for a person")
+        check("already in the job folder" in held and "Request _ Lot 1" in held,
+              "an email dragged straight into the job folder: not reported missing")
+        check("NOT saved" in two and "2 .msg" in two and len(list(jobdir.glob("*.msg"))) == 1,
+              "two emails in the workdir: nothing copied, reported")
 
 
 def main():
     for t in (test_rows_14_15, test_row_5_alignment, test_row_11_period, test_company_names, test_font_fit,
-              test_row_7_brackets, test_row_1_email_name):
+              test_row_7_brackets, test_row_7_parent_address, test_row_1_email_name):
         buf = io.StringIO()
         with redirect_stdout(buf):
             t()
