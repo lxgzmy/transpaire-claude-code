@@ -256,6 +256,7 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
             raise RunError(stop)
         return {"plan": ["would stop: " + stop], "dry_run": True}
     reports, outputs, state = runtime / "reports", runtime / "outputs", runtime / "state"
+    before_first = state / STATE_FILE.replace(".json", f".before-{asof:%d.%m.%Y}.json")
     base_date, base_src = find_base(archive, asof)
     base = reports / f"BA REPORT - {base_date:%d.%m.%Y}.xlsx"
     edited_src, drafted, found = find_last_draft(drop, outputs, asof)
@@ -266,7 +267,8 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
             (f"her edits: {edited_src.name} (drop folder), read against {drafted}" if drafted else
              f"her edits: {edited_src.name} found but the draft as written is not in {outputs}; not read"
              if edited_src else "her edits: no earlier draft in the drop folder"),
-            f"restart: state set aside as .{restart}.json" if restart else "state: carried on",
+            f"restart: state set aside as .{restart}.json" if restart else
+            "state: as it was before this Monday's first run (a re-run)" if before_first.exists() else "state: carried on",
             f"snapshot: jobs {','.join(jobs)} -> {state / 'snapshots'}",
             f"draft: BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx -> {outputs}, delivered to {drop}"] + found
     there = Path(drop) / f"BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx"
@@ -310,6 +312,14 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
     if use_edits:
         copy_in(edited_src, edited)
     moved = restart_state(state, restart) if restart else []
+    # A run tidies items she resolved out of the state, so a re-run of this Monday starts from the state
+    # as it was before its first run; otherwise what she typed on those items in earlier weeks is lost.
+    current = state / STATE_FILE
+    if before_first.exists():
+        shutil.copyfile(before_first, current)
+    else:
+        state.mkdir(parents=True, exist_ok=True)
+        before_first.write_text(current.read_text(encoding="utf-8") if current.exists() else "{}", encoding="utf-8")
     draft, ev_md, evidence = build_draft(base, snap_dir, outputs, asof=asof.isoformat(), state_dir=state,
                                          jobs=jobs, edited=edited if use_edits else None,
                                          drafted=drafted if use_edits else None)

@@ -21,7 +21,7 @@ has, in the base's order, under the base's sheet name. Known headers:
 | Submit for BA | date | filled from the OSC activity when blank |
 | Received RFI | date, or text ("AWAITING RFI") | filled from OSC when blank |
 | Received Covenant Approval | date | filled from OSC when blank |
-| Submit all RFI Items | date when complete; while in flight `PENDING A (STATE), B (W/O X)` in red bold, plus an optional second line `RESOLVED C (dd/mm/yyyy)` for items closed since the last report | **required**; the outstanding-items cell |
+| Submit all RFI Items | date when complete; while in flight `PENDING A (STATE), B (W/O X)` in red bold, plus an optional second line `RESOLVED C (dd/mm/yyyy)` for items closed since the last report. Commas inside brackets stay in the item; a bracket opened and never closed holds nothing together and is closed at the end of its own item, and the job's flags say how the list was read | **required**; the outstanding-items cell |
 | BA Received | date | filled from OSC when blank |
 | Deposit Paid | date | filled from OSC when blank |
 | Nominate Site Start | date | filled from OSC when blank |

@@ -1019,6 +1019,11 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
             else:
                 job_ev["flags"].append("no snapshot — no fresh OSC evidence this week; items aged from the report "
                                        "and your Items sheet only")
+            g = row["submit_all_rfi_items"]
+            if g.get("unclosed"):
+                job_ev["flags"].append(f"a bracket in your RFI list is not closed, so it was read as {len(g['items'])} "
+                                       f"items ({'; '.join(i['name'] for i in g['items'])}); close it in the report "
+                                       "if that is wrong")
 
         date_keys = ["submit_for_ba", "received_rfi", "received_covenant",
                      "submit_all_rfi_items", "ba_received", "deposit_paid",

@@ -71,7 +71,10 @@ is not in the archive yet (it never falls back to an older one), when the
 snapshot fails, or when the draft for that Monday in the drop folder has been
 changed since it was delivered (she may be working on it; `--force` only once
 you know it can go). Re-running a Monday is fine while the draft there is
-still exactly what was delivered. It keeps a copy of what it delivered in `outputs\delivered\`, so next
+still exactly what was delivered: a re-run starts from the state as it was
+before that Monday's first run (`state\ba-items-first-seen.before-dd.mm.yyyy.json`,
+kept by the first run), so it gives the same draft apart from what changed in
+OSC. It keeps a copy of what it delivered in `outputs\delivered\`, so next
 week her edits are read against exactly what she was given.
 
 Checks it makes on every run (since 31 Oct 2026), each with a regression
