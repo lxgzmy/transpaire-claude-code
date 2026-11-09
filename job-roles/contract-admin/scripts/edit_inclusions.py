@@ -1,8 +1,17 @@
-r"""Edit the content of a filled Sydney or SEQ inclusions document from the job's `upgrades` block. Stdlib only.
+r"""Edit the content of a filled Sydney, SEQ or Gunnedah inclusions document from the job's `upgrades` block. Stdlib only.
 
     python edit_inclusions.py --docx <filled.docx> --job <job.json> --blank <blank.docx>
                               --blank-measure <blank.measure.json> --out <edited.docx>
                               [--report <edit_inclusions.txt>] [--plan <layout_plan.json>]
+                              [--family gunnedah]   (when --blank is a sample base, not a Z: blank)
+
+Gunnedah (also Tamworth; job 26061 feedback sheet, 9 Nov 2026 row 5, CD-6.6)
+      removals only: an item with mode "remove" takes its label and wording
+      out, or - with `replaces` - the one line containing that text, and the
+      label too when that was its last line. Any other item is refused; writing
+      upgrade lines there stays a person's edit. The section is the blank's
+      PROMOTIONAL UPGRADES, or a sample base's "PROMOTIONAL UPGRADES – Main
+      Dwelling" and "UPGRADED INCLUSIONS – AUX DWELLING" (sample_base.py).
 
 What it changes (NSW inclusions feedback sheet 9.9, issue #35; instruction of
 10 Sep 2026 that reversed the "spec content is a person's edit" rule):
@@ -159,18 +168,31 @@ SEQ_LABEL_TO_CATEGORY = {
 # PROMOTIONAL UPGRADES section takes the same item rules as Sydney's UPGRADED
 # INCLUSIONS; it has no section 18, Bathroom 2 notes or air-con note, and its
 # air conditioning is an ordinary item.
+# Gunnedah (also Tamworth; job 26061 feedback sheet, 9 Nov 2026 row 5): the
+# blank's PROMOTIONAL UPGRADES section, and - when the request sends another
+# job's inclusions as the base (CD-6.6, sample_base.py) - that sample's
+# "PROMOTIONAL UPGRADES – Main Dwelling" and "UPGRADED INCLUSIONS – AUX
+# DWELLING" sections. Only the request's removals are applied there: writing
+# upgrade lines on a Gunnedah job stays a person's edit (the content-edit
+# exceptions of 10 Sep, 15 Oct and 28 Oct 2026 name Sydney and SEQ only).
 FAMILY_RULES = {
     "sydney": {"heading": "UPGRADED INCLUSIONS", "sydney_edits": True, "labels": {}},
     "seq": {"heading": "PROMOTIONAL UPGRADES", "sydney_edits": False, "labels": SEQ_LABEL_TO_CATEGORY},
+    "gunnedah": {"heading": "PROMOTIONAL UPGRADES", "headings": ("PROMOTIONAL UPGRADES", "UPGRADED INCLUSIONS"),
+                 "sydney_edits": False, "labels": {}, "modes": ("remove",)},
 }
 OTHER_UPGRADE_HEADINGS = ("PROMOTIONAL UPGRADES",)   # package headings of the non-Sydney families
+# Every heading that opens an upgraded section in the active family (use_family):
+# the first is the family's own; a dwelling split may use another for one dwelling.
+UPGRADE_HEADINGS = (UPGRADED_HEADING,)
 
 
 def use_family(fam):
-    """Point the section helpers at one family's heading and label map."""
-    global UPGRADED_HEADING
+    """Point the section helpers at one family's heading(s) and label map."""
+    global UPGRADED_HEADING, UPGRADE_HEADINGS
     rules = FAMILY_RULES[fam]
     UPGRADED_HEADING = rules["heading"]
+    UPGRADE_HEADINGS = tuple(rules.get("headings") or (rules["heading"],))
     LABEL_TO_CATEGORY.update(rules["labels"])
     return rules
 
@@ -527,10 +549,14 @@ def edit_storeys(cols, storeys, log, flags):
 
 
 def is_upgraded_heading(text):
-    """`UPGRADED INCLUSIONS`, or one of the AUXILIARY blanks' `UPGRADED INCLUSIONS – <dwelling>`."""
+    """`UPGRADED INCLUSIONS`, or one of the AUXILIARY blanks' `UPGRADED INCLUSIONS – <dwelling>`.
+
+    The family's heading(s) as the blank writes them, in capitals; the dwelling
+    may be in any case (a Gunnedah sample reads "PROMOTIONAL UPGRADES – Main
+    Dwelling" above "UPGRADED INCLUSIONS – AUX DWELLING")."""
     t = norm(text)
-    return t == UPGRADED_HEADING or (t.startswith(UPGRADED_HEADING + " ")
-                                     and any(t.endswith(d) for d in DWELLINGS))
+    return any(t == h or (t.startswith(h + " ") and any(t.upper().endswith(d) for d in DWELLINGS))
+               for h in UPGRADE_HEADINGS)
 
 
 def upgraded_headings(paras):
@@ -539,7 +565,7 @@ def upgraded_headings(paras):
 
 
 def dwelling_of(heading_text):
-    t = norm(heading_text)
+    t = norm(heading_text).upper()
     return next((v for k, v in DWELLINGS.items() if t.endswith(k)), "single")
 
 
@@ -673,15 +699,34 @@ def edit_items(cols, items, categories, log, flags):
                 break
         if mode == "remove":
             # the label and its wording leave the section together, each with the
-            # blank lines that trail it (the layout pass re-levels what follows)
+            # blank lines that trail it (the layout pass re-levels what follows).
+            # With `replaces`, only the line containing that text goes - and the
+            # label with it when it was the label's last line: a label is never
+            # left with nothing beside it (job 26061 feedback sheet, 9 Nov 2026
+            # row 5: "Statutory Regulations" held only the infrastructure-fee note
+            # the request removed, and the label stayed)
             if li is None:
                 raise SystemExit(f"ERROR: item {cat!r}: mode \"remove\" but no such label in {section}")
             s, e = groups[li]
             lab = norm(ptext(L[labels[li]]))
-            gone = [norm(ptext(R[k])) for k in range(s, e)]
-            del R[s:span_end(R, e - 1)]
-            del L[labels[li]:span_end(L, labels[li])]
-            action = f"removed label {lab!r} and its {len(gone)} line(s)"
+            replaces = norm(str(it.get("replaces", "") or ""))
+            k = None
+            if replaces:
+                hits = [k for k in range(s, e) if replaces.lower() in norm(ptext(R[k])).lower()]
+                if len(hits) != 1:
+                    raise SystemExit(f"ERROR: item {cat!r}: {len(hits)} lines under {lab!r} contain "
+                                     f"{replaces!r} - name exactly one line to remove")
+                k = hits[0]
+            if k is not None and e - s > 1:
+                gone = norm(ptext(R[k]))
+                del R[k]
+                action = f"removed the line {gone[:60]!r} under {lab!r} (the label keeps {e - s - 1} line(s))"
+            else:
+                gone = [norm(ptext(R[k])) for k in range(s, e)]
+                del R[s:span_end(R, e - 1)]
+                del L[labels[li]:span_end(L, labels[li])]
+                action = (f"removed label {lab!r} and its {len(gone)} line(s)"
+                          + (" - the line named was its only one" if k is not None else ""))
             lines = []
         elif li is not None:
             s, e = groups[li]
@@ -862,7 +907,8 @@ def trim_table_end(cols, log):
 def is_package_heading(text):
     """INTERNAL / EXTERNAL TURNKEY PACKAGE and UPGRADED INCLUSIONS (with any '- MAIN/AUX DWELLING')."""
     t = norm(text).upper()
-    return t in PAGE_TOP_HEADINGS[:2] or t.startswith(UPGRADED_HEADING) or t in OTHER_UPGRADE_HEADINGS
+    return (t in PAGE_TOP_HEADINGS[:2] or any(t.startswith(h) for h in UPGRADE_HEADINGS)
+            or t in OTHER_UPGRADE_HEADINGS)
 
 
 def end_cells_blank(cols, log):
@@ -1060,7 +1106,7 @@ def build_plan(blank_measure, cols, regional_pair, tolerance=1.5):
     # wherever the blank itself starts a page with them
     for n, r in enumerate(bR):
         t = norm(r["text"])
-        if t == UPGRADED_HEADING or not is_upgraded_heading(t):
+        if t in UPGRADE_HEADINGS or not is_upgraded_heading(t):
             continue
         # the paragraph above ends on an earlier page (end_page since measure_version 2)
         if n == 0 or bR[n - 1].get("end_page", bR[n - 1]["page"]) < r["page"]:
@@ -1110,15 +1156,25 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--report")
     ap.add_argument("--plan")
+    ap.add_argument("--family", help="template family, when --blank is not a Z: blank (a sample base, "
+                                     "sample_base.py); default: from the --blank path")
     args = ap.parse_args()
 
     job = json.loads(Path(args.job).read_text(encoding="utf-8"))
     up = job.get("upgrades") or {}
-    fam, _ = pick_family(args.blank)
+    fam = args.family or pick_family(args.blank)[0]
     if fam not in FAMILY_RULES:
         print(f"edit_inclusions: family {fam!r} has no two-column content rules yet - nothing to do")
         return 0
     rules = use_family(fam)
+    modes = rules.get("modes")
+    if modes:
+        wrong = [it for it in (up.get("items") or []) if str(it.get("mode", "") or "").lower() not in modes]
+        if wrong:
+            print(f"REFUSED: on the {fam} inclusions the run applies only the request's removals "
+                  f"(mode {' / '.join(modes)}); writing upgrade lines stays a person's edit "
+                  f"(CD-6.6). Items refused: {[it.get('category') for it in wrong]}. Nothing written.")
+            return 1
     blank_measure = json.loads(Path(args.blank_measure).read_text(encoding="utf-8"))
 
     log, flags = [], []

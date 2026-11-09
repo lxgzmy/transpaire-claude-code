@@ -33,6 +33,12 @@ The measurement comes from word_layout.ps1 (the align report carries one under
 colour, notes, section 18 (absent there), page 13 (the same tab stops since
 issue #94) and footer run as for Sydney; page 1 is Sydney's tab-stop rule,
 which the SEQ fill does not set, so it is reported as not checked.
+
+--family gunnedah (a sample base or a request's removal, CD-6.6, 9 Nov 2026):
+the same checks, except page 1 (typed spacing, as SEQ) and section 18. The
+Gunnedah blank's section 18 is one area the run never edits, and every
+completed Gunnedah and Tamworth job keeps its spacing as the blank has it; the
+one-blank-line rule (issue #57) is the spacing Sydney's section 18 edit leaves.
 """
 import argparse
 import json
@@ -430,6 +436,11 @@ def main():
     if "line_height" in data and "line_height" not in measure:
         measure["line_height"] = data["line_height"]
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+    # the family's upgrade headings first: the colour check reads them as package
+    # headings (a Gunnedah sample's "PROMOTIONAL UPGRADES – Main Dwelling")
+    import edit_inclusions as E
+    if args.family in E.FAMILY_RULES:
+        E.use_family(args.family)
     out = []
     sydney = args.family == "sydney"
     results = [check_layout(measure, plan, out), check_pages(measure, plan, out), check_xml(args.docx, out)]
@@ -438,7 +449,15 @@ def main():
     else:
         out.append(f"page 1   : not checked - the page-1 tab stops are Sydney's; the {args.family} blank's "
                    f"typed spacing is kept")
-    results.append(check_section18(measure, out))
+    if sydney:
+        results.append(check_section18(measure, out))
+    else:
+        # issue #57 is the spacing Sydney's section 18 edit leaves behind. SEQ has no
+        # section 18; Gunnedah's is the blank's own, one area the run never edits, and
+        # every completed Gunnedah / Tamworth job keeps its spacing as the blank has it
+        # (4 blank lines under the NBN wording - 11 jobs and the team's 26061, 9 Nov 2026)
+        out.append(f"section 18: not checked - issue #57 is Sydney's section 18 edit; the {args.family} "
+                   f"blank's section 18, where it has one, is its own and the run does not edit it")
     results.append(check_signature_lines(args.docx, out, args.family))
     results.append(check_site_box(args.docx, out))
     results.append(check_upgrade_items(args.docx, out, args.family))

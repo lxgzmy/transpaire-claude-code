@@ -45,7 +45,11 @@ Built:
   (`../scripts/word_layout.ps1`) and gates the result
   (`../scripts/gate_inclusions.py`) before it can save; the row a request maps
   to and any custom wording stay a person's call, reported with a confidence
-  flag. Never invents contract wording of its own, never
+  flag. **Gunnedah (9 Nov 2026, CD-6.6):** a request that sends another job's
+  inclusions as the base is built from the current blank with the sample's
+  specification (`../scripts/sample_base.py`); the request's removals are the
+  only edit, then the same layout pass and gate, then a scan that nothing of
+  the sample's client is left. Never invents contract wording of its own, never
   signs, never sends. Rules: [`../rules/contract-docs.md`](../rules/contract-docs.md).
 
   Staff guide (HTML source + formatted PDF):
