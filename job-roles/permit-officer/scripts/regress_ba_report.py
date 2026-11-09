@@ -42,7 +42,8 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      are not used; commas inside brackets and line breaks split items
      correctly; RFI-cell text that is not a PENDING list is carried verbatim
  19. the review of v0.4: every finding as a scenario over four weeks
- 20. the Monday run in one command (base found, edits read, never overwrite)
+ 20. the Monday run in one command (base found, edits read, never overwrite,
+     last week scored against her report for the same week)
  18. the officer's answers (27 Oct 2026) and the week-1 restart: the
      engineering and covenant columns are tracked on the Items sheet (from the
      latest dated step, re-opened by a revision; engineering by stage, 21) and
@@ -78,7 +79,9 @@ import xlsx_min
 from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, family_of,
                              load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
-from ba_weekly_run import VENV_PYTHON, RunError, find_base, find_last_draft, run, verify_delivered
+import ba_weekly_run
+from ba_weekly_run import (VENV_PYTHON, RunError, _summary, find_base, find_last_draft, last_week_score, run,
+                           verify_delivered)
 from compare_ba_report import compare
 import nsw_holidays
 from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
@@ -767,10 +770,26 @@ def weekly_run_checks(tmp, check):
     check("run: her edit in the drop folder is read the next Monday; --restart sets the state aside",
           en.get("ENERGY REPORT", {}).get("assigned_to") == "Synthetic Assessor"
           and (rt / "state" / "ba-items-first-seen.september-test.json").exists(), str(en.get("ENERGY REPORT")))
+    # 9 Nov 2026: the pilot measure without anyone running compare_ba_report by hand.
+    card = rt / "reports" / "compare-26.10.2026.md"
+    want = compare(rt / "outputs" / "delivered" / name, archive / "BA REPORT -26.10.2026.xlsx", ["90002"])
+    sc = second.get("scored") or {}
+    check("run: last week's draft is scored against her report for that week, titled by the week",
+          first.get("scored") is None and sc.get("report") == want and card.exists()
+          and card.read_text(encoding="utf-8").startswith("# BA report pilot scorecard: week of 26.10.2026")
+          and "Last week (26.10.2026): " in _summary(second), str(sc))
+    card.write_text(card.read_text(encoding="utf-8").replace("____ minutes", "25 minutes"), encoding="utf-8")
     name2 = "BA REPORT DRAFT - 02.11.2026.xlsx"
     again = run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
     check("run: the same Monday can be re-run while she has not opened the draft",
           len(again.get("delivered", [])) == 2)
+    check("run: a re-run keeps the scorecard, with the review time typed into it",
+          (again.get("scored") or {}).get("kept") and "25 minutes" in card.read_text(encoding="utf-8"))
+    check("run: only a draft for the week of her report is scored",
+          last_week_score(Path("BA REPORT DRAFT - 22.10.2026.xlsx"), date(2026, 10, 26), rt) is None
+          and last_week_score(None, date(2026, 10, 26), rt) is None
+          and last_week_score(Path("BA REPORT DRAFT - 09.11.2026.xlsx"), date(2026, 11, 10), rt)
+          == (date(2026, 11, 9), rt / "compare-09.11.2026.md"))
     edit_draft(drop / name2, drop / name2, {("90002", "ENERGY REPORT"): {"H": "her note"}})
     try:
         run(date(2026, 11, 2), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
@@ -786,7 +805,19 @@ def weekly_run_checks(tmp, check):
     edit_draft(drop / name2, drop / name2, {("90002", "ENGINEERING"): {"E": "03/11/2026"}})
     synth_prev_report(archive / "BA REPORT - 02.11.2026.xlsx")
     name3 = "BA REPORT DRAFT - 09.11.2026.xlsx"
-    run(date(2026, 11, 9), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+
+    def broken(*_args):
+        raise ValueError("synthetic scoring fault")
+
+    ba_weekly_run.compare = broken
+    try:
+        nine = run(date(2026, 11, 9), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
+    finally:
+        ba_weekly_run.compare = compare
+    check("run: a problem scoring is said and never costs the draft",
+          len(nine.get("delivered", [])) == 2 and "synthetic scoring fault" in (nine.get("scored") or {}).get("error", "")
+          and "not scored" in _summary(nine) and not (rt / "reports" / "compare-02.11.2026.md").exists(),
+          str(nine.get("scored")))
     rows3 = items_rows(drop / name3)
     run(date(2026, 11, 9), ["90002"], archive=archive, drop=drop, runtime=rt, snapshot=fake_snapshot)
     check("run: a re-run of a Monday gives the same draft, her earlier note on an item she resolved kept",

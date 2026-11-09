@@ -65,8 +65,9 @@ python job-roles\permit-officer\scripts\ba_weekly_run.py --dry-run
 python job-roles\permit-officer\scripts\ba_weekly_run.py
 ```
 
-It does steps 0 to 2 below and delivers the draft and its evidence note to
-the drop folder. It stops, with nothing half done, when last week's export
+It does steps 0 to 2 below, delivers the draft and its evidence note to
+the drop folder, and scores last week's draft against her report (step 4).
+A problem scoring is said and never costs the draft. It stops, with nothing half done, when last week's export
 is not in the archive yet (it never falls back to an older one), when the
 snapshot fails, or when the draft for that Monday in the drop folder has been
 changed since it was delivered (she may be working on it; `--force` only once
@@ -186,20 +187,23 @@ The steps, for reference or to run by hand:
    that differs from the row's limit ("council says 20 days") is pointed
    out on the row and in the evidence note, so a rule she writes down is
    not missed.
-4. **Compare (the pilot metric):** once the officer's real Monday report
-   exists,
+4. **Compare (the pilot metric):** the Monday run does this itself (since
+   9 Nov 2026). Her report from the archive is the next Monday's base, so
+   that run scores last week's draft as written against it, when the two
+   are for the same week (Monday to Sunday), and says the headline in its
+   summary. The scorecard, `runtime\permit-officer\reports\compare-dd.mm.yyyy.md`
+   (dated by the draft's Monday), holds matched / missed / extra items per
+   pilot job and the "% correctly pre-populated" headline (criterion ≥ 90 %).
+   Record the officer's review time (target < 30 min) and "unapproved
+   writes: 0" by hand in that file; a re-run keeps the file as it is. To
+   score another pair by hand:
 
    ```
    python ../scripts/compare_ba_report.py
-          --draft "runtime\permit-officer\outputs\BA REPORT DRAFT - dd.mm.yyyy.xlsx"
+          --draft "runtime\permit-officer\outputs\delivered\BA REPORT DRAFT - dd.mm.yyyy.xlsx"
           --actual "runtime\permit-officer\reports\BA REPORT - dd.mm.yyyy.xlsx"
           --jobs 26029,26052,26001
    ```
-
-   writes `runtime\permit-officer\reports\compare-dd.mm.yyyy.md` with
-   matched / missed / extra items per pilot job and the "% correctly
-   pre-populated" headline (criterion ≥ 90 %). Record the officer's review
-   time (target < 30 min) and "unapproved writes: 0" by hand in that file.
 5. **Next base:** her next export from the archive (step 0), **keeping the
    `BA REPORT - dd.mm.yyyy.xlsx` name** — the date in the filename is what
    the drafter uses as "since"; without it, evidence freshness falls back
@@ -265,5 +269,5 @@ Monday compilation time for the officer drops from hours to a review pass;
 zero missed outstanding items versus the manual baseline over a 4-week
 parallel run. Pilot acceptance (issue #29): at least 90 per cent of the
 officer's outstanding items correctly pre-populated, officer review under
-30 minutes, zero unapproved writes — scored per Monday by
-`../scripts/compare_ba_report.py` on the three pilot jobs.
+30 minutes, zero unapproved writes — scored each Monday by the run
+(`../scripts/compare_ba_report.py`) on the three pilot jobs.
