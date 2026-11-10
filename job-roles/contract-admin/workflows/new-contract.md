@@ -174,6 +174,7 @@ remain governed by `JD-9`; DataBuild does not block this intake chain.
 - [`../rules/job-details.md`](../rules/job-details.md) — `JD-2`, `JD-9`
 - [`../scripts/draft_contract.py`](../scripts/draft_contract.py) — the one-command pipeline (check → fill → diff → PDF export → real-comparison → routed save), timed
 - [`../scripts/fill_inclusions.py`](../scripts/fill_inclusions.py) — inclusions filler (`regress_inclusions.py` guards it)
+- [`../scripts/regress_families.py`](../scripts/regress_families.py) — every fix checked on every family and region (inclusions blanks and both build contracts; `--e2e` end to end)
 - [`../scripts/fill_prelim.py`](../scripts/fill_prelim.py) — preliminary agreement filler (`regress_prelim.py` guards it)
 - [`../scripts/msg_extract.py`](../scripts/msg_extract.py) — `.msg` → text + attachments, stdlib only (`msg_to_text.py` is the superseded fallback)
 - [`../scripts/docusign_payload.py`](../scripts/docusign_payload.py) — envelope payload (`test_docusign_payload.py` guards it)

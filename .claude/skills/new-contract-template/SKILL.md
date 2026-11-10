@@ -672,9 +672,10 @@ blank is measured already). The
 underlying commands (`fill_inclusions.py`, `edit_inclusions.py`,
 `word_layout.ps1`, `gate_inclusions.py`, `fill_prelim.py`, `fill_hia.py`,
 `docx_diff.py`, `docx_worddiff.py`, `export_pdf.ps1`) remain for re-running a
-single stage; regressions are `regress_inclusions.py`,
-`regress_edit_inclusions.py` (add `--layout` to include the Word pass and
-gate), `regress_prelim.py` and `regress_hia.py`. `--no-layout` skips the
+single stage; regressions are `regress_families.py` (every fix checked on
+every family and region; `--e2e` runs one job per family end to end),
+`regress_inclusions.py`, `regress_edit_inclusions.py` (add `--layout` to
+include the Word pass and gate), `regress_prelim.py` and `regress_hia.py`. `--no-layout` skips the
 content edit, layout pass and gate for timing/regression runs only — it
 cannot combine with a save. A delivery that hits a **locked destination file** (a
 reviewer has the old PDF open) stops with a clear message — close the file
