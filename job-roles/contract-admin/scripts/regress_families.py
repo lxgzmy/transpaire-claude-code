@@ -474,8 +474,17 @@ class Routing:
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--e2e", action="store_true", help="also run one synthetic job per family end to end (Word)")
+    ap.add_argument("--scratch", help="the work folder, under a runtime\\ folder (default "
+                                      "runtime\\contract-admin\\state\\_regress-families). A checkout on a long path, "
+                                      "e.g. a worktree under .claude\\worktrees\\, needs a shorter one: --e2e's job "
+                                      "folders otherwise pass Windows' 260-character path limit (10 Nov 2026)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    global SCRATCH
+    if args.scratch:
+        SCRATCH = Path(args.scratch)
+        if "runtime" not in [p.lower() for p in SCRATCH.parts]:
+            sys.exit(f"--scratch {SCRATCH} is not under a runtime\\ folder - test output stays in git-ignored runtime\\")
     if SCRATCH.exists():
         shutil.rmtree(SCRATCH)
     SCRATCH.mkdir(parents=True)

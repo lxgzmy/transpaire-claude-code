@@ -765,7 +765,13 @@ edit until its template is measured.
   pulled back to the page before. The foot of the table keeps
   one blank paragraph per column: the blanks pad it with 38, which landed
   on a page of their own once the upgrades ran past one page (the section
-  after the table starts its own page either way). The gate fails the
+  after the table starts its own page either way). When the text itself
+  ends so close to a page foot that even that one blank line and the empty
+  paragraph after the table cannot fit, they print a page of their own
+  too: the layout pass then sets those blank paragraphs to 1 pt, and only
+  then, so nothing printed moves (10 Nov 2026: a plain Sydney standard job's
+  upgraded section ended 8 pt above page 11's foot and page 12 printed
+  empty; found by `regress_families.py --e2e`). The gate fails the
   document on any miss, on an empty page (pages inside the body table read
   column by column), on a colour left outside the
   package headings, on a label line whose `Date:` is not on the tab stops,
