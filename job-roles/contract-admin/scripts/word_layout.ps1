@@ -32,6 +32,9 @@ empty pages (inside the body table read column by column: Word's \page
 bookmark is wrong there) and the section 18 heading against the last NBN line
 (issue #57) - everything gate_inclusions.py checks. Only blank paragraphs are
 ever inserted or deleted, only inside the two body cells; text never changes.
+Last, when the body's text ends so close to a page foot that the closing blank
+lines (and the empty paragraph after the table) would print a page of their own,
+those blank paragraphs are set to 1 pt (10 Nov 2026; Close-TableEnd).
 
 check: the same report without changing anything.
 
@@ -582,6 +585,58 @@ function Doc-Facts($doc, $lc, $rc) {
     }
 }
 
+function Line-Page($doc, $rng) {
+    # the page a paragraph's last line is on, read at its paragraph mark: the range's own end is
+    # past the mark, where the next paragraph starts - a page later when that one is pushed over
+    return [int]$doc.Range($rng.End - 1, $rng.End - 1).Information($wdPage)
+}
+
+function Cell-Tail($cell) {
+    # the cell's last paragraph that says anything, and the blank paragraphs after it
+    $tail = New-Object System.Collections.Generic.List[object]
+    $p = $cell.Range.Paragraphs.Last
+    while ($p -ne $null -and $p.Range.Start -ge $cell.Range.Start) {
+        if (-not (Is-Blank $p)) { return @{ last = $p; tail = $tail } }
+        $tail.Add($p)
+        $p = $p.Previous(1)
+    }
+    return @{ last = $null; tail = $tail }
+}
+
+function Close-TableEnd($doc, $tbl, $lc, $rc) {
+    # A page holding nothing but the body table's closing blank lines. When a column's last line
+    # ends just above a page foot, the blank paragraph left at the foot of the column (one, kept so
+    # Word can measure that last line: edit_inclusions TABLE_END_BLANKS / end_cells_blank) and the
+    # empty paragraph Word keeps after every table (here it carries the section break to the
+    # signature pages) cannot fit and print a page of their own. regress_families --e2e, 10 Nov
+    # 2026: a plain Sydney standard job's UPGRADED INCLUSIONS ended 8 pt above page 11's foot, the
+    # 13 pt blank line took page 12 and the gate blocked the save. Only then are those blank
+    # paragraphs set to exactly 1 pt with no spacing - nothing printed moves, every other document
+    # is saved as before. Returns a line for the report, or $null when there was no such page.
+    $pages = [int]$doc.ComputeStatistics(2)
+    $empty = @(Get-EmptyPages $doc $pages $lc $rc)
+    if (-not $empty.Count) { return $null }
+    $ends = @((Cell-Tail $lc), (Cell-Tail $rc))
+    $textEnd = ($ends | Where-Object { $_.last -ne $null } | ForEach-Object { Line-Page $doc $_.last.Range } |
+                Measure-Object -Maximum).Maximum
+    $after = $doc.Range($tbl.Range.End, $tbl.Range.End).Paragraphs.Item(1)
+    $tailEnd = [math]::Max((Line-Page $doc $after.Range), [int]$doc.Range($rc.Range.End - 1, $rc.Range.End - 1).Information($wdPage))
+    $hit = @($empty | Where-Object { $_ -gt $textEnd -and $_ -le $tailEnd })
+    if (-not $hit.Count) { return $null }
+    $paras = @($ends | ForEach-Object { $_.tail }) + @($after)
+    foreach ($p in $paras) {
+        $p.Range.Font.Size = 1
+        $p.SpaceBefore = 0; $p.SpaceAfter = 0
+        $p.LineSpacingRule = 4   # wdLineSpaceExactly
+        $p.LineSpacing = 1
+    }
+    $now = [int]$doc.ComputeStatistics(2)
+    $left = @(Get-EmptyPages $doc $now $lc $rc)
+    return ("table end: page(s) $($hit -join ',') held only the body table's closing blank lines (the text ends on " +
+            "page $textEnd) - $($paras.Count) blank paragraph(s) set to 1 pt; pages $pages -> $now, empty now: " +
+            $(if ($left.Count) { $left -join ',' } else { 'none' }))
+}
+
 $word = $null
 try {
     $word = Start-Word
@@ -693,12 +748,18 @@ try {
                 $off = Verify-Steps $results $usable $Tolerance
             }
             foreach ($r in $results) { $r.PSObject.Properties.Remove('_lp'); $r.PSObject.Properties.Remove('_rp') }
+            $tableEnd = $null
+            if ($Mode -eq 'align') {
+                # last, after every pair is level: it only touches blank paragraphs below the last text
+                $tableEnd = Close-TableEnd $doc $tbl $lc $rc
+                if ($tableEnd) { Say "  $tableEnd" }
+            }
             if ($Mode -eq 'align') {
                 $dst = if ($Save) { $Save } else { $src }
                 if ($dst -ne $src) { $doc.SaveAs2($dst) } else { $doc.Save() }
             } else { $dst = $src }
             $facts = Doc-Facts $doc $lc $rc
-            $report = [ordered]@{ docx = $dst; mode = $Mode; line_height = $lineH; tolerance = $Tolerance } + $facts + [ordered]@{ steps = $results }
+            $report = [ordered]@{ docx = $dst; mode = $Mode; line_height = $lineH; tolerance = $Tolerance; table_end = $tableEnd } + $facts + [ordered]@{ steps = $results }
             $json = $report | ConvertTo-Json -Depth 6 -Compress
             if ($Out) { [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding $false)) } else { $json }
             $bad = @($results | Where-Object { $_.status -notin @('level', 'page top') }).Count
