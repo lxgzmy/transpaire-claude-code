@@ -776,6 +776,66 @@ def resolve_estate(values, job_path, workdir):
     return out, resolved
 
 
+def resolve_design(values, job_path, workdir, job_dir):
+    """The design and the façade on the plans win over the request's (team rule, 10 Nov 2026,
+    job 26061: the email said Hyams 145, the plans Custom, and Custom was right; "before the
+    plans are out, fill from the email or the SA - they usually agree"). The plans' title block
+    names both (plan_design.py); when it names a different design or façade from the job JSON,
+    a resolved copy carries the plans' (`+ Auxiliary Unit` kept for an aux dwelling, CD-6.2;
+    "<name> Façade", CD-2.8) and the run flags it, with OSC's Design and Facade to check. No
+    plans, nothing on them, or plans that disagree change nothing and say so. A size off the
+    plans' total is flagged (CD-2.7 already takes it from the plans only)."""
+    import plan_design
+    plans = plan_pdfs(workdir, job_dir)
+    if not plans:
+        print("  design   : no plans among the run's files - HOUSE TYPE and FAÇADE as the job JSON has them "
+              "(the request or the SA); check them against the plans when they come (CD-2.6, CD-2.8)")
+        return job_path, values
+    plan = plan_design.from_plans(plans, values.get("lot_no"))
+    for u in plan["unread"]:
+        print(f"  design   : plans not readable: {u}")
+    if plan["conflict"]:
+        print(f"  FLAG: design: the plans name different designs {plan['conflict']} - HOUSE TYPE left as "
+              f"{values.get('house_type')!r}; a person picks (CD-2.6)")
+        return job_path, values
+    size = str(values.get("house_size") or "")
+    if plan["size"] and plan_design.tokens(plan["size"]) - plan_design.tokens(size):
+        # CD-2.7 already takes the size from the plans only (26061 went out at 232.72, its plans 232.73)
+        print(f"  FLAG: size: the plans' total area is {plan['size']} m², the job JSON says {size or 'nothing'!r} - "
+              f"HOUSE SIZE comes from the plans only (CD-2.7); correct the job JSON and run again")
+    resolved = dict(values)
+    new, why = plan_design.decide(values.get("house_type"), plan)
+    if new:
+        resolved["house_type"] = new
+        osc = plan_design.REQ_AUX.sub("", new).strip() + (" + 60" if new.endswith(plan_design.AUX_SUFFIX) else "")
+        print(f"  FLAG: design: {why} - HOUSE TYPE is {new!r} (the plans win, team rule 10 Nov 2026; CD-2.6). "
+              f"OSC's Design should read {osc!r} (JD-3.3): check it there")
+    else:
+        print(f"  design   : {why} - HOUSE TYPE {values.get('house_type')!r} kept")
+    new_f, why_f = plan_design.decide_facade(values.get("facade"), plan)
+    if new_f:
+        resolved["facade"] = new_f
+        print(f"  FLAG: façade: {why_f} - FAÇADE is {new_f!r} (the plans win, team rule 10 Nov 2026; CD-2.8). "
+              f"OSC's Facade should match (JD-3.3): check it there")
+    elif plan["facade"]:
+        print(f"  façade   : {why_f} - kept")
+    if resolved == values:
+        return job_path, values
+    out = job_path.parent / (job_path.stem + ".design.json")
+    out.write_text(json.dumps(resolved, indent=2, ensure_ascii=False), encoding="utf-8")
+    return out, resolved
+
+
+def resolve_job(values, job_path, workdir, job_dir):
+    """Every correction the run makes to the job JSON before any document is filled, in order:
+    the lot's own street from the plans, a blank ESTATE from the request, the design and the
+    façade from the plans. Each writes a resolved copy and flags it. One sequence for the run
+    and regress_families.py."""
+    job_path, values = resolve_lot_street(values, job_path, workdir, job_dir)
+    job_path, values = resolve_estate(values, job_path, workdir)
+    return resolve_design(values, job_path, workdir, job_dir)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--job", required=True)
@@ -895,9 +955,7 @@ def main():
         sys.exit("ERROR: nothing to do - give --template for the inclusions and/or --prelim "
                  "(add --job-dir to save in the same pass)")
 
-    job_path, values = resolve_lot_street(values, job_path, workdir,
-                                          Path(args.job_dir) if args.job_dir else None)
-    job_path, values = resolve_estate(values, job_path, workdir)
+    job_path, values = resolve_job(values, job_path, workdir, Path(args.job_dir) if args.job_dir else None)
 
     suffix = doc_suffix(values)
     timings, artifacts, failures = [], [], []

@@ -86,7 +86,15 @@ value already in OSC is a person's, and is never overwritten by a default
   email" only, so a Double Storey ticked on the SA went to the manual list.
   On the SA the tick is an ink mark, not a form field: read it off the
   rendered page.)*
-- **JD-3.3** Design & Façade: from the request email. An auxiliary dwelling's
+- **JD-3.3** Design: from the **plans** - their title block's design, as the
+  documents' HOUSE TYPE takes it (CD-2.6, team rule 10 Nov 2026: 26061's email
+  said Hyams 145, its plans Custom, and OSC's `Custom + 60` was right); the
+  request email's only until the plans arrive, and a later run that reads a
+  different design on them flags OSC's Design to check. Façade: the same -
+  the plans', as the documents' FAÇADE takes it (CD-2.8). Until the plans
+  are out, both come from the request email or the SA / EOI; they usually
+  agree with the plans (the team, 10 Nov 2026: 26061 was a rare exception).
+  An auxiliary dwelling's
   Design reads `<design> + 60` (`Hyams 145 + 60`, `Breamlea 205 Mod + 60`,
   `Custom + 60`): every one of the 11 aux jobs in OSC since 26027, read
   9 Nov 2026. The inclusions' `<design> + Auxiliary Unit` (CD-6.2) is the

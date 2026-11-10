@@ -41,8 +41,24 @@ def page_content(n, total):
     return "".join(ops).encode("latin-1")
 
 
-def build_pdf(pages):
-    """A minimal valid PDF: catalog, page tree, one Helvetica font, one stream per page."""
+def title_block_content(lot_no, title, street="Sample Road", total_area="200.00"):
+    """Page content for a synthetic plan set whose every sheet carries the drafter's title block
+    as real plans read word by word ("@A3 <design> - <facade> Facade Lot <n> <street>",
+    plan_design.py) and an areas-table total. For plan_design's tests; no real job in it."""
+    def content(n, total):
+        ops = [_text(60, 90, 22, "SYNTHETIC PLANS - NOT A REAL JOB"),
+               _text(60, 140, 10, f"Total Areas {total_area} m2"),
+               _text(340, 760, 8, f"SCALE: 1:100 @A3 {title} Lot {lot_no} {street}"),
+               _text(340, 790, 8, f"Sheet {n} of {total}")]
+        return "".join(ops).encode("latin-1")
+    return content
+
+
+def build_pdf(pages, content=None, compress=False):
+    """A minimal valid PDF: catalog, page tree, one Helvetica font, one stream per page
+    (`content(n, pages)` gives each page's operators; the sandbox sheet by default).
+    `compress` Flate-encodes the streams, as a CAD export does - pdf_text.py reads only those."""
+    content = content or page_content
     objects = []  # index i holds object number i + 1
 
     def add(body):
@@ -54,8 +70,13 @@ def build_pdf(pages):
     font = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     kids = []
     for n in range(1, pages + 1):
-        data = page_content(n, pages)
-        stream = add(b"<< /Length %d >>\nstream\n" % len(data) + data + b"\nendstream")
+        data = content(n, pages)
+        if compress:
+            import zlib
+            data = zlib.compress(data)
+            stream = add(b"<< /Length %d /Filter /FlateDecode >>\nstream\n" % len(data) + data + b"\nendstream")
+        else:
+            stream = add(b"<< /Length %d >>\nstream\n" % len(data) + data + b"\nendstream")
         kids.append(add(b"<< /Type /Page /Parent %d 0 R /MediaBox [0 0 %d %d] "
                         b"/Resources << /Font << /F1 %d 0 R >> >> /Contents %d 0 R >>"
                         % (tree, WIDTH, HEIGHT, font, stream)))

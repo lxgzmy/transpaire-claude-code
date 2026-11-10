@@ -95,6 +95,10 @@ WANT = {
             "land": "Example Drive, (Sample Estate)",
             "cover": "Example Drive, (Sample Estate) SAMPLETOWN QLD 4000"},
 }
+# Every job comes with synthetic plans whose title block names another design and façade than the
+# job JSON's: the plans win (team rule, 10 Nov 2026), so every HOUSE TYPE and FAÇADE must read these.
+PLANS_DESIGN = "Sample 150"
+PLANS_FACADE = "Sample Front"
 # (row, family or region): why that family or region does not take the outcome.
 # Every entry needs the evidence it rests on; an entry whose row now passes is reported.
 EXEMPT = {}
@@ -224,6 +228,21 @@ def r_box_estate(d):
     return ok, "" if ok else f"no '{d.want['box']}'"
 
 
+@inc_row("HOUSE TYPE is the plans' design", "team rule 10 Nov 2026 (26061: plans Custom, email Hyams)")
+def r_plans_design(d):
+    ok = re.search(r"HOUSE TYPE\s*:\s*" + re.escape(PLANS_DESIGN) + r"(?![\w+.])", d.text) is not None
+    m = re.search(r"HOUSE TYPE\s*:\s*(.{0,24}?)(?:\s+\d{4} \[|$)", d.text)
+    return ok, f"HOUSE TYPE reads {m.group(1).strip() if m else 'nothing'!r}, the plans {PLANS_DESIGN!r}"
+
+
+@inc_row("FAÇADE is the plans' façade", "team rule 10 Nov 2026 (the design's rule, CD-2.8)")
+def r_plans_facade(d):
+    want = f"{PLANS_FACADE} Façade"
+    ok = re.search(r"FA[CÇ]ADE\s*:\s*" + re.escape(want) + r"(?![\w+.])", d.text) is not None
+    m = re.search(r"FA[CÇ]ADE\s*:\s*(.{0,24}?)(?:\s+\d{4} \[|$)", d.text)
+    return ok, f"FAÇADE reads {m.group(1).strip() if m else 'nothing'!r}, the plans {want!r}"
+
+
 # ---------------------------------------------------------------- build contract rows
 @bc_row("every value filled", "regress_hia")
 def b_values(d):
@@ -277,19 +296,33 @@ def b_sig_name(d):
 
 # ---------------------------------------------------------------- making the documents
 def write_job(wd, job):
+    """The job JSON, the request text and the request's plans, as the run finds them in a workdir.
+    The plans name PLANS_DESIGN and PLANS_FACADE, not the job JSON's, at the job's own size."""
+    import synthetic_plans_pdf
     wd.mkdir(parents=True, exist_ok=True)
     jf = wd / "job.json"
     jf.write_text(json.dumps(job, ensure_ascii=False, indent=1), encoding="utf-8")
     (wd / "email_original.txt").write_text(f"Contract Order - Lot {job['lot_no']} {job['street']}\n",
                                            encoding="utf-8")
+    area = str(job.get("house_size") or "").split()[0] if job.get("house_size") else "200.00"
+    content = synthetic_plans_pdf.title_block_content(job["lot_no"], f"{PLANS_DESIGN} - {PLANS_FACADE} Facade",
+                                                      street=job["street"], total_area=area)
+    (wd / "PLANS_SYNTHETIC.pdf").write_bytes(synthetic_plans_pdf.build_pdf(2, content, compress=True))
     return jf
+
+
+def resolved(job, jf, wd):
+    """The job JSON the run fills from: its own corrections before any document (draft_contract.
+    resolve_job - the lot's street, ESTATE, the design from the plans), output kept quiet."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        path, values = dc.resolve_job(dict(job), jf, wd, None)
+    return path, values
 
 
 def make_inclusions(blank, family, wd):
     """The inclusions as the run makes them before Word: check, fill, then the content edit
     where the run edits this family. Returns (Doc or None, note)."""
-    job = JOBS[family]
-    jf = write_job(wd, job)
+    jf, job = resolved(JOBS[family], write_job(wd, JOBS[family]), wd)
     out = wd / "INCLUSIONS.docx"
     chk = run_py("fill_inclusions.py", "--template", blank, "--job", jf, "--check")
     fill = run_py("fill_inclusions.py", "--template", blank, "--job", jf, "--out", out)
