@@ -613,13 +613,29 @@ def measure_version(path):
         return 0
 
 
+def edits_inclusions(family, sample=None, up_items=()):
+    """Whether a job's inclusions take the content edit, the Word layout pass and the gate:
+    Sydney and SEQ on every job; Gunnedah (also Tamworth) only with a sample base or a removal
+    (CD-6.6). One rule for the run and regress_families.py."""
+    return family in ("sydney", "seq") or (family == "gunnedah" and bool(sample or up_items))
+
+
+def cached_measure(template):
+    """The blank's current Word measurement when one is cached, else None. Never runs Word."""
+    template = Path(template)
+    out = LAYOUT_STATE / f"{template.stem}.measure.json"
+    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
+        return out
+    return None
+
+
 def blank_measure_for(template):
     """The blank's Word measurement, made when missing or older than the blank (5-15 min on the
     server for an SEQ or Sydney blank - 4 to 17 min measured 29-31 Oct 2026), then cached."""
     template = Path(template)
     LAYOUT_STATE.mkdir(parents=True, exist_ok=True)
     out = LAYOUT_STATE / f"{template.stem}.measure.json"
-    if out.exists() and out.stat().st_mtime >= template.stat().st_mtime and measure_version(out) >= MEASURE_VERSION:
+    if cached_measure(template):
         return out
     print(f"  measuring : the blank's layout through Word (first run for this blank, 5-15 min; later runs reuse it) -> {out.name}")
     r = run_layout("-Mode", "measure", "-Docx", template, "-Out", out)
@@ -958,7 +974,7 @@ def main():
         if not sample.is_absolute():
             sample = Path(job_path).parent / sample
     up_items = (values.get("upgrades") or {}).get("items") or []
-    edit_inclusions_doc = inc_family in ("sydney", "seq") or (inc_family == "gunnedah" and bool(sample or up_items))
+    edit_inclusions_doc = edits_inclusions(inc_family, sample, up_items)
     if sample and made.get("inclusions") and (inc_family not in sample_base.FAMILIES or not sample.is_file()):
         why = (f"sample_base {sample} not found" if not sample.is_file() else
                f"a sample base is used on the {', '.join(sample_base.FAMILIES)} inclusions only - this job's "

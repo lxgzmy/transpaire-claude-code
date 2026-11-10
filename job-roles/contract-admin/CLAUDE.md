@@ -108,6 +108,17 @@ checks; its writes are gated per call. Connection details and the production ste
 live in [`docs/mcp-servers.md`](../../docs/mcp-servers.md), not restated here, since
 the servers are shared with every other role.
 
+## Changing the pipeline
+
+A fix reaches every family and region, not only the one it was reported on.
+Four of job 26061's ten feedback rows (9 Nov 2026) were fixes already made for
+Sydney, SEQ or QLD that had never reached Gunnedah or the NSW build contract.
+So a fix adds its outcome as a row in `scripts/regress_families.py`, which
+checks every row on every live blank and both build contracts; a family that
+does not take the outcome is named in its `EXEMPT` table with the reason.
+Run it before a PR that changes the fill, edit, gate or build contract
+scripts, and with `--e2e` before the PR merges.
+
 ## Rules & knowledge
 
 - `rules/variation-rules.md` — variation type/numbering, workflow & document
