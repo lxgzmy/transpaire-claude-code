@@ -73,8 +73,8 @@ skills are scoped to that folder and must not leak into another role.
 - **Sanctioned exception (17 Aug 2026):** `/new-contract-template` saves its
   filled documents in one pass with automatic routing (`contract-docs.md`
   CD-7.6/7.7, per document since 8 Sep 2026: a document the job folder does
-  not hold yet goes into the job folder, one it already holds refreshes to
-  template-testing) — no preview stop. Everything outward-facing — issue,
+  not hold yet goes into the job folder; one it already holds is saved
+  there as a revision since 9 Nov 2026, see below) — no preview stop. Everything outward-facing — issue,
   send, sign, DocuSign, OSC/DataBuild writes — stays gated. Any further
   exception needs the same explicit instruction this one had.
 - **Sanctioned exception (10 Sep 2026):** on the Sydney inclusions the run
@@ -134,6 +134,25 @@ skills are scoped to that folder and must not leak into another role.
   and a log of every answer. RFI judgement, portals, payments, external
   email, staff alerts and marking an activity not applicable stay a
   person's.
+- **Sanctioned exception (9 Nov 2026, job 26061 feedback):** a document the
+  job folder already holds is saved there as a revision, and the version it
+  replaces moves into the folder's `SS\` (`contract-docs.md` CD-7.5-7.7).
+  Until then it refreshed to template-testing for a person to swap in. The
+  new copy is in the folder before anything moves, any failure puts
+  everything back, nothing in `SS\` is overwritten (` V2`, ` V3` instead),
+  and a signed or executed copy stops the run. That move inside the job's
+  own `CONTRACT DOCUMENTATION` is the only business-file move a run makes.
+- **Sanctioned exception (9 Nov 2026, job 26061 feedback sheet row 5):** on
+  the Gunnedah inclusions (Gunnedah and Tamworth jobs), when a request sends
+  another job's inclusions as the base, the run builds from the current
+  blank with that sample's specification and applies the removals the
+  request names; a label goes with its last line (`contract-docs.md`
+  CD-6.6). Removals are the only content edit on this family: writing
+  Gunnedah upgrade lines stays a person's edit. The run stops, writing
+  nothing, when the sample is not a Word `.docx`, was built on another blank
+  or version, or names its own client, lot, street or price. The Word layout
+  pass and the quality gate stand before the save, and a scan after it
+  checks that nothing of the sample's client is left.
 
 ## Security posture
 
