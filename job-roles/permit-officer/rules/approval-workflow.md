@@ -152,10 +152,16 @@ testable; open questions are marked ❓.
   columns tell it: the latest dated step is *ordered* (design) or
   *received* / *allocated for review* (internal review, counted from that
   step, as she dated the pilot jobs on 22 Oct 2026). The *Review
-  Engineering* column dates when the design was allocated for review, not
-  when the review was done (the permit officer, 11 Nov 2026, on a pilot
-  job's draft notes), so the draft says *allocated for review*; the count
-  already started there, so no day count changed. Without column dates, OSC's slab
+  Engineering* column is the latest alert on OSC's review activity (checked
+  12 Nov 2026): while the review is open it is the design sent to the
+  reviewer, a query or a chase, which the permit officer calls *allocated
+  for review* (11 Nov 2026, on a pilot job's draft notes); once the reviewer
+  approves, it moves to the approval. When OSC shows the review completed
+  on the column's day, the draft says *reviewed* and counts the internal
+  review from the design received (*Receive Engineering*, the latest
+  message on OSC's receive activity), because the review runs until the
+  forward. An OSC completion later than the column is newer than the base
+  report: the draft says it, and the count stays. Without column dates, OSC's slab
   engineering chain tells it (ENGINEERING is the footing and slab design
   only, PO-11d). With nothing to go on, the item is in internal
   review, the stricter limit. When a newer engineering step is dated the

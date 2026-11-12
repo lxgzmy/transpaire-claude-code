@@ -74,8 +74,8 @@ three pilot jobs.
 | Report column | OSC job activity (description) | Status |
 |---|---|---|
 | Engineering Ordered | `Order Engineering - Piers, Footings & Slab Design` | verified (one job differed, but its OSC date was edited after the export) |
-| Receive Engineering | none found | **unresolved**, see Gaps |
-| Review Engineering (the header carries the reviewer's name; the date the design was allocated for review, not when the review was done, the officer 11 Nov 2026) | none found | **unresolved**, see Gaps |
+| Receive Engineering | the latest **message** on `Receive Engineering - Piers, Footings & Slab Design` (subject "ENG REC", posted when a design or revision comes in), not its completion | verified 12 Nov 2026, to the minute on two pilot jobs |
+| Review Engineering (the header carries the reviewer's name) | the latest **alert** on `Review Engineering - Piers, Footings & Slab Design`: the design sent for approval, a query or a chase while open ("allocated for review", the officer 11 Nov 2026), then the reviewer's approval | verified 12 Nov 2026, to the minute on two pilot jobs; moved from a chase to the approval between two exports |
 | Forward Engineering to Certifier | `Forward Engineers Footing/Slab Design to Private Certiifier` | verified; the doubled *i* is OSC's own spelling, match it as written |
 | Covenant Ordered | `Submit Covenant Application` | verified |
 
@@ -237,12 +237,14 @@ mailbox:
 - QLD certifier-portal facts (per PO-14): never readable; drafts mark them
   "manual check".
 - *Receive Engineering* and *Review Engineering* (export columns
-  since 28 Sep 2026): no activity matches. The export holds date-times
-  (a minute apart on two jobs), while the slab-engineering activities carry
-  other dates or are still pending. On each pilot job the *Receive
-  Engineering* time falls within one to four minutes of an engineering
-  document upload (a certificate of compliance or a design revision),
-  reading the export's times as UTC+10, and on two jobs the *Review
-  Engineering* time does too; none equals an upload time. The saved
-  Executive Reporter definition names each column's source; read it there
-  before mapping these two.
+  since 28 Sep 2026): **resolved 12 Nov 2026**. They are not activity
+  completion dates, which is why no activity matched. *Receive
+  Engineering* is the time of the latest message on the receive activity
+  (`GET /api/JobActivities/{id}/Messages`), *Review Engineering* the time
+  of the latest alert on the review activity (`GET
+  /api/JobActivities/Alerts`, filtered by `jobActivityID`), both read as
+  UTC+10. Each matched to the minute on two pilot jobs, and between the
+  2 Nov and 9 Nov exports one job's review column moved from a chase to
+  the reviewer's approval. A revision moves both forward. The uploads
+  seen earlier a few minutes before each time are the documents the
+  message and alert were about.

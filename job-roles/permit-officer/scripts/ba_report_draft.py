@@ -448,9 +448,16 @@ def check_item(item, snapshot, since_iso):
 # like RFI items (the officer, 27 Oct 2026; engineering by stage since her
 # correction, ENGINEERING_STAGES). Each is a chain of steps: in flight from its
 # latest dated step until the closing step is dated on or after it.
-# The "Review Engineering - <reviewer>" column dates when the design was
-# allocated for review, not when the review was done (the officer, 11 Nov 2026),
-# so the notes say "allocated for review".
+# Where the two middle columns come from (OSC, checked 12 Nov 2026): Receive
+# Engineering is the latest message on the "Receive Engineering - Piers,
+# Footings & Slab Design" activity, posted when a design or revision comes in;
+# Review Engineering is the latest alert on the matching review activity: the
+# design sent to the reviewer, a query or a chase while the review is open (the
+# officer's "allocated for review", 11 Nov 2026), then the reviewer's approval.
+# So when OSC shows that review activity completed on the column's day, the
+# column is the approval: the note says "reviewed" and the internal review
+# counts from the design received, as PO-11c has it, not from the approval.
+# A completion later than the column is newer than the base: said, not counted.
 # Engineering goes round again when a revision is received or allocated for
 # review after the last forward, which OSC does not re-date, so the officer's
 # Date resolved closes a cycle too. "stage": the stage the latest dated step
@@ -461,7 +468,10 @@ def check_item(item, snapshot, since_iso):
 COLUMN_CYCLES = {
     "ENGINEERING": {"steps": {"engineering ordered": "ordered", "receive engineering": "received",
                               "review engineering": "allocated for review"},
-                    "stage": {"ordered": "design", "received": "review", "allocated for review": "review"},
+                    "stage": {"ordered": "design", "received": "review", "allocated for review": "review",
+                              "reviewed": "review"},
+                    "review": {"step": "allocated for review", "done": "reviewed", "from": "received",
+                               "activity": r"^Review Engineering - Piers, Footings & Slab Design"},
                     "closing": "forward engineering", "closed": "forwarded to the certifier",
                     "closing_activity": r"^Forward Engineers Footing/Slab Design", "label": "engineering columns"},
     "COVENANT": {"steps": {"covenant ordered": "ordered"}, "closing": "received covenant approval",
@@ -499,9 +509,27 @@ def column_cycle(key, row, snapshot):
                if a.get("completionDate") and not a.get("isNotApplicable")]
         closed = max([d for d in [closed] + osc if d], default=None)
         not_applicable = not_applicable or (bool(steps_osc) and all(a.get("isNotApplicable") for a in steps_osc))
+    reviewed = ""
+    rv = spec.get("review")
+    if rv and step == rv["step"] and snapshot:
+        done = max([_iso_day(a["completionDate"]) for a in snapshot.get("activities", [])
+                    if re.search(rv["activity"], a.get("description") or "", re.I)
+                    and a.get("completionDate") and not a.get("isNotApplicable")], default=None)
+        if done and done == since:
+            # the column is the reviewer's approval: count from the design received in this cycle (after
+            # any earlier forward); with none, from the approval itself
+            start = [(d, o, w) for d, o, w in dated if w == rv["from"] and d <= since
+                     and (not closed or closed >= since or d >= closed)]
+            if start:
+                reviewed = f", {rv['done']} {_ddmmyyyy(since)}"
+                since, _, step = max(start)
+            else:
+                step = rv["done"]
+        elif done and done > since:
+            reviewed = f", {rv['done']} {_ddmmyyyy(done)} in OSC"
     if not_applicable:
         return {"since": since, "done_on": since, "not_applicable": True,
-                "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}, marked not applicable"}
+                "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}{reviewed}, marked not applicable"}
     done_on = closed if closed and closed >= since else None
     if done_on:
         after = f"{spec['closed']} {_ddmmyyyy(done_on)}"
@@ -510,7 +538,7 @@ def column_cycle(key, row, snapshot):
     else:
         after = f"not {spec['closed']} yet" + (f" ({str(closed_raw).strip()})" if str(closed_raw or "").strip() else "")
     return {"since": since, "done_on": done_on, "stage": spec.get("stage", {}).get(step),
-            "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}, {after}"}
+            "detail": f"{spec['label']}: {step} {_ddmmyyyy(since)}{reviewed}, {after}"}
 
 
 def _first_step(snapshot, pattern):

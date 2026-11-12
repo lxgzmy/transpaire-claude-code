@@ -60,6 +60,9 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      draft she checked; a day count in her note that differs from the limit;
      her Save As copy found; an open or untouched draft said; the delivered
      draft read back; the snapshot's retries and side-by-side reads
+ 23. the Review Engineering column (12 Nov 2026): "allocated for review"
+     while open; the approval once OSC shows the review completed that day,
+     counted from the design received; a later OSC completion said only
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
@@ -76,8 +79,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, family_of,
-                             load_state, save_state, submitted_evidence)
+from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, column_cycle,
+                             family_of, load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
 from ba_weekly_run import (VENV_PYTHON, RunError, _summary, find_base, find_last_draft, last_week_score, run,
@@ -367,9 +370,14 @@ def officer_round_trip(tmp, check):
           "tracked from its columns" in str(rows1[("90021", "ENGINEERING")]["Draft notes"])
           and "engineering columns: allocated for review 12/10/2026, not forwarded to the certifier since" in
           str(rows1[("90021", "ENGINEERING")]["Draft notes"]))
-    check("officer: the review column is said as allocated for review, never as reviewed (the officer, 11 Nov 2026)",
-          not any("reviewed" in str(r.get("Draft notes")) for r in rows1.values()),
-          str([r.get("Draft notes") for r in rows1.values()]))
+    notes1 = {k: str(r.get("Draft notes")) for k, r in rows1.items()}
+    check("officer: an open review is said as allocated for review, never as reviewed (the officer, 11 Nov 2026)",
+          "allocated for review 08/10/2026" in notes1[("90023", "ENGINEERING")]
+          and not any("reviewed" in n for (job, _), n in notes1.items() if job != "90022"), str(notes1))
+    e22 = {i["name"]: i for i in j1["90022"]["outstanding"]}.get("ENGINEERING", {})
+    check("officer: a review OSC completed on the column's day is the approval, counted from the design received",
+          "received 10/08/2026, reviewed 13/10/2026, not forwarded to the certifier yet" in notes1[("90022", "ENGINEERING")]
+          and e22.get("date_submitted") == "2026-08-10", f"{notes1[('90022', 'ENGINEERING')]} {e22}")
     amd = {i["name"]: i for i in j1["90021"]["outstanding"]}.get("AMENDED DA APPROVAL", {})
     rop = {i["name"]: i for i in j1["90022"]["outstanding"]}.get("ROP APPROVAL", {})
     check("officer: an amended DA sits with Council at 60 days, an ROP with Council at 30",
@@ -705,6 +713,50 @@ def engineering_stage_checks(tmp, check):
     check("stages: her values typed for the design stage are not carried into the review (her note is)",
           e51.get("assigned_to") == "Synthetic Reviewer" and e51.get("date_source") != "officer"
           and rows3[("90051", "ENGINEERING")]["Notes"] == "chased the engineer", str(e51))
+
+
+def review_column_checks(check):
+    """23. The Review Engineering column is the latest alert on OSC's review activity (12 Nov 2026): while
+    the review is open it is "allocated for review"; once OSC shows the review completed that day it is the
+    approval, and the internal review counts from the design received."""
+    def row(received=None, review=None, forward=None, forward_raw=None):
+        cells = {"Engineering Ordered": "2026-08-05", "Receive Engineering": received,
+                 "Review Engineering - Synthetic Reviewer": review}
+        extra = {h: {"date": d, "raw": d or ""} for h, d in cells.items()}
+        extra["Forward Engineering to Certifier"] = {"date": forward, "raw": forward_raw or forward or ""}
+        return {"extra": extra, "received_covenant": {"date": None, "raw": None}}
+
+    def snap(review_done):
+        return {"activities": [{"description": "Review Engineering - Piers, Footings & Slab Design",
+                                "completionDate": f"{review_done}T00:00:00Z" if review_done else None,
+                                "isNotApplicable": False},
+                               {"description": "Review Engineering - Strucutral Steel",
+                                "completionDate": "2026-11-20T00:00:00Z", "isNotApplicable": False}]}
+
+    c = column_cycle("ENGINEERING", row("2026-08-10", "2026-11-02", "2026-11-03"), snap("2026-11-02"))
+    check("review column: approved that day and forwarded -> received, reviewed, forwarded; counted from received",
+          c["since"] == "2026-08-10" and c["stage"] == "review" and c["done_on"] == "2026-11-03"
+          and "received 10/08/2026, reviewed 02/11/2026, forwarded to the certifier 03/11/2026" in c["detail"], str(c))
+    c = column_cycle("ENGINEERING", row("2026-08-10", "2026-11-02", None, "PENDING REVIEW"), snap("2026-11-02"))
+    check("review column: approved but not forwarded -> still internal review from the design received",
+          c["since"] == "2026-08-10" and c["stage"] == "review" and not c["done_on"]
+          and "reviewed 02/11/2026, not forwarded to the certifier yet" in c["detail"]
+          and "allocated for review" not in c["detail"], str(c))
+    c = column_cycle("ENGINEERING", row("2026-08-10", "2026-10-13", None, "PENDING REVIEW"), snap("2026-11-02"))
+    check("review column: approved in OSC after the base -> allocated for review, reviewed said, count unchanged",
+          c["since"] == "2026-10-13" and "allocated for review 13/10/2026, reviewed 02/11/2026 in OSC" in c["detail"],
+          str(c))
+    c = column_cycle("ENGINEERING", row("2026-10-12", "2026-10-12", "2026-07-06"), snap("2026-07-04"))
+    check("review column: an approval from an earlier cycle leaves the new allocation open",
+          c["since"] == "2026-10-12" and not c["done_on"] and "allocated for review 12/10/2026, not forwarded" in c["detail"]
+          and "reviewed" not in c["detail"].replace("allocated for review", ""), str(c))
+    c = column_cycle("ENGINEERING", row("2026-06-01", "2026-08-25", "2026-06-16"), snap("2026-08-25"))
+    check("review column: an approval with no design received since the last forward counts from the approval",
+          c["since"] == "2026-08-25" and c["stage"] == "review" and not c["done_on"]
+          and "reviewed 25/08/2026, not forwarded to the certifier since (last 16/06/2026)" in c["detail"], str(c))
+    c = column_cycle("ENGINEERING", row("2026-08-10", "2026-11-02", None, "PENDING REVIEW"), None)
+    check("review column: without OSC the column stays allocated for review",
+          c["since"] == "2026-11-02" and "allocated for review 02/11/2026" in c["detail"], str(c))
 
 
 def weekly_run_checks(tmp, check):
@@ -1378,6 +1430,7 @@ def main():
         officer_round_trip(tmp, check)
         review_v04_checks(tmp, check)
         engineering_stage_checks(tmp, check)
+        review_column_checks(check)
         weekly_run_checks(tmp, check)
         hardening_checks(tmp, check, snapshot_tests)
     finally:
