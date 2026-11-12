@@ -123,11 +123,11 @@ testable; open questions are marked ❓.
   columns added to the export on 28 Sep 2026 are aged like RFI items:
   covenant at **10 business days** whoever holds it, engineering by stage
   (PO-11c, her correction). Each is tracked from its latest
-  dated step on the export (engineering: ordered, received, reviewed;
-  covenant: ordered) until engineering is forwarded to the certifier or the
+  dated step on the export (engineering: ordered, received, allocated for
+  review; covenant: ordered) until engineering is forwarded to the certifier or the
   covenant is approved, on the Items sheet only: the main sheet and the RFI
-  list stay as she types them. An engineering revision received or reviewed
-  after the last forward starts a new cycle; OSC does not re-date the
+  list stay as she types them. An engineering revision received or allocated
+  for review after the last forward starts a new cycle; OSC does not re-date the
   forward, so her *Date resolved* closes a cycle too. Two items join the
   vocabulary, both sitting with Council: **ROP APPROVAL** (Road Opening
   Approval) and **AMENDED DA APPROVAL** (Amended Development Application),
@@ -143,15 +143,19 @@ testable; open questions are marked ❓.
   | Stage | Counted from | Until | Yellow | Red |
   |---|---|---|---|---|
   | Design, with the engineer | Engineering Ordered | the design is received | ≤ 15 | > 15 |
-  | Internal review at Transpire | the design received, or last reviewed | forwarded to the certifier | ≤ 10 | > 10 |
+  | Internal review at Transpire | the design received, or last allocated for review | forwarded to the certifier | ≤ 10 | > 10 |
 
   The stage is whoever she says has the item: her *Assigned to* on the
   Items sheet, else "(W/O X)" on her RFI list. The engineer (the firm OSC
   names on the order, or any external party) means design; Transpire means
   internal review; a person's name says neither. Failing that, the export's
   columns tell it: the latest dated step is *ordered* (design) or
-  *received* / *reviewed* (internal review, counted from that step, as she
-  dated the pilot jobs on 22 Oct 2026). Without column dates, OSC's slab
+  *received* / *allocated for review* (internal review, counted from that
+  step, as she dated the pilot jobs on 22 Oct 2026). The *Review
+  Engineering* column dates when the design was allocated for review, not
+  when the review was done (the permit officer, 11 Nov 2026, on a pilot
+  job's draft notes), so the draft says *allocated for review*; the count
+  already started there, so no day count changed. Without column dates, OSC's slab
   engineering chain tells it (ENGINEERING is the footing and slab design
   only, PO-11d). With nothing to go on, the item is in internal
   review, the stricter limit. When a newer engineering step is dated the
