@@ -75,7 +75,7 @@ three pilot jobs.
 |---|---|---|
 | Engineering Ordered | `Order Engineering - Piers, Footings & Slab Design` | verified (one job differed, but its OSC date was edited after the export) |
 | Receive Engineering | none found | **unresolved**, see Gaps |
-| Review Engineering (the header carries the reviewer's name) | none found | **unresolved**, see Gaps |
+| Review Engineering (the header carries the reviewer's name; the date the design was allocated for review, not when the review was done, the officer 11 Nov 2026) | none found | **unresolved**, see Gaps |
 | Forward Engineering to Certifier | `Forward Engineers Footing/Slab Design to Private Certiifier` | verified; the doubled *i* is OSC's own spelling, match it as written |
 | Covenant Ordered | `Submit Covenant Application` | verified |
 

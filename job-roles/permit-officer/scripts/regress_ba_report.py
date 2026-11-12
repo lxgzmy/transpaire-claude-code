@@ -365,8 +365,11 @@ def officer_round_trip(tmp, check):
           and o22.get("ENGINEERING", {}).get("assigned_to") == "Synthetic Reviewer", str(o22))
     check("officer: column rows say where they come from",
           "tracked from its columns" in str(rows1[("90021", "ENGINEERING")]["Draft notes"])
-          and "engineering columns: reviewed 12/10/2026, not forwarded to the certifier since" in
+          and "engineering columns: allocated for review 12/10/2026, not forwarded to the certifier since" in
           str(rows1[("90021", "ENGINEERING")]["Draft notes"]))
+    check("officer: the review column is said as allocated for review, never as reviewed (the officer, 11 Nov 2026)",
+          not any("reviewed" in str(r.get("Draft notes")) for r in rows1.values()),
+          str([r.get("Draft notes") for r in rows1.values()]))
     amd = {i["name"]: i for i in j1["90021"]["outstanding"]}.get("AMENDED DA APPROVAL", {})
     rop = {i["name"]: i for i in j1["90022"]["outstanding"]}.get("ROP APPROVAL", {})
     check("officer: an amended DA sits with Council at 60 days, an ROP with Council at 30",
@@ -453,7 +456,7 @@ def officer_round_trip(tmp, check):
     check("week 2: an engineering cycle she resolved is not shown again",
           not j3["90023"]["outstanding"] and not j3["90023"]["resolved"], str(j3["90023"]))
 
-    # week 3: revised engineering reviewed again -> a new cycle opens
+    # week 3: revised engineering allocated for review again -> a new cycle opens
     base_d = tmp / "BA REPORT - 09.11.2026.xlsx"
     base(base_d, "PENDING AMENDED DA APPROVAL, SEWER EJECTION PUMP APPROVAL, WASTE MAN PLAN, INSURANCES",
          "PENDING INSURANCES.", review3=t("2026-11-10", 0.4))
@@ -653,7 +656,7 @@ def engineering_stage_checks(tmp, check):
           and "limit 10 business days (internal review)" in rows1[("90052", "ENGINEERING")]["Draft notes"],
           str(rows1[("90051", "ENGINEERING")]))
     e52 = w1["90052"].get("ENGINEERING", {})
-    check("stages: received or reviewed is Transpire's internal review at 10 days, from the latest of the two",
+    check("stages: received or allocated for review is Transpire's internal review at 10 days, from the latest of the two",
           e52.get("stage") == "review" and e52.get("threshold") == 10 and e52.get("date_submitted") == "2026-10-13"
           and e52.get("assigned_to") == "Synthetic Reviewer", str(e52))
     e53 = w1["90053"].get("ENGINEERING", {})
@@ -1321,8 +1324,9 @@ def main():
                                                               "alerts": [], "documents": []}), encoding="utf-8")
         _, _, ev_b = build_draft(base, bdir / "snaps", bdir / "out", asof="2026-11-02", state_dir=bdir / "state",
                                  jobs=["90071"])
-        check("fix: an unclosed bracket is said on the job, with how its list was read",
-              any("not closed, so it was read as 2 items (S307 APPROVAL; INSURANCES)" in f
+        check("fix: an unclosed bracket is said on the job, with how its list was read and that the items need nothing",
+              any("a \"(\" with no closing \")\", and it was read as 2 items (S307 APPROVAL; INSURANCES)" in f
+                  and "this is the bracket only, not the items" in f and "close it" not in f
                   for f in ev_b["jobs"][0]["flags"]), str(ev_b["jobs"][0]["flags"]))
 
         sd = tmp / "state-atomic"

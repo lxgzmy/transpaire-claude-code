@@ -448,17 +448,20 @@ def check_item(item, snapshot, since_iso):
 # like RFI items (the officer, 27 Oct 2026; engineering by stage since her
 # correction, ENGINEERING_STAGES). Each is a chain of steps: in flight from its
 # latest dated step until the closing step is dated on or after it.
-# Engineering goes round again when a revision is received or reviewed after
-# the last forward, which OSC does not re-date, so the officer's Date resolved
-# closes a cycle too. "stage": the stage the latest dated step starts (ordered:
-# the engineer is designing; received or reviewed: Transpire is reviewing, as
-# she dated the pilot jobs on 22 Oct 2026). Header text is matched by its
-# start ("Review Engineering - <reviewer>"); OSC's own closing step is read as
-# well, being fresher than the base export.
+# The "Review Engineering - <reviewer>" column dates when the design was
+# allocated for review, not when the review was done (the officer, 11 Nov 2026),
+# so the notes say "allocated for review".
+# Engineering goes round again when a revision is received or allocated for
+# review after the last forward, which OSC does not re-date, so the officer's
+# Date resolved closes a cycle too. "stage": the stage the latest dated step
+# starts (ordered: the engineer is designing; received or allocated for review:
+# Transpire is reviewing, as she dated the pilot jobs on 22 Oct 2026). Header
+# text is matched by its start; OSC's own closing step is read as well, being
+# fresher than the base export.
 COLUMN_CYCLES = {
     "ENGINEERING": {"steps": {"engineering ordered": "ordered", "receive engineering": "received",
-                              "review engineering": "reviewed"},
-                    "stage": {"ordered": "design", "received": "review", "reviewed": "review"},
+                              "review engineering": "allocated for review"},
+                    "stage": {"ordered": "design", "received": "review", "allocated for review": "review"},
                     "closing": "forward engineering", "closed": "forwarded to the certifier",
                     "closing_activity": r"^Forward Engineers Footing/Slab Design", "label": "engineering columns"},
     "COVENANT": {"steps": {"covenant ordered": "ordered"}, "closing": "received covenant approval",
@@ -482,10 +485,11 @@ def column_cycle(key, row, snapshot):
     """The tracked chain behind an item's columns: {since, done_on, detail} or None when never started."""
     spec = COLUMN_CYCLES[key]
     steps = [(word, _column_date(row, name)[0]) for name, word in spec["steps"].items()]
-    dated = [(d, word) for word, d in steps if d]
+    # on the same day the later step in the chain wins (received and allocated for review are often minutes apart)
+    dated = [(d, order, word) for order, (word, d) in enumerate(steps) if d]
     if not dated:
         return None
-    since, step = max(dated)
+    since, _, step = max(dated)
     closed, closed_raw = _column_date(row, spec["closing"])
     not_applicable = bool(re.match(r"^\s*(N/?A|NOT APPLICABLE)\b", str(closed_raw or ""), re.I))
     if snapshot:
@@ -1021,9 +1025,9 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                                        "and your Items sheet only")
             g = row["submit_all_rfi_items"]
             if g.get("unclosed"):
-                job_ev["flags"].append(f"a bracket in your RFI list is not closed, so it was read as {len(g['items'])} "
-                                       f"items ({'; '.join(i['name'] for i in g['items'])}); close it in the report "
-                                       "if that is wrong")
+                job_ev["flags"].append(f"your RFI list has a \"(\" with no closing \")\", and it was read as "
+                                       f"{len(g['items'])} items ({'; '.join(i['name'] for i in g['items'])}); "
+                                       "nothing to change if that is right (this is the bracket only, not the items)")
 
         date_keys = ["submit_for_ba", "received_rfi", "received_covenant",
                      "submit_all_rfi_items", "ba_received", "deposit_paid",
