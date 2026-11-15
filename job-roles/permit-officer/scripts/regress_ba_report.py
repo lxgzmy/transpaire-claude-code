@@ -43,7 +43,8 @@ or in tests), runs the parse + draft + compare steps, and asserts:
      correctly; RFI-cell text that is not a PENDING list is carried verbatim
  19. the review of v0.4: every finding as a scenario over four weeks
  20. the Monday run in one command (base found, edits read, never overwrite,
-     last week scored against her report for the same week)
+     last week scored against her report for the same week, on the jobs
+     that draft was made for, so a job added this week waits a week)
  18. the officer's answers (27 Oct 2026) and the week-1 restart: the
      engineering and covenant columns are tracked on the Items sheet (from the
      latest dated step, re-opened by a revision; engineering by stage, 21) and
@@ -83,8 +84,8 @@ from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, buil
                              family_of, load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
-from ba_weekly_run import (VENV_PYTHON, RunError, _summary, find_base, find_last_draft, last_week_score, run,
-                           verify_delivered)
+from ba_weekly_run import (VENV_PYTHON, RunError, _summary, drafted_jobs, find_base, find_last_draft,
+                           last_week_score, run, verify_delivered)
 from compare_ba_report import compare
 import nsw_holidays
 from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
@@ -879,6 +880,21 @@ def weekly_run_checks(tmp, check):
           items_rows(drop / name3) == rows3 and rows3[("90002", "ENGINEERING")].get("Notes") == "with the engineer",
           f'{rows3.get(("90002", "ENGINEERING"))} / {items_rows(drop / name3).get(("90002", "ENGINEERING"))}')
 
+    # 16 Nov 2026: a job joins the pilot. Last week's draft only carried its row forward, so the score of
+    # that draft stays on the jobs it was made for (its evidence record says which).
+    plan = run(date(2026, 11, 9), ["90002", "90005"], archive=archive, drop=drop, runtime=rt, dry_run=True)
+    joined = run(date(2026, 11, 9), ["90002", "90005"], archive=archive, drop=drop, runtime=rt,
+                 snapshot=fake_snapshot)
+    sc = joined.get("scored") or {}
+    check("run: a job added this week is not scored on last week's draft, and the summary says so",
+          sc.get("jobs") == ["90002"] and [j["job_no"] for j in sc.get("report", {}).get("jobs", [])] == ["90002"]
+          and "scored on 90002, the jobs that draft was made for" in _summary(joined)
+          and any(ln.startswith("score: on jobs 90002, the ones that draft was made for") for ln in plan["plan"])
+          and "90005" in joined["evidence"]["pilot_jobs"], f"{sc.get('jobs')} {plan['plan']}")
+    check("run: with no record of last week's jobs, this week's are scored",
+          drafted_jobs(Path("BA REPORT DRAFT - 19.10.2026.xlsx"), rt / "outputs", ["90002", "90005"])
+          == ["90002", "90005"] and drafted_jobs(None, rt / "outputs", ["90002"]) == ["90002"])
+
 
 def hardening_checks(tmp, check, snapshot_tests=None):
     """22. Fewer silent misses, and a quicker check for her: each row says what changed since the draft
@@ -1280,6 +1296,23 @@ def main():
         v = check_item({"name": "CONTRIBUTIONS PAYABLE"},
                        snap(docs=[doc(14, "S7.11 CONTRIBUTION RECEIPT", "2026-09-02")]), PREV)[0]
         check("fix: a contributions receipt still resolves (the receipt is the outcome)", v == "complete", v)
+        # 16 Nov 2026: the job that joined the pilot lists an S138 (Roads Act driveway) approval.
+        s138 = family_of("S138 APPROVAL")
+        check("s138: its own rule, with Council, apart from S68 and road opening",
+              s138 is not None and s138["key"] == "S138" and s138["tier"] == "COUNCIL"
+              and family_of("SECTION 138 APPROVAL")["key"] == "S138" and family_of("S68 APPROVAL")["key"] == "S68"
+              and family_of("ROAD OPENING APPROVAL")["key"] == "ROP", str(s138))
+        outcome = {"PORTAL LODGEMENT - S138 APPLICATION": "unknown", "APPROVAL - S138 DRIVEWAY": "complete",
+                   "S 138 APPROVAL - DRIVEWAY": "complete"}
+        for desc, want in outcome.items():
+            v = check_item({"name": "S138 APPROVAL"}, snap(docs=[doc(15, desc, "2026-09-02")]), PREV)[0]
+            check(f"s138: document \"{desc}\" -> {want}", v == want, v)
+        lodged = snap(docs=[doc(16, "Roads Act application (RA-0000-00000)_ New application has been submitted",
+                                "2026-08-27"),
+                            doc(17, "PORTAL LODGEMENT - S 138 APPLICATION", "2026-08-28")])
+        check("s138: the oldest lodgement dates it, the portal's Roads Act email included",
+              submitted_evidence({"name": "S138 APPROVAL"}, lodged)[0] == "2026-08-27",
+              str(submitted_evidence({"name": "S138 APPROVAL"}, lodged)))
 
         slab_done = [act(54, "Receive Engineering - Piers, Footings & Slab Design", done="2026-09-01"),
                      act(55, "Review Engineering - Piers, Footings & Slab Design", done="2026-09-02"),

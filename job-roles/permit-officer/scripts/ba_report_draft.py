@@ -212,6 +212,15 @@ FAMILIES = [
      "done_activities": [], "pending_activities": [],
      "done_docs": [r"(APPROVAL - S(ECTION )?68|S(ECTION )?68.*APPROV)"],
      "submitted_docs": [r"S(ECTION )?68.*(APPLICATION|RECEIPT)"]},
+    # Roads Act s138 consent for the driveway, from Council. OSC files the lodgement as
+    # "PORTAL LODGEMENT - S138 APPLICATION" (or "S 138") or the portal's "Roads Act application
+    # ... has been submitted" email, and the outcome as "APPROVAL - S138 DRIVEWAY" (NSW jobs,
+    # October 2026, when 26044 joined the pilot).
+    {"key": "S138", "tier": "COUNCIL",
+     "match": r"\bS(ECTION)? ?138\b",
+     "done_activities": [], "pending_activities": [],
+     "done_docs": [r"(APPROVAL - S(ECTION)? ?138|S(ECTION)? ?138.*APPROV)"],
+     "submitted_docs": [r"S(ECTION)? ?138.*(APPLICATION|RECEIPT)", r"\bROADS ACT APPLICATION\b"]},
     {"key": "S307", "tier": "COUNCIL",
      "match": r"\bS(ECTION )?307\b",
      "done_activities": [], "pending_activities": [],

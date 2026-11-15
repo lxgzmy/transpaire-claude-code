@@ -134,6 +134,11 @@ testable; open questions are marked ❓.
   which typically takes about 60 business days and so turns red only after
   60. The draft no longer adds "(PROPOSED)" items to her RFI cell: she did
   not take them up, and orders insurances once most RFI items are done.
+  **S138 APPROVAL** (Roads Act consent for the driveway) joined with 26044
+  on 16 Nov 2026, also with Council at 30 business days, dated from its
+  portal lodgement. That is a default read from how OSC files it ("PORTAL
+  LODGEMENT - S138 APPLICATION", "APPROVAL - S138 DRIVEWAY"), not her
+  answer; her own assignee on the Items sheet overrides it.
 - **PO-11c — Engineering in two stages (the permit officer's correction of
   PO-11b, in her reply to the 27 Oct 2026 email, issue #79).** Her 10
   business days meant Transpire's internal review only. The engineers are

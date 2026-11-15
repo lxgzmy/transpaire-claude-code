@@ -64,7 +64,8 @@ from nsw_holidays import covers, in_shutdown, reopens  # noqa: E402
 RUNTIME = REPO / "runtime" / "permit-officer"
 ARCHIVE = Path(r"Z:\ADMINISTRATION\REPORTS\REPORTS\BA REPORTS")
 DROP = Path(r"Z:\AI test\Permit Officer\BA Report test")
-PILOT_JOBS = "26029,26052,26001"
+# 26044 joined on 16 Nov 2026 at the officer's request (12 Nov): the other three were nearly through.
+PILOT_JOBS = "26029,26052,26001,26044"
 VENV_PYTHON = REPO / "shared" / "mcp" / "osc-api" / ".venv" / "Scripts" / "python.exe"
 
 REPORT_NAME = re.compile(r"^BA REPORT\s*-\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\.xlsx$", re.I)
@@ -148,6 +149,20 @@ def last_week_score(drafted, base_date, reports):
     return week, Path(reports) / f"compare-{week:%d.%m.%Y}.md"
 
 
+def drafted_jobs(drafted, outputs, jobs):
+    """The pilot jobs last week's draft was made for, read from the evidence written beside it in runtime
+    outputs. A job that joins the pilot this week is then not scored on a draft that only carried its row
+    forward unchanged. ``jobs`` when that record is missing or unreadable."""
+    if drafted is None:
+        return list(jobs)
+    record = Path(outputs) / Path(drafted).name.replace(".xlsx", "-evidence.json")
+    try:
+        made_for = json.loads(record.read_text(encoding="utf-8")).get("pilot_jobs")
+    except (OSError, ValueError, AttributeError):
+        made_for = None
+    return [str(j) for j in made_for] if made_for else list(jobs)
+
+
 def score_last_week(score, drafted, base, base_src, jobs):
     """Score last week's draft against her report and write the scorecard unless one is there.
     A problem is returned to be said, never raised: the score is a side report, not the draft."""
@@ -158,9 +173,9 @@ def score_last_week(score, drafted, base, base_src, jobs):
         if not kept:
             card.parent.mkdir(parents=True, exist_ok=True)
             card.write_text(render(report, drafted, base_src, jobs, week=week), encoding="utf-8")
-        return {"week": week, "card": card, "report": report, "kept": kept}
+        return {"week": week, "card": card, "report": report, "kept": kept, "jobs": list(jobs)}
     except Exception as exc:  # noqa: BLE001 (any failure here is reported in the summary instead)
-        return {"week": week, "card": card, "error": f"{type(exc).__name__}: {exc}"}
+        return {"week": week, "card": card, "error": f"{type(exc).__name__}: {exc}", "jobs": list(jobs)}
 
 
 def copy_in(src, dst):
@@ -305,9 +320,13 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
             f"snapshot: jobs {','.join(jobs)} -> {state / 'snapshots'}",
             f"draft: BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx -> {outputs}, delivered to {drop}"]
     score = last_week_score(drafted, base_date, reports)
+    scored_jobs = drafted_jobs(drafted, outputs, jobs)
     if score:
         plan.append(f"score: last week's draft ({score[0]:%d.%m.%Y}) against {base_src.name} -> {score[1]}"
                     + (" (already there: kept, the headline said again)" if score[1].exists() else ""))
+        if set(scored_jobs) != set(jobs):
+            plan.append(f"score: on jobs {','.join(scored_jobs)}, the ones that draft was made for "
+                        f"(this week: {','.join(jobs)})")
     else:
         plan.append(f"score: none (no draft of ours for the week of {base_src.name})")
     plan += found
@@ -368,7 +387,7 @@ def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, d
     delivered = deliver([Path(draft), Path(ev_md)], drop, outputs / "delivered", force=force)
     checked = verify_delivered(Path(draft), delivered[0], base)
     lap("delivery")
-    scored = score_last_week(score, drafted, base, base_src, jobs) if score else None
+    scored = score_last_week(score, drafted, base, base_src, scored_jobs) if score else None
     if scored:
         lap("score")
     return {"plan": plan, "moved": moved, "draft": draft, "evidence": evidence, "delivered": delivered,
@@ -396,6 +415,8 @@ def _summary(result):
     elif sc:
         lines.append(f"Last week ({sc['week']:%d.%m.%Y}): {headline(sc['report'])}. "
                      f"Scorecard {'kept' if sc['kept'] else 'written'}: {sc['card']}")
+    if sc and set(sc["jobs"]) != set(ev.get("pilot_jobs") or []):
+        lines.append(f"  scored on {', '.join(sc['jobs'])}, the jobs that draft was made for")
     lines.append("Took "+ ", ".join(f"{step} {secs:.0f} s" for step, secs in result["took"].items()))
     return "\n".join(lines)
 

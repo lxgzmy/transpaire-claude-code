@@ -23,7 +23,8 @@ QLD status sits in the certifier's portal, which AI cannot touch.
    columns by header text, per-item values on an Items sheet the officer
    corrects and the next draft reads back, engineering and covenant aged
    from their columns, snapshots from production OSC; the pilot runs on
-   three NSW jobs nominated on issue #29, OSC-only until mailbox evidence is
+   NSW jobs, three nominated on issue #29 and 26044 added on 16 Nov 2026 at
+   the officer's request, OSC-only until mailbox evidence is
    wired in, restarting on a clean week 1 on Monday 2 Nov 2026). Draft the
    Monday report from OSC + last week's report; age each item in business
    days by tier. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11c`.

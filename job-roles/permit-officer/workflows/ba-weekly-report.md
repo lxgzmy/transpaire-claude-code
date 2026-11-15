@@ -57,8 +57,10 @@ testing folder (see `../reference/README.md`).
 
 ## How to run (v0.4 — the pilot, from week 1 on Monday 2 November 2026)
 
-Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**. Each Monday
-for 3–4 weeks, from the repo root:
+Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**, and **26044**
+from Monday 16 Nov 2026. The officer asked for another NSW job on 12 Nov,
+when 26001 was the only pilot job with items still open; 26044 had five,
+its RFI received 23 Oct. Each Monday for 3–4 weeks, from the repo root:
 
 ```
 python job-roles\permit-officer\scripts\ba_weekly_run.py --dry-run
@@ -126,7 +128,7 @@ The steps, for reference or to run by hand:
 
    ```
    "shared\mcp\osc-api\.venv\Scripts\python.exe" ../scripts/osc_snapshot.py
-          --jobs 26029,26052,26001
+          --jobs 26029,26052,26001,26044
           --out runtime\permit-officer\state\snapshots
    ```
 
@@ -145,7 +147,7 @@ The steps, for reference or to run by hand:
           --snapshots runtime\permit-officer\state\snapshots
           --out runtime\permit-officer\outputs
           --state runtime\permit-officer\state
-          --jobs 26029,26052,26001
+          --jobs 26029,26052,26001,26044
           --edited "runtime\permit-officer\reports\BA REPORT DRAFT - dd.mm.yyyy (officer-edited).xlsx"
    ```
 
@@ -194,7 +196,10 @@ The steps, for reference or to run by hand:
    summary. The scorecard, `runtime\permit-officer\reports\compare-dd.mm.yyyy.md`
    (dated by the draft's Monday), holds matched / missed / extra items per
    pilot job and the "% correctly pre-populated" headline (criterion ≥ 90 %).
-   Record the officer's review time (target < 30 min) and "unapproved
+   Last week's draft is scored on the jobs it was made for (its
+   `-evidence.json` in runtime outputs says which), so a job added to the
+   pilot this week is first scored the week after; the summary says when
+   the two lists differ. Record the officer's review time (target < 30 min) and "unapproved
    writes: 0" by hand in that file; a re-run keeps the file as it is. To
    score another pair by hand:
 
@@ -202,7 +207,7 @@ The steps, for reference or to run by hand:
    python ../scripts/compare_ba_report.py
           --draft "runtime\permit-officer\outputs\delivered\BA REPORT DRAFT - dd.mm.yyyy.xlsx"
           --actual "runtime\permit-officer\reports\BA REPORT - dd.mm.yyyy.xlsx"
-          --jobs 26029,26052,26001
+          --jobs 26029,26052,26001,26044
    ```
 5. **Next base:** her next export from the archive (step 0), **keeping the
    `BA REPORT - dd.mm.yyyy.xlsx` name** — the date in the filename is what
@@ -270,4 +275,4 @@ zero missed outstanding items versus the manual baseline over a 4-week
 parallel run. Pilot acceptance (issue #29): at least 90 per cent of the
 officer's outstanding items correctly pre-populated, officer review under
 30 minutes, zero unapproved writes — scored each Monday by the run
-(`../scripts/compare_ba_report.py`) on the three pilot jobs.
+(`../scripts/compare_ba_report.py`) on the pilot jobs.
