@@ -176,7 +176,9 @@ The steps, for reference or to run by hand:
 3. **Review (the officer):** correct the draft on the **Items sheet**, in
    the drop folder, and save it there — and keep typing the PENDING list on
    the main sheet as today. Type the real *Assigned to* and *Date
-   submitted* where the draft guessed (`⚠`, "assumed"); empty *Date
+   submitted* where the draft guessed (`⚠`, "assumed", or a date from a
+   document filed on or before the BA lodgement, which may be the original
+   rather than what the RFI asked for again); empty *Date
    submitted* for an item that has not gone out yet (NOT SUBMITTED, no
    days counted); type *Date resolved* to close an item; write anything
    she wants kept in *Notes* (hers, carried week to week); *Draft notes*

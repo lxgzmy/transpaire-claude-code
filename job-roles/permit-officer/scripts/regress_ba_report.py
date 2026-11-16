@@ -80,8 +80,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, build_draft, check_item, column_cycle,
-                             family_of, load_state, save_state, submitted_evidence)
+from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, age_item, build_draft, check_item,
+                             column_cycle, family_of, load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
 from ba_weekly_run import (VENV_PYTHON, RunError, _summary, drafted_jobs, find_base, find_last_draft,
@@ -1313,6 +1313,34 @@ def main():
         check("s138: the oldest lodgement dates it, the portal's Roads Act email included",
               submitted_evidence({"name": "S138 APPROVAL"}, lodged)[0] == "2026-08-27",
               str(submitted_evidence({"name": "S138 APPROVAL"}, lodged)))
+
+        # 16 Nov 2026: 26044's BASIX was dated from the original BASIX application filed with the BA
+        # (lodged 15 Oct, RFI 23 Oct) and showed RED with no flag on its date. A date from a document
+        # attached on or before the lodgement is kept but flagged for her to confirm.
+        def basix(attached, lodged_on="2026-10-15", name="BASIX"):
+            it = {"name": name}
+            age_item(it, {}, snap(docs=[doc(18, "BASIX APPLICATION - LOT 1", attached)]),
+                     "2026-11-16", "2026-11-09", lodged_on)
+            return it, [f for f in it["age_flags"] if "BA lodgement" in f]
+        it, lf = basix("2026-10-15")
+        check("lodgement doc: a document filed with the BA dates the item, flagged for her",
+              it["date_submitted"] == "2026-10-15" and it["days"] == 22 and it["flag"] == "RED"
+              and len(lf) == 1 and "15/10/2026" in lf[0] and it["flagged"] and it.get("lodgement_doc"), str(it))
+        it, lf = basix("2026-10-01")
+        check("lodgement doc: one filed before the lodgement (ordered early, PO-5) keeps its date, flagged",
+              it["date_submitted"] == "2026-10-01" and len(lf) == 1, str(it))
+        it, lf = basix("2026-10-28")
+        check("lodgement doc: one filed after the lodgement is not flagged",
+              it["date_submitted"] == "2026-10-28" and not lf and not it.get("lodgement_doc"), str(it))
+        it, lf = basix("2026-10-15", lodged_on=None)
+        check("lodgement doc: no lodgement date, no flag", it["date_submitted"] == "2026-10-15" and not lf, str(it))
+        eng = {"name": "ENGINEERING"}
+        age_item(eng, {}, snap([act(46, "Order Engineering - Piers, Footings & Slab Design", done="2026-10-01"),
+                                act(53, "Receive Engineering - Piers, Footings & Slab Design")]),
+                 "2026-11-16", "2026-11-09", "2026-10-15")
+        check("lodgement doc: an OSC step before the lodgement is not a document, not flagged",
+              eng["date_submitted"] == "2026-10-01"
+              and not [f for f in eng["age_flags"] if "BA lodgement" in f], str(eng))
 
         slab_done = [act(54, "Receive Engineering - Piers, Footings & Slab Design", done="2026-09-01"),
                      act(55, "Review Engineering - Piers, Footings & Slab Design", done="2026-09-02"),
