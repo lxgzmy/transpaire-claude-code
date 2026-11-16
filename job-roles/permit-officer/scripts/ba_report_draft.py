@@ -881,6 +881,14 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
             ev_date, ev_desc = submitted_evidence(item, snapshot, submit_for_ba_iso)
             if ev_date:
                 submitted, dsrc = ev_date, f"osc: {ev_desc}"
+                # A document filed with the BA application, or before it, may be the original that
+                # the RFI asked for again (26044's BASIX, 16 Nov 2026), or an item ordered early
+                # (PO-5). The date stays; she is asked to confirm it.
+                if submit_for_ba_iso and ev_desc.startswith("document ") and ev_date <= submit_for_ba_iso:
+                    item["lodgement_doc"] = True
+                    flags.append(f"date submitted is from a document filed on or before the BA lodgement "
+                                 f"({_ddmmyyyy(submit_for_ba_iso)}); officer to confirm, or correct it "
+                                 f"if the RFI asked for it again")
         if not submitted and echo:
             submitted, dsrc = echo, "carried"
         if not submitted:
@@ -1365,6 +1373,9 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 notes.append("tracked from its columns, not on the RFI list")
             if i.get("assumed"):
                 notes.append("date submitted assumed — please correct")
+            if i.get("lodgement_doc") and not i.get("resolved"):
+                notes.append("date submitted is from a document filed with the BA application or before it, "
+                             "so it may be the original: please confirm or correct")
             if i["flag"] == "NOT SUBMITTED":
                 notes.append("not yet submitted (from your Items sheet) — type the date once it goes out")
             if i.get("flagged") and not i.get("resolved"):

@@ -206,6 +206,11 @@ or after *Submit for BA*** (pre-lodgement alerts such as `LODGE FOR CC` are
 instructions, not handovers — observed on the pilot jobs); else the first
 report sighting, flagged "assumed". Documents and activities may
 legitimately predate lodgement (engineering, s10.7 ordered early, PO-5).
+A date taken from a document attached on or before *Submit for BA* is
+kept but flagged for the officer to confirm: it may be the original filed
+with the application rather than what the RFI asked for again (26044's
+BASIX on 16 Nov 2026 was dated from the original BASIX application, a week
+before the RFI).
 Document and alert timestamps are UTC, so the drafter reads them as Sydney
 dates (an upload at 08:30 on a Monday is Sunday evening in UTC); activity
 completion dates are stored at midnight UTC and keep their day.
