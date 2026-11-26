@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """The Monday BA report run in one command (workflows/ba-weekly-report.md, steps 0-2 and delivery).
 
-  python job-roles\\permit-officer\\scripts\\ba_weekly_run.py              # today's draft
+  python job-roles\\permit-officer\\scripts\\ba_weekly_run.py              # this week's Monday's draft
   python job-roles\\permit-officer\\scripts\\ba_weekly_run.py --dry-run    # say what it would do
   python job-roles\\permit-officer\\scripts\\ba_weekly_run.py --restart september-test --asof 2026-11-02
+
+Unattended (since 27 Nov 2026): a scheduled task runs ba_weekly_task.ps1, which calls this with
+--scheduled at 06:30 and 12:30 each Monday to Wednesday until the Monday's draft is in the drop folder
+(register_ba_weekly_task.ps1 sets it up). Whenever a run stops with no draft out, a note saying why
+is left in the drop folder ("BA REPORT DRAFT - dd.mm.yyyy - NOT READY.txt") and removed once the
+draft is delivered; every run, by hand or scheduled, adds a line to runtime\\permit-officer\\logs\\
+ba-weekly-runs.log.
 
 In order, stopping at the first problem with nothing half done:
 
@@ -48,7 +55,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # abspath, not resolve(): on this server resolve() turns the mapped Z: drive into its UNC form,
@@ -68,8 +75,18 @@ DROP = Path(r"Z:\AI test\Permit Officer\BA Report test")
 PILOT_JOBS = "26029,26052,26001,26044"
 VENV_PYTHON = REPO / "shared" / "mcp" / "osc-api" / ".venv" / "Scripts" / "python.exe"
 
-REPORT_NAME = re.compile(r"^BA REPORT\s*-\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\.xlsx$", re.I)
+# Her archive names vary in their spacing ("BA REPORT- 19.10.2026", "BA REPORT -13.04.2026", and on
+# 16 Nov 2026 "BA REPORT -16.11. 2026", which the stricter pattern missed, so 23 Nov had no draft).
+REPORT_NAME = re.compile(r"^BA\s*REPORT\s*-?\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{4})\s*\.xlsx$", re.I)
 DRAFT_NAME = re.compile(r"^BA REPORT DRAFT - (\d{2})\.(\d{2})\.(\d{4})\.xlsx$", re.I)
+# Left in the drop folder when a Monday's draft could not be made, so she sees why without asking;
+# removed once that draft is delivered.
+NOTICE_NAME = "BA REPORT DRAFT - {:%d.%m.%Y} - NOT READY.txt"
+RUN_LOG = "ba-weekly-runs.log"
+# When the scheduled task runs (register_ba_weekly_task.ps1 sets the same times; the self-check
+# compares them). Each run after the draft is out does nothing.
+SCHEDULE_DAYS = ("Monday", "Tuesday", "Wednesday")
+SCHEDULE_TIMES = ("06:30", "12:30")
 
 
 class RunError(RuntimeError):
@@ -89,16 +106,35 @@ def _dated(folder, pattern):
     return sorted(out)
 
 
+def unread_reports(archive, since):
+    """Reports in the archive saved after ``since`` whose name holds no date the run can read
+    ("BA REPORT FINAL.xlsx"): said when the run stops, so the fix is a rename, not a guess."""
+    out = []
+    for p in Path(archive).iterdir():
+        n = p.name
+        if (p.is_file() and n.lower().endswith(".xlsx") and not n.startswith("~$")
+                and re.match(r"^BA\s*REPORT", n, re.I) and "DRAFT" not in n.upper() and not REPORT_NAME.match(n)
+                and date.fromtimestamp(p.stat().st_mtime) > since):
+            out.append(p)
+    return sorted(out, key=lambda p: p.stat().st_mtime)
+
+
 def find_base(archive, asof):
     """Her latest export dated before ``asof`` and within 7 days of it, the Christmas shutdown not
     counted (no export is made while the office is closed), or RunError."""
     before = [(d, p) for d, p in _dated(archive, REPORT_NAME) if d < asof]
+    last = before[-1][0] if before else date(2000, 1, 1)
+    odd = [p for p in unread_reports(archive, last) if date.fromtimestamp(p.stat().st_mtime) < asof + timedelta(1)]
+    hint = ""
+    if odd:
+        hint = (" The archive also holds " + ", ".join(f'"{p.name}"' for p in odd) + ", but its name has no date "
+                f"the run can read; saved as \"BA REPORT - dd.mm.yyyy.xlsx\" it will be used.")
     if not before:
-        raise RunError(f"no BA report dated before {asof:%d.%m.%Y} in {archive}")
+        raise RunError(f"no BA report dated before {asof:%d.%m.%Y} was found in {archive}.{hint}")
     d, p = before[-1]
     if sum(not in_shutdown(d + timedelta(n)) for n in range(1, (asof - d).days + 1)) > 7:
-        raise RunError(f"the newest BA report before {asof:%d.%m.%Y} is {p.name} ({(asof - d).days} days old); "
-                       "last week's report is not in the archive yet, so nothing was drafted")
+        raise RunError(f"last week's BA report is not in {archive} yet: the newest one before {asof:%d.%m.%Y} is "
+                       f"\"{p.name}\" ({(asof - d).days} days old), so nothing was drafted.{hint}")
     return d, p
 
 
@@ -248,7 +284,7 @@ def _code_fingerprint():
     fingerprint gives the same check result."""
     h = hashlib.sha256(sys.version.encode())
     client = REPO / "shared" / "mcp" / "osc-api" / "osc_mcp"
-    for p in sorted(HERE.glob("*.py")) + sorted(client.glob("*.py")):
+    for p in sorted(HERE.glob("*.py")) + sorted(HERE.glob("*.ps1")) + sorted(client.glob("*.py")):
         h.update(p.name.encode() + b"\0" + p.read_bytes())
     return h.hexdigest()
 
@@ -421,9 +457,103 @@ def _summary(result):
     return "\n".join(lines)
 
 
+def draft_monday(today):
+    """The Monday a run drafts for when no --asof is given: this week's on a weekday, so a run on
+    Tuesday after a missed Monday still makes Monday's draft; next week's at the weekend (made ahead)."""
+    if today.weekday() >= 5:
+        return today + timedelta(days=7 - today.weekday())
+    return today - timedelta(days=today.weekday())
+
+
+def _clock(hhmm):
+    h, m = (int(x) for x in hhmm.split(":"))
+    return f"{h % 12 or 12}:{m:02d} {'am' if h < 12 else 'pm'}"
+
+
+def notice_text(asof, reason, scheduled, contact):
+    """What she reads in the drop folder when a Monday's draft could not be made."""
+    days = ", ".join(SCHEDULE_DAYS[:-1]) + " and " + SCHEDULE_DAYS[-1]
+    lines = [f"No BA report draft has been made for Monday {asof:%d.%m.%Y} yet.", "", f"Why: {reason}", ""]
+    if scheduled:
+        lines.append(f"The run tries again at {' and '.join(_clock(t) for t in SCHEDULE_TIMES)} each {days}. "
+                     "This note goes once the draft is delivered.")
+    else:
+        lines.append("This note goes once the draft is delivered.")
+    lines.append(f"If it is still here on {SCHEDULE_DAYS[-1]} afternoon, please let {contact} know.")
+    return "\r\n".join(lines) + "\r\n"
+
+
+def record_run(runtime, asof, mode, outcome, detail=""):
+    """One line per run in runtime\\permit-officer\\logs\\ba-weekly-runs.log, so a Monday with no draft
+    shows whether the run started and where it stopped. Never fails the run."""
+    try:
+        log = Path(runtime) / "logs" / RUN_LOG
+        log.parent.mkdir(parents=True, exist_ok=True)
+        line = f"{datetime.now():%Y-%m-%d %H:%M:%S} | Monday {asof:%d.%m.%Y} | {mode} | {outcome}"
+        with log.open("a", encoding="utf-8") as f:
+            f.write(line + (f" | {' '.join(str(detail).split())}" if detail else "") + "\n")
+    except OSError:
+        pass
+
+
+def weekly(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, scheduled=False, contact=None, restart=None,
+           dry_run=False, force=False, self_check=True, snapshot=None):
+    """One run as the command line asks for it: (exit code, what to print). Scheduled runs (Monday to
+    Wednesday, twice a day) do nothing once the Monday's draft is in the drop folder. Whenever a run
+    stops with no draft there, a note saying why is left there for her, and removed once the draft is
+    delivered. Every run is recorded in the run log, an unexpected error included."""
+    mode = "dry run" if dry_run else "scheduled" if scheduled else "by hand"
+    contact = contact or "the person who runs the AI pilot"
+    drop, runtime = Path(drop), Path(runtime)
+    there = drop / f"BA REPORT DRAFT - {asof:%d.%m.%Y}.xlsx"
+    notice = drop / NOTICE_NAME.format(asof)
+    if scheduled and not dry_run and not force and there.exists():
+        notice.unlink(missing_ok=True)
+        record_run(runtime, asof, mode, "nothing to do", f"{there.name} is already in the drop folder")
+        return 0, f"{there.name} is already in the drop folder; nothing to do"
+    if scheduled and reopens(asof):
+        record_run(runtime, asof, mode, "shutdown", f"no draft until {reopens(asof):%d.%m.%Y}")
+        return 0, f"{asof:%d.%m.%Y} falls in the Christmas shutdown; nothing is drafted"
+    check = start_self_check(runtime / "state") if self_check else None
+    gate = (lambda: print(finish_self_check(check), flush=True)) if check else None
+    try:
+        result = run(asof, jobs, archive=Path(archive), drop=drop, runtime=runtime, restart=restart,
+                     dry_run=dry_run, force=force, snapshot=snapshot, gate=gate)
+        if result.get("dry_run") and gate:
+            gate()
+    except Exception as exc:  # noqa: BLE001 (every stop is recorded and, with no draft out, said to her)
+        known = isinstance(exc, (RunError, StateError, DraftInputError))
+        reason = str(exc) if known else f"the run hit an unexpected error ({type(exc).__name__}: {exc})"
+        said = ""
+        if not dry_run and not there.exists() and not reopens(asof):
+            try:
+                notice.write_text(notice_text(asof, reason, scheduled, contact), encoding="utf-8")
+                said = f"\nA note saying why is in the drop folder: {notice}"
+            except OSError as werr:
+                said = f"\nThe note for the drop folder could not be written ({werr})"
+        record_run(runtime, asof, mode, "stopped", reason)
+        if not known:
+            import traceback
+            traceback.print_exc()
+        return (2 if known else 3), f"stopped: {reason}{said}"
+    finally:
+        if check and "proc" in check and check["proc"].poll() is None:
+            check["proc"].kill()  # the run stopped before it needed the answer
+    if result.get("dry_run"):
+        record_run(runtime, asof, mode, "planned")
+        return 0, "Would run (nothing changed):\n  " + "\n  ".join(result["plan"])
+    notice.unlink(missing_ok=True)
+    record_run(runtime, asof, mode, "delivered", Path(result["draft"]).name)
+    return 0, _summary(result)
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--asof", help="the draft's Monday, YYYY-MM-DD (default today)")
+    ap.add_argument("--asof", help="the draft's Monday, YYYY-MM-DD (default this week's Monday; at the weekend, "
+                                   "the coming one)")
+    ap.add_argument("--scheduled", action="store_true",
+                    help="the unattended run (ba_weekly_task.ps1): nothing to do once the draft is delivered")
+    ap.add_argument("--contact", help="who the drop-folder note tells her to ask when the draft is late")
     ap.add_argument("--jobs", default=PILOT_JOBS, help=f"pilot job numbers (default {PILOT_JOBS})")
     ap.add_argument("--restart", metavar="LABEL", help="start the state afresh, keeping the old one as .LABEL.json")
     ap.add_argument("--dry-run", action="store_true",
@@ -435,34 +565,24 @@ def main(argv):
     ap.add_argument("--drop", default=str(DROP), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
-    asof = date.fromisoformat(args.asof) if args.asof else date.today()
+    sys.stderr.reconfigure(encoding="utf-8")
+    asof = date.fromisoformat(args.asof) if args.asof else draft_monday(date.today())
     if args.restart and not re.fullmatch(r"[\w.-]+", args.restart):
         sys.exit("--restart LABEL may hold letters, digits, dots and dashes only")
     jobs = [j.strip() for j in args.jobs.split(",") if j.strip()]
+    print(f"{datetime.now():%d.%m.%Y %H:%M}: the draft for Monday {asof:%d.%m.%Y}"
+          + (" (scheduled run)" if args.scheduled else ""), flush=True)
     if asof.weekday() != 0:
         print(f"note: {asof:%d.%m.%Y} is not a Monday")
     ahead = asof + timedelta(days=60)
     if not covers(ahead):
         print(f"note: add the {ahead.year} NSW public holidays to nsw_holidays.py; from 1 January the "
               "business-day counts would miss them")
-    check = None if args.no_self_check else start_self_check(RUNTIME / "state")
-    gate = (lambda: print(finish_self_check(check))) if check else None
-    try:
-        result = run(asof, jobs, archive=Path(args.archive), drop=Path(args.drop), restart=args.restart,
-                     dry_run=args.dry_run, force=args.force, gate=gate)
-        if result.get("dry_run") and gate:
-            gate()
-    except (RunError, StateError, DraftInputError) as exc:
-        print(f"stopped: {exc}", file=sys.stderr)
-        return 2
-    finally:
-        if check and "proc" in check and check["proc"].poll() is None:
-            check["proc"].kill()  # the run stopped before it needed the answer
-    if result.get("dry_run"):
-        print("Would run (nothing changed):\n  " + "\n  ".join(result["plan"]))
-        return 0
-    print(_summary(result))
-    return 0
+    code, text = weekly(asof, jobs, archive=Path(args.archive), drop=Path(args.drop), scheduled=args.scheduled,
+                        contact=args.contact, restart=args.restart, dry_run=args.dry_run, force=args.force,
+                        self_check=not args.no_self_check)
+    print(text, file=sys.stderr if code else sys.stdout)
+    return code
 
 
 if __name__ == "__main__":

@@ -27,7 +27,10 @@ QLD status sits in the certifier's portal, which AI cannot touch.
    the officer's request, OSC-only until mailbox evidence is
    wired in, restarting on a clean week 1 on Monday 2 Nov 2026). Draft the
    Monday report from OSC + last week's report; age each item in business
-   days by tier. Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11c`.
+   days by tier. Since 27 Nov 2026 a scheduled task runs it Monday to
+   Wednesday until the draft is out, and a run that stops leaves the officer
+   a note in the drop folder saying why (23 Nov had no draft and no trace).
+   Spec: `workflows/ba-weekly-report.md`; rules `PO-9`–`PO-11c`.
 2. **Pre-lodgement checklist** (spec written; the RFI corpus gate cleared
    24 Sep 2026 with eight NSW RFIs in the AI testing folder on `Z:`; the
    trigger is still to confirm with the officer; no code yet). Once per

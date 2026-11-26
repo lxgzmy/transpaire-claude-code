@@ -67,6 +67,8 @@ or in tests), runs the parse + draft + compare steps, and asserts:
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
+import contextlib
+import io
 import json
 import os
 import re
@@ -74,6 +76,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -84,8 +87,9 @@ from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, age_
                              check_item, column_cycle, family_of, load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
-from ba_weekly_run import (VENV_PYTHON, RunError, _summary, drafted_jobs, find_base, find_last_draft,
-                           last_week_score, run, verify_delivered)
+from ba_weekly_run import (NOTICE_NAME, REPORT_NAME, RUN_LOG, SCHEDULE_DAYS, SCHEDULE_TIMES, VENV_PYTHON, RunError,
+                           _summary, draft_monday, drafted_jobs, find_base, find_last_draft, last_week_score, run,
+                           verify_delivered, weekly)
 from compare_ba_report import compare
 import nsw_holidays
 from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
@@ -775,7 +779,8 @@ def weekly_run_checks(tmp, check):
         find_base(archive, date(2026, 11, 16))
         check("run: an export older than a week is never used in its place", False, "no error")
     except RunError as exc:
-        check("run: an export older than a week is never used in its place", "not in the archive yet" in str(exc))
+        check("run: an export older than a week is never used in its place",
+              "last week's BA report is not in" in str(exc) and "nothing was drafted" in str(exc), str(exc))
 
     # Over the Christmas shutdown (PO-11d): no export while closed, and no draft either.
     saved = list(nsw_holidays.SHUTDOWNS)
@@ -894,6 +899,115 @@ def weekly_run_checks(tmp, check):
     check("run: with no record of last week's jobs, this week's are scored",
           drafted_jobs(Path("BA REPORT DRAFT - 19.10.2026.xlsx"), rt / "outputs", ["90002", "90005"])
           == ["90002", "90005"] and drafted_jobs(None, rt / "outputs", ["90002"]) == ["90002"])
+
+
+def unattended_run_checks(tmp, check):
+    """23. 23 Nov 2026 had no draft: her 16 Nov export was saved as "BA REPORT -16.11. 2026", which the
+    archive pattern missed, nobody started the run, and a stopped run left no trace. The archive's names
+    are read whatever their spacing; the scheduled run drafts this week's Monday until the draft is out;
+    any stop with no draft out leaves her a note saying why, and every run is logged."""
+    names = {"BA REPORT -16.11. 2026.xlsx": date(2026, 11, 16), "BA REPORT- 19.10.2026.xlsx": date(2026, 10, 19),
+             "BA REPORT - 1.07.2024.xlsx": date(2024, 7, 1), "BA REPORT 30.11.2026.xlsx": date(2026, 11, 30),
+             "ba report - 07.12.2026 .xlsx": date(2026, 12, 7)}
+    read = {n: (lambda m: m and date(int(m.group(3)), int(m.group(2)), int(m.group(1))))(REPORT_NAME.match(n))
+            for n in names}
+    check("unattended: her archive names are read whatever their spacing (16 Nov's included)",
+          read == names and not REPORT_NAME.match("BA REPORT DRAFT - 16.11.2026.xlsx"), str(read))
+
+    archive, drop, rt = tmp / "u-archive", tmp / "u-drop", tmp / "u-rt"
+    for d in (archive, drop):
+        d.mkdir()
+    synth_prev_report(archive / "BA REPORT - 09.11.2026.xlsx")
+    odd = archive / "BA REPORT FINAL.xlsx"
+    synth_prev_report(odd)
+    stamp = time.mktime((2026, 11, 17, 10, 0, 0, 0, 0, -1))
+    os.utime(odd, (stamp, stamp))
+    try:
+        find_base(archive, date(2026, 11, 23))
+        check("unattended: a report saved with no date in its name is named in the stop", False, "no error")
+    except RunError as exc:
+        check("unattended: a report saved with no date in its name is named in the stop",
+              "is not in" in str(exc) and '"BA REPORT FINAL.xlsx"' in str(exc), str(exc))
+    odd.unlink()
+
+    check("unattended: a run drafts this week's Monday, at the weekend the coming one",
+          [draft_monday(date(2026, 11, d)) for d in (23, 24, 27, 28, 29)]
+          == [date(2026, 11, 23)] * 3 + [date(2026, 11, 30)] * 2)
+
+    calls = []
+
+    def fake_snapshot(folder, jobs):
+        calls.append(1)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "90002.json").write_text(json.dumps(synth_snapshot_90002()), encoding="utf-8")
+
+    monday = date(2026, 11, 23)
+    notice = drop / NOTICE_NAME.format(monday)
+    runlog = rt / "logs" / RUN_LOG
+    code, text = weekly(monday, ["90002"], archive=archive, drop=drop, runtime=rt, scheduled=True,
+                        contact="Synthetic Contact", self_check=False, snapshot=fake_snapshot)
+    said = notice.read_text(encoding="utf-8") if notice.exists() else ""
+    check("unattended: a stop with no draft out leaves her a note saying why and when it tries again",
+          code == 2 and "Monday 23.11.2026" in said and "last week's BA report is not in" in said
+          and "6:30 am and 12:30 pm each Monday, Tuesday and Wednesday" in said and "Synthetic Contact" in said
+          and not calls, f"{code} {text!r} {said!r}")
+    code_dry, _ = weekly(date(2026, 11, 30), ["90002"], archive=archive, drop=drop, runtime=rt, scheduled=True,
+                         dry_run=True, self_check=False, snapshot=fake_snapshot)
+    check("unattended: a dry run leaves no note", not (drop / NOTICE_NAME.format(date(2026, 11, 30))).exists())
+
+    synth_prev_report(archive / "BA REPORT -16.11. 2026.xlsx")  # her real 16 Nov name
+    code, text = weekly(monday, ["90002"], archive=archive, drop=drop, runtime=rt, scheduled=True,
+                        self_check=False, snapshot=fake_snapshot)
+    check("unattended: the retry drafts from her oddly spaced export, delivers, and takes the note away",
+          code == 0 and (drop / "BA REPORT DRAFT - 23.11.2026.xlsx").exists() and not notice.exists()
+          and len(calls) == 1, f"{code} {text!r}")
+    code, text = weekly(monday, ["90002"], archive=archive, drop=drop, runtime=rt, scheduled=True,
+                        self_check=False, snapshot=fake_snapshot)
+    check("unattended: once the draft is out, a scheduled run does nothing",
+          code == 0 and "nothing to do" in text and len(calls) == 1, f"{code} {text!r}")
+
+    def broken_snapshot(folder, jobs):
+        raise ValueError("synthetic fault")
+    synth_prev_report(archive / "BA REPORT - 23.11.2026.xlsx")
+    with contextlib.redirect_stderr(io.StringIO()) as err:  # the traceback goes to the run's own log
+        code, text = weekly(date(2026, 11, 30), ["90002"], archive=archive, drop=drop, runtime=rt, scheduled=True,
+                            self_check=False, snapshot=broken_snapshot)
+    late = drop / NOTICE_NAME.format(date(2026, 11, 30))
+    check("unattended: an unexpected error is caught, said to her and logged, never a silent crash",
+          code == 3 and late.exists() and "unexpected error (ValueError: synthetic fault)" in late.read_text(
+              encoding="utf-8") and "Traceback" in err.getvalue(), f"{code} {text!r}")
+    late.unlink()
+    with contextlib.redirect_stderr(io.StringIO()):
+        code, text = weekly(monday, ["90002"], archive=archive, drop=drop, runtime=rt, force=False,
+                            self_check=False, snapshot=broken_snapshot)
+    check("unattended: a stop with the Monday's draft already out leaves no note",
+          code == 3 and not notice.exists(), f"{code} {text!r}")
+
+    saved = list(nsw_holidays.SHUTDOWNS)
+    try:
+        nsw_holidays.SHUTDOWNS[:] = [(date(2026, 12, 23), date(2027, 1, 11))]
+        code, text = weekly(date(2027, 1, 4), ["90002"], archive=archive, drop=drop, runtime=rt, scheduled=True,
+                            self_check=False, snapshot=fake_snapshot)
+        check("unattended: a scheduled run in the Christmas shutdown does nothing and leaves no note",
+              code == 0 and "shutdown" in text and not (drop / NOTICE_NAME.format(date(2027, 1, 4))).exists())
+    finally:
+        nsw_holidays.SHUTDOWNS[:] = saved
+
+    lines = runlog.read_text(encoding="utf-8").splitlines() if runlog.exists() else []
+    outcomes = [ln.split(" | ")[3] for ln in lines]
+    check("unattended: every run is one line in the run log, with its outcome",
+          outcomes == ["stopped", "stopped", "delivered", "nothing to do", "stopped", "stopped", "shutdown"]
+          and "| scheduled |" in lines[0] and "| dry run |" in lines[1] and "| by hand |" in lines[5],
+          "\n".join(lines))
+
+    # The note's times are the task's: register_ba_weekly_task.ps1 holds them too.
+    ps1 = (Path(__file__).parent / "register_ba_weekly_task.ps1").read_text(encoding="utf-8")
+    days = re.search(r"^\$days = (.+)$", ps1, re.M)
+    times = re.search(r"^\$times = (.+)$", ps1, re.M)
+    check("unattended: the scheduled task's days and times are the ones the note gives",
+          days and times and tuple(re.findall(r"'([^']+)'", days.group(1))) == SCHEDULE_DAYS
+          and tuple(re.findall(r"'([^']+)'", times.group(1))) == SCHEDULE_TIMES,
+          f"{days and days.group(1)} {times and times.group(1)}")
 
 
 def hardening_checks(tmp, check, snapshot_tests=None):
@@ -1527,6 +1641,7 @@ def main():
         engineering_stage_checks(tmp, check)
         review_column_checks(check)
         weekly_run_checks(tmp, check)
+        unattended_run_checks(tmp, check)
         hardening_checks(tmp, check, snapshot_tests)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
