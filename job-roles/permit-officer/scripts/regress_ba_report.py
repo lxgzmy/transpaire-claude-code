@@ -80,8 +80,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import xlsx_min
-from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, age_item, build_draft, check_item,
-                             column_cycle, family_of, load_state, save_state, submitted_evidence)
+from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, age_item, apply_officer_edit, build_draft,
+                             check_item, column_cycle, family_of, load_state, save_state, submitted_evidence)
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
 from ba_weekly_run import (VENV_PYTHON, RunError, _summary, drafted_jobs, find_base, find_last_draft,
@@ -1341,6 +1341,40 @@ def main():
         check("lodgement doc: an OSC step before the lodgement is not a document, not flagged",
               eng["date_submitted"] == "2026-10-01"
               and not [f for f in eng["age_flags"] if "BA lodgement" in f], str(eng))
+
+        # 20 Nov 2026, the officer: "the notes reflect the jobs status at 16/11". 26044's S68 kept her
+        # "with BASIX ..." and "waiting on BASIX before lodgement" after OSC showed it lodged on 18 Nov.
+        def hers(edited_in="BA REPORT DRAFT - 16.11.2026 (officer-edited).xlsx", name="S68 APPROVAL",
+                 docs=(("S68 APPLICATION LODGED", "2026-11-18"),), **extra):
+            it = {"name": name}
+            entry = {"assigned_to": "BASIX with Synthetic Assessor", "assigned_source": "officer",
+                     "officer_note": "Waiting on BASIX before lodgement", "edited_in": edited_in, **extra}
+            age_item(it, entry, snap(docs=[doc(20 + n, d, on) for n, (d, on) in enumerate(docs)]),
+                     "2026-11-30", "2026-11-23", "2026-10-15")
+            return it, [f for f in it["age_flags"] if f.startswith("OSC shows")]
+        it, of = hers()
+        check("overtaken: a newer OSC step than her entries is pointed out, her values kept",
+              len(of) == 1 and "\"S68 APPLICATION LODGED\" attached on 18/11/2026" in of[0]
+              and "16/11/2026 draft" in of[0] and it["assigned_to"] == "BASIX with Synthetic Assessor"
+              and it["flagged"] and it["overtaken"]["on"] == "2026-11-18", str(it))
+        it, of = hers(edited_in="BA REPORT DRAFT - 23.11.2026 (officer-edited).xlsx")
+        check("overtaken: entries made on a later draft than the step are not flagged", not of, str(of))
+        it, of = hers(edited_in="BA REPORT DRAFT - 23.11.2026 (officer-edited).xlsx", officer_as_at="2026-11-16")
+        check("overtaken: her entries' own date wins over the draft a later edit came from",
+              len(of) == 1, str(of))
+        it = {"name": "S68 APPROVAL"}
+        age_item(it, {}, snap(docs=[doc(25, "S68 APPLICATION LODGED", "2026-11-18")]),
+                 "2026-11-30", "2026-11-23", "2026-10-15")
+        check("overtaken: nothing of hers on the row, nothing flagged",
+              not [f for f in it["age_flags"] if f.startswith("OSC shows")], str(it["age_flags"]))
+        it, of = hers(name="ENGINEERING", docs=())
+        check("overtaken: items tracked from their columns are left to their own cycles", not of, str(of))
+        entry = {}
+        apply_officer_edit(entry, {"assigned_to": "Synthetic Council", "note": "under assessment"},
+                           "BA REPORT DRAFT - 16.11.2026 (officer-edited).xlsx")
+        apply_officer_edit(entry, {"date_resolved": "2026-11-26"}, "BA REPORT DRAFT - 23.11.2026 (officer-edited).xlsx")
+        check("overtaken: her entries are dated by the draft she typed them on; a resolution does not move it",
+              entry.get("officer_as_at") == "2026-11-16", str(entry))
 
         slab_done = [act(54, "Receive Engineering - Piers, Footings & Slab Design", done="2026-09-01"),
                      act(55, "Review Engineering - Piers, Footings & Slab Design", done="2026-09-02"),

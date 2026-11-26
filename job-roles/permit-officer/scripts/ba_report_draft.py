@@ -722,6 +722,33 @@ def submitted_evidence(item, snapshot, lodged_iso=None):
     return None, None
 
 
+def newest_step(item, snapshot):
+    """The newest OSC step on the item itself: its newest lodgement / order / receipt document, or the
+    newest completed step in its activity chain. (iso_date, words) or (None, None)."""
+    fam = family_of(item["name"])
+    if fam is None or not snapshot:
+        return None, None
+    best = (None, None)
+    if fam.get("submitted_docs"):
+        doc, _ = doc_evidence(snapshot, fam["submitted_docs"], None)
+        if doc:
+            best = (_iso_day(doc.get("attachedOnUtc")), f"\"{doc.get('description')}\" attached")
+    chain = fam.get("order_activities", []) + fam.get("pending_activities", []) + fam.get("done_activities", [])
+    for a in snapshot.get("activities", []):
+        if (a.get("completionDate") and not a.get("isNotApplicable")
+                and any(re.search(q, a.get("description") or "", re.I) for q in chain)):
+            on = _iso_day(a["completionDate"])
+            if best[0] is None or on > best[0]:
+                best = (on, f"step \"{a.get('description')}\" completed")
+    return best
+
+
+def _draft_monday(name):
+    """The Monday of a draft from its name ("BA REPORT DRAFT - 16.11.2026 (officer-edited).xlsx"), ISO."""
+    m = re.search(r"(\d{2})\.(\d{2})\.(\d{4})", name or "")
+    return f"{m.group(3)}-{m.group(2)}-{m.group(1)}" if m else None
+
+
 def iso_to_serial(iso):
     return (date.fromisoformat(iso) - EPOCH).days
 
@@ -917,6 +944,19 @@ def age_item(item, entry, snapshot, asof, since, submit_for_ba_iso):
     if (item.get("flagged") and item.get("verdict") == "unknown" and (dsrc or "").startswith("officer")
             and item.get("evidence") in ("no completion evidence found", "no evidence rule for this item")):
         item["flagged"] = False  # she has dated the item herself; OSC having no evidence yet is no news
+    # ---- what she typed is as at the draft she typed it on (the officer, 20 Nov 2026: "the notes
+    # reflect the jobs status at 16/11"). Her values stay; a newer OSC step on the item is pointed out,
+    # so a note like "waiting on BASIX before lodgement" is not carried past the lodgement unseen.
+    # Items tracked from their columns already start a new cycle on a newer step.
+    mine = src == "officer" or entry.get("officer_note") or (dsrc or "").startswith("officer")
+    as_at = entry.get("officer_as_at") or _draft_monday(entry.get("edited_in"))
+    item.pop("overtaken", None)
+    if mine and as_at and snapshot and not item.get("resolved") and not (fam or {}).get("columns"):
+        step_on, step = newest_step(item, snapshot)
+        if step_on and step_on > as_at:
+            item["overtaken"] = {"on": step_on, "step": step, "as_at": as_at}
+            flags.append(f"OSC shows {step} on {_ddmmyyyy(step_on)}, after your entries on the "
+                         f"{_ddmmyyyy(as_at)} draft; officer to check Assigned to and Notes still hold")
     if flags:
         item["flagged"] = True
 
@@ -969,6 +1009,9 @@ def apply_officer_edit(entry, edit, source):
         else:
             entry.pop("officer_note", None)
     entry["edited_in"] = source
+    if any(k in edit for k in ("assigned_to", "date_submitted", "note")):
+        # what she typed is as at that draft's Monday; a resolution alone does not move it
+        entry["officer_as_at"] = _draft_monday(source) or entry.get("officer_as_at")
 
 
 def claim_state(jstate, listed):
@@ -1373,6 +1416,10 @@ def build_draft(prev_path, snapshot_dir, out_dir, asof=None, state_dir=None, job
                 notes.append("tracked from its columns, not on the RFI list")
             if i.get("assumed"):
                 notes.append("date submitted assumed — please correct")
+            if i.get("overtaken") and not i.get("resolved"):
+                o = i["overtaken"]
+                notes.append(f"since your entries (as at {_ddmmyyyy(o['as_at'])}), OSC shows {o['step']} on "
+                             f"{_ddmmyyyy(o['on'])}: please check Assigned to and Notes")
             if i.get("lodgement_doc") and not i.get("resolved"):
                 notes.append("date submitted is from a document filed with the BA application or before it, "
                              "so it may be the original: please confirm or correct")
