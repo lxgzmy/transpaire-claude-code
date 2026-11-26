@@ -88,8 +88,9 @@ from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, age_
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
 from ba_weekly_run import (NOTICE_NAME, REPORT_NAME, RUN_LOG, SCHEDULE_DAYS, SCHEDULE_TIMES, VENV_PYTHON, RunError,
-                           _summary, draft_monday, drafted_jobs, find_base, find_last_draft, last_week_score, run,
-                           verify_delivered, weekly)
+                           _summary, draft_monday, drafted_jobs, find_base, find_last_draft, finish_self_check,
+                           last_week_score, run, verify_delivered, weekly)
+import safe_files
 from compare_ba_report import compare
 import nsw_holidays
 from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
@@ -1010,6 +1011,71 @@ def unattended_run_checks(tmp, check):
           f"{days and days.group(1)} {times and times.group(1)}")
 
 
+def file_swap_checks(tmp, check):
+    """24. 27 Nov 2026: the scheduled wrapper's self-check stopped on "Access is denied" swapping a state
+    file into place on the share; it passed seconds later. A held file is tried again; a suite that
+    stopped without failing a check is run once more; a failed check never is."""
+    calls, waits = [], []
+
+    def flaky(times, exc=PermissionError):
+        def act(src, dst):
+            calls.append((src, dst))
+            if len(calls) <= times:
+                raise exc("[WinError 5] Access is denied")
+        return act
+    took = safe_files.replace("a", "b", _replace=flaky(2), _sleep=waits.append)
+    check("file swap: a file the share holds for a moment is swapped in on a later try",
+          took == 2 and len(calls) == 3 and waits == [safe_files.WAIT] * 2, f"{took} {calls} {waits}")
+    calls.clear()
+    try:
+        safe_files.replace("a", "b", tries=3, _replace=flaky(99), _sleep=lambda s: None)
+        check("file swap: a file held for good still stops the run, after the tries", False, "no error")
+    except PermissionError:
+        check("file swap: a file held for good still stops the run, after the tries", len(calls) == 3, str(calls))
+    calls.clear()
+    try:
+        safe_files.copy("a", "b", _copy=flaky(1, FileNotFoundError), _sleep=lambda s: None)
+        check("file swap: any other error is raised at once", False, "no error")
+    except FileNotFoundError:
+        check("file swap: any other error is raised at once", len(calls) == 1, str(calls))
+    real = tmp / "swap"
+    real.mkdir()
+    (real / "new.tmp").write_text("new", encoding="utf-8")
+    (real / "state.json").write_text("old", encoding="utf-8")
+    safe_files.replace(real / "new.tmp", real / "state.json")
+    check("file swap: on a real folder the new file replaces the old",
+          (real / "state.json").read_text(encoding="utf-8") == "new" and not (real / "new.tmp").exists())
+
+    class Done:
+        def __init__(self, out, err, code):
+            self.out, self.err, self.returncode = out, err, code
+
+        def communicate(self):
+            return self.out, self.err
+    reruns = []
+    saved = ba_weekly_run._run_suite
+    try:
+        ba_weekly_run._run_suite = lambda: reruns.append(1) or ("PASS  a\nPASS  b\n", "", 0)
+        crashed = {"proc": Done("PASS  a\n", "Traceback ...\nPermissionError: [WinError 5] Access is denied", 1),
+                   "code": "x", "record": tmp / "swap" / "self-check.json", "started": time.monotonic()}
+        line = finish_self_check(crashed)
+        check("self-check: a suite that stopped without a failed check is run once more and can pass",
+              reruns == [1] and "2 checks passed" in line and "run twice, the first stopped on PermissionError" in line
+              and (tmp / "swap" / "self-check.json").exists(), line)
+        reruns.clear()
+        failed = {"proc": Done("PASS  a\nFAIL  a real check — detail\n", "", 1), "code": "x",
+                  "record": tmp / "swap" / "self-check-2.json", "started": time.monotonic()}
+        try:
+            finish_self_check(failed)
+            check("self-check: a failed check is never run again", False, "no error")
+        except RunError as exc:
+            check("self-check: a failed check is never run again",
+                  not reruns and "a real check" in str(exc) and not (tmp / "swap" / "self-check-2.json").exists(),
+                  str(exc))
+    finally:
+        ba_weekly_run._run_suite = saved
+
+
 def hardening_checks(tmp, check, snapshot_tests=None):
     """22. Fewer silent misses, and a quicker check for her: each row says what changed since the draft
     she checked; a day count in her note that differs from the row's limit is raised; her Save As copy
@@ -1642,6 +1708,7 @@ def main():
         review_column_checks(check)
         weekly_run_checks(tmp, check)
         unattended_run_checks(tmp, check)
+        file_swap_checks(tmp, check)
         hardening_checks(tmp, check, snapshot_tests)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

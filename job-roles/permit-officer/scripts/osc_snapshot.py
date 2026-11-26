@@ -33,6 +33,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 sys.path.insert(0, str(REPO / "shared" / "mcp" / "osc-api"))
+sys.path.insert(0, str(HERE))
+import safe_files  # noqa: E402
 
 try:
     import httpx  # noqa: E402
@@ -170,7 +172,7 @@ async def run(jobs, out_dir):
             path = out_dir / f"{jobno}.json"
             tmp = path.with_suffix(".json.tmp")
             tmp.write_text(json.dumps(snap, indent=2), encoding="utf-8")
-            os.replace(tmp, path)
+            safe_files.replace(tmp, path)  # the share may hold a just-written file for a moment
             done = sum(1 for a in snap["activities"] if a.get("completionDate"))
             print(f"{jobno}: {snap['state']} {snap['workflowStatusName']} — "
                   f"{len(snap['activities'])} activities ({done} complete), {len(snap['alerts'])} alerts, "

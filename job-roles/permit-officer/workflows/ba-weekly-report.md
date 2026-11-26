@@ -127,7 +127,13 @@ check behind it:
   client, the same Python; recorded in `state\self-check.json`) is not
   checked again, so it costs time only on the first Monday after a change.
   `--no-self-check` is for when a person has judged a failing check itself
-  wrong.
+  wrong. A suite that stops without failing a check is run once more
+  before it counts (27 Nov 2026: a state file the share held for a moment).
+- **A held file is tried again.** Every file the run puts in place on the
+  share (the state, the snapshots, the copies into runtime and the drop
+  folder) is swapped or copied in again for about five seconds when
+  Windows says another process holds it (`scripts\safe_files.py`); any
+  other error stops the run as before.
 - **The network step first.** The OSC snapshot runs before the base is
   copied or the state set aside, and retries a timeout, a dropped
   connection or a busy answer twice (2 s, then 5 s); any other error stops
