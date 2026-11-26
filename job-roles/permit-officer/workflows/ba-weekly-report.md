@@ -60,7 +60,45 @@ testing folder (see `../reference/README.md`).
 Pilot jobs (issue #29, 10 Sep 2026): **26029, 26052, 26001**, and **26044**
 from Monday 16 Nov 2026. The officer asked for another NSW job on 12 Nov,
 when 26001 was the only pilot job with items still open; 26044 had five,
-its RFI received 23 Oct. Each Monday for 3–4 weeks, from the repo root:
+its RFI received 23 Oct.
+
+**It runs by itself (since 27 Nov 2026).** Monday 23 November had no
+draft: nobody started the run that day, and it would have stopped anyway,
+because her 16 Nov export was saved as `BA REPORT -16.11. 2026.xlsx`, a
+spacing the archive pattern did not read, and a stopped run left nothing
+to show. Now:
+
+- A scheduled task (`scripts\register_ba_weekly_task.ps1`, set up once by
+  a person, who types the account's password) runs
+  `scripts\ba_weekly_task.ps1` at 06:30 and 12:30 each Monday, Tuesday and
+  Wednesday, whether or not anyone is signed in; a run missed while the
+  server was off starts when it is back. The wrapper maps `Z:` for the run
+  and calls `ba_weekly_run.py --scheduled`, which drafts this week's
+  Monday and does nothing once that draft is in the drop folder. It writes
+  what the command a person runs writes, nothing more.
+- Archive names are read whatever their spacing, and a report saved with
+  no readable date in its name is named in the stop, so the fix is a
+  rename.
+- Whenever a run stops with no draft out for that Monday, it leaves
+  `BA REPORT DRAFT - dd.mm.yyyy - NOT READY.txt` in the drop folder saying
+  why, when it tries again and who to tell (`-Contact` when the task is
+  registered). The note goes once the draft is delivered. An unexpected
+  error is caught and said the same way.
+- Every run adds a line to `runtime\permit-officer\logs\ba-weekly-runs.log`
+  (when, which Monday, scheduled or by hand, the outcome and why); a
+  scheduled run's full output is in `ba-weekly-<date>.log` beside it.
+
+To set the task up, or change the contact, in your own PowerShell 7 window
+from the `Z:` checkout (`-Show` first says what it would register):
+
+```
+pwsh job-roles\permit-officer\scripts\register_ba_weekly_task.ps1 -Contact "<first name>" -Show
+pwsh job-roles\permit-officer\scripts\register_ba_weekly_task.ps1 -Contact "<first name>"
+```
+
+By hand, from the repo root, any day: with no `--asof` it drafts this
+week's Monday (at the weekend, the coming one), so a late run still makes
+Monday's draft.
 
 ```
 python job-roles\permit-officer\scripts\ba_weekly_run.py --dry-run
