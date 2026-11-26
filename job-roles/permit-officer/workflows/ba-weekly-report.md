@@ -183,7 +183,14 @@ The steps, for reference or to run by hand:
    days counted); type *Date resolved* to close an item; write anything
    she wants kept in *Notes* (hers, carried week to week); *Draft notes*
    are rewritten every run. One row per item, no merged or multi-line
-   cells. Her values win and stick from then on. Each row's *Draft notes*
+   cells. Her values win and stick from then on. What she types is as at
+   that draft's Monday (her words, 20 Nov 2026: "the notes reflect the
+   jobs status at 16/11"), so when OSC later shows a newer step on the
+   item (a lodgement, an order, a completed step in its chain), the row
+   is flagged: "since your entries (as at dd/mm/yyyy), OSC shows ...:
+   please check Assigned to and Notes". Her values stay until she
+   changes the row on a later draft, which dates them afresh; items
+   tracked from their columns already start a new cycle instead. Each row's *Draft notes*
    starts with what changed since the draft she checked ("new this
    week", "since last week: now RED (was YELLOW)", "after your change"
    when it follows her own edit, or "no change since last week"), so she
