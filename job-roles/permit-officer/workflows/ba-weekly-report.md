@@ -114,6 +114,10 @@ logs on with a stored password and starts this checkout's wrapper; the
 latest 06:30 or 12:30 slot actually started; the last result in words;
 this week's draft is in the drop folder, or the note's reason; the checkout
 the task runs is on `main` and not behind `origin/main` as last fetched.
+From 1 November it also needs a person while `nsw_holidays.py` lacks next
+year's NSW public holidays or that Christmas's shutdown dates: the run
+itself only says so in its own log, which nobody reads on a scheduled
+Monday.
 
 On the server, a Claude desktop scheduled task ("Monday BA draft check",
 since 27 Nov 2026) runs it at 7 am each Monday, adds one line to
@@ -131,6 +135,14 @@ launch) and changes nothing.
 | Z: could not be mapped (result 4) | The share was unreachable; the next slot retries. |
 | The checkout is on another branch | `git checkout main` and `git pull` in the shared checkout (after its owner has committed their work). |
 | Not registered, disabled, or other triggers | Run `register_ba_weekly_task.ps1` again. |
+| Calendar: holidays or shutdown dates missing | Add next year's holidays from the NSW Government's published list, and ask the officer for the Christmas shutdown dates, in `nsw_holidays.py`, through a pull request before December. The draft still goes out meanwhile. |
+
+The task has no end date: it repeats every week until someone disables it.
+Over the Christmas shutdown it runs and drafts nothing; the first Monday back
+drafts again. Each January the officer files the year before into a folder
+of the archive named for it (`2025`, made 14 Jan 2026); the run reads the
+archive's year folders too, so it finds her last report before the break
+wherever it is.
 
 By hand, from the repo root, any day: with no `--asof` it drafts this
 week's Monday (at the weekend, the coming one), so a late run still makes
@@ -199,7 +211,8 @@ check behind it:
 The steps, for reference or to run by hand:
 
 0. **Base report.** Copy the officer's latest export from the BA REPORTS
-   archive under `Z:\ADMINISTRATION` into `runtime\permit-officer\reports\`
+   archive under `Z:\ADMINISTRATION` (or its year folder, once she has
+   filed the year in January) into `runtime\permit-officer\reports\`
    as `BA REPORT - dd.mm.yyyy.xlsx` (the archive's own spacing varies; the
    date in the name is what matters). Copy last week's draft as she left it
    in the drop folder (`Z:\AI test\Permit Officer\BA Report test`) into the

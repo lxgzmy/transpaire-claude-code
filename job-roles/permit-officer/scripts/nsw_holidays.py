@@ -84,6 +84,25 @@ def shutdown_missing(value):
     return f"{year}-{str(year + 1)[2:]}"
 
 
+def calendar_upkeep(value):
+    """What a person must add before the calendar goes wrong, as of ``value``: [] when nothing.
+
+    From 1 November the table must hold next year's public holidays and that Christmas's shutdown
+    dates; until the break is over, its dates. The weekly run only says so in its own log, which
+    nobody reads on a scheduled Monday, so the status check (ba_weekly_status.ps1) asks for these."""
+    d = _to_date(value)
+    need = d.year + 1 if d.month >= 11 else d.year
+    out = []
+    if LAST_YEAR < need:
+        out.append(f"nsw_holidays.py has no NSW public holidays for {need}: add them from the NSW Government's "
+                   "published list")
+    unset = shutdown_missing(date(d.year, 12, 1) if d.month == 11 else d)
+    if unset:
+        out.append(f"the {unset} Christmas shutdown dates are not set: ask the officer, then add them to "
+                   "SHUTDOWNS in nsw_holidays.py")
+    return out
+
+
 def _to_date(value):
     if isinstance(value, date):
         return value
@@ -140,7 +159,14 @@ def business_days(start, end, holidays=NSW_PUBLIC_HOLIDAYS):
 
 if __name__ == "__main__":
     import sys
+    if len(sys.argv) in (2, 3) and sys.argv[1] == "--upkeep":
+        # One line per thing to add and exit 3; nothing and exit 0 when the calendar is in hand. Not 1,
+        # which is Python's own exit on an error.
+        todo = calendar_upkeep(sys.argv[2] if len(sys.argv) == 3 else date.today())
+        print("\n".join(todo))
+        sys.exit(3 if todo else 0)
     if len(sys.argv) != 3:
-        print("usage: nsw_holidays.py START END   (ISO dates) -> business days")
+        print("usage: nsw_holidays.py START END   (ISO dates) -> business days\n"
+              "       nsw_holidays.py --upkeep [DATE]  -> what to add to the calendar, exit 3 when anything")
         sys.exit(2)
     print(business_days(sys.argv[1], sys.argv[2]))
