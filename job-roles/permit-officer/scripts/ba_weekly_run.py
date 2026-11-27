@@ -63,6 +63,7 @@ from pathlib import Path
 HERE = Path(os.path.abspath(__file__)).parent
 REPO = HERE.parents[2]
 sys.path.insert(0, str(HERE))
+import safe_files  # noqa: E402
 from ba_report_draft import DraftInputError, StateError, STATE_FILE, STATE_PREVIOUS, build_draft  # noqa: E402
 from ba_report_parse import officer_edits, parse_report  # noqa: E402
 from compare_ba_report import compare, headline, render  # noqa: E402
@@ -220,8 +221,8 @@ def copy_in(src, dst):
     if dst.exists() and filecmp.cmp(src, dst, shallow=False):
         return dst
     tmp = dst.with_name(dst.name + ".tmp")
-    shutil.copyfile(src, tmp)
-    os.replace(tmp, dst)
+    safe_files.copy(src, tmp)
+    safe_files.replace(tmp, dst)
     return dst
 
 
@@ -305,15 +306,32 @@ def start_self_check(state_dir):
     return {"proc": proc, "code": code, "record": record, "started": time.monotonic()}
 
 
+def _run_suite():
+    """The regression suite in the foreground: (stdout, stderr, exit code)."""
+    done = subprocess.run([sys.executable, str(HERE / "regress_ba_report.py")], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
+    return done.stdout, done.stderr, done.returncode
+
+
 def finish_self_check(check):
-    """Wait for the self-check; RunError when it failed. Returns its line for the summary."""
+    """Wait for the self-check; RunError when it failed. Returns its line for the summary.
+
+    A suite that stopped without failing a check (on 27 Nov 2026, a state file the share held for a
+    moment) is run once more before it counts; a failed check is never run again."""
     if "passed_before" in check:
         last = check["passed_before"]
         return f"Self-check: this code passed {last.get('passed')} checks on {last.get('on')}; not run again"
     out, err = check["proc"].communicate()
+    code = check["proc"].returncode
     lines = out.splitlines()
+    again = ""
+    if code != 0 and not any(ln.startswith("FAIL") for ln in lines):
+        first = (err.strip().splitlines() or ["it stopped with an error"])[-1]
+        out, err, code = _run_suite()
+        lines = out.splitlines()
+        again = f"; run twice, the first stopped on {first}"
     passed = sum(1 for ln in lines if ln.startswith("PASS"))
-    if check["proc"].returncode != 0:
+    if code != 0:
         failed = [ln[6:].split(" — ")[0] for ln in lines if ln.startswith("FAIL")]
         why = "; ".join(failed[:3]) or (err.strip().splitlines() or ["it stopped with an error"])[-1]
         raise RunError(f"the self-check failed ({why}), so nothing was copied or drafted. The scripts need "
@@ -323,7 +341,7 @@ def finish_self_check(check):
     check["record"].write_text(json.dumps({"code": check["code"], "passed": passed,
                                            "on": date.today().isoformat()}), encoding="utf-8")
     took = time.monotonic() - check["started"]
-    return f"Self-check: {passed} checks passed ({took:.0f} s, beside the snapshot)"
+    return f"Self-check: {passed} checks passed ({took:.0f} s, beside the snapshot{again})"
 
 
 def run(asof, jobs, archive=ARCHIVE, drop=DROP, runtime=RUNTIME, restart=None, dry_run=False, force=False,

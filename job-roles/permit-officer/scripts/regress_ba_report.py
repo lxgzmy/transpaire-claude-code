@@ -64,6 +64,14 @@ or in tests), runs the parse + draft + compare steps, and asserts:
  23. the Review Engineering column (12 Nov 2026): "allocated for review"
      while open; the approval once OSC shows the review completed that day,
      counted from the design received; a later OSC completion said only
+ 24. the unattended run (23 Nov 2026 had no draft): archive names read whatever
+     their spacing, this week's Monday drafted until it is out, a note for her
+     whenever a run stops with no draft out, every run in the run log
+ 25. a file the share holds for a moment (27 Nov 2026) is tried again; a
+     self-check that stopped without failing a check is run once more
+ 26. the task wrapper and the status check: a crash before Python can say why,
+     or no Python at all, still leaves her the note and a run-log line; a
+     checkout off main is warned; the status check names what needs a person
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
@@ -88,8 +96,9 @@ from ba_report_draft import (STATE_FILE, STATE_PREVIOUS, TIERS, StateError, age_
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, own_words, parse_items, parse_report, text_to_iso
 import ba_weekly_run
 from ba_weekly_run import (NOTICE_NAME, REPORT_NAME, RUN_LOG, SCHEDULE_DAYS, SCHEDULE_TIMES, VENV_PYTHON, RunError,
-                           _summary, draft_monday, drafted_jobs, find_base, find_last_draft, last_week_score, run,
-                           verify_delivered, weekly)
+                           _summary, draft_monday, drafted_jobs, find_base, find_last_draft, finish_self_check,
+                           last_week_score, run, verify_delivered, weekly)
+import safe_files
 from compare_ba_report import compare
 import nsw_holidays
 from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
@@ -902,7 +911,7 @@ def weekly_run_checks(tmp, check):
 
 
 def unattended_run_checks(tmp, check):
-    """23. 23 Nov 2026 had no draft: her 16 Nov export was saved as "BA REPORT -16.11. 2026", which the
+    """24. 23 Nov 2026 had no draft: her 16 Nov export was saved as "BA REPORT -16.11. 2026", which the
     archive pattern missed, nobody started the run, and a stopped run left no trace. The archive's names
     are read whatever their spacing; the scheduled run drafts this week's Monday until the draft is out;
     any stop with no draft out leaves her a note saying why, and every run is logged."""
@@ -1008,6 +1017,172 @@ def unattended_run_checks(tmp, check):
           days and times and tuple(re.findall(r"'([^']+)'", days.group(1))) == SCHEDULE_DAYS
           and tuple(re.findall(r"'([^']+)'", times.group(1))) == SCHEDULE_TIMES,
           f"{days and days.group(1)} {times and times.group(1)}")
+
+
+def file_swap_checks(tmp, check):
+    """25. 27 Nov 2026: the scheduled wrapper's self-check stopped on "Access is denied" swapping a state
+    file into place on the share; it passed seconds later. A held file is tried again; a suite that
+    stopped without failing a check is run once more; a failed check never is."""
+    calls, waits = [], []
+
+    def flaky(times, exc=PermissionError):
+        def act(src, dst):
+            calls.append((src, dst))
+            if len(calls) <= times:
+                raise exc("[WinError 5] Access is denied")
+        return act
+    took = safe_files.replace("a", "b", _replace=flaky(2), _sleep=waits.append)
+    check("file swap: a file the share holds for a moment is swapped in on a later try",
+          took == 2 and len(calls) == 3 and waits == [safe_files.WAIT] * 2, f"{took} {calls} {waits}")
+    calls.clear()
+    try:
+        safe_files.replace("a", "b", tries=3, _replace=flaky(99), _sleep=lambda s: None)
+        check("file swap: a file held for good still stops the run, after the tries", False, "no error")
+    except PermissionError:
+        check("file swap: a file held for good still stops the run, after the tries", len(calls) == 3, str(calls))
+    calls.clear()
+    try:
+        safe_files.copy("a", "b", _copy=flaky(1, FileNotFoundError), _sleep=lambda s: None)
+        check("file swap: any other error is raised at once", False, "no error")
+    except FileNotFoundError:
+        check("file swap: any other error is raised at once", len(calls) == 1, str(calls))
+    real = tmp / "swap"
+    real.mkdir()
+    (real / "new.tmp").write_text("new", encoding="utf-8")
+    (real / "state.json").write_text("old", encoding="utf-8")
+    safe_files.replace(real / "new.tmp", real / "state.json")
+    check("file swap: on a real folder the new file replaces the old",
+          (real / "state.json").read_text(encoding="utf-8") == "new" and not (real / "new.tmp").exists())
+
+    class Done:
+        def __init__(self, out, err, code):
+            self.out, self.err, self.returncode = out, err, code
+
+        def communicate(self):
+            return self.out, self.err
+    reruns = []
+    saved = ba_weekly_run._run_suite
+    try:
+        ba_weekly_run._run_suite = lambda: reruns.append(1) or ("PASS  a\nPASS  b\n", "", 0)
+        crashed = {"proc": Done("PASS  a\n", "Traceback ...\nPermissionError: [WinError 5] Access is denied", 1),
+                   "code": "x", "record": tmp / "swap" / "self-check.json", "started": time.monotonic()}
+        line = finish_self_check(crashed)
+        check("self-check: a suite that stopped without a failed check is run once more and can pass",
+              reruns == [1] and "2 checks passed" in line and "run twice, the first stopped on PermissionError" in line
+              and (tmp / "swap" / "self-check.json").exists(), line)
+        reruns.clear()
+        failed = {"proc": Done("PASS  a\nFAIL  a real check — detail\n", "", 1), "code": "x",
+                  "record": tmp / "swap" / "self-check-2.json", "started": time.monotonic()}
+        try:
+            finish_self_check(failed)
+            check("self-check: a failed check is never run again", False, "no error")
+        except RunError as exc:
+            check("self-check: a failed check is never run again",
+                  not reruns and "a real check" in str(exc) and not (tmp / "swap" / "self-check-2.json").exists(),
+                  str(exc))
+    finally:
+        ba_weekly_run._run_suite = saved
+
+
+def wrapper_checks(tmp, check):
+    """26. The 27 Nov 2026 review of the scheduled run: no stop is silent, even one Python never gets to
+    report. When Python crashes before it can say why, or cannot be started, the task wrapper leaves the
+    note and the run-log line itself, worded as Python's own; it adds nothing when Python already said
+    why or the draft is out; a checkout off main is warned. The status check names what needs a person."""
+    pwsh = shutil.which("pwsh")
+    if not pwsh or not Path("Z:/").exists():
+        print("SKIP  wrapper: needs pwsh and the Z: drive (the server has both)")
+        return
+    here = Path(__file__).parent
+    wrapper, status = here / "ba_weekly_task.ps1", here / "ba_weekly_status.ps1"
+    consts = dict(re.findall(r"^\$(\w+) = '([^']*)'$", wrapper.read_text(encoding="utf-8"), re.M))
+    check("wrapper: its drop folder and note name are ba_weekly_run's",
+          consts.get("dropDefault") == str(ba_weekly_run.DROP)
+          and consts.get("noticeName", "").replace("{0:dd.MM.yyyy}", "{:%d.%m.%Y}") == NOTICE_NAME, str(consts))
+
+    drop, logs, fakes = tmp / "w-drop", tmp / "w-logs", tmp / "w-fakes"
+    for d in (drop, logs, fakes):
+        d.mkdir()
+    runlog = logs / RUN_LOG
+    monday = draft_monday(date.today())
+    notice, draft = drop / NOTICE_NAME.format(monday), drop / f"BA REPORT DRAFT - {monday:%d.%m.%Y}.xlsx"
+    crash = fakes / "crash.cmd"  # Python dying on an import, before ba_weekly_run can note anything
+    # Written as bytes throughout: the notes and these batch files are CRLF exactly, as on the server.
+    crash.write_bytes(b"@echo off\r\necho Traceback (most recent call last):\r\n"
+                      b"echo ModuleNotFoundError: No module named 'openpyxl'\r\nexit /b 1\r\n")
+    said = fakes / "said.cmd"  # Python stopping as designed: its own run-log line, exit 2
+    said.write_bytes(f"@echo off\r\necho 2026-01-01 00:00:00 ^| Monday x ^| scheduled ^| stopped ^| its own reason"
+                     f">> \"{runlog}\"\r\nexit /b 2\r\n".encode("utf-8"))
+    fine = fakes / "fine.cmd"
+    fine.write_bytes(b"@echo off\r\nexit /b 0\r\n")
+
+    def start(python):
+        done = subprocess.run([pwsh, "-NoProfile", "-NonInteractive", "-File", str(wrapper), "-ShareRoot",
+                               r"\\regress\share", "-Contact", "Synthetic Contact", "-Python", str(python),
+                               "-Drop", str(drop), "-Logs", str(logs)], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=120)
+        lines = runlog.read_text(encoding="utf-8").splitlines() if runlog.exists() else []
+        return done.returncode, [ln for ln in lines if "| warning |" not in ln], lines
+
+    code, lines, _ = start(crash)
+    text = notice.read_bytes().decode("utf-8") if notice.exists() else ""
+    why = next((ln[5:] for ln in text.splitlines() if ln.startswith("Why: ")), "")
+    day_log = next(iter(logs.glob("ba-weekly-*-*-*.log")), None)
+    check("wrapper: Python crashing before it can say why still leaves her the note, worded as Python's own",
+          code == 1 and "stopped before it could say why (exit 1)" in why
+          and text == ba_weekly_run.notice_text(monday, why, True, "Synthetic Contact"), f"{code} {text!r}")
+    check("wrapper: ... and the run is in the run log, with the crash in that day's log",
+          len(lines) == 1 and "| scheduled | stopped |" in lines[0] and "exit 1" in lines[0] and day_log
+          and "ModuleNotFoundError" in day_log.read_text(encoding="utf-8"), f"{lines}")
+    notice.unlink(missing_ok=True)
+
+    code, lines, _ = start(fakes / "no-such-python.exe")
+    text = notice.read_bytes().decode("utf-8") if notice.exists() else ""
+    check("wrapper: no Python to start leaves the note and a run-log line too (exit 5)",
+          code == 5 and "Why: the run could not start (" in text and len(lines) == 2 and "could not start" in lines[1],
+          f"{code} {text!r} {lines}")
+
+    notice.write_bytes(b"Why: Python's own reason\r\n")
+    code, lines, _ = start(said)
+    check("wrapper: a stop Python already noted and logged gets no second note or line",
+          code == 2 and notice.read_bytes() == b"Why: Python's own reason\r\n" and len(lines) == 3
+          and "its own reason" in lines[2], f"{code} {lines}")
+    notice.unlink()
+
+    draft.write_bytes(b"synthetic")
+    code, lines, _ = start(crash)
+    check("wrapper: a crash with the Monday's draft already out leaves no note, but is logged",
+          code == 1 and not notice.exists() and len(lines) == 4 and "exit 1" in lines[3], f"{code} {lines}")
+    code, lines, every = start(fine)
+    check("wrapper: a run that ends well adds nothing of the wrapper's",
+          code == 0 and not notice.exists() and len(lines) == 4, f"{code} {lines}")
+    branch = subprocess.run(["git", "-c", "safe.directory=*", "-C", str(here), "rev-parse", "--abbrev-ref", "HEAD"],
+                            capture_output=True, text=True).stdout.strip()
+    warned = [ln for ln in every if "| warning |" in ln]
+    check("wrapper: a checkout that is not on main is warned in the run log, every run",
+          (len(warned) == 5 and branch in warned[0]) if branch != "main" else not warned, f"{branch} {warned}")
+
+    def look():
+        done = subprocess.run([pwsh, "-NoProfile", "-NonInteractive", "-File", str(status), "-TaskName",
+                               "Transpire - regress, no such task", "-Drop", str(drop), "-Logs", str(logs)],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+        return done.returncode, done.stdout
+    code, out = look()
+    check("status: a task that is not registered needs a person; a draft that is out is said",
+          code == 1 and "NEEDS A PERSON" in out and "is not registered" in out
+          and "the draft is in the drop folder" in out, out)
+    draft.unlink()
+    notice.write_bytes(b"No BA report draft...\r\n\r\nWhy: the OSC snapshot did not complete\r\n")
+    code, out = look()
+    check("status: with no draft, the note's reason is given",
+          code == 1 and "the note in the drop folder says: Why: the OSC snapshot did not complete" in out, out)
+    notice.unlink()
+    code, out = look()
+    due = date.today().weekday() < 5 and not (date.today() == monday and time.localtime().tm_hour * 60
+                                                + time.localtime().tm_min < 6 * 60 + 40)
+    check("status: neither a draft nor a note, once the run was due, needs a person",
+          code == 1 and (f"No draft for Monday {monday:%d.%m.%Y} and no note" in out if due else "not due yet" in out),
+          out)
 
 
 def hardening_checks(tmp, check, snapshot_tests=None):
@@ -1642,6 +1817,8 @@ def main():
         review_column_checks(check)
         weekly_run_checks(tmp, check)
         unattended_run_checks(tmp, check)
+        file_swap_checks(tmp, check)
+        wrapper_checks(tmp, check)
         hardening_checks(tmp, check, snapshot_tests)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -59,6 +59,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import safe_files
 import xlsx_min
 from ba_report_parse import EPOCH, ITEMS_SHEET, ITEMS_SHEET_HEADERS, norm_item, officer_edits, parse_report
 from nsw_holidays import LAST_YEAR, business_days, covers, shutdown_missing, sydney_date
@@ -795,8 +796,8 @@ def save_state(state_dir, state):
     tmp = p.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
     if p.exists():
-        shutil.copyfile(p, p.with_name(STATE_PREVIOUS))
-    os.replace(tmp, p)
+        safe_files.copy(p, p.with_name(STATE_PREVIOUS))
+    safe_files.replace(tmp, p)
 
 
 def _resolve_sticky(report_value, entry, ai_key, val_key, src_key):
