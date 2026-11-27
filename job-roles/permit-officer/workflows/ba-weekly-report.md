@@ -87,6 +87,12 @@ to show. Now:
 - Every run adds a line to `runtime\permit-officer\logs\ba-weekly-runs.log`
   (when, which Monday, scheduled or by hand, the outcome and why); a
   scheduled run's full output is in `ba-weekly-<date>.log` beside it.
+- No stop is silent, even one Python never gets to report (since the
+  27 Nov 2026 review). If Python crashes before it can say why (a missing
+  package, a broken import) or cannot be started at all, the wrapper
+  leaves the same note and writes the run-log line itself. A checkout that
+  is not on `main` still runs, since a draft from that code is better than
+  none, but each run then adds a `warning` line to the run log.
 
 To set the task up, or change the contact, in your own PowerShell 7 window
 from the `Z:` checkout (`-Show` first says what it would register):
@@ -95,6 +101,30 @@ from the `Z:` checkout (`-Show` first says what it would register):
 pwsh job-roles\permit-officer\scripts\register_ba_weekly_task.ps1 -Contact "<first name>" -Show
 pwsh job-roles\permit-officer\scripts\register_ba_weekly_task.ps1 -Contact "<first name>"
 ```
+
+**Is it on track?** One read-only look, any time, from the `Z:` checkout:
+
+```
+pwsh job-roles\permit-officer\scripts\ba_weekly_status.ps1
+```
+
+It says `OK` or `NEEDS A PERSON` (exit code 0 or 1) with each reason, and
+checks what the drop-folder note cannot: the task is registered, enabled,
+logs on with a stored password and starts this checkout's wrapper; the
+latest 06:30 or 12:30 slot actually started; the last result in words;
+this week's draft is in the drop folder, or the note's reason; the checkout
+the task runs is on `main` and not behind `origin/main` as last fetched.
+Worth a look each Monday morning until the pilot ends.
+
+**No draft on a Monday?** Run the status check first. Then:
+
+| It says | Do this |
+|---|---|
+| The note's reason (last week's report not in the archive, OSC snapshot, self-check) | Fix what it names; the next slot retries, or run `ba_weekly_run.py` by hand. |
+| The run due at a slot has not started | Task Scheduler, the task's History tab. A changed password for the task's account shows as a sign-in failure: run `register_ba_weekly_task.ps1` again. |
+| Z: could not be mapped (result 4) | The share was unreachable; the next slot retries. |
+| The checkout is on another branch | `git checkout main` and `git pull` in the shared checkout (after its owner has committed their work). |
+| Not registered, disabled, or other triggers | Run `register_ba_weekly_task.ps1` again. |
 
 By hand, from the repo root, any day: with no `--asof` it drafts this
 week's Monday (at the weekend, the coming one), so a late run still makes
