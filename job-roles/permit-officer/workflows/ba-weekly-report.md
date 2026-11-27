@@ -114,7 +114,13 @@ logs on with a stored password and starts this checkout's wrapper; the
 latest 06:30 or 12:30 slot actually started; the last result in words;
 this week's draft is in the drop folder, or the note's reason; the checkout
 the task runs is on `main` and not behind `origin/main` as last fetched.
-Worth a look each Monday morning until the pilot ends.
+
+On the server, a Claude desktop scheduled task ("Monday BA draft check",
+since 27 Nov 2026) runs it at 7 am each Monday, adds one line to
+`runtime\permit-officer\logs\ba-weekly-status.log` and sends one
+notification either way, so a check that did not run is noticed too. It
+runs only while the Claude app is open on the server (otherwise at its next
+launch) and changes nothing.
 
 **No draft on a Monday?** Run the status check first. Then:
 
