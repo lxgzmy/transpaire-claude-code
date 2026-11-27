@@ -94,10 +94,22 @@ class RunError(RuntimeError):
     pass
 
 
-def _dated(folder, pattern):
-    """[(date, path)] for the files in ``folder`` whose name matches, Excel lock files skipped."""
+YEAR_FOLDER = re.compile(r"^\d{4}$")
+
+
+def archive_files(archive):
+    """The files in the archive and in its year folders. Each January she files the year before into a
+    folder named for it ("2024" made 6 Jan 2025, "2025" made 14 Jan 2026), so the first Mondays of a
+    year find their base there once she has. Other folders are not read."""
+    root = Path(archive)
+    folders = [root] + sorted(p for p in root.iterdir() if p.is_dir() and YEAR_FOLDER.match(p.name))
+    return [p for f in folders for p in f.iterdir()]
+
+
+def _dated(files, pattern):
+    """[(date, path)] for the ``files`` whose name matches, Excel lock files skipped."""
     out = []
-    for p in Path(folder).iterdir():
+    for p in files:
         m = pattern.match(p.name)
         if m and p.is_file() and not p.name.startswith("~$"):
             try:
@@ -111,7 +123,7 @@ def unread_reports(archive, since):
     """Reports in the archive saved after ``since`` whose name holds no date the run can read
     ("BA REPORT FINAL.xlsx"): said when the run stops, so the fix is a rename, not a guess."""
     out = []
-    for p in Path(archive).iterdir():
+    for p in archive_files(archive):
         n = p.name
         if (p.is_file() and n.lower().endswith(".xlsx") and not n.startswith("~$")
                 and re.match(r"^BA\s*REPORT", n, re.I) and "DRAFT" not in n.upper() and not REPORT_NAME.match(n)
@@ -123,7 +135,7 @@ def unread_reports(archive, since):
 def find_base(archive, asof):
     """Her latest export dated before ``asof`` and within 7 days of it, the Christmas shutdown not
     counted (no export is made while the office is closed), or RunError."""
-    before = [(d, p) for d, p in _dated(archive, REPORT_NAME) if d < asof]
+    before = [(d, p) for d, p in _dated(archive_files(archive), REPORT_NAME) if d < asof]
     last = before[-1][0] if before else date(2000, 1, 1)
     odd = [p for p in unread_reports(archive, last) if date.fromtimestamp(p.stat().st_mtime) < asof + timedelta(1)]
     hint = ""
@@ -131,7 +143,8 @@ def find_base(archive, asof):
         hint = (" The archive also holds " + ", ".join(f'"{p.name}"' for p in odd) + ", but its name has no date "
                 f"the run can read; saved as \"BA REPORT - dd.mm.yyyy.xlsx\" it will be used.")
     if not before:
-        raise RunError(f"no BA report dated before {asof:%d.%m.%Y} was found in {archive}.{hint}")
+        raise RunError(f"no BA report dated before {asof:%d.%m.%Y} was found in {archive} or its year "
+                       f"folders.{hint}")
     d, p = before[-1]
     if sum(not in_shutdown(d + timedelta(n)) for n in range(1, (asof - d).days + 1)) > 7:
         raise RunError(f"last week's BA report is not in {archive} yet: the newest one before {asof:%d.%m.%Y} is "
@@ -147,7 +160,7 @@ def find_last_draft(drop, outputs, asof):
     another copy of the same Monday's draft beside it has been changed (a Save As, "BA REPORT DRAFT -
     26.10.2026 GR.xlsx"): then the newest changed copy is hers. The notes say so, and say when the
     draft looks open in Excel (what she has not saved cannot be read) or holds no change at all."""
-    before = [(d, p) for d, p in _dated(drop, DRAFT_NAME) if d < asof]
+    before = [(d, p) for d, p in _dated(Path(drop).iterdir(), DRAFT_NAME) if d < asof]
     if not before:
         return None, None, []
     when, edited = before[-1]

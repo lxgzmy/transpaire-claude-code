@@ -72,6 +72,9 @@ or in tests), runs the parse + draft + compare steps, and asserts:
  26. the task wrapper and the status check: a crash before Python can say why,
      or no Python at all, still leaves her the note and a run-log line; a
      checkout off main is warned; the status check names what needs a person
+ 27. week after week with nobody at the keyboard: a base report filed into its
+     year folder in January is still found; from 1 November the status check
+     asks for next year's holidays and that Christmas's shutdown dates
 
 Usage:  python regress_ba_report.py            (exit 0 = all pass)
 """
@@ -101,7 +104,7 @@ from ba_weekly_run import (NOTICE_NAME, REPORT_NAME, RUN_LOG, SCHEDULE_DAYS, SCH
 import safe_files
 from compare_ba_report import compare
 import nsw_holidays
-from nsw_holidays import business_days, covers, shutdown_missing, sydney_date
+from nsw_holidays import business_days, calendar_upkeep, covers, shutdown_missing, sydney_date
 
 ASOF = "2026-09-07"          # the Monday being drafted
 PREV = "2026-08-31"          # last week's report date (in the filename)
@@ -1185,6 +1188,60 @@ def wrapper_checks(tmp, check):
           out)
 
 
+def ongoing_checks(tmp, check):
+    """27. Week after week with nobody at the keyboard (27 Nov 2026). Each January she files the year
+    before into a folder of the archive named for it ("2025" made 14 Jan 2026), so the first Mondays of a
+    year find their base there; no other folder is read. The run says a missing holiday year or shutdown
+    only in its own log, so from 1 November the status check asks for them."""
+    years = tmp / "archive-years"
+    for d in (years / "2026", years / "OLD"):
+        d.mkdir(parents=True)
+    saved = list(nsw_holidays.SHUTDOWNS)
+    try:
+        nsw_holidays.SHUTDOWNS[:] = [(date(2026, 12, 23), date(2027, 1, 11))]
+        synth_prev_report(years / "2026" / "BA REPORT - 21.12.2026.xlsx")
+        synth_prev_report(years / "OLD" / "BA REPORT - 08.01.2027.xlsx")  # newer, but not a year folder
+        p = find_base(years, date(2027, 1, 11))[1]
+        check("run: the first Monday back finds her last report once she has filed it into its year folder",
+              p.parent.name == "2026" and p.name == "BA REPORT - 21.12.2026.xlsx", str(p))
+        synth_prev_report(years / "BA REPORT - 11.01.2027.xlsx")
+        p = find_base(years, date(2027, 1, 18))[1]
+        check("run: ... and the next Monday takes the new year's report from the top of the archive",
+              p.parent == years and p.name == "BA REPORT - 11.01.2027.xlsx", str(p))
+
+        y = nsw_holidays.LAST_YEAR
+        nsw_holidays.SHUTDOWNS[:] = []
+        late, early = calendar_upkeep(date(y, 11, 1)), calendar_upkeep(date(y, 10, 31))
+        check("calendar: from 1 November next year's holidays and that Christmas's shutdown are asked for, not before",
+              len(late) == 2 and f"holidays for {y + 1}" in late[0]
+              and f"the {y}-{str(y + 1)[2:]} Christmas shutdown" in late[1] and early == [], str((late, early)))
+        nsw_holidays.SHUTDOWNS[:] = [(date(y, 12, 23), date(y + 1, 1, 11))]
+        check("calendar: a shutdown that is set is not asked for again",
+              calendar_upkeep(date(y, 12, 7)) == late[:1], str(calendar_upkeep(date(y, 12, 7))))
+    finally:
+        nsw_holidays.SHUTDOWNS[:] = saved
+    check("calendar: the table as it stands needs nothing on 27 Nov 2026", calendar_upkeep(date(2026, 11, 27)) == [],
+          str(calendar_upkeep(date(2026, 11, 27))))
+
+    pwsh = shutil.which("pwsh")
+    if not pwsh or not Path("Z:/").exists():
+        print("SKIP  calendar in the status check: needs pwsh and the Z: drive (the server has both)")
+        return
+    status = Path(__file__).parent / "ba_weekly_status.ps1"
+
+    def look(at):
+        return subprocess.run([pwsh, "-NoProfile", "-NonInteractive", "-File", str(status), "-TaskName",
+                               "Transpire - regress, no such task", "-Drop", str(tmp / "c-drop"), "-Logs",
+                               str(tmp / "c-logs"), "-CheckAt", at], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=120).stdout
+    out, todo = look(f"{y}-11-02 07:01"), calendar_upkeep(date(y, 11, 2))
+    check("status: from 1 November it asks a person for what the calendar lacks",
+          todo and all(f"  - Calendar: {t}." in out for t in todo), out)
+    out = look("2026-11-27 07:01")
+    check("status: ... and says the calendar is in hand when it is",
+          "Calendar: holidays and shutdown dates in hand" in out and "- Calendar:" not in out, out)
+
+
 def hardening_checks(tmp, check, snapshot_tests=None):
     """22. Fewer silent misses, and a quicker check for her: each row says what changed since the draft
     she checked; a day count in her note that differs from the row's limit is raised; her Save As copy
@@ -1819,6 +1876,7 @@ def main():
         unattended_run_checks(tmp, check)
         file_swap_checks(tmp, check)
         wrapper_checks(tmp, check)
+        ongoing_checks(tmp, check)
         hardening_checks(tmp, check, snapshot_tests)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

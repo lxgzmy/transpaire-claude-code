@@ -7,7 +7,9 @@
   Run it in PowerShell 7 on the server, from the Z: checkout, any time; on a Monday after 06:30 it says
   whether the draft is out and, if not, why. It catches what the drop-folder note cannot: a task that
   never started (a changed password, a disabled task, the server off all week), a checkout left on
-  another branch, and a week with neither a draft nor a note.
+  another branch, and a week with neither a draft nor a note. From 1 November it also asks for next
+  year's NSW public holidays and that Christmas's shutdown dates while nsw_holidays.py lacks them; the
+  run itself only says so in its own log, which nobody reads on a scheduled Monday.
 
   Exit code 0 when nothing needs a person, 1 when something does; each reason is on its own line.
 
@@ -19,18 +21,22 @@
 
 .PARAMETER Logs
   For the regression suite only: another logs folder.
+
+.PARAMETER CheckAt
+  For the regression suite only: the date and time to check as (yyyy-MM-dd HH:mm).
 #>
 param(
     [string]$TaskName = 'Transpire - BA report weekly draft',
     [string]$Drop = 'Z:\AI test\Permit Officer\BA Report test',
-    [string]$Logs = ''
+    [string]$Logs = '',
+    [string]$CheckAt = ''
 )
 $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 if (-not $Logs) { $Logs = Join-Path $repo 'runtime\permit-officer\logs' }
 $attention = [Collections.Generic.List[string]]::new()
 $facts = [Collections.Generic.List[string]]::new()
-$now = Get-Date
+$now = if ($CheckAt) { [datetime]::ParseExact($CheckAt, 'yyyy-MM-dd HH:mm', $null) } else { Get-Date }
 
 # What the task's last result means (the wrapper's own codes, then Task Scheduler's).
 $results = @{
@@ -131,6 +137,20 @@ $behind = Get-Git rev-list --count HEAD..origin/main
 $facts.Add("Checkout: $branch at $head" + $(if ($behind -and $behind -ne '0') { ", $behind behind origin/main as last fetched" } else { '' }))
 if ($branch -ne 'main') { $attention.Add("The checkout is on '$branch', not main, so the task runs that code: put it back on main.") }
 elseif ($behind -and $behind -ne '0') { $attention.Add("The checkout is $behind commit(s) behind origin/main as last fetched: pull.") }
+
+# ---- the calendar the run counts business days with (nsw_holidays.py decides what is missing)
+$holidays = Join-Path $repo 'job-roles\permit-officer\scripts\nsw_holidays.py'
+try {
+    $py = (Get-Command python -ErrorAction Stop).Source
+    $todo = @(& $py $holidays --upkeep ('{0:yyyy-MM-dd}' -f $now) 2>&1 | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    switch ($LASTEXITCODE) {
+        0 { $facts.Add('Calendar: holidays and shutdown dates in hand') }
+        3 { $todo | ForEach-Object { $attention.Add("Calendar: $_.") } }
+        default { $attention.Add("The calendar check failed (exit $LASTEXITCODE): $($todo | Select-Object -Last 1)") }
+    }
+} catch {
+    $attention.Add("The calendar check could not run: $(($_.Exception.Message -split "`n")[0])")
+}
 
 if ($runs) { $facts.Add('Run log, last lines:'); $runs | ForEach-Object { $facts.Add("  $_") } }
 
